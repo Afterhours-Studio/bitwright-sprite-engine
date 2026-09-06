@@ -232,7 +232,6 @@ def run_pipeline(
         The image, at the requested size.
     """
     import torch
-    from PIL import Image
 
     scale = max(MIN_DIMENSION / max(width, height), 1.0)
     # Rounded to a multiple of eight, which is what the latent space requires.
@@ -252,5 +251,34 @@ def run_pipeline(
 
     image: Image.Image = result.images[0]
     if (image.width, image.height) != (width, height):
-        image = image.resize((width, height), Image.Resampling.BOX)
+        image = reduce_to(image, width, height)
     return image
+
+
+def reduce_to(image: Image.Image, width: int, height: int) -> Image.Image:
+    """Bring a render down to the sprite's size without aliasing it.
+
+    Averaging alone is not enough. A render carries detail finer than one
+    output cell - a chain link, a highlight one pixel wide - and detail below
+    the sampling rate does not average away, it folds back as a pattern that
+    was never there. That is what put vertical stripes across a knight.
+
+    So the detail is removed before it can fold: a blur of about half a cell,
+    which is the standard low pass before a decimation, and then the average.
+    The result is softer than the render and sharper than the stripes, and the
+    palette reduction that follows is what makes it read as pixel art.
+
+    Args:
+        image: The render.
+        width: Target width in pixels.
+        height: Target height in pixels.
+
+    Returns:
+        The reduced image.
+    """
+    from PIL import Image, ImageFilter
+
+    cell = max(image.width / width, image.height / height)
+    if cell > 1:
+        image = image.filter(ImageFilter.GaussianBlur(radius=cell / 2))
+    return image.resize((width, height), Image.Resampling.BOX)

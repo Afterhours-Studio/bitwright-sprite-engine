@@ -58,41 +58,58 @@ class StyleTerms:
 
 
 STYLES: dict[ArtStyle, StyleTerms] = {
-    # The default, and what the application is for: a true sprite, where every
-    # pixel is placed rather than sampled.
+    # A model asked for "pixel art" draws its own grid, and that grid does not
+    # line up with the one the sprite is reduced onto. The two interfere and
+    # leave stripes across the result - which is what they did. So the style
+    # asks for art that reduces cleanly instead: flat shading, a bold outline,
+    # a plain background, the whole character in frame. The pixels come from
+    # the reduction and the palette, which are the only things that can place
+    # them on the grid the sprite actually has.
     ArtStyle.PIXEL: StyleTerms(
-        positive="pixel art sprite, crisp pixel edges, limited palette, no anti-aliasing",
-        negative="blurry, anti-aliased, smooth gradients, photographic, 3d render",
+        positive=(
+            "game character sprite, full body, centred, flat shading, "
+            "bold clean outline, plain flat background, high contrast"
+        ),
+        negative=(
+            "photograph, realistic, blurry, close-up, cropped, "
+            "busy background, text, watermark, drop shadow"
+        ),
     ),
-    # Octopath Traveler and its descendants: pixel characters lit and staged as
-    # though they were in a three dimensional scene.
+    # Octopath Traveler and its descendants: a character lit and staged as
+    # though in a three dimensional scene.
     ArtStyle.HD2D: StyleTerms(
         positive=(
-            "HD-2D style, pixel art character with modern lighting, "
-            "soft rim light, shallow depth of field, diorama staging"
+            "HD-2D game character, full body, centred, soft rim light, "
+            "diorama staging, plain background"
         ),
-        negative="flat lighting, photographic, realistic proportions",
+        negative="flat lighting, photograph, close-up, cropped, busy background, text",
     ),
-    # High resolution hand drawn two dimensional art. Not pixels at all, which
-    # is why it is a separate entry rather than a variant of one.
+    # High resolution hand drawn art. Not pixels at all, which is why it is a
+    # separate entry rather than a variant of one.
     ArtStyle.HD_2D_MODERN: StyleTerms(
-        positive="high definition 2D game art, clean line art, cel shaded, vibrant flat colours",
-        negative="pixelated, low resolution, dithering, photographic",
+        positive=(
+            "high definition 2D game art, full body, centred, clean line art, "
+            "cel shaded, vibrant flat colours, plain background"
+        ),
+        negative="photograph, low resolution, close-up, cropped, busy background, text",
     ),
-    # The constrained look of an era, not merely a small image: a few colours,
-    # heavy outlines, readable at a glance on a low resolution display.
+    # The constrained look of an era: few colours, heavy outlines, readable at
+    # a glance.
     ArtStyle.CLASSIC: StyleTerms(
         positive=(
-            "retro 16-bit game sprite, bold black outline, "
-            "flat shading, small colour palette, high contrast"
+            "retro 16-bit game character, full body, centred, bold black outline, "
+            "flat shading, small colour palette, plain background"
         ),
-        negative="realistic, gradient shading, anti-aliased, photographic",
+        negative="realistic, gradient shading, photograph, close-up, cropped, text",
     ),
     # A projection rather than a rendering style, and the one people most often
     # fail to get by describing it in prose.
     ArtStyle.ISOMETRIC: StyleTerms(
-        positive="isometric pixel art, 2:1 dimetric projection, clean tile edges",
-        negative="perspective distortion, vanishing point, front view, blurry",
+        positive=(
+            "isometric game asset, 2:1 dimetric projection, full object in frame, "
+            "flat shading, plain background"
+        ),
+        negative="perspective distortion, vanishing point, front view, photograph, text",
     ),
 }
 """What each style adds. Every member of :class:`ArtStyle` has an entry."""
