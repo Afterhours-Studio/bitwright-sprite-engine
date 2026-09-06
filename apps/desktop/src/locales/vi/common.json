@@ -59,8 +59,8 @@
     "subtitle": "Mọi sprite đã tạo trong phiên này",
     "filterAll": "Tất cả",
     "filterFavourites": "Yêu thích",
-    "favourite": "Thêm vào yêu thích",
-    "unfavourite": "Bỏ khỏi yêu thích",
+    "favourite": "Yêu thích",
+    "unfavourite": "Đã thích",
     "remove": "Xoá",
     "clear": "Xoá thư viện"
   },

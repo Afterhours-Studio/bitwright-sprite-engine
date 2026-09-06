@@ -59,8 +59,8 @@
     "subtitle": "Everything generated in this session",
     "filterAll": "All",
     "filterFavourites": "Favourites",
-    "favourite": "Add to favourites",
-    "unfavourite": "Remove from favourites",
+    "favourite": "Favourite",
+    "unfavourite": "Favourited",
     "remove": "Remove",
     "clear": "Clear gallery"
   },
