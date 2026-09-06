@@ -29,6 +29,7 @@ import {
   engineBackends,
   engineCancelDownload,
   engineDownloadModel,
+  engineRemoveModel,
   engineGenerate,
   engineModels,
   enginePauseDownload,
@@ -134,6 +135,11 @@ export function downloadModel(modelId: string): Promise<ModelInfo> {
  */
 export function cancelDownload(modelId: string): Promise<ModelInfo> {
   return unwrap(engineCancelDownload(modelId));
+}
+
+/** Deletes a model's weights, reclaiming the space they occupy. */
+export function removeModel(modelId: string): Promise<ModelInfo> {
+  return unwrap(engineRemoveModel(modelId));
 }
 
 /**

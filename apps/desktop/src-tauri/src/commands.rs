@@ -348,6 +348,21 @@ fn provider_action_path(provider_id: &str, action: &str) -> Result<String, Comma
     Ok(format!("/v1/providers/{provider_id}/{action}"))
 }
 
+/// Deletes a model's weights from this machine.
+///
+/// # Errors
+///
+/// Returns `models.unknown` when the id is not a plain identifier, and the
+/// engine's reason code when the call fails.
+#[tauri::command]
+pub async fn engine_remove_model<R: Runtime>(
+    app: AppHandle<R>,
+    model_id: String,
+) -> Result<Value, CommandError> {
+    let path = model_action_path(&model_id, "remove")?;
+    Ok(engine::call(&app, Method::Post, &path, None).await?)
+}
+
 /// Builds the path for an action on one model.
 ///
 /// The id comes from the frontend and goes into a URL path, so it is checked
@@ -774,6 +789,7 @@ pub fn handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + 
         engine_models,
         engine_download_model,
         engine_cancel_download,
+        engine_remove_model,
         engine_pause_download,
         engine_providers,
         engine_save_provider,

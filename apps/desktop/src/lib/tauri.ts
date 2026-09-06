@@ -206,6 +206,11 @@ export function engineCancelDownload(modelId: string): Promise<ShellResult<Model
   return invoke<ModelInfo>('engine_cancel_download', { modelId });
 }
 
+/** Deletes a model's weights from this machine. */
+export function engineRemoveModel(modelId: string): Promise<ShellResult<ModelInfo>> {
+  return invoke<ModelInfo>('engine_remove_model', { modelId });
+}
+
 /** Stops a download and keeps the bytes it had, so it can be continued. */
 export function enginePauseDownload(modelId: string): Promise<ShellResult<ModelInfo>> {
   return invoke<ModelInfo>('engine_pause_download', { modelId });

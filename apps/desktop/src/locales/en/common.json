@@ -96,7 +96,17 @@
     "engineFailed": "Engine problem",
     "generationFailed": "Generation failed",
     "downloadFailed": "Could not download {{name}}",
-    "modelReady": "{{name}} is downloaded and ready to use.",
-    "gpuUnavailable": "No usable GPU"
+    "modelReady": "{{name}} is on this machine and ready to use.",
+    "gpuUnavailable": "No usable GPU",
+    "runtimeReady": "Restart Bitwright to start generating on the GPU.",
+    "runtimeRepaired": "The missing packages were added. Restart to use them.",
+    "runtimeRemoved": "Generation will use a remote API until it is installed again.",
+    "runtimeFailed": "The GPU runtime could not be installed",
+    "modelRemoved": "{{name}} was deleted from this machine.",
+    "modelReadyTitle": "Download Complete",
+    "runtimeReadyTitle": "GPU Runtime Installed",
+    "runtimeRepairedTitle": "Runtime Repaired",
+    "runtimeRemovedTitle": "GPU Runtime Removed",
+    "modelRemovedTitle": "Model Removed"
   }
 }

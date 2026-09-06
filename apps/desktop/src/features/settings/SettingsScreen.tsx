@@ -279,6 +279,11 @@ function ModelRow({ model }: ModelRowProps): ReactElement {
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 flex-col gap-1">
           <span className="text-sm font-medium text-fg-primary">{model.name}</span>
+          {/* What the file is for, in the words the generate screen uses. The
+              two screens named the same download differently, so nothing
+              connected the row that fetches a style adapter to the control
+              that selects one. */}
+          <p className="text-xs text-fg-secondary">{t(`models.kind.${model.kind}`)}</p>
           <p className="text-xs text-fg-secondary">
             {t('models.license')}
             {': '}

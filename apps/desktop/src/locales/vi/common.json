@@ -96,7 +96,17 @@
     "engineFailed": "Sự cố engine",
     "generationFailed": "Tạo sprite thất bại",
     "downloadFailed": "Không tải được {{name}}",
-    "modelReady": "Đã tải xong {{name}} và có thể dùng ngay.",
-    "gpuUnavailable": "Không có GPU dùng được"
+    "modelReady": "{{name}} đã có trên máy và sẵn sàng dùng.",
+    "gpuUnavailable": "Không có GPU dùng được",
+    "runtimeReady": "Khởi động lại Bitwright để tạo sprite bằng GPU.",
+    "runtimeRepaired": "Đã bổ sung các gói còn thiếu. Khởi động lại để dùng.",
+    "runtimeRemoved": "Việc tạo sprite sẽ dùng API từ xa cho tới khi cài lại.",
+    "runtimeFailed": "Không cài được bộ chạy GPU",
+    "modelRemoved": "Đã xoá {{name}} khỏi máy này.",
+    "modelReadyTitle": "Tải xong",
+    "runtimeReadyTitle": "Đã cài bộ chạy GPU",
+    "runtimeRepairedTitle": "Đã vá bộ chạy",
+    "runtimeRemovedTitle": "Đã gỡ bộ chạy GPU",
+    "modelRemovedTitle": "Đã gỡ model"
   }
 }

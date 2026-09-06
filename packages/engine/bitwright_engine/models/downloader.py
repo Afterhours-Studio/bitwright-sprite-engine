@@ -54,6 +54,7 @@ is worse than no flag at all.
 from __future__ import annotations
 
 import json
+import shutil
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -602,6 +603,36 @@ class ModelDownloader:
         # caller sees the conflict without waiting on the thread starting.
         worker.start()
         return True
+
+    def remove(self, model_id: str) -> None:
+        """Delete a model's weights, and any partial transfer for it.
+
+        Refused while a transfer for that model is running: deleting the tree
+        under a worker that is still writing into it would leave the worker
+        publishing into a directory nothing else knows about.
+
+        Args:
+            model_id: Registry identifier.
+
+        Raises:
+            KeyError: The identifier is not registered.
+            AlreadyDownloadingError: A transfer for it is in flight.
+            DownloadWriteFailedError: The files could not be deleted.
+        """
+        entry = get(model_id)
+
+        with self._lock:
+            state = self._downloads.get(model_id)
+            if state is not None and state.downloading:
+                raise AlreadyDownloadingError(f"{model_id} is downloading")
+
+        try:
+            shutil.rmtree(self.path_for(model_id), ignore_errors=True)
+            self._discard(self._partial_path(entry))
+        except OSError as error:
+            raise DownloadWriteFailedError(f"cannot remove {model_id}") from error
+
+        logger.info("removed the weights for %s", model_id)
 
     def cancel(self, model_id: str) -> None:
         """Ask a running download to stop, and throw away what it has.

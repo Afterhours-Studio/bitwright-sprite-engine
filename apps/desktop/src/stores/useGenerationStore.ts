@@ -24,6 +24,8 @@
 
 import { create } from 'zustand';
 
+import { loadValue, saveValue, STORAGE_KEYS } from '@/lib/persist';
+
 import { ApiError, generate } from '@/lib/api';
 import { useGalleryStore } from '@/stores/useGalleryStore';
 import type { GenerateRequest, GenerateResponse, SpriteImage } from '@/types/engine';
@@ -75,14 +77,21 @@ interface GenerationState {
 }
 
 export const useGenerationStore = create<GenerationState>((set, get) => ({
-  request: DEFAULT_REQUEST,
+  // Merged over the defaults rather than replacing them, so a record
+  // written before a field existed still loads and simply lacks that field.
+  request: {
+    ...DEFAULT_REQUEST,
+    ...((loadValue(STORAGE_KEYS.request) as Partial<GenerateRequest> | null) ?? {}),
+  },
   running: false,
   images: [],
   durationMs: 0,
   error: null,
 
   patch: (patch) => {
-    set({ request: { ...get().request, ...patch } });
+    const request = { ...get().request, ...patch };
+    set({ request });
+    saveValue(STORAGE_KEYS.request, request);
   },
 
   patchPostprocess: (patch) => {

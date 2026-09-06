@@ -63,6 +63,8 @@
 
 import { create } from 'zustand';
 
+import { loadValue, saveValue, STORAGE_KEYS } from '@/lib/persist';
+
 /** A drawing tool. */
 export type Tool = 'pencil' | 'eraser' | 'fill' | 'select' | 'shape';
 
@@ -139,7 +141,42 @@ interface EditorState {
   setShowCheckerboard: (show: boolean) => void;
 }
 
-export const useEditorStore = create<EditorState>((set) => ({
+/** What the canvas overlays, as it is kept between sessions. */
+interface ViewPreferences {
+  showPixelGrid: boolean;
+  showCheckerboard: boolean;
+}
+
+/** The overlays a first run starts with. */
+const DEFAULT_VIEW: ViewPreferences = { showPixelGrid: true, showCheckerboard: true };
+
+/**
+ * Reads the stored overlays.
+ *
+ * Turning the grid off and finding it back on after a reload is the interface
+ * forgetting a decision that was deliberate, so these outlive the window.
+ *
+ * @returns The stored preferences, with anything missing taken from the
+ *   defaults, so a record written by an older version still loads.
+ */
+function storedView(): ViewPreferences {
+  const stored = loadValue(STORAGE_KEYS.view) as Partial<ViewPreferences> | null;
+  return { ...DEFAULT_VIEW, ...(stored ?? {}) };
+}
+
+/**
+ * Writes the overlays.
+ *
+ * @param state - The state to take them from.
+ */
+function remember(state: ViewPreferences): void {
+  saveValue(STORAGE_KEYS.view, {
+    showPixelGrid: state.showPixelGrid,
+    showCheckerboard: state.showCheckerboard,
+  });
+}
+
+export const useEditorStore = create<EditorState>((set, get) => ({
   tool: DEFAULT_TOOL,
   shape: DEFAULT_SHAPE,
   brushSize: DEFAULT_BRUSH_SIZE,
@@ -148,8 +185,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   // pixel ends and the next begins, and it suppresses itself whenever it would
   // be a grey wash instead, so leaving it on costs nothing when it is not
   // wanted.
-  showPixelGrid: true,
-  showCheckerboard: true,
+  ...storedView(),
 
   setTool: (tool) => {
     set({ tool });
@@ -179,9 +215,11 @@ export const useEditorStore = create<EditorState>((set) => ({
 
   setShowPixelGrid: (showPixelGrid) => {
     set({ showPixelGrid });
+    remember(get());
   },
 
   setShowCheckerboard: (showCheckerboard) => {
     set({ showCheckerboard });
+    remember(get());
   },
 }));

@@ -168,7 +168,12 @@
     "stopAction": "Stop and delete",
     "discardTitle": "Delete this partial download?",
     "discardBody": "The part already on this machine is deleted, and downloading again starts from the beginning.",
-    "discardAction": "Delete"
+    "discardAction": "Delete",
+    "kind": {
+      "base": "Base Model",
+      "lora": "Style Adapter",
+      "segmentation": "Background Removal"
+    }
   },
   "storage": {
     "title": "Storage location",

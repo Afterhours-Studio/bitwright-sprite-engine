@@ -34,6 +34,7 @@ import {
   ApiError,
   cancelDownload,
   downloadModel,
+  removeModel,
   listBackends,
   listModels,
   pauseDownload,
@@ -77,6 +78,8 @@ interface EngineState {
    */
   download: (modelId: string) => Promise<void>;
   /** Stops a download and deletes the bytes it had. Destructive. */
+  /** Deletes a model's weights from this machine. */
+  removeWeights: (modelId: string) => Promise<void>;
   cancel: (modelId: string) => Promise<void>;
   /** Stops a download and keeps the bytes it had, so it can be continued. */
   pause: (modelId: string) => Promise<void>;
@@ -212,6 +215,18 @@ export const useEngineStore = create<EngineState>((set, get) => {
         const models = patchModel(modelId, { error: code });
         set({ models, error: code });
         syncPolling(models);
+      }
+    },
+
+    removeWeights: async (modelId) => {
+      try {
+        // The response carries the entry, but the list is re-read anyway:
+        // freeing gigabytes changes what the storage card reports too.
+        await removeModel(modelId);
+        await readModels();
+      } catch (error) {
+        const code = error instanceof ApiError ? error.code : 'unknown';
+        set({ models: patchModel(modelId, { error: code }), error: code });
       }
     },
 

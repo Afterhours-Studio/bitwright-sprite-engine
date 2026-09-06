@@ -163,6 +163,40 @@ def start_download(model_id: str, state: StateDep, response: Response) -> ModelI
     return _current(model_id, state)
 
 
+@router.post("/{model_id}/remove", response_model=ModelInfo)
+def remove_model(model_id: str, state: StateDep) -> ModelInfo:
+    """Delete a model's weights from this machine.
+
+    Refused while a transfer for that model is running, because deleting the
+    tree under a worker still writing into it would leave the worker publishing
+    into a directory nothing else knows about.
+
+    Args:
+        model_id: Registry identifier.
+        state: The engine state.
+
+    Returns:
+        The model's entry, now reporting itself as not downloaded.
+
+    Raises:
+        HTTPException: The identifier is unknown, or a transfer is in flight.
+    """
+    try:
+        state.downloader.remove(model_id)
+    except KeyError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=UNKNOWN_MODEL,
+        ) from error
+    except DownloadError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=error.code,
+        ) from error
+
+    return _current(model_id, state)
+
+
 @router.post(
     "/{model_id}/cancel",
     response_model=ModelInfo,

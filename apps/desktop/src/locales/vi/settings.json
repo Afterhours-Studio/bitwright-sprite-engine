@@ -168,7 +168,12 @@
     "stopAction": "Dừng hẳn và xoá",
     "discardTitle": "Xoá phần đã tải dở?",
     "discardBody": "Phần đang có trên máy sẽ bị xoá, và lần tải sau sẽ bắt đầu lại từ đầu.",
-    "discardAction": "Xoá"
+    "discardAction": "Xoá",
+    "kind": {
+      "base": "Model nền",
+      "lora": "Bộ điều chỉnh phong cách",
+      "segmentation": "Xoá nền"
+    }
   },
   "storage": {
     "title": "Nơi lưu dữ liệu",

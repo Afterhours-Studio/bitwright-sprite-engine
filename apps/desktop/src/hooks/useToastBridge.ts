@@ -17,6 +17,7 @@
 import { useEffect } from 'react';
 
 import { useEngineStore } from '@/stores/useEngineStore';
+import { useRuntimeStore } from '@/stores/useRuntimeStore';
 import { useGenerationStore } from '@/stores/useGenerationStore';
 import { useShellStore } from '@/stores/useShellStore';
 import { useToastStore } from '@/stores/useToastStore';
@@ -63,6 +64,48 @@ export function useToastBridge(): void {
     const previousModel = (models: ModelInfo[], modelId: string): ModelInfo | undefined =>
       models.find((model) => model.modelId === modelId);
 
+    const runtime = useRuntimeStore.subscribe((state, previous) => {
+      const before = previous.info;
+      const now = state.info;
+      if (before === null || now === null) {
+        return;
+      }
+
+      // Installing went from true to false. Which of the three ways it ended is
+      // decided by what is on disk and what reason code came back, not by
+      // guessing from the transition alone.
+      if (before.installing && !now.installing) {
+        if (state.error !== null) {
+          notify({
+            severity: 'error',
+            titleKey: 'common:notifications.runtimeFailed',
+            messageKey: `errors:${state.error}`,
+          });
+        } else if (now.installed && !before.installed) {
+          notify({
+            severity: 'success',
+            titleKey: 'common:notifications.runtimeReadyTitle',
+            messageKey: 'common:notifications.runtimeReady',
+          });
+        } else if (now.installed) {
+          notify({
+            severity: 'success',
+            titleKey: 'common:notifications.runtimeRepairedTitle',
+            messageKey: 'common:notifications.runtimeRepaired',
+          });
+        }
+      }
+
+      // Removing is not an install, so it has its own transition.
+      if (before.installed && !now.installed && !now.installing) {
+        notify({
+          severity: 'info',
+          titleKey: 'common:notifications.runtimeRemovedTitle',
+          messageKey: 'common:notifications.runtimeRemoved',
+        });
+      }
+    });
+
     const engine = useEngineStore.subscribe((state, previous) => {
       let reported = false;
 
@@ -87,9 +130,23 @@ export function useToastBridge(): void {
         // weights on disk is one that finished. Cancelling clears `downloading`
         // as well, which is why `cached` is part of the test rather than just
         // the absence of an error.
+        // Weights that were on disk and are not any more were removed, which
+        // frees gigabytes and is worth confirming.
+        if (before.cached && !model.cached && !model.downloading && model.error === '') {
+          notify({
+            severity: 'info',
+            titleKey: 'common:notifications.modelRemovedTitle',
+            messageKey: 'common:notifications.modelRemoved',
+            values: { name: model.name },
+          });
+          reported = true;
+          continue;
+        }
+
         if (before.downloading && !model.downloading && model.cached && model.error === '') {
           notify({
             severity: 'success',
+            titleKey: 'common:notifications.modelReadyTitle',
             messageKey: 'common:notifications.modelReady',
             values: { name: model.name },
           });
@@ -155,6 +212,7 @@ export function useToastBridge(): void {
 
     return () => {
       engine();
+      runtime();
       generation();
       shell();
     };
