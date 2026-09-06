@@ -23,6 +23,7 @@ streaming, progress, cancellation and cache handling code paths.
 
 from __future__ import annotations
 
+import json
 import threading
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -42,7 +43,9 @@ from bitwright_engine.models import (
 )
 from bitwright_engine.models.downloader import (
     CHUNK_SIZE,
+    PARTIAL_DIRNAME,
     PARTIAL_SUFFIX,
+    RESUME_SUFFIX,
     AlreadyDownloadingError,
     download_url,
     weights_filename,
@@ -400,4 +403,128 @@ def test_ensure_reports_the_reason_a_download_failed(settings: Settings) -> None
         downloader.ensure(MODEL_ID)
 
     assert raised.value.code == "models.download_rejected"
+    assert partials(downloader) == []
+
+
+def stage_partial(
+    downloader: ModelDownloader,
+    body: bytes,
+    *,
+    url: str | None = None,
+    validator: str = '"v1"',
+) -> Path:
+    """Leave a partial file on disk as a killed process would have.
+
+    Args:
+        downloader: The downloader whose cache directory to write into.
+        body: Bytes already fetched.
+        url: URL to record as their source. Defaults to the entry's real one.
+        validator: Validator to record, or an empty string for none.
+
+    Returns:
+        The partial file that was written.
+    """
+    entry = get(MODEL_ID)
+    partial = downloader.cache_dir / PARTIAL_DIRNAME / f"{entry.kind.value}-{MODEL_ID}"
+    partial = partial.with_name(partial.name + PARTIAL_SUFFIX)
+    partial.parent.mkdir(parents=True, exist_ok=True)
+    partial.write_bytes(body)
+    partial.with_name(partial.name + RESUME_SUFFIX).write_text(
+        json.dumps(
+            {"url": url if url is not None else download_url(entry), "validator": validator}
+        ),
+        encoding="utf-8",
+    )
+    return partial
+
+
+def test_a_partial_left_by_a_kill_is_resumed(settings: Settings) -> None:
+    seen: dict[str, str] = {}
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        seen.update(request.headers)
+        return httpx.Response(
+            206,
+            headers={"content-length": str(CHUNK_SIZE), "etag": '"v1"'},
+            content=CHUNK,
+        )
+
+    downloader = build(settings, handle)
+    stage_partial(downloader, CHUNK)
+
+    assert downloader.start(MODEL_ID) is True
+    assert downloader.wait(MODEL_ID, timeout=WAIT_S) is True
+
+    status = downloader.status(MODEL_ID)
+    assert status.cached is True
+    assert status.error == ""
+    # The bytes already on disk plus the ones the range answered with, rather
+    # than the range alone.
+    assert (status.path / WEIGHTS).stat().st_size == 2 * CHUNK_SIZE
+    assert seen["range"] == f"bytes={CHUNK_SIZE}-"
+    assert seen["if-range"] == '"v1"'
+    assert partials(downloader) == []
+
+
+def test_a_host_that_ignores_the_range_starts_the_file_over(settings: Settings) -> None:
+    # A 200 to a ranged request means the whole file is coming. Appending it to
+    # what is already there would produce a file of the right length only by
+    # accident, and the wrong contents always.
+    downloader = build(settings, serve(chunks=2))
+    stage_partial(downloader, CHUNK)
+
+    assert downloader.start(MODEL_ID) is True
+    assert downloader.wait(MODEL_ID, timeout=WAIT_S) is True
+
+    status = downloader.status(MODEL_ID)
+    assert status.cached is True
+    assert (status.path / WEIGHTS).stat().st_size == 2 * CHUNK_SIZE
+
+
+def test_a_partial_from_another_url_is_discarded(settings: Settings) -> None:
+    seen: dict[str, str] = {}
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        seen.update(request.headers)
+        return httpx.Response(200, headers={"content-length": str(CHUNK_SIZE)}, content=CHUNK)
+
+    downloader = build(settings, handle)
+    stage_partial(downloader, CHUNK, url="https://elsewhere.invalid/other.safetensors")
+
+    assert downloader.start(MODEL_ID) is True
+    assert downloader.wait(MODEL_ID, timeout=WAIT_S) is True
+
+    assert "range" not in seen
+    assert (downloader.status(MODEL_ID).path / WEIGHTS).stat().st_size == CHUNK_SIZE
+
+
+def test_a_partial_with_no_validator_is_resumed_without_if_range(settings: Settings) -> None:
+    seen: dict[str, str] = {}
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        seen.update(request.headers)
+        return httpx.Response(206, headers={"content-length": str(CHUNK_SIZE)}, content=CHUNK)
+
+    downloader = build(settings, handle)
+    stage_partial(downloader, CHUNK, validator="")
+
+    assert downloader.start(MODEL_ID) is True
+    assert downloader.wait(MODEL_ID, timeout=WAIT_S) is True
+
+    assert seen["range"] == f"bytes={CHUNK_SIZE}-"
+    assert "if-range" not in seen
+
+
+def test_a_range_the_host_rejects_discards_the_partial(settings: Settings) -> None:
+    downloader = build(settings, serve(chunks=1, status_code=416))
+    stage_partial(downloader, CHUNK)
+
+    assert downloader.start(MODEL_ID) is True
+    assert downloader.wait(MODEL_ID, timeout=WAIT_S) is True
+
+    status = downloader.status(MODEL_ID)
+    assert status.cached is False
+    assert status.error == "models.download_incomplete"
+    # Left in place it would be retried forever against a host that has already
+    # said these bytes are not part of its file.
     assert partials(downloader) == []
