@@ -22,4 +22,4 @@ importing the package root, which would create an import cycle.
 
 from __future__ import annotations
 
-__version__ = "0.0.2"
+__version__ = "0.0.3"

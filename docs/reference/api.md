@@ -28,7 +28,7 @@ BITWRIGHT_PORT=8000 bitwright-engine
 The engine generates a token at startup and prints it in the handshake:
 
 ```json
-{"event": "ready", "port": 51234, "token": "3Qq7...", "version": "0.0.2"}
+{"event": "ready", "port": 51234, "token": "3Qq7...", "version": "0.0.3"}
 ```
 
 Send it on every authenticated call:
@@ -57,7 +57,7 @@ curl http://127.0.0.1:8000/health
 ```json
 {
   "status": "ok",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "backend": "remote",
   "backendReady": false
 }

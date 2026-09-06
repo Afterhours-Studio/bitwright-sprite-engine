@@ -20,7 +20,7 @@ Rust shell                               Python sidecar
     |                                          |  generate a token
     |                                          |
     |  {"event":"ready","port":51234,          |
-    |   "token":"3Qq7...","version":"0.0.2"}   |
+    |   "token":"3Qq7...","version":"0.0.3"}   |
     |<-----------------------------------------|  stdout, one line
     |                                          |
     |  keep the port and the token             |  serve
@@ -56,7 +56,7 @@ One JSON object, one line, on standard output, written before the server starts
 accepting:
 
 ```json
-{"event": "ready", "port": 51234, "token": "3Qq7...", "version": "0.0.2"}
+{"event": "ready", "port": 51234, "token": "3Qq7...", "version": "0.0.3"}
 ```
 
 The token authenticates every later call. It is generated fresh on each start,

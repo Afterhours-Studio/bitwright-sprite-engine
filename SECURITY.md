@@ -9,8 +9,8 @@ older one.
 
 | Version | Supported |
 | --- | --- |
-| 0.0.2 | Yes |
-| < 0.0.2 | No |
+| 0.0.3 | Yes |
+| < 0.0.3 | No |
 
 ## Reporting a vulnerability
 

@@ -97,14 +97,14 @@ a remote API.
 
 ```bash
 # AppImage
-chmod +x Bitwright_0.0.2_amd64.AppImage
-./Bitwright_0.0.2_amd64.AppImage
+chmod +x Bitwright_0.0.3_amd64.AppImage
+./Bitwright_0.0.3_amd64.AppImage
 
 # Debian and Ubuntu
-sudo apt install ./bitwright_0.0.2_amd64.deb
+sudo apt install ./bitwright_0.0.3_amd64.deb
 
 # Fedora
-sudo dnf install ./bitwright-0.0.2-1.x86_64.rpm
+sudo dnf install ./bitwright-0.0.3-1.x86_64.rpm
 ```
 
 If the window does not open, install the WebKit runtime:

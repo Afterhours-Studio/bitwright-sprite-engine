@@ -24,7 +24,7 @@ missing. It ships with Windows 11 and with current Windows 10 builds.
 To install without the interactive prompts:
 
 ```powershell
-.\Bitwright_0.0.2_x64-setup.exe /S
+.\Bitwright_0.0.3_x64-setup.exe /S
 ```
 
 ## macOS
@@ -50,20 +50,20 @@ Run that only on a download you trust and obtained from the releases page.
 Works on any distribution with FUSE available.
 
 ```bash
-chmod +x Bitwright_0.0.2_amd64.AppImage
-./Bitwright_0.0.2_amd64.AppImage
+chmod +x Bitwright_0.0.3_amd64.AppImage
+./Bitwright_0.0.3_amd64.AppImage
 ```
 
 ### Debian and Ubuntu
 
 ```bash
-sudo apt install ./bitwright_0.0.2_amd64.deb
+sudo apt install ./bitwright_0.0.3_amd64.deb
 ```
 
 ### Fedora and RHEL
 
 ```bash
-sudo dnf install ./bitwright-0.0.2-1.x86_64.rpm
+sudo dnf install ./bitwright-0.0.3-1.x86_64.rpm
 ```
 
 If the window fails to open, the WebKit runtime is missing:
@@ -95,7 +95,7 @@ sha256sum --check --ignore-missing SHA256SUMS
 
 ```powershell
 # Windows
-Get-FileHash .\Bitwright_0.0.2_x64-setup.exe -Algorithm SHA256
+Get-FileHash .\Bitwright_0.0.3_x64-setup.exe -Algorithm SHA256
 ```
 
 ## Uninstalling

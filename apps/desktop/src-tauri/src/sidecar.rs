@@ -433,16 +433,16 @@ mod tests {
     #[test]
     fn parses_a_valid_handshake() {
         let handshake =
-            parse_handshake(r#"{"event":"ready","port":51234,"token":"s3cret","version":"0.0.2"}"#)
+            parse_handshake(r#"{"event":"ready","port":51234,"token":"s3cret","version":"0.0.3"}"#)
                 .unwrap();
         assert_eq!(handshake.port, 51234);
         assert_eq!(handshake.token, "s3cret");
-        assert_eq!(handshake.version, "0.0.2");
+        assert_eq!(handshake.version, "0.0.3");
     }
 
     #[test]
     fn rejects_a_handshake_without_a_token() {
-        let line = r#"{"event":"ready","port":51234,"token":"","version":"0.0.2"}"#;
+        let line = r#"{"event":"ready","port":51234,"token":"","version":"0.0.3"}"#;
         assert!(parse_handshake(line).is_none());
     }
 
@@ -454,13 +454,13 @@ mod tests {
 
     #[test]
     fn rejects_a_handshake_without_a_port() {
-        let line = r#"{"event":"ready","port":0,"token":"s3cret","version":"0.0.2"}"#;
+        let line = r#"{"event":"ready","port":0,"token":"s3cret","version":"0.0.3"}"#;
         assert!(parse_handshake(line).is_none());
     }
 
     #[test]
     fn rejects_an_unrelated_json_object() {
-        let line = r#"{"event":"progress","port":51234,"token":"s3cret","version":"0.0.2"}"#;
+        let line = r#"{"event":"progress","port":51234,"token":"s3cret","version":"0.0.3"}"#;
         assert!(parse_handshake(line).is_none());
     }
 
