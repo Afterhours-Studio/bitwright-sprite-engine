@@ -70,14 +70,21 @@ describe('colour tokens', () => {
   });
 
   it('declares both a light and a dark value for every colour token', () => {
-    const css = readFileSync(join(SRC, 'styles', 'tokens.css'), 'utf8');
+    // Comments are stripped first. The scope notes beside each token contain
+    // prose such as "4.5:1 on --surface-input: a placeholder is read", which
+    // the declaration pattern matches and would otherwise report as a token.
+    const css = readFileSync(join(SRC, 'styles', 'tokens.css'), 'utf8').replace(
+      /\/\*[\s\S]*?\*\//g,
+      '',
+    );
 
     const light = new Set(tokenNames(block(css, ':root {')));
     const dark = new Set(tokenNames(block(css, "[data-theme='dark'] {")));
 
-    // Light mode has four surface steps and dark mode has five, so the float
-    // token is the one legitimate difference: in light mode it shares
-    // surface-2's lightness and is separated by shadow instead.
+    // One direction only. Dark overrides a subset: the radius, spacing, and
+    // layout scales are declared once, in light, because they do not depend on
+    // the mode. Colour parity in both directions is checked by
+    // scripts/check-contrast.ts, which can tell a colour from a length.
     for (const name of dark) {
       expect(light.has(name), `${name} is missing from the light theme`).toBe(true);
     }
