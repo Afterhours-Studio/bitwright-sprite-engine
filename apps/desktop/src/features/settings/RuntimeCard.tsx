@@ -350,11 +350,6 @@ function Summary({ info, units, unknownSpace }: SummaryProps): ReactElement {
         <dt>{t('runtime.state')}</dt>
         <dd className="text-fg-primary">{state}</dd>
 
-        <dt className="md:col-start-1">{t('runtime.location')}</dt>
-        <dd className="break-all text-fg-primary md:col-span-3">
-          {info === null ? '-' : info.installDir}
-        </dd>
-
         <dt>{t('runtime.free')}</dt>
         <dd className="text-fg-primary">
           {info === null || info.freeBytes === null
@@ -385,6 +380,11 @@ function Summary({ info, units, unknownSpace }: SummaryProps): ReactElement {
 
         <dt>{t('runtime.target')}</dt>
         <dd className="text-fg-primary">{info === null ? '-' : info.target}</dd>
+
+        <dt className="md:col-start-1">{t('runtime.location')}</dt>
+        <dd className="break-all text-fg-primary md:col-span-3">
+          {info === null ? '-' : info.installDir}
+        </dd>
       </dl>
 
       {info !== null && info.restartRequired && (
