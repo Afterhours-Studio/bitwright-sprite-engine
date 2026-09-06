@@ -2,9 +2,14 @@
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+# The version lives in the module, not here. Two copies of a version number
+# drift, and the one that drifts is always the one the user is shown.
+[tool.hatch.version]
+path = "bitwright_engine/version.py"
+
 [project]
 name = "bitwright-engine"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Cross-platform sprite generation engine for pixel art games"
 readme = "README.md"
 requires-python = ">=3.11"

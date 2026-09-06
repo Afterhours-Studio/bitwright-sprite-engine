@@ -18,8 +18,13 @@
 
 Kept in its own module so that any part of the package can read it without
 importing the package root, which would create an import cycle.
+
+This is the single source of truth: ``pyproject.toml`` declares the version
+dynamic and reads it from here. It used to be written in both places, and they
+drifted, so the running engine reported a version that had already been
+superseded.
 """
 
 from __future__ import annotations
 
-__version__ = "0.0.3"
+__version__ = "0.1.0"
