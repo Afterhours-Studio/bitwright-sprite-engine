@@ -1,0 +1,75 @@
+{
+  "name": "@bitwright/desktop",
+  "version": "0.0.2",
+  "private": true,
+  "description": "Cross-platform sprite generation engine for pixel art games",
+  "license": "AGPL-3.0-only",
+  "author": "Afterhours Studio",
+  "contributors": [
+    {
+      "name": "h1dr0n",
+      "url": "https://github.com/h1dr0nn"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Afterhours-Studio/bitwright-sprite-engine.git",
+    "directory": "apps/desktop"
+  },
+  "bugs": {
+    "url": "https://github.com/Afterhours-Studio/bitwright-sprite-engine/issues"
+  },
+  "homepage": "https://github.com/Afterhours-Studio/bitwright-sprite-engine",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"*.{ts,js}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"*.{ts,js}\"",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check:contrast": "tsx ../../scripts/check-contrast.ts"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.1.1",
+    "i18next": "^23.16.8",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-i18next": "^15.1.3",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@tauri-apps/cli": "^2.1.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
+    "@types/culori": "^2.1.1",
+    "@types/node": "^22.20.1",
+    "@types/react": "^18.3.17",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "culori": "^4.0.1",
+    "eslint": "^9.17.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-react-refresh": "^0.4.16",
+    "globals": "^15.13.0",
+    "jsdom": "^25.0.1",
+    "postcss": "^8.4.49",
+    "prettier": "^3.4.2",
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.1",
+    "vite": "^6.0.5",
+    "vitest": "^3.2.7"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
