@@ -36,6 +36,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Protocol, runtime_checkable
 
+from bitwright_engine.models.registry import get as registry_get
 from bitwright_engine.utils.logging import get_logger
 
 
@@ -167,6 +168,12 @@ class BackendUnavailableError(BackendError):
     code = "backend.unavailable"
 
 
+class AdapterMismatchError(BackendError):
+    """Raised when an adapter was trained against a different base model."""
+
+    code = "backend.adapter_mismatch"
+
+
 class UnsupportedCapabilityError(BackendError):
     """Raised when a request needs a capability the backend does not declare."""
 
@@ -272,6 +279,7 @@ class BaseBackend(abc.ABC):
             raise BackendUnavailableError(availability.detail or "backend.unavailable")
 
         self._check_capabilities(request)
+        self._check_adapter(request)
         try:
             return self._run(request)
         except BackendError:
@@ -282,6 +290,36 @@ class BaseBackend(abc.ABC):
             # shell reads as the engine having gone away.
             logger.exception("generation failed on the %s backend", self.kind.value)
             raise BackendError(str(error)) from error
+
+    def _check_adapter(self, request: GenerationRequest) -> None:
+        """Refuse an adapter that was trained against a different base model.
+
+        Fusing one into the wrong architecture fails inside the library with a
+        list of tensor names that means nothing to the person who chose it, and
+        it fails only after the base model has been loaded onto the device.
+        Both are avoided by comparing what the registry already records.
+
+        Args:
+            request: The request to check.
+
+        Raises:
+            AdapterMismatchError: The adapter does not fit the model.
+        """
+        if request.lora_id is None:
+            return
+
+        try:
+            model = registry_get(request.model_id)
+            adapter = registry_get(request.lora_id)
+        except KeyError:
+            # An unknown identifier is the download path's problem to report,
+            # and it has a better message for it than this would.
+            return
+
+        if model.base and adapter.base and model.base != adapter.base:
+            raise AdapterMismatchError(
+                f"{adapter.name} is for {adapter.base}, {model.name} is {model.base}",
+            )
 
     @abc.abstractmethod
     def _run(self, request: GenerationRequest) -> GenerationResult:

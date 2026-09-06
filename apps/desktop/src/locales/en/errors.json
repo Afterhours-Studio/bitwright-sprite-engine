@@ -54,7 +54,8 @@
       "unknown_preset": "That provider is not one this version knows. Use a custom endpoint instead.",
       "unreachable": "That host could not be reached. Check the base URL and your connection."
     },
-    "adapter_unsupported": "The GPU runtime is missing a package that style adapters need. Install the missing packages in Settings, then restart."
+    "adapter_unsupported": "The GPU runtime is missing a package that style adapters need. Install the missing packages in Settings, then restart.",
+    "adapter_mismatch": "That style adapter was made for a different base model. Pick one that matches the model you selected."
   },
   "models": {
     "download_failed": "The model could not be downloaded.",

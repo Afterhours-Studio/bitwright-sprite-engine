@@ -58,6 +58,11 @@ class ModelEntry:
         commercial_use: Whether the licence permits commercial use. Restrictions
             may still apply; the licence text governs.
         size_mb: Approximate download size in megabytes.
+        base: Which base architecture the entry belongs to. A base model
+            declares its own, and an adapter declares the one it was
+            trained against. An adapter fused into the wrong architecture
+            fails deep inside the library with a list of tensor names, so
+            the pair is checked here instead.
     """
 
     model_id: str
@@ -70,6 +75,7 @@ class ModelEntry:
     license_url: str
     commercial_use: bool
     size_mb: int
+    base: str = ""
     url: str = ""
 
 
@@ -83,6 +89,7 @@ REGISTRY: dict[str, ModelEntry] = {
         repo="stable-diffusion-v1-5/stable-diffusion-v1-5",
         revision="main",
         filename="v1-5-pruned-emaonly.safetensors",
+        base="sd15",
         license_id="CreativeML Open RAIL-M",
         license_url="https://huggingface.co/spaces/CompVis/stable-diffusion-license",
         commercial_use=True,
@@ -95,6 +102,7 @@ REGISTRY: dict[str, ModelEntry] = {
         repo="stabilityai/stable-diffusion-xl-base-1.0",
         revision="main",
         filename="sd_xl_base_1.0.safetensors",
+        base="sdxl",
         license_id="CreativeML Open RAIL++-M",
         license_url="https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/blob/main/LICENSE.md",
         commercial_use=True,
@@ -107,10 +115,24 @@ REGISTRY: dict[str, ModelEntry] = {
         repo="nerijs/pixel-art-xl",
         revision="main",
         filename="pixel-art-xl.safetensors",
+        base="sdxl",
         license_id="CreativeML Open RAIL-M",
         license_url="https://huggingface.co/spaces/CompVis/stable-diffusion-license",
         commercial_use=True,
         size_mb=163,
+    ),
+    "pixel-art-lora-sd15": ModelEntry(
+        model_id="pixel-art-lora-sd15",
+        name="Pixel Art Style LoRA (SD 1.5)",
+        kind=ModelKind.LORA,
+        repo="nerijs/pixel-art-medium-128-v0.1",
+        revision="main",
+        filename="pixel-art-medium-128-v0.1.safetensors",
+        base="sd15",
+        license_id="CreativeML Open RAIL-M",
+        license_url="https://huggingface.co/spaces/CompVis/stable-diffusion-license",
+        commercial_use=True,
+        size_mb=5,
     ),
     "rembg-u2net": ModelEntry(
         model_id="rembg-u2net",
