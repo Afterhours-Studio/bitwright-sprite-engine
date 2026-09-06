@@ -1,0 +1,58 @@
+# Node
+node_modules/
+dist/
+dist-ssr/
+.vite/
+*.local
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+
+# Rust / Tauri
+target/
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/
+apps/desktop/src-tauri/binaries/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Model weights and caches (never commit; see MODELS.md). Anchored to the
+# repository root, so that it does not also match the engine's models package.
+/models/
+*.safetensors
+*.ckpt
+*.pt
+*.bin
+.cache/huggingface/
+
+# Generated output
+output/
+generated/
+
+# Editors and OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.*
+!.env.example
