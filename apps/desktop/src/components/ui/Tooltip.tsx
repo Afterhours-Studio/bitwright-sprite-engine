@@ -46,6 +46,9 @@ export interface TooltipProps {
  * already asking. Closing is not delayed at all, because a label that lingers
  * is a label in the way.
  */
+/** How close to the window edge a label may sit before it is nudged back. */
+const EDGE_MARGIN_PX = 8;
+
 const OPEN_DELAY_MS = 400;
 
 /**
@@ -119,6 +122,18 @@ export function Tooltip({ label, side = 'bottom', children }: TooltipProps): Rea
   const timer = useRef<number | null>(null);
 
   const wrapper = useRef<HTMLSpanElement>(null);
+  const label_ = useRef<HTMLSpanElement>(null);
+
+  /**
+   * How far the label is nudged along the inline axis to stay on screen.
+   *
+   * The label is centred on its trigger, which is right until the trigger is
+   * near an edge: a control in the corner of the window centres its label half
+   * off the window, and the shell clips it rather than scrolling, so the text
+   * is simply cut in half. Nudging it back is what every tooltip does and what
+   * this one was missing.
+   */
+  const [shift, setShift] = useState(0);
 
   // Whether the focus about to arrive was caused by a press on the trigger.
   // `:focus-visible` already answers that in every engine that implements it;
@@ -197,6 +212,41 @@ export function Tooltip({ label, side = 'bottom', children }: TooltipProps): Rea
     hide();
   }, [hide]);
 
+  // Measured while showing, and again on a resize, because the trigger moves
+  // with the window. The margin is removed before measuring so the reading is
+  // of where the label wants to be rather than of where it was last put, which
+  // would otherwise ratchet a little further every time.
+  useEffect(() => {
+    if (!showing) {
+      setShift(0);
+      return;
+    }
+
+    const measure = (): void => {
+      const node = label_.current;
+      if (node === null) {
+        return;
+      }
+      node.style.marginInlineStart = '';
+      const box = node.getBoundingClientRect();
+      const overflowStart = EDGE_MARGIN_PX - box.left;
+      const overflowEnd = box.right - (window.innerWidth - EDGE_MARGIN_PX);
+      if (overflowStart > 0) {
+        setShift(Math.round(overflowStart));
+      } else if (overflowEnd > 0) {
+        setShift(-Math.round(overflowEnd));
+      } else {
+        setShift(0);
+      }
+    };
+
+    measure();
+    window.addEventListener('resize', measure);
+    return () => {
+      window.removeEventListener('resize', measure);
+    };
+  }, [showing, label]);
+
   // Escape and a press anywhere both close it. The press is watched on the
   // document, in the capture phase, so that the label is gone before whatever
   // was pressed reacts. A press on the trigger itself is handled on the
@@ -251,9 +301,14 @@ export function Tooltip({ label, side = 'bottom', children }: TooltipProps): Rea
     >
       {trigger}
       <span
+        ref={label_}
         id={id}
         role="tooltip"
         aria-hidden={!showing}
+        // A margin rather than a transform: the transform is already carrying
+        // the centring and the open animation, and a second one would have to
+        // be composed by hand every time either changes.
+        style={shift === 0 ? undefined : { marginInlineStart: `${String(shift)}px` }}
         className={cn(
           'pointer-events-none absolute start-1/2 z-50 -translate-x-1/2 whitespace-nowrap',
           'rounded-sm border border-line bg-surface-float px-2 py-1 shadow-md',

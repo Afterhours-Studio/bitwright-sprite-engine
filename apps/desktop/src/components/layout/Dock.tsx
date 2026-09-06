@@ -115,13 +115,40 @@ const CHIP_CHOSEN = 'border-transparent bg-accent text-accent-fg';
 /**
  * The chrome every floating bar in the row shares.
  *
- * The dock and the rails beside it are the same object at different sizes, so
- * they are the same pill, border, surface and shadow. A rail that styled
- * itself would drift from the dock the first time either changed.
+ * The dock and the rails beside it share their border, surface and shadow. A
+ * rail that styled itself would drift from the dock the first time either
+ * changed.
+ *
+ * Their corners differ deliberately. The dock is a pill because it is a strip
+ * of pill shaped chips. A rail sits directly beneath a corner of the card
+ * above it, close enough that the two curves are read as a pair, so it takes
+ * that card's radius instead: a full pill under a 14px corner reads as two
+ * things that were meant to match and do not.
  */
 const DOCK_BAR = cn(
   'pointer-events-auto flex items-center gap-1 rounded-pill',
   'border border-line bg-surface-float px-2 py-1 text-fg-primary shadow-lg',
+);
+
+/**
+ * A rail, which is a bar holding a single control.
+ *
+ * No padding, unlike the dock. The dock's padding is what separates its chips
+ * from its own edge, but a rail has one child filling it, so the same padding
+ * leaves a ring of bar showing around a chip that is already the same shape.
+ * Two rounded outlines a couple of pixels apart do not read as a border; they
+ * read as a mistake, which is exactly how it was reported.
+ *
+ * The chip inside therefore becomes the visible shape, and the rail supplies
+ * only the surface, the border and the shadow that hold it off the canvas.
+ */
+const DOCK_RAIL = cn(
+  'pointer-events-auto flex items-center rounded-lg',
+  'border border-line bg-surface-float text-fg-primary shadow-lg',
+  // The control fills the rail, so the pair is one shape and one height. 40
+  // plus the border matches the dock's 8px chip inside 1px of padding, which
+  // is what puts all three bars on the same line rather than merely near it.
+  '[&_button]:h-10 [&_button]:rounded-lg',
 );
 
 export interface DockProps {
@@ -193,7 +220,7 @@ export function Dock({
       )}
     >
       <div className="flex justify-start">
-        {leadingRail !== undefined && <div className={DOCK_BAR}>{leadingRail}</div>}
+        {leadingRail !== undefined && <div className={DOCK_RAIL}>{leadingRail}</div>}
       </div>
 
       <div className={cn(DOCK_BAR, 'max-w-full', className)}>
@@ -215,7 +242,7 @@ export function Dock({
       </div>
 
       <div className="flex justify-end">
-        {trailingRail !== undefined && <div className={DOCK_BAR}>{trailingRail}</div>}
+        {trailingRail !== undefined && <div className={DOCK_RAIL}>{trailingRail}</div>}
       </div>
     </div>
   );
