@@ -13,10 +13,13 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-import type { ReactElement } from 'react';
+import type { CSSProperties, ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { MIN_GRID_CELL, PixelGridOverlay } from '@/features/generation/PixelGridOverlay';
+
+/** The gap between the well's edge and the sprite, in pixels. */
+const WELL_INSET = 12;
 import { useElementSize } from '@/hooks/useElementSize';
 import { toDataUrl } from '@/lib/api';
 import { cn } from '@/lib/cn';
@@ -37,43 +40,6 @@ export interface SpriteCanvasProps {
    * and keeps stating it while a request is edited.
    */
   requested: { width: number; height: number };
-}
-
-/**
- * Works out how large to draw a sprite in the room available.
- *
- * THE SCALE IS A WHOLE NUMBER, and that is the whole point of the function. A
- * fractional scale on pixel art gives some sprite pixels one more screen pixel
- * than their neighbours, so a sprite drawn at 7.4x has rows that are visibly
- * fatter than the rows beside them - which is the exact artifact the
- * application exists to remove, reintroduced by the viewer. Every pixel editor
- * surveyed restricts zoom to integers and reciprocals for this reason.
- *
- * A whole scale also puts every sprite pixel boundary on a whole CSS pixel, so
- * the grid overlay lands on the same boundaries the browser's own
- * nearest-neighbour upscale does.
- *
- * The floor is one. A sprite larger than the room it has is shown at its own
- * size and allowed to overflow rather than being shrunk below one screen pixel
- * per sprite pixel, because a downscale of pixel art is worse than a scrollbar.
- *
- * @param image - The sprite, or `undefined` when there is none.
- * @param width - Room available across, in CSS pixels.
- * @param height - Room available down, in CSS pixels.
- * @returns Screen pixels per sprite pixel. At least one.
- */
-function spriteScale(image: SpriteImage | undefined, width: number, height: number): number {
-  if (image === undefined || image.width <= 0 || image.height <= 0) {
-    return 1;
-  }
-  // Before the first layout pass the room is reported as zero, and a zero
-  // divided into anything is a scale of zero. One is the honest answer until
-  // there is a measurement.
-  if (width <= 0 || height <= 0) {
-    return 1;
-  }
-  const fit = Math.min(width / image.width, height / image.height);
-  return Math.max(1, Math.floor(fit));
 }
 
 /**
@@ -105,54 +71,75 @@ export function SpriteCanvas({
   const { t } = useTranslation('generation');
   const { ref, width, height } = useElementSize();
 
-  const scale = spriteScale(image, width, height);
+  // The stage fills the room it has in the dimension that binds, and takes the
+  // other from the requested shape. Sizing it in pixels rather than with an
+  // aspect ratio and max constraints is what makes it actually fill: with
+  // `aspect-ratio` the box sizes to its content, so a square sat small in the
+  // middle of the space instead of taking it.
+  const ratio = requested.width / requested.height;
+  const stageWidth = width / height > ratio ? height * ratio : width;
+  const stageHeight = stageWidth / ratio;
+
+  // The sprite gets everything inside the well's own inset.
+  const innerWidth = Math.max(stageWidth - WELL_INSET * 2, 0);
+  const innerHeight = Math.max(stageHeight - WELL_INSET * 2, 0);
+  const scale =
+    image === undefined ? 0 : Math.min(innerWidth / image.width, innerHeight / image.height);
+  const drawnWidth = image === undefined ? 0 : image.width * scale;
+  const drawnHeight = image === undefined ? 0 : image.height * scale;
+
   // The scale is screen pixels per sprite pixel, which is exactly the cell size
   // the suppression rule is written against.
-  const gridVisible = showPixelGrid && image !== undefined && scale >= MIN_GRID_CELL;
+  const gridVisible = showPixelGrid && scale >= MIN_GRID_CELL;
+
+  // The pattern is two sprite pixels across. Below a pixel it would be a
+  // grey wash, so it stops shrinking there.
+  const cellSize = image === undefined ? innerWidth / requested.width : scale;
+  const checkerSize = Math.max(cellSize * 2, 4);
+  const cells = image ?? requested;
 
   return (
-    // A column inside the canvas container, not a card of its own. The frame
-    // and the background belong to the container that holds both columns, so
-    // the sprite and the tools beside it read as one view rather than as two
-    // panels that happen to be adjacent.
     <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center">
-      <div
-        className={cn(
-          // The inset is 12px rather than 24. Every pixel of it comes off the
-          // sprite: at the default window a 64 pixel sprite lands on 6 screen
-          // pixels per sprite pixel with about a dozen to spare, and 24px of
-          // padding on each side is what takes it below the threshold where the
-          // pixel grid can be drawn at all. The well's own edge is what holds
-          // the sprite off the card; it does not need a wide margin as well.
-          'flex max-h-full max-w-full items-center justify-center rounded-md p-3',
-          showCheckerboard ? 'sprite-checkerboard' : 'bg-surface-well',
-        )}
-        // The stage takes the shape of the sprite that was asked for, and is
-        // capped by the room available, so a 64x64 request is a square before
-        // anything has been generated. Filling whatever space is free is what
-        // presented a square sprite in a landscape frame and made the canvas
-        // disagree with the size named in the parameters.
-        style={{ aspectRatio: `${String(requested.width)} / ${String(requested.height)}` }}
-      >
-        {/* Measured rather than the padded box above it, so the number the
-            scale is worked out from is the room a sprite can actually occupy.
-            `min-h-0` and `min-w-0` are what let it shrink: a flex item's
-            automatic minimum is its content, so without them the stage would
-            grow to fit the sprite instead of the sprite fitting the stage. */}
+      {/* Measured rather than the stage itself: the stage's size is computed
+          from this, so measuring it would be measuring the answer. */}
+      <div ref={ref} className="flex h-full min-h-0 w-full min-w-0 items-center justify-center">
         <div
-          ref={ref}
-          className="flex h-full min-h-0 w-full min-w-0 items-center justify-center overflow-auto"
+          className={cn(
+            'relative flex items-center justify-center rounded-md',
+            showCheckerboard ? 'sprite-checkerboard' : 'bg-surface-well',
+          )}
+          style={
+            {
+              width: stageWidth,
+              height: stageHeight,
+              padding: WELL_INSET,
+              // Two sprite pixels per square, so the checker lands on cell
+              // boundaries instead of cutting across them.
+              '--sprite-checker-size': `${String(checkerSize)}px`,
+            } as CSSProperties
+          }
         >
           {image === undefined ? (
-            <div className="rounded-md border border-line-subtle bg-surface-content px-4 py-3 text-center shadow-sm">
-              <p className="text-sm text-fg-primary">{t('canvas.empty')}</p>
-              <p className="mt-1 text-xs text-fg-secondary">{t('canvas.hint')}</p>
-            </div>
+            <>
+              {/* The grid is drawn on the empty stage too. A 64x64 request
+                  should look like 64 cells before anything exists to put in
+                  them, which is what makes the canvas and the parameters agree
+                  at the moment the size is chosen rather than after a run. */}
+              {showPixelGrid && innerWidth / requested.width >= MIN_GRID_CELL && (
+                <PixelGridOverlay
+                  columns={requested.width}
+                  rows={requested.height}
+                  width={innerWidth}
+                  height={innerHeight}
+                />
+              )}
+              <div className="pointer-events-none rounded-md border border-line-subtle bg-surface-content px-4 py-3 text-center shadow-sm">
+                <p className="text-sm text-fg-primary">{t('canvas.empty')}</p>
+                <p className="mt-1 text-xs text-fg-secondary">{t('canvas.hint')}</p>
+              </div>
+            </>
           ) : (
-            <div
-              className="relative shrink-0"
-              style={{ width: image.width * scale, height: image.height * scale }}
-            >
+            <div className="relative" style={{ width: drawnWidth, height: drawnHeight }}>
               <img
                 src={toDataUrl(image.data)}
                 width={image.width}
@@ -163,10 +150,10 @@ export function SpriteCanvas({
               />
               {gridVisible && (
                 <PixelGridOverlay
-                  columns={image.width}
-                  rows={image.height}
-                  width={image.width * scale}
-                  height={image.height * scale}
+                  columns={cells.width}
+                  rows={cells.height}
+                  width={drawnWidth}
+                  height={drawnHeight}
                 />
               )}
             </div>

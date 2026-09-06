@@ -251,6 +251,26 @@ export const ART_STYLES = ['pixel', 'hd2d', 'modern2d', 'classic', 'isometric'] 
 /** One of {@link ART_STYLES}. */
 export type ArtStyle = (typeof ART_STYLES)[number];
 
+/** Where the camera sits relative to the character. */
+export const CAMERA_ANGLES = ['side', 'top_down', 'isometric', 'front'] as const;
+
+/** One of {@link CAMERA_ANGLES}. */
+export type CameraAngle = (typeof CAMERA_ANGLES)[number];
+
+/**
+ * The direction counts each camera offers.
+ *
+ * Mirrors the engine, which is the authority: a side view has no north, so two
+ * is as far as it goes, and a portrait facing the viewer has exactly one - more
+ * would be a different pose rather than a different direction.
+ */
+export const DIRECTION_COUNTS: Record<CameraAngle, readonly number[]> = {
+  side: [1, 2],
+  top_down: [1, 2, 4, 8],
+  isometric: [1, 4, 8],
+  front: [1],
+};
+
 export interface GenerateRequest {
   prompt: string;
   negativePrompt: string;
@@ -262,6 +282,10 @@ export interface GenerateRequest {
   batchSize: number;
   /** Art style, which adds terms to both prompts in the engine. */
   style: ArtStyle;
+  /** Where the camera sits relative to the character. */
+  camera: CameraAngle;
+  /** How many directions the character is drawn facing. */
+  directions: number;
   modelId: string;
   loraId: string | null;
   postprocess: PostProcessOptions;

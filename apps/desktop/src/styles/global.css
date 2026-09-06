@@ -170,12 +170,17 @@
       linear-gradient(-45deg, var(--border-subtle) 25%, transparent 25%),
       linear-gradient(45deg, transparent 75%, var(--border-subtle) 75%),
       linear-gradient(-45deg, transparent 75%, var(--border-subtle) 75%);
-    background-size: 16px 16px;
+    /* Sized from a variable so the stage can set it to two sprite pixels,
+       which puts every square on a cell boundary. A fixed 16px pattern
+       under a grid whose cells are 6.4px wide crosses those boundaries and
+       reads as a rendering fault rather than as transparency. */
+    --checker: var(--sprite-checker-size, 16px);
+    background-size: var(--checker) var(--checker);
     background-position:
       0 0,
-      0 8px,
-      8px -8px,
-      -8px 0;
+      0 calc(var(--checker) / 2),
+      calc(var(--checker) / 2) calc(var(--checker) / -2),
+      calc(var(--checker) / -2) 0;
   }
 
   /* Nothing inside a drag region should start a drag of its own. */

@@ -39,6 +39,8 @@ export const DEFAULT_REQUEST: GenerateRequest = {
   seed: null,
   batchSize: 1,
   style: 'pixel',
+  camera: 'side',
+  directions: 1,
   modelId: 'sd15-base',
   loraId: null,
   postprocess: {

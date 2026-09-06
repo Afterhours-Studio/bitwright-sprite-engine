@@ -221,7 +221,11 @@ export function Dock({
   return (
     <div
       className={cn(
-        'pointer-events-none absolute inset-x-0 bottom-3 grid items-end gap-2 px-3',
+        // px-4 to match the content above it. A rail is directly beneath a
+        // card's edge, so 12px here against the screen's 16px put the two
+        // vertical edges 4px apart, which reads as a misalignment rather
+        // than as a margin.
+        'pointer-events-none absolute inset-x-0 bottom-3 grid items-end gap-2 px-4',
         'grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]',
       )}
     >

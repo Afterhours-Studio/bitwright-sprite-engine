@@ -21,7 +21,13 @@ import { NumberField } from '@/components/ui/NumberField';
 import { Select } from '@/components/ui/Select';
 import { useCapabilities } from '@/hooks/useCapabilities';
 import { useEngineStore } from '@/stores/useEngineStore';
-import { ART_STYLES, type ArtStyle } from '@/types/engine';
+import {
+  ART_STYLES,
+  CAMERA_ANGLES,
+  DIRECTION_COUNTS,
+  type ArtStyle,
+  type CameraAngle,
+} from '@/types/engine';
 import { useGenerationStore } from '@/stores/useGenerationStore';
 
 /**
@@ -99,6 +105,41 @@ export function ParameterPanel(): ReactElement {
             }))}
             onValueChange={(value) => {
               patch({ style: value as ArtStyle });
+            }}
+          />
+
+          {/* Where the camera sits, and how many directions the character is
+              drawn facing. Which counts are offered depends on the camera: a
+              side view has no north, so eight directions there would be
+              nonsense rather than a limitation. */}
+          <Select
+            label={t('parameters.camera')}
+            value={request.camera}
+            options={CAMERA_ANGLES.map((angle) => ({
+              value: angle,
+              label: t(`parameters.cameras.${angle}`),
+            }))}
+            onValueChange={(value) => {
+              const camera = value as CameraAngle;
+              const counts = DIRECTION_COUNTS[camera];
+              // The chosen count may not exist for the new camera, so it falls
+              // back to one that does rather than staying invalid.
+              const directions = counts.includes(request.directions)
+                ? request.directions
+                : (counts[0] ?? 1);
+              patch({ camera, directions });
+            }}
+          />
+
+          <Select
+            label={t('parameters.directions')}
+            value={String(request.directions)}
+            options={DIRECTION_COUNTS[request.camera].map((count) => ({
+              value: String(count),
+              label: t('parameters.directionCount', { count }),
+            }))}
+            onValueChange={(value) => {
+              patch({ directions: Number(value) });
             }}
           />
 

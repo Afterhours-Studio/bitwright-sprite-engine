@@ -30,7 +30,17 @@
       "modern2d": "2D hiện đại",
       "classic": "Retro 16-bit",
       "isometric": "Góc nghiêng"
-    }
+    },
+    "camera": "Góc máy",
+    "cameras": {
+      "side": "Nhìn ngang",
+      "top_down": "Nhìn từ trên",
+      "isometric": "Góc nghiêng",
+      "front": "Nhìn thẳng"
+    },
+    "directions": "Số hướng",
+    "directionCount_other": "{{count}} hướng",
+    "directionCount_one": "{{count}} hướng"
   },
   "postprocess": {
     "title": "Hậu xử lý",

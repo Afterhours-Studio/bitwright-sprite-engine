@@ -30,7 +30,17 @@
       "modern2d": "Modern 2D",
       "classic": "Retro 16-bit",
       "isometric": "Isometric"
-    }
+    },
+    "camera": "Camera",
+    "cameras": {
+      "side": "Side View",
+      "top_down": "Top Down",
+      "isometric": "Isometric",
+      "front": "Front"
+    },
+    "directions": "Directions",
+    "directionCount_one": "{{count}} direction",
+    "directionCount_other": "{{count}} directions"
   },
   "postprocess": {
     "title": "Post-processing",
