@@ -109,7 +109,8 @@
       "fetchModels": "Lấy danh sách model",
       "fetching": "Đang lấy",
       "modelFetched": "Provider này đưa ra {{count}} model. Gõ để lọc, hoặc nhập tên nó không liệt kê.",
-      "modelEmpty": "Bấm lấy danh sách để chọn từ những model provider này có."
+      "modelEmpty": "Bấm lấy danh sách để chọn từ những model provider này có.",
+      "modelNoMatch": "Không model nào khớp. Xoá ô để xem toàn bộ."
     },
     "row": {
       "active": "Đang dùng",

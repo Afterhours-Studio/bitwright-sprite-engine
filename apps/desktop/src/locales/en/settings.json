@@ -109,7 +109,8 @@
       "fetchModels": "Fetch Models",
       "fetching": "Fetching",
       "modelFetched": "{{count}} models offered by this provider. Type to filter, or enter one it did not list.",
-      "modelEmpty": "Fetch the list to choose from what this provider offers."
+      "modelEmpty": "Fetch the list to choose from what this provider offers.",
+      "modelNoMatch": "No model matches that. Clear the field to see them all."
     },
     "row": {
       "active": "In use",

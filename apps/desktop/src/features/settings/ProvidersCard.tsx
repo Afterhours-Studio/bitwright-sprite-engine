@@ -18,7 +18,6 @@ import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/Button';
 import { ComboBox } from '@/components/ui/ComboBox';
-import { IconButton } from '@/components/ui/IconButton';
 import { testDraftProvider } from '@/lib/api';
 import { Card } from '@/components/ui/Card';
 import { Field, StatusDot, Toggle } from '@/components/ui/Field';
@@ -604,15 +603,21 @@ function ProviderEditor({ draft, presets, onChange, onClose }: ProviderEditorPro
                 onChange({ ...draft, apiKey: event.target.value });
               }}
               trailing={
-                <IconButton
-                  label={revealed ? t('providers.form.hide') : t('providers.form.reveal')}
+                // A bare icon rather than an IconButton: that carries a
+                // round plate for a control standing on its own, and inside a
+                // field it reads as a second control sitting on the first.
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  aria-label={revealed ? t('providers.form.hide') : t('providers.form.reveal')}
                   aria-pressed={revealed}
                   onClick={() => {
                     setRevealed((was) => !was);
                   }}
+                  className="flex h-8 w-8 items-center justify-center text-fg-secondary transition-colors hover:text-fg-primary"
                 >
                   <EyeIcon open={revealed} />
-                </IconButton>
+                </button>
               }
             />
           </div>
@@ -621,36 +626,39 @@ function ProviderEditor({ draft, presets, onChange, onClose }: ProviderEditorPro
         {/* Below the key, because it cannot be filled in until there is one:
             the list comes from the provider, and the provider will not answer
             without a credential. */}
-        <div className="flex items-end gap-2">
-          <ComboBox
-            className="flex-1"
-            label={t('providers.form.model')}
-            value={draft.model}
-            options={models}
-            placeholder={t('providers.form.modelPlaceholder')}
-            emptyHint={t('providers.form.modelEmpty')}
-            hint={
-              models.length > 0
-                ? t('providers.form.modelFetched', { count: models.length })
-                : t('providers.form.modelHint')
-            }
-            onValueChange={(value) => {
-              onChange({ ...draft, model: value });
-            }}
-          />
-          {/* On the field's own line: it fills the list that field offers, so
-              putting it on a line of its own read as an unrelated step. The
-              hint sits below both, which is what keeps them aligned. */}
-          <Button
-            variant="secondary"
-            className="mb-[1.125rem] shrink-0 px-3 py-2 text-xs"
-            disabled={fetching || draft.baseUrl.trim() === ''}
-            onClick={() => {
-              void fetchModels();
-            }}
-          >
-            {fetching ? t('providers.form.fetching') : t('providers.form.fetchModels')}
-          </Button>
+        {/* The hint belongs to the field but is rendered below the row: a
+            hint inside one column makes that column taller and drags the
+            button below the input it is meant to sit beside. */}
+        <div className="flex flex-col gap-1">
+          <div className="flex items-end gap-2">
+            <ComboBox
+              className="flex-1"
+              label={t('providers.form.model')}
+              value={draft.model}
+              options={models}
+              placeholder={t('providers.form.modelPlaceholder')}
+              emptyHint={t('providers.form.modelEmpty')}
+              noMatchHint={t('providers.form.modelNoMatch')}
+              onValueChange={(value) => {
+                onChange({ ...draft, model: value });
+              }}
+            />
+            <Button
+              variant="secondary"
+              className="shrink-0 px-3 py-2 text-xs"
+              disabled={fetching || draft.baseUrl.trim() === ''}
+              onClick={() => {
+                void fetchModels();
+              }}
+            >
+              {fetching ? t('providers.form.fetching') : t('providers.form.fetchModels')}
+            </Button>
+          </div>
+          <p className="text-xs text-fg-secondary">
+            {models.length > 0
+              ? t('providers.form.modelFetched', { count: models.length })
+              : t('providers.form.modelHint')}
+          </p>
         </div>
 
         <NumberField
