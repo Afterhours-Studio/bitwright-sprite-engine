@@ -13,10 +13,8 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+import type { ReactElement, ReactNode } from 'react';
 
-import type { ReactNode, ReactElement } from 'react';
-
-import { Sidebar } from '@/components/layout/Sidebar';
 import { StatusBar } from '@/components/layout/StatusBar';
 import { TitleBar } from '@/components/layout/TitleBar';
 
@@ -26,25 +24,25 @@ export interface AppShellProps {
 }
 
 /**
- * The window frame: title bar, sidebar, content, status bar.
+ * The window frame: a dark bezel, a title bar carrying the navigation, the
+ * content area, and a floating status pill.
  *
- * The elevation runs canvas at the back, surface-1 for the chrome, and
- * surface-2 for cards inside a screen.
+ * The bezel is what makes the window read as one object rather than as a
+ * browser pane, and it is where the rounded corners are drawn. Inside it the
+ * canvas is grey, and every text-bearing surface on that canvas is a card.
  *
- * The content area is painted with `bg-surface-content`, which is opaque in
- * every mode. The canvas token goes fully transparent when a background effect
- * is active, so a screen drawn straight onto it would put its text over the
- * user's wallpaper. Chrome is the only part that may be translucent.
+ * The status pill floats over the content rather than sitting in the layout,
+ * so the content area is given bottom padding to keep anything from ending up
+ * underneath it.
  */
 export function AppShell({ children }: AppShellProps): ReactElement {
   return (
-    <div className="flex h-full flex-col bg-surface-canvas text-fg-primary">
-      <TitleBar />
-      <div className="flex min-h-0 flex-1">
-        <Sidebar />
-        <main className="min-w-0 flex-1 overflow-auto bg-surface-content">{children}</main>
+    <div className="app-bezel h-full">
+      <div className="relative flex h-full flex-col overflow-hidden rounded-md bg-surface-canvas text-fg-primary">
+        <TitleBar />
+        <main className="min-h-0 flex-1 overflow-auto pb-12">{children}</main>
+        <StatusBar />
       </div>
-      <StatusBar />
     </div>
   );
 }

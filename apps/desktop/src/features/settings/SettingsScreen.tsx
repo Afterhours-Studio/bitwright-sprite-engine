@@ -13,7 +13,6 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-
 import type { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -57,7 +56,7 @@ export function SettingsScreen(): ReactElement {
           {models.map((model) => (
             <li
               key={model.modelId}
-              className="flex flex-col gap-1 rounded-sm border border-line-subtle bg-surface-sunken p-3"
+              className="flex flex-col gap-1 rounded-md border border-line bg-surface-content-alt p-3"
             >
               <div className="flex items-center justify-between gap-3">
                 <span className="text-sm font-medium text-fg-primary">{model.name}</span>

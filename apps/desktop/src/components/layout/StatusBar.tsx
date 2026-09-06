@@ -13,7 +13,6 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-
 import type { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -22,11 +21,12 @@ import { selectedBackend, useEngineStore } from '@/stores/useEngineStore';
 import { useGenerationStore } from '@/stores/useGenerationStore';
 
 /**
- * The dark bar along the bottom of the window.
+ * The floating status pill along the bottom of the window.
  *
- * It uses the anchor token, the one large dark area in light mode. Without it
+ * It uses the anchor surface, the one large dark area in light mode, and it
+ * floats clear of the edges rather than spanning them. Without a dark anchor
  * the interface floats: every surface is light, and nothing gives the eye a
- * base to read the elevation against.
+ * base to read the rest against.
  */
 export function StatusBar(): ReactElement {
   const { t } = useTranslation();
@@ -52,27 +52,27 @@ export function StatusBar(): ReactElement {
       : t('status.offline');
 
   return (
-    <footer className="flex h-statusbar shrink-0 items-center justify-between gap-4 bg-anchor px-4 text-xs text-anchor-fg">
-      <div className="flex items-center gap-4">
-        <span>
+    <footer className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
+      <div className="pointer-events-auto flex max-w-[90%] items-center gap-4 rounded-pill bg-surface-anchor px-5 py-2 text-xs text-fg-on-anchor shadow-lg">
+        <span className="whitespace-nowrap">
           {t('status.backend')}
           {': '}
           {backend === null ? t('status.offline') : tSettings(`engine.${backend.kind}`)}
         </span>
-        {backend !== null && backend.device !== '' && (
-          <span className="truncate">{backend.device}</span>
-        )}
-        <span>{engineState}</span>
-      </div>
 
-      <div className="flex items-center gap-4">
-        {running && <span>{t('status.working')}</span>}
+        <span aria-hidden="true" className="h-3 w-px bg-line-strong" />
+
+        <span className="whitespace-nowrap">{engineState}</span>
+
+        {running && <span className="whitespace-nowrap">{t('status.working')}</span>}
+
         {!running && durationMs > 0 && (
-          <span>
+          <span className="whitespace-nowrap">
             {durationMs}
             {t('units.milliseconds')}
           </span>
         )}
+
         {message !== null && <span className="truncate">{message}</span>}
       </div>
     </footer>

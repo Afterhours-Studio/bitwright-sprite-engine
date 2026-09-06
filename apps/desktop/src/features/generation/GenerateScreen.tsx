@@ -13,16 +13,15 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-
 import type { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/Button';
 import { TextAreaField } from '@/components/ui/Field';
-import { useCapabilities } from '@/hooks/useCapabilities';
-import { useErrorMessage } from '@/hooks/useErrorMessage';
 import { ParameterPanel } from '@/features/generation/ParameterPanel';
 import { SpriteCanvas } from '@/features/generation/SpriteCanvas';
+import { useCapabilities } from '@/hooks/useCapabilities';
+import { useErrorMessage } from '@/hooks/useErrorMessage';
 import { useGenerationStore } from '@/stores/useGenerationStore';
 
 /** The generate screen: prompt and canvas on the left, parameters on the right. */
@@ -44,8 +43,8 @@ export function GenerateScreen(): ReactElement {
   const canGenerate = ready && !running && request.prompt.trim() !== '';
 
   return (
-    <div className="flex h-full">
-      <section className="flex min-w-0 flex-1 flex-col gap-4 p-4">
+    <div className="flex h-full gap-4 p-4">
+      <section className="flex min-w-0 flex-1 flex-col gap-4">
         <header>
           <h1 className="text-base font-semibold text-fg-primary">{t('title')}</h1>
           <p className="text-xs text-fg-secondary">{t('subtitle')}</p>
@@ -53,7 +52,7 @@ export function GenerateScreen(): ReactElement {
 
         <SpriteCanvas images={images} />
 
-        <div className="flex flex-col gap-3 rounded-md border border-line-subtle bg-surface-2 p-4 shadow-sm">
+        <div className="flex flex-col gap-3 rounded-lg border border-line-subtle bg-surface-content p-4 shadow-sm">
           <TextAreaField
             label={t('prompt.label')}
             value={request.prompt}

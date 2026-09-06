@@ -13,21 +13,29 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-
 import type { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { cn } from '@/lib/cn';
+import { IconButton } from '@/components/ui/IconButton';
+import { Pill } from '@/components/ui/Pill';
 import { useWindowControls } from '@/hooks/useWindowControls';
-import { useShellStore } from '@/stores/useShellStore';
+import { cn } from '@/lib/cn';
+import { useShellStore, type Screen } from '@/stores/useShellStore';
+
+const SCREENS: readonly Screen[] = ['generate', 'gallery', 'settings'];
 
 /**
- * The window's own title bar, drawn because the system decorations are off.
+ * The window's own title bar, drawn because the system decorations are off, and
+ * carrying the primary navigation.
+ *
+ * The navigation is a horizontal row of pills here rather than a vertical rail
+ * down the side. Three screens do not justify a permanent column, and putting
+ * them in the title bar gives the whole width back to the content.
  *
  * Platforms differ in ways that cannot be papered over:
  *
  *   macOS   The system draws the traffic lights over the top left of the
- *           client area. We draw no buttons, and leave room for its through
+ *           client area. We draw no buttons, and leave room for them through
  *           the `--titlebar-inset-start` token, set by `[data-platform]`.
  *   Windows Nothing is drawn for us. We draw minimize, maximize, and close on
  *           the right, in that order, and the close button takes the system
@@ -41,6 +49,10 @@ import { useShellStore } from '@/stores/useShellStore';
 export function TitleBar(): ReactElement {
   const { t } = useTranslation();
   const platform = useShellStore((state) => state.platform);
+  const screen = useShellStore((state) => state.screen);
+  const setScreen = useShellStore((state) => state.setScreen);
+  const theme = useShellStore((state) => state.theme);
+  const toggleTheme = useShellStore((state) => state.toggleTheme);
   const { maximized, minimize, toggleMaximize, close } = useWindowControls();
 
   const systemControls = platform?.systemWindowControls ?? false;
@@ -51,91 +63,104 @@ export function TitleBar(): ReactElement {
       onDoubleClick={() => {
         void toggleMaximize();
       }}
-      className={cn(
-        'flex h-titlebar shrink-0 select-none items-center justify-between',
-        'border-b border-line-subtle bg-surface-1 pe-2',
-      )}
+      className="flex h-titlebar shrink-0 select-none items-center gap-4 px-3"
       style={{ paddingInlineStart: 'var(--titlebar-inset-start)' }}
     >
-      <div data-tauri-drag-region className="flex items-center gap-2 ps-3">
-        <span data-tauri-drag-region className="text-xs font-semibold text-fg-primary">
+      <div data-tauri-drag-region className="flex shrink-0 items-center gap-2 ps-1">
+        <span data-tauri-drag-region className="text-sm font-semibold text-fg-primary">
           {t('app.name')}
         </span>
-        <span data-tauri-drag-region className="text-xs text-fg-secondary">
+        <span data-tauri-drag-region className="hidden text-xs text-fg-secondary sm:inline">
           {t('app.tagline')}
         </span>
       </div>
 
-      {!systemControls && (
-        <div className="no-drag flex items-center">
-          <WindowButton label={t('window.minimize')} onClick={minimize}>
-            <svg viewBox="0 0 10 10" className="h-2.5 w-2.5" aria-hidden="true">
-              <path d="M0 5h10" stroke="currentColor" strokeWidth="1" />
-            </svg>
-          </WindowButton>
-
-          <WindowButton
-            label={maximized ? t('window.restore') : t('window.maximize')}
-            onClick={toggleMaximize}
+      <nav aria-label={t('app.name')} className="no-drag flex flex-1 justify-center gap-2">
+        {SCREENS.map((item) => (
+          <Pill
+            key={item}
+            active={screen === item}
+            onClick={() => {
+              setScreen(item);
+            }}
           >
-            <svg viewBox="0 0 10 10" className="h-2.5 w-2.5" aria-hidden="true">
-              <rect
-                x="0.5"
-                y="0.5"
-                width="9"
-                height="9"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1"
-              />
-            </svg>
-          </WindowButton>
+            {t(`nav.${item}`)}
+          </Pill>
+        ))}
+      </nav>
 
-          <WindowButton label={t('window.close')} onClick={close} danger>
-            <svg viewBox="0 0 10 10" className="h-2.5 w-2.5" aria-hidden="true">
-              <path d="M0 0l10 10M10 0L0 10" stroke="currentColor" strokeWidth="1" />
-            </svg>
-          </WindowButton>
-        </div>
-      )}
+      <div className="no-drag flex shrink-0 items-center gap-2">
+        <IconButton
+          label={t('theme.toggle')}
+          onClick={() => {
+            toggleTheme();
+          }}
+        >
+          {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+        </IconButton>
+
+        {!systemControls && (
+          <>
+            <IconButton label={t('window.minimize')} onClick={() => void minimize()}>
+              <svg viewBox="0 0 10 10" className="h-2.5 w-2.5" aria-hidden="true">
+                <path d="M0 5h10" stroke="currentColor" strokeWidth="1" />
+              </svg>
+            </IconButton>
+
+            <IconButton
+              label={maximized ? t('window.restore') : t('window.maximize')}
+              onClick={() => void toggleMaximize()}
+            >
+              <svg viewBox="0 0 10 10" className="h-2.5 w-2.5" aria-hidden="true">
+                <rect
+                  x="0.5"
+                  y="0.5"
+                  width="9"
+                  height="9"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1"
+                />
+              </svg>
+            </IconButton>
+
+            <IconButton label={t('window.close')} danger onClick={() => void close()}>
+              <svg viewBox="0 0 10 10" className="h-2.5 w-2.5" aria-hidden="true">
+                <path d="M0 0l10 10M10 0L0 10" stroke="currentColor" strokeWidth="1" />
+              </svg>
+            </IconButton>
+          </>
+        )}
+      </div>
     </header>
   );
 }
 
-interface WindowButtonProps {
-  /** Accessible name. Always a translated string. */
-  label: string;
-  /** Whether this is the close button, which hovers red. */
-  danger?: boolean;
-  /** The icon. */
-  children: ReactElement;
-  /** Called on click. */
-  onClick: () => Promise<void> | void;
+/** Shown while the dark theme is active, because it switches to light. */
+function SunIcon(): ReactElement {
+  return (
+    <svg viewBox="0 0 16 16" className={cn('h-4 w-4')} aria-hidden="true" fill="none">
+      <circle cx="8" cy="8" r="3.2" stroke="currentColor" strokeWidth="1.3" />
+      <path
+        d="M8 1v2M8 13v2M1 8h2M13 8h2M3.2 3.2l1.4 1.4M11.4 11.4l1.4 1.4M12.8 3.2l-1.4 1.4M4.6 11.4l-1.4 1.4"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
 }
 
-/** One of the window buttons drawn on Windows and Linux. */
-function WindowButton({
-  label,
-  danger = false,
-  children,
-  onClick,
-}: WindowButtonProps): ReactElement {
+/** Shown while the light theme is active, because it switches to dark. */
+function MoonIcon(): ReactElement {
   return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={() => {
-        void onClick();
-      }}
-      className={cn(
-        'flex h-titlebar w-11 items-center justify-center text-fg-secondary transition-colors',
-        danger
-          ? 'hover:bg-danger hover:text-danger-fg'
-          : 'hover:bg-surface-2 hover:text-fg-primary',
-      )}
-    >
-      {children}
-    </button>
+    <svg viewBox="0 0 16 16" className={cn('h-4 w-4')} aria-hidden="true" fill="none">
+      <path
+        d="M13.5 9.5A5.8 5.8 0 0 1 6.5 2.5a5.8 5.8 0 1 0 7 7Z"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }

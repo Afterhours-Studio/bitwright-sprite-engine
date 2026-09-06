@@ -13,28 +13,46 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-import type { ButtonHTMLAttributes, ReactNode, ReactElement } from 'react';
+import type { ButtonHTMLAttributes, ReactElement, ReactNode } from 'react';
 
 import { cn } from '@/lib/cn';
+
+/**
+ * How an active pill is marked.
+ *
+ * Two levels, because the interface has two levels of pill row. Primary
+ * navigation takes the accent, so that exactly one thing on screen is yellow.
+ * A secondary row of filters takes the anchor colour instead, which reads as
+ * selected without competing with the navigation for attention.
+ */
+export type PillTone = 'accent' | 'anchor';
 
 export interface PillProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /** Whether this pill is the current choice. */
   active?: boolean;
+  /** How the active state is marked. */
+  tone?: PillTone;
   /** Optional leading element, such as a status dot. */
   leading?: ReactNode;
   /** Label. Always a translated string. */
   children: ReactNode;
 }
 
+const ACTIVE: Record<PillTone, string> = {
+  accent: 'bg-accent text-accent-fg',
+  anchor: 'bg-surface-anchor text-fg-on-anchor',
+};
+
 /**
  * A pill shaped toggle, used for navigation and for filters.
  *
- * The active state is the one place the accent colour appears in bulk. Keeping
- * it rare is what makes it read as a state rather than as decoration.
+ * Sized to its content. A caller that wants a full-width pill passes `w-full`;
+ * the reverse does not work, because two width utilities have equal specificity
+ * and Tailwind's own emission order decides the winner.
  */
 export function Pill({
   active = false,
+  tone = 'accent',
   leading,
   className,
   disabled,
@@ -47,14 +65,13 @@ export function Pill({
       aria-pressed={active}
       disabled={disabled}
       className={cn(
-        // Sized to its content. A caller that wants a full-width pill passes
-        // `w-full`; the reverse does not work, because two width utilities
-        // have equal specificity and Tailwind's own order decides the winner.
         'inline-flex items-center gap-2 rounded-pill px-4 py-2',
         'text-left text-sm font-medium transition-colors',
         disabled && 'cursor-not-allowed bg-surface-disabled text-fg-muted',
-        !disabled && active && 'bg-accent text-accent-fg',
-        !disabled && !active && 'bg-transparent text-fg-secondary hover:bg-surface-2',
+        !disabled && active && ACTIVE[tone],
+        !disabled &&
+          !active &&
+          'bg-surface-content text-fg-secondary shadow-sm hover:text-fg-primary',
         className,
       )}
       {...rest}

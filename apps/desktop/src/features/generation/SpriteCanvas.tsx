@@ -13,7 +13,6 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-
 import type { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -28,9 +27,10 @@ export interface SpriteCanvasProps {
 /**
  * The main viewing area.
  *
- * The checkerboard sits on the sunken token, one step below the canvas. That
- * inversion is deliberate: a well reads as a place where content lives, and
- * the pattern is what makes transparent pixels legible as transparent.
+ * The checkerboard sits on the well surface, which is decorative and carries no
+ * text of its own. It is wrapped in a content card, so the well is nested
+ * inside a text-bearing surface rather than sitting straight on the canvas;
+ * that is the adjacency the token file declares.
  *
  * Sprites are scaled with nearest neighbour, because smoothing a 64 pixel
  * sprite up to display size destroys the thing being made.
@@ -39,24 +39,26 @@ export function SpriteCanvas({ images }: SpriteCanvasProps): ReactElement {
   const { t } = useTranslation('generation');
 
   return (
-    <div className="sprite-checkerboard flex min-h-64 flex-1 items-center justify-center gap-4 rounded-md border border-line-subtle p-6">
-      {images.length === 0 ? (
-        <div className="rounded-sm bg-surface-2 px-4 py-3 text-center">
-          <p className="text-sm text-fg-primary">{t('canvas.empty')}</p>
-          <p className="mt-1 text-xs text-fg-secondary">{t('canvas.hint')}</p>
-        </div>
-      ) : (
-        images.map((image, index) => (
-          <img
-            key={`${index}-${image.width}x${image.height}`}
-            src={toDataUrl(image.data)}
-            width={image.width}
-            height={image.height}
-            alt={t('title')}
-            style={{ imageRendering: 'pixelated', width: 256, height: 'auto' }}
-          />
-        ))
-      )}
+    <div className="flex min-h-0 flex-1 flex-col rounded-lg border border-line-subtle bg-surface-content p-2 shadow-sm">
+      <div className="sprite-checkerboard flex min-h-64 flex-1 items-center justify-center gap-4 rounded-md p-6">
+        {images.length === 0 ? (
+          <div className="rounded-md border border-line-subtle bg-surface-content px-4 py-3 text-center shadow-sm">
+            <p className="text-sm text-fg-primary">{t('canvas.empty')}</p>
+            <p className="mt-1 text-xs text-fg-secondary">{t('canvas.hint')}</p>
+          </div>
+        ) : (
+          images.map((image, index) => (
+            <img
+              key={`${index}-${image.width}x${image.height}`}
+              src={toDataUrl(image.data)}
+              width={image.width}
+              height={image.height}
+              alt={t('title')}
+              style={{ imageRendering: 'pixelated', width: 256, height: 'auto' }}
+            />
+          ))
+        )}
+      </div>
     </div>
   );
 }

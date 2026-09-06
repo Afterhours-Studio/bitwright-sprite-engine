@@ -13,12 +13,11 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-
 import type { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Pill } from '@/components/ui/Pill';
 import { StatusDot } from '@/components/ui/Field';
+import { Pill } from '@/components/ui/Pill';
 import { useErrorMessage } from '@/hooks/useErrorMessage';
 import { useEngineStore } from '@/stores/useEngineStore';
 import type { BackendInfo } from '@/types/engine';
@@ -28,8 +27,13 @@ import type { BackendInfo } from '@/types/engine';
  *
  * Every engine is listed, available or not. An unavailable one is disabled and
  * shows the translated reason, so the user learns that they need a driver
- * rather than that the button does nothing. Disabled styling comes from the
- * disabled surface and the muted text token, never from opacity.
+ * rather than that the button does nothing. The reason is secondary text and is
+ * held to 4.5:1, because it is the thing the user has to read in order to fix
+ * the problem.
+ *
+ * Each row is a card nested inside the Engine card, so it uses the alt surface
+ * and a full-strength border: in light mode both are near white, and the border
+ * is what separates them.
  */
 export function EngineSelector(): ReactElement {
   const { t } = useTranslation('settings');
@@ -47,7 +51,7 @@ export function EngineSelector(): ReactElement {
         return (
           <li
             key={backend.kind}
-            className="flex flex-col gap-2 rounded-sm border border-line-subtle bg-surface-sunken p-3"
+            className="flex flex-col gap-2 rounded-md border border-line bg-surface-content-alt p-3"
           >
             <div className="flex items-center justify-between gap-3">
               <StatusDot
@@ -61,6 +65,7 @@ export function EngineSelector(): ReactElement {
 
               <Pill
                 className="shrink-0"
+                tone="anchor"
                 active={backend.selected}
                 disabled={!backend.available || loading}
                 onClick={() => {

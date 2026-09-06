@@ -13,20 +13,22 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-import { useId, type InputHTMLAttributes, type ReactNode } from 'react';
-import type { ReactElement } from 'react';
+import { useId, type InputHTMLAttributes, type ReactElement, type ReactNode } from 'react';
 
 import { cn } from '@/lib/cn';
 
-/** Inputs are sunken, one step below the surface they sit on, which is what
- *  makes them read as something to type into rather than something to press. */
+/**
+ * Inputs move away from the text colour: white in light mode, near black in
+ * dark. In light mode the field is the same white as the card it sits on, so
+ * its border is what separates the two, which is why it uses the stronger
+ * input border rather than the subtle one.
+ */
 const CONTROL = cn(
-  'w-full rounded-sm border border-line-subtle bg-surface-sunken px-3 py-2',
+  'w-full rounded-sm border border-line-input bg-surface-input px-3 py-2',
   'text-sm text-fg-primary transition-colors',
-  // A placeholder is read, so it is secondary rather than muted.
-  'placeholder:text-fg-secondary',
-  'disabled:cursor-not-allowed disabled:bg-surface-disabled disabled:text-fg-muted',
+  'placeholder:text-fg-placeholder',
+  'focus:border-line-focus',
+  'disabled:cursor-not-allowed disabled:border-line-subtle disabled:bg-surface-disabled disabled:text-fg-muted',
 );
 
 export interface FieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'id'> {
@@ -132,9 +134,10 @@ export function Toggle({
             onCheckedChange(!checked);
           }}
           className={cn(
-            'h-5 w-9 shrink-0 rounded-pill border border-line-subtle p-0.5 transition-colors',
-            disabled && 'cursor-not-allowed bg-surface-disabled',
-            !disabled && (checked ? 'bg-accent' : 'bg-surface-sunken'),
+            'h-5 w-9 shrink-0 rounded-pill border p-0.5 transition-colors',
+            disabled && 'cursor-not-allowed border-line-subtle bg-surface-disabled',
+            !disabled && checked && 'border-transparent bg-accent',
+            !disabled && !checked && 'border-line-input bg-surface-input',
           )}
         >
           <span
@@ -180,7 +183,10 @@ export function SelectField({
   const id = useId();
   return (
     <div className={cn('flex flex-col gap-1', className)}>
-      <label htmlFor={id} className="text-xs font-medium text-fg-secondary">
+      <label
+        htmlFor={id}
+        className={cn('text-xs font-medium', disabled ? 'text-fg-muted' : 'text-fg-secondary')}
+      >
         {label}
       </label>
       <select
@@ -208,7 +214,7 @@ export interface StatusDotProps {
   tone: 'ready' | 'busy' | 'off';
   /** Accessible description. Always a translated string. */
   label: string;
-  /** Extra classes for layout only, never colour. */
+  /** Content shown beside the dot. */
   children?: ReactNode;
 }
 
@@ -219,10 +225,10 @@ export function StatusDot({ tone, label, children }: StatusDotProps): ReactEleme
       <span
         aria-hidden="true"
         className={cn(
-          'h-2 w-2 rounded-full',
+          'h-2 w-2 shrink-0 rounded-full',
           tone === 'ready' && 'bg-accent',
           tone === 'busy' && 'bg-fg-secondary',
-          tone === 'off' && 'bg-fg-secondary',
+          tone === 'off' && 'bg-fg-muted',
         )}
       />
       <span className="sr-only">{label}</span>

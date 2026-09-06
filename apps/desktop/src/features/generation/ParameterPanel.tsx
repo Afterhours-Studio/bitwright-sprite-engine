@@ -13,7 +13,6 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-
 import type { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -24,11 +23,13 @@ import { useEngineStore } from '@/stores/useEngineStore';
 import { useGenerationStore } from '@/stores/useGenerationStore';
 
 /**
- * The right hand panel of parameters.
+ * The right hand column of parameters.
  *
- * Each group is a card on surface-2, sitting on the panel's surface-1. Controls
- * whose capability the selected engine lacks are disabled here, with the reason
- * shown as a hint, so the user never presses generate only to be told no.
+ * Each group is a card on the canvas rather than a panel with cards inside it.
+ * Controls whose capability the selected engine lacks are disabled here, with
+ * the reason shown as a hint, so the user never presses generate only to be
+ * told no. The reason is secondary text, not muted: it is information the user
+ * has to act on.
  */
 export function ParameterPanel(): ReactElement {
   const { t } = useTranslation('generation');
@@ -46,7 +47,7 @@ export function ParameterPanel(): ReactElement {
   const loraModels = models.filter((model) => model.kind === 'lora');
 
   return (
-    <aside className="flex w-80 shrink-0 flex-col gap-3 overflow-auto border-s border-line-subtle bg-surface-1 p-3">
+    <aside className="flex w-80 shrink-0 flex-col gap-4 overflow-auto pe-1">
       <Card title={t('parameters.title')}>
         <div className="flex flex-col gap-3">
           <div className="grid grid-cols-2 gap-3">
