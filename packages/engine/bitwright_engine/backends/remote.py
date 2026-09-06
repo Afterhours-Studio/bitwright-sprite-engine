@@ -38,9 +38,14 @@ Afterhours Studio.
 
 from __future__ import annotations
 
+import base64
+import io
 import random
 import time
 from dataclasses import dataclass
+
+import httpx
+from PIL import Image
 
 from bitwright_engine.backends.base import (
     Availability,
@@ -52,17 +57,26 @@ from bitwright_engine.backends.base import (
     GenerationRequest,
     GenerationResult,
 )
+from bitwright_engine.backends.pipeline import reduce_to
 from bitwright_engine.config import Settings, get_settings
 from bitwright_engine.providers import codes
 from bitwright_engine.providers.catalogue import AuthScheme, ProviderKind
-from bitwright_engine.providers.records import ProviderConfig, ProviderError, normalise_base_url
+from bitwright_engine.providers.records import (
+    ProviderConfig,
+    ProviderError,
+    join_url,
+    normalise_base_url,
+)
 from bitwright_engine.providers.store import ProviderStore, get_provider_store
-from bitwright_engine.utils.images import placeholder, to_png_bytes
+from bitwright_engine.utils.images import to_png_bytes
 from bitwright_engine.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
 CAPABILITIES = frozenset({Capability.BATCH})
+
+OFFERED_SIZES: tuple[int, ...] = (256, 512, 1024, 1536, 2048)
+"""Square sizes an image API is likely to accept, smallest first."""
 
 ENVIRONMENT_PROVIDER_ID = "environment"
 """Identifier of the synthetic provider built from environment settings.
@@ -207,22 +221,25 @@ class RemoteBackend(BaseBackend):
         return CAPABILITIES
 
     def _run(self, request: GenerationRequest) -> GenerationResult:
-        """Produce placeholder images for a validated request.
+        """Ask the active provider for the sprites.
 
-        A real implementation posts to ``{base_url}/images/generations`` with
-        the headers :meth:`ProviderConfig.headers` builds, and decodes the
-        returned images. The scaffold resolves the provider exactly as that
-        implementation would, so the swap touches only the request itself.
+        The request is the OpenAI image shape, because that is the contract
+        every preset and every custom endpoint here is documented against.
 
-        The log line names the provider and the endpoint. It never names the
-        credential, and the credential is never read on this path at all,
-        because nothing here sends a request yet.
+        The provider is asked for a square that is large enough to draw, not
+        for the sprite's own size: an image API refuses sizes it does not
+        offer, and a model asked for 64 pixels returns mush anyway. The result
+        is brought down here, the same way the local backends bring theirs
+        down.
 
         Args:
             request: Generation parameters, known to be supported.
 
         Returns:
-            One placeholder image per requested batch item.
+            One image per requested batch item.
+
+        Raises:
+            RemoteBackendError: No provider is usable, or the endpoint refused.
         """
         started = time.monotonic()
         base_seed = request.seed if request.seed is not None else random.randrange(2**31)
@@ -231,23 +248,112 @@ class RemoteBackend(BaseBackend):
         if resolved.config is None:
             raise RemoteBackendError(resolved.detail or codes.REQUEST_FAILED)
 
+        config = resolved.config
+        model = config.model or request.model_id
         logger.info(
             "remote generate: provider=%s endpoint=%s model=%s batch=%d",
-            resolved.config.name,
-            resolved.config.base_url,
-            resolved.config.model or request.model_id,
+            config.name,
+            config.base_url,
+            model,
             request.batch_size,
         )
 
+        api_key = self._providers.api_key(config.provider_id)
+        url = join_url(config.base_url, "images/generations")
+        size = _request_size(request.width, request.height)
+
+        payload = {
+            "model": model,
+            "prompt": request.prompt,
+            "n": request.batch_size,
+            "size": size,
+            "response_format": "b64_json",
+        }
+
+        try:
+            with httpx.Client(timeout=config.timeout_s, follow_redirects=False) as client:
+                response = client.post(url, json=payload, headers=config.headers(api_key))
+        except httpx.HTTPError as error:
+            raise RemoteBackendError(codes.REQUEST_FAILED) from error
+
+        if response.is_error:
+            # The provider's own message is not carried through: some echo the
+            # offending key back in it.
+            logger.warning("remote generate refused with HTTP %d", response.status_code)
+            raise RemoteBackendError(codes.REQUEST_FAILED)
+
+        try:
+            entries = response.json()["data"]
+        except (ValueError, KeyError, TypeError) as error:
+            raise RemoteBackendError(codes.UNEXPECTED_SHAPE) from error
+
         images = [
             GeneratedImage(
-                data=to_png_bytes(placeholder(request.width, request.height, base_seed + index)),
+                data=to_png_bytes(
+                    reduce_to(decoded, request.width, request.height),
+                ),
                 width=request.width,
                 height=request.height,
                 seed=base_seed + index,
             )
-            for index in range(request.batch_size)
+            for index, decoded in enumerate(_decode(entries))
         ]
+
+        if not images:
+            raise RemoteBackendError(codes.UNEXPECTED_SHAPE)
 
         elapsed_ms = int((time.monotonic() - started) * 1000)
         return GenerationResult(images=images, backend=self.kind, duration_ms=elapsed_ms)
+
+
+def _request_size(width: int, height: int) -> str:
+    """Return the size to ask a provider for.
+
+    An image API offers a fixed set of sizes and refuses the rest, and a sprite
+    is asked for far below any of them. The nearest offered square that is at
+    least as large is requested and the result reduced afterwards, which is the
+    same bargain the local backends make.
+
+    Args:
+        width: Sprite width.
+        height: Sprite height.
+
+    Returns:
+        A size string, such as ``1024x1024``.
+    """
+    wanted = max(width, height)
+    for offered in OFFERED_SIZES:
+        if offered >= wanted:
+            return f"{offered}x{offered}"
+    return f"{OFFERED_SIZES[-1]}x{OFFERED_SIZES[-1]}"
+
+
+def _decode(entries: object) -> list[Image.Image]:
+    """Read the images out of an OpenAI image response.
+
+    Both forms are accepted: base64 in the body, and a URL to fetch. Only the
+    first is decoded here - following a URL would be a second request to a host
+    the provider named, which is the same reason redirects are refused.
+
+    Args:
+        entries: The ``data`` array from the response.
+
+    Returns:
+        The decoded images, skipping anything that is not one.
+    """
+    if not isinstance(entries, list):
+        return []
+
+    images: list[Image.Image] = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        encoded = entry.get("b64_json")
+        if not isinstance(encoded, str) or not encoded:
+            continue
+        try:
+            images.append(Image.open(io.BytesIO(base64.b64decode(encoded))).convert("RGBA"))
+        except (ValueError, OSError):
+            logger.warning("a returned image could not be decoded")
+
+    return images

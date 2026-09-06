@@ -23,7 +23,6 @@ reaches the network.
 
 from __future__ import annotations
 
-import base64
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -148,17 +147,17 @@ def test_selecting_an_unavailable_backend_reports_a_reason_code(client: TestClie
     assert response.json()["detail"] == unavailable["detail"]
 
 
-def test_generate_returns_png_data(client: TestClient) -> None:
+def test_generate_refuses_when_no_provider_is_configured(client: TestClient) -> None:
+    # The remote backend reaches a provider now rather than drawing a
+    # placeholder, so with nothing configured it refuses instead of answering
+    # with an image that was never generated. Answering 200 here is what let a
+    # checkerboard reach the canvas and be taken for a broken renderer.
     response = client.post(
         "/v1/generate",
         json={"prompt": "a knight", "width": 16, "height": 16, "seed": 3},
     )
-    assert response.status_code == 200
-
-    body = response.json()
-    assert body["backend"] == "remote"
-    assert len(body["images"]) == 1
-    assert base64.b64decode(body["images"][0]["data"])[:8] == b"\x89PNG\r\n\x1a\n"
+    assert response.status_code == 503
+    assert response.json()["code"].startswith("backend.remote.")
 
 
 def test_generate_rejects_a_batch_the_backend_cannot_serve(client: TestClient) -> None:
