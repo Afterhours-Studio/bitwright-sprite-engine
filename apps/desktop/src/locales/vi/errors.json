@@ -53,7 +53,8 @@
       "unexpected_shape": "Có phản hồi, nhưng không phải danh sách model tương thích OpenAI. Hãy kiểm tra URL gốc trỏ tới API chứ không phải một trang web.",
       "unknown_preset": "Phiên bản này không biết nhà cung cấp đó. Hãy dùng endpoint tự nhập thay thế.",
       "unreachable": "Không kết nối được tới máy chủ đó. Hãy kiểm tra URL gốc và kết nối mạng."
-    }
+    },
+    "adapter_unsupported": "Bộ chạy GPU đang thiếu gói cần cho bộ điều chỉnh phong cách. Hãy cài gói còn thiếu trong Cài đặt rồi khởi động lại."
   },
   "models": {
     "download_failed": "Không tải được model.",

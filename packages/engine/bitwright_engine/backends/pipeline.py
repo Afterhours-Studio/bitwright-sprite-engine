@@ -39,12 +39,20 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from bitwright_engine.backends.base import BackendError
 from bitwright_engine.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from PIL import Image
 
 logger = get_logger(__name__)
+
+
+class AdapterUnsupportedError(BackendError):
+    """Raised when a style adapter cannot be fused into the pipeline."""
+
+    code = "backend.adapter_unsupported"
+
 
 MIN_DIMENSION = 512
 """Shortest edge a request is generated at, before it is scaled back down.
@@ -152,7 +160,14 @@ def load(weights: Path, lora: Path | None, device: str) -> Any:  # noqa: ANN401
     )
 
     if lora is not None:
-        pipeline.load_lora_weights(str(lora))
+        try:
+            pipeline.load_lora_weights(str(lora))
+        except (ValueError, ImportError) as error:
+            # Fusing an adapter goes through peft, which is part of the runtime
+            # rather than of diffusers. Without it the library refuses the call
+            # with a message about a backend the user has never heard of, so
+            # the remedy is named here instead.
+            raise AdapterUnsupportedError(str(error)) from error
 
     return pipeline.to(device)
 

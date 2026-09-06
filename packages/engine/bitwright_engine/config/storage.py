@@ -44,6 +44,9 @@ from bitwright_engine.utils.logging import get_logger
 logger = get_logger(__name__)
 
 MODELS_DIRNAME = "models"
+
+SPRITES_DIRNAME = "sprites"
+"""Directory under the data root that generated sprites are written to."""
 """Subdirectory of the data root that holds downloaded weights."""
 
 PROBE_PREFIX = ".bitwright-write-probe-"

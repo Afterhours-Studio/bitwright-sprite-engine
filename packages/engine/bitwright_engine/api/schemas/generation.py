@@ -128,11 +128,14 @@ class SpriteImage(CamelModel):
         data: PNG bytes, base64 encoded, without a data URL prefix.
         width: Image width in pixels.
         height: Image height in pixels.
+        path: Where the sprite was written, or an empty string when it could
+            not be.
     """
 
     data: str
     width: int
     height: int
+    path: str = ""
 
 
 class GenerateResponse(CamelModel):

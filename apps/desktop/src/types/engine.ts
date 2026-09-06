@@ -325,6 +325,8 @@ export interface GenerateRequest {
 
 /** One generated sprite. */
 export interface SpriteImage {
+  /** Where the sprite was written, or an empty string when it could not be. */
+  path: string;
   /** PNG bytes, base64 encoded, with no data URL prefix. */
   data: string;
   width: number;

@@ -32,7 +32,7 @@ from pathlib import Path
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from bitwright_engine.config.storage import MODELS_DIRNAME
+from bitwright_engine.config.storage import MODELS_DIRNAME, SPRITES_DIRNAME
 
 APP_ID = "studio.afterhours.bitwright"
 
@@ -81,6 +81,8 @@ class Settings(BaseSettings):
         remote_timeout_s: Request timeout for the remote endpoint, in seconds.
         data_root: Directory that holds everything this application downloads.
             The one setting the user moves when their system drive is full.
+        sprites_dir: Directory generated sprites are written to. Derived from
+            ``data_root``, so it follows the location the user chose.
         cache_dir: Directory that holds downloaded model weights. Derived from
             ``data_root`` unless it is set explicitly, which keeps the older
             ``BITWRIGHT_CACHE_DIR`` override working.
@@ -106,6 +108,21 @@ class Settings(BaseSettings):
 
     data_root: Path = Field(default_factory=default_data_root)
     cache_dir: Path = Field(default_factory=default_cache_dir)
+
+    @property
+    def sprites_dir(self) -> Path:
+        """Return where generated sprites are written.
+
+        Derived rather than stored, so moving the data root moves this with
+        it. A sprite is small, but it is what the user came for, and
+        writing it beside gigabytes of weights they deliberately placed is
+        less surprising than putting it somewhere they did not choose.
+
+        Returns:
+            The directory. It may not exist yet.
+        """
+        return self.data_root / SPRITES_DIRNAME
+
     allow_downloads: bool = True
 
     @model_validator(mode="after")
