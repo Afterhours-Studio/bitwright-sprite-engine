@@ -386,6 +386,93 @@ fn is_plain_identifier(value: &str) -> bool {
         })
 }
 
+/// The runtime builds the engine knows how to install.
+///
+/// `auto` is not a build: it asks the engine to pick whichever suits the GPU
+/// this shell probed for.
+const RUNTIME_ACCELERATORS: [&str; 4] = ["auto", "cuda", "mps", "cpu"];
+
+/// Reports whether the GPU runtime is installed, and what installing it costs.
+///
+/// The GPU probe runs here rather than in the engine. It is the shell that
+/// already knows how to ask the driver, and it does so without loading any
+/// machine learning framework, so the answer is passed along instead of being
+/// worked out a second time on the Python side.
+///
+/// # Errors
+///
+/// Returns the engine's reason code when the call fails.
+#[tauri::command]
+pub async fn engine_runtime_info<R: Runtime>(app: AppHandle<R>) -> Result<Value, CommandError> {
+    let path = format!("/v1/runtime?gpu={}", probed_gpu_kind());
+    Ok(engine::call(&app, Method::Get, &path, None).await?)
+}
+
+/// Starts installing the GPU runtime in the background.
+///
+/// The engine answers as soon as the transfer is running; the frontend follows
+/// it by re-reading the runtime state.
+///
+/// # Errors
+///
+/// Returns `runtime.unknown_variant` when the accelerator is not one of the
+/// known builds, and the engine's reason code when the call fails, including
+/// `runtime.already_installing`, `runtime.already_installed` and
+/// `runtime.insufficient_space`.
+#[tauri::command]
+pub async fn engine_runtime_install<R: Runtime>(
+    app: AppHandle<R>,
+    accelerator: String,
+) -> Result<Value, CommandError> {
+    // Checked against the known values rather than trusted, exactly as a
+    // backend kind is. The engine validates it again; neither side relies on
+    // the other's check.
+    if !is_plain_identifier(&accelerator) || !RUNTIME_ACCELERATORS.contains(&accelerator.as_str()) {
+        return Err(CommandError::new(
+            "runtime.unknown_variant",
+            format!("unknown runtime accelerator: {accelerator}"),
+        ));
+    }
+
+    let body = json!({ "accelerator": accelerator, "gpu": probed_gpu_kind() });
+    Ok(engine::call(&app, Method::Post, "/v1/runtime/install", Some(body)).await?)
+}
+
+/// Asks a running install to stop.
+///
+/// # Errors
+///
+/// Returns the engine's reason code when the call fails.
+#[tauri::command]
+pub async fn engine_runtime_cancel<R: Runtime>(app: AppHandle<R>) -> Result<Value, CommandError> {
+    Ok(engine::call(&app, Method::Post, "/v1/runtime/cancel", None).await?)
+}
+
+/// Deletes the installed GPU runtime.
+///
+/// # Errors
+///
+/// Returns the engine's reason code when the call fails, including
+/// `runtime.busy_installing` and `runtime.not_installed`.
+#[tauri::command]
+pub async fn engine_runtime_remove<R: Runtime>(app: AppHandle<R>) -> Result<Value, CommandError> {
+    Ok(engine::call(&app, Method::Post, "/v1/runtime/remove", None).await?)
+}
+
+/// Returns the GPU family this machine has, as a value safe to put in a URL.
+///
+/// The probe's `kind` is written by this file and is one of three words, but it
+/// is checked anyway before it is interpolated into a query string, because the
+/// rule here is that nothing reaches a URL unchecked.
+fn probed_gpu_kind() -> String {
+    let kind = probe_gpu().kind;
+    if is_plain_identifier(&kind) {
+        kind
+    } else {
+        "none".to_string()
+    }
+}
+
 /// The longest storage path accepted.
 ///
 /// Well past every platform's own limit, so a real path is never refused here,
@@ -679,6 +766,10 @@ pub fn handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + 
         engine_remove_provider,
         engine_activate_provider,
         engine_test_provider,
+        engine_runtime_info,
+        engine_runtime_install,
+        engine_runtime_cancel,
+        engine_runtime_remove,
         storage_info,
         storage_validate,
         storage_set_root,
@@ -878,6 +969,32 @@ mod tests {
         assert_eq!(root_of(&outcome).as_deref(), Some(ABSOLUTE));
         assert!(root_of(&serde_json::json!({ "current": {} })).is_none());
         assert!(root_of(&serde_json::json!({})).is_none());
+    }
+
+    #[test]
+    fn the_probed_gpu_kind_is_always_safe_in_a_url() {
+        let kind = probed_gpu_kind();
+        assert!(is_plain_identifier(&kind));
+        assert!(["cuda", "metal", "none"].contains(&kind.as_str()));
+    }
+
+    #[test]
+    fn refuses_a_runtime_accelerator_that_is_not_a_known_build() {
+        for value in [
+            "",
+            "cuda; rm",
+            "../models",
+            "gpu",
+            &"a".repeat(MAX_IDENTIFIER + 1),
+        ] {
+            assert!(
+                !is_plain_identifier(value) || !RUNTIME_ACCELERATORS.contains(&value),
+                "{value} should not be accepted as a runtime accelerator"
+            );
+        }
+        for value in RUNTIME_ACCELERATORS {
+            assert!(is_plain_identifier(value));
+        }
     }
 
     #[test]

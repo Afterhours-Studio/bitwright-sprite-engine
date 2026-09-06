@@ -36,6 +36,10 @@ import {
   engineRemoveProvider,
   engineSaveProvider,
   engineSelectBackend,
+  engineRuntimeCancel,
+  engineRuntimeInfo,
+  engineRuntimeInstall,
+  engineRuntimeRemove,
   engineTestProvider,
   storageInfo,
   storagePickDirectory,
@@ -53,6 +57,8 @@ import type {
   ModelInfo,
   ProviderListResponse,
   ProviderSaveRequest,
+  RuntimeInfo,
+  RuntimeRequest,
   StorageChange,
   StorageInfo,
 } from '@/types/engine';
@@ -137,6 +143,36 @@ export function cancelDownload(modelId: string): Promise<ModelInfo> {
  */
 export function pauseDownload(modelId: string): Promise<ModelInfo> {
   return unwrap(enginePauseDownload(modelId));
+}
+
+/**
+ * Reports whether the GPU runtime is installed, and what installing it costs.
+ *
+ * Everything the user must be shown before a multi-gigabyte download comes back
+ * in one answer: the size, the free space, and the licence of every package.
+ */
+export function getRuntime(): Promise<RuntimeInfo> {
+  return unwrap(engineRuntimeInfo());
+}
+
+/**
+ * Starts installing the GPU runtime.
+ *
+ * Resolves once the engine has accepted the install, not once it has finished,
+ * so the caller has to follow the progress by re-reading the state.
+ */
+export function installRuntime(accelerator: RuntimeRequest): Promise<RuntimeInfo> {
+  return unwrap(engineRuntimeInstall(accelerator));
+}
+
+/** Asks a running install to stop. Nothing half written is left behind. */
+export function cancelRuntimeInstall(): Promise<RuntimeInfo> {
+  return unwrap(engineRuntimeCancel());
+}
+
+/** Deletes the installed GPU runtime and reclaims its gigabytes. */
+export function removeRuntime(): Promise<RuntimeInfo> {
+  return unwrap(engineRuntimeRemove());
 }
 
 /** Reports where downloaded data is kept, and how much room is left there. */

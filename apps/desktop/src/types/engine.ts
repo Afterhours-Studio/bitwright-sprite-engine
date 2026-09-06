@@ -132,6 +132,109 @@ export interface StorageChange {
   dataMoved: boolean;
 }
 
+/** Which hardware a PyTorch build drives. */
+export type RuntimeAccelerator = 'cuda' | 'mps' | 'cpu';
+
+/** What the caller asks to install. `auto` lets the engine choose. */
+export type RuntimeRequest = RuntimeAccelerator | 'auto';
+
+/** One package an install would fetch, from `GET /v1/runtime`. */
+export interface RuntimePackage {
+  /** Distribution name. */
+  name: string;
+  /** Exact pinned version. */
+  version: string;
+  /** SPDX expression the distribution declares. */
+  licenseId: string;
+  /** Download size of its wheel, in bytes. */
+  sizeBytes: number;
+}
+
+/** What installing one runtime build would do. */
+export interface RuntimePlan {
+  /** The hardware this build drives. */
+  accelerator: RuntimeAccelerator;
+  /** Version of torch it installs. */
+  torchVersion: string;
+  /** CUDA version the build targets, or an empty string. */
+  cudaVersion: string;
+  /**
+   * True when the wheels carry NVIDIA's redistributable CUDA libraries, which
+   * come under NVIDIA's own licence rather than PyTorch's. The user has to be
+   * shown that before the download starts.
+   */
+  bundlesNvidia: boolean;
+  /** Bytes fetched over the network. */
+  downloadBytes: number;
+  /** Bytes the result occupies on disk. */
+  installedBytes: number;
+  /** Free space needed at the peak of the install. */
+  requiredBytes: number;
+  /** Every package, torch first, with its licence. */
+  packages: RuntimePackage[];
+  /** Where PyTorch's licence is published. */
+  torchLicenseUrl: string;
+  /** Where NVIDIA's licence is published. Empty when none is involved. */
+  cudaLicenseUrl: string;
+}
+
+/** The GPU runtime, as reported by `GET /v1/runtime`. */
+export interface RuntimeInfo {
+  /** Whether this platform and interpreter have a pinned wheel set at all. */
+  supported: boolean;
+  /** Stable reason code when `supported` is false. */
+  unsupportedReason: string;
+  /** Manifest key for this machine, such as `win_amd64-cp314`. */
+  target: string;
+  /** Where the runtime lives, or would live. */
+  installDir: string;
+
+  /** Whether a complete runtime is present on disk. */
+  installed: boolean;
+  /** Which build is installed, or an empty string. */
+  installedAccelerator: string;
+  /** Version of torch on disk, which is not necessarily the one running. */
+  installedTorchVersion: string;
+
+  /** Whether the engine process can import torch right now. */
+  torchImportable: boolean;
+  /** Version torch reports, once imported. */
+  torchVersion: string;
+  /** Whether torch reports a usable CUDA device. The only real answer. */
+  cudaAvailable: boolean;
+  /** Whether torch reports a usable Metal device. */
+  mpsAvailable: boolean;
+  /** Name of the device torch found, or an empty string. */
+  device: string;
+  /** Stable reason code when torch is present but unusable. */
+  probeDetail: string;
+  /** True when a runtime is installed and the engine has not picked it up yet. */
+  restartRequired: boolean;
+
+  /** Free space on the volume the runtime lands on, or null when unreadable. */
+  freeBytes: number | null;
+  /** Size of that volume, or null for the same reason. */
+  totalBytes: number | null;
+  /** Bytes the installed runtime occupies right now. */
+  usedBytes: number;
+
+  /** Which build suits the GPU the shell probed for, or an empty string. */
+  recommendedAccelerator: string;
+  /** What each installable build would download. */
+  plans: RuntimePlan[];
+
+  /** True while an install is running. */
+  installing: boolean;
+  /** `download`, `extract`, `publish`, or an empty string. */
+  phase: string;
+  /** How much of the install is done, from 0 to 1. Zero when idle. */
+  progress: number;
+  /** Which build is being installed. */
+  installingAccelerator: string;
+  /** Stable reason code for the last failed install, empty otherwise. */
+  error: string;
+}
+
 /** Post-processing options sent with a generation request. */
 export interface PostProcessOptions {
   removeBackground: boolean;

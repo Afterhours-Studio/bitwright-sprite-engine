@@ -45,6 +45,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# These extras are for a source checkout only. The shipped application never
+# installs them: PyTorch is fetched at run time from a pinned wheel manifest
+# into the data folder the user chose, because a frozen PyInstaller bundle has
+# no pip to install an extra with. See bitwright_engine/runtime/manifest.py and
+# docs/architecture/decisions/0011-gpu-runtime-installation.md.
 cuda = ["torch>=2.5", "diffusers>=0.31", "transformers>=4.46", "safetensors>=0.4", "numpy>=2.0"]
 mps = ["torch>=2.5", "diffusers>=0.31", "transformers>=4.46", "safetensors>=0.4", "numpy>=2.0"]
 dev = [

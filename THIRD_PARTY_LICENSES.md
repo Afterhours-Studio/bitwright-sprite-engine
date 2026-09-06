@@ -90,3 +90,28 @@ One exemption is recorded there: PyInstaller is GPL-2.0 with an explicit
 exception permitting the frozen output to be distributed under any licence. It
 is a build tool, and its own code is not part of the bundle. Any further
 exemption needs the same kind of reading, written down next to it.
+
+## GPU runtime, downloaded at run time into the user's data folder
+
+Not distributed with this application. It is fetched, at the user's explicit
+instruction, from PyTorch's own index into the folder they chose, and it is
+never part of any artefact this project ships. See
+docs/architecture/decisions/0011-gpu-runtime-installation.md.
+
+| Package           | License                                                          | Project                                     |
+| ----------------- | ---------------------------------------------------------------- | ------------------------------------------- |
+| torch             | Apache-2.0 AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND MIT | https://github.com/pytorch/pytorch          |
+| fsspec            | BSD-3-Clause                                                     | https://github.com/fsspec/filesystem_spec   |
+| networkx          | BSD-3-Clause                                                     | https://github.com/networkx/networkx        |
+| setuptools        | MIT                                                              | https://github.com/pypa/setuptools          |
+| sympy             | BSD-3-Clause                                                     | https://github.com/sympy/sympy              |
+| mpmath            | BSD-3-Clause                                                     | https://github.com/mpmath/mpmath            |
+| typing_extensions | PSF-2.0                                                          | https://github.com/python/typing_extensions |
+| filelock          | MIT                                                              | https://github.com/tox-dev/filelock         |
+| jinja2            | BSD-3-Clause                                                     | https://github.com/pallets/jinja            |
+| markupsafe        | BSD-3-Clause                                                     | https://github.com/pallets/markupsafe       |
+
+The CUDA build additionally carries NVIDIA's redistributable CUDA runtime, which
+is covered by the NVIDIA CUDA EULA (https://docs.nvidia.com/cuda/eula/index.html)
+and not by an open source licence. Those terms are shown to the user before any
+download begins. Nothing under them is redistributed by this project.

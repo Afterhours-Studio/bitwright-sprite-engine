@@ -66,6 +66,26 @@
     "download_write_failed": "Không lưu được tệp tải về. Hãy kiểm tra dung lượng trống của ổ đĩa.",
     "download_range_refused": "Tệp trên máy chủ model không còn là tệp mà lượt tải này bắt đầu. Phần đã tải về đã bị xoá; hãy tải lại từ đầu."
   },
+  "runtime": {
+    "install_failed": "Không cài được runtime GPU.",
+    "unsupported_platform": "Phiên bản này chưa ghim sẵn bản PyTorch cho hệ điều hành và phiên bản Python trên máy, nên không thể cài ở đây.",
+    "unknown_variant": "Máy này không cài được bản đó.",
+    "already_installing": "Runtime GPU đang được cài.",
+    "already_installed": "Runtime GPU đã được cài. Hãy gỡ đi trước khi cài bản khác.",
+    "not_installed": "Không có runtime GPU nào để gỡ.",
+    "busy_installing": "Đang có lượt cài chạy. Hãy dừng lại trước khi gỡ runtime GPU.",
+    "downloads_disabled": "Tính năng tải đang tắt nên không lấy được runtime GPU.",
+    "insufficient_space": "Ổ đĩa đó không đủ chỗ cho runtime GPU. Hãy dọn bớt dung lượng, hoặc chuyển thư mục tải về sang ổ khác ở mục Nơi lưu dữ liệu.",
+    "download_rejected": "Kho PyTorch từ chối lượt tải. Có thể bản dựng đó đã bị gỡ bỏ.",
+    "download_unreachable": "Không kết nối được tới kho PyTorch. Hãy kiểm tra kết nối mạng.",
+    "download_incomplete": "Lượt tải kết thúc khi tệp chưa về đủ nên đã bị bỏ đi.",
+    "checksum_mismatch": "Một tệp tải về không đúng như mong đợi nên không có gì được cài. Hãy thử lại; nếu vẫn vậy thì có thứ gì đó trên đường truyền đang sửa đổi tệp.",
+    "unsafe_archive": "Một gói tải về cố ghi ra ngoài thư mục của nó và đã bị từ chối.",
+    "extract_failed": "Không giải nén được một gói tải về.",
+    "write_failed": "Không ghi được runtime GPU. Hãy kiểm tra dung lượng trống của ổ đĩa.",
+    "remove_failed": "Không xoá được runtime GPU. Có thể một tệp trong đó vẫn đang mở.",
+    "import_failed": "Runtime GPU đã được cài nhưng không nạp được. Hãy gỡ ra rồi cài lại."
+  },
   "storage": {
     "invalid_path": "Không dùng được thư mục đó để lưu tệp tải về.",
     "path_empty": "Bạn chưa chọn thư mục nào.",

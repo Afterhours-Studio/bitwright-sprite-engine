@@ -46,6 +46,7 @@ from bitwright_engine.api.security import generate_token, reject_browser_origin,
 from bitwright_engine.api.state import EngineState
 from bitwright_engine.backends import BackendError
 from bitwright_engine.config import Settings, get_settings
+from bitwright_engine.runtime import activate
 from bitwright_engine.utils.logging import configure_logging, get_logger
 from bitwright_engine.utils.watchdog import exit_now, install_parent_death_signal, watch_parent
 from bitwright_engine.version import __version__
@@ -257,6 +258,14 @@ def main(argv: list[str] | None = None) -> None:
     arguments = parse_args(argv)
     settings = get_settings()
     configure_logging(settings.log_level)
+
+    # Before anything selects a backend, and therefore before anything tries to
+    # import torch. A frozen bundle's import path holds only its own archive, so
+    # a runtime installed into the user's data folder is invisible until this
+    # runs. It is deliberately not called from create_app: the test suite builds
+    # applications and must never pick up whatever is installed on the machine
+    # running it.
+    activate(settings)
 
     token = generate_token()
     listener = bind_socket(settings.host, settings.port)

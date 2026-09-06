@@ -34,6 +34,7 @@ from bitwright_engine.config import Settings, get_settings
 from bitwright_engine.models import ModelDownloader
 from bitwright_engine.pipeline import SpriteGenerator
 from bitwright_engine.providers import ProviderStore, get_provider_store
+from bitwright_engine.runtime import RuntimeInstaller
 
 
 @dataclass(slots=True)
@@ -46,6 +47,7 @@ class EngineState:
         downloader: Resolves models in the local cache.
         providers: Configured remote inference providers and their
             credentials.
+        runtime: Installs and removes the GPU runtime under the data root.
         probe_client: HTTP client the connection test borrows, or ``None`` to
             let it open its own. Only tests set it, and they set it to a client
             with a mounted transport, which is what keeps the suite off the
@@ -56,6 +58,7 @@ class EngineState:
     generator: SpriteGenerator
     downloader: ModelDownloader
     providers: ProviderStore
+    runtime: RuntimeInstaller
     probe_client: httpx.Client | None = None
 
     @classmethod
@@ -85,6 +88,7 @@ class EngineState:
             generator=SpriteGenerator(backend),
             downloader=ModelDownloader(resolved),
             providers=get_provider_store(),
+            runtime=RuntimeInstaller(resolved),
         )
 
     def select(self, kind: BackendKind) -> None:

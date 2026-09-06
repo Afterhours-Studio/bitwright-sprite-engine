@@ -22,6 +22,7 @@ import { Overlay } from '@/components/ui/Overlay';
 import { Select } from '@/components/ui/Select';
 import { EngineSelector } from '@/features/settings/EngineSelector';
 import { ProvidersCard } from '@/features/settings/ProvidersCard';
+import { RuntimeCard } from '@/features/settings/RuntimeCard';
 import { StorageCard } from '@/features/settings/StorageCard';
 import { useDismiss } from '@/hooks/useDismiss';
 import { useErrorMessage } from '@/hooks/useErrorMessage';
@@ -61,6 +62,11 @@ export function SettingsScreen(): ReactElement {
 
       {/* After the engine and before the models: choosing the remote API is
           part of choosing an engine, and it decides which models matter. */}
+      {/* Directly under the engine choice: installing this is what makes the
+          local engines selectable, and the remote API is the fallback while
+          it is not. */}
+      <RuntimeCard />
+
       <ProvidersCard />
 
       <Card title={t('models.title')} description={t('models.description')}>

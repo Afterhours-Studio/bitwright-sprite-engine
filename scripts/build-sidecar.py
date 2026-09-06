@@ -66,6 +66,56 @@ HIDDEN_IMPORTS = (
     "uvicorn.lifespan.on",
 )
 
+# Standard library modules the freezer would otherwise leave out.
+#
+# PyInstaller ships only what it can see being imported. That is correct for
+# every dependency in the bundle and wrong for exactly one thing: the GPU
+# runtime, which is downloaded into the user's data folder after the build and
+# put on the import path at startup. PyTorch imports a wide slice of the
+# standard library that this engine never touches, and every one of those would
+# be a module the frozen interpreter simply does not have. There is no list of
+# them that can be checked, because it changes with every PyTorch release, so
+# the standard library is taken whole instead of guessed at.
+#
+# See docs/architecture/decisions/0011-gpu-runtime-installation.md.
+STDLIB_EXCLUDED = frozenset(
+    {
+        # Tk drags in a native toolkit and its data files, tens of megabytes for
+        # a sidecar that draws nothing.
+        "tkinter",
+        "turtle",
+        "turtledemo",
+        "idlelib",
+        # Test suites, demos, and the documentation database. None is imported
+        # by a library at run time.
+        "test",
+        "lib2to3",
+        "pydoc_data",
+        "antigravity",
+        "this",
+    }
+)
+
+
+def stdlib_modules() -> tuple[str, ...]:
+    """Return the standard library modules to force into the bundle.
+
+    Private modules are left out: they are pulled in by the public ones that
+    need them, and naming them directly is how a build ends up depending on an
+    implementation detail of one interpreter version.
+
+    Returns:
+        Module names, sorted.
+    """
+    return tuple(
+        sorted(
+            name
+            for name in sys.stdlib_module_names
+            if not name.startswith("_") and name not in STDLIB_EXCLUDED
+        )
+    )
+
+
 # Packages that have to be taken whole rather than by following imports.
 # Pillow loads its codecs as C extensions by name, and a build has already
 # shipped with an empty PIL directory and a green exit code, which is how the
@@ -188,7 +238,7 @@ def build(triple: str) -> Path:
         "--specpath",
         str(work),
     ]
-    for module in HIDDEN_IMPORTS:
+    for module in (*HIDDEN_IMPORTS, *stdlib_modules()):
         command += ["--hidden-import", module]
     for package in COLLECT_ALL:
         command += ["--collect-all", package]

@@ -35,6 +35,8 @@ import type {
   ModelInfo,
   ProviderListResponse,
   ProviderSaveRequest,
+  RuntimeInfo,
+  RuntimeRequest,
   StorageChange,
   StorageInfo,
 } from '@/types/engine';
@@ -207,6 +209,38 @@ export function engineCancelDownload(modelId: string): Promise<ShellResult<Model
 /** Stops a download and keeps the bytes it had, so it can be continued. */
 export function enginePauseDownload(modelId: string): Promise<ShellResult<ModelInfo>> {
   return invoke<ModelInfo>('engine_pause_download', { modelId });
+}
+
+/**
+ * Reports whether the GPU runtime is installed, and what installing it costs.
+ *
+ * The shell probes for the GPU on the way through, so the engine answers with a
+ * recommendation for the hardware actually present rather than a guess.
+ */
+export function engineRuntimeInfo(): Promise<ShellResult<RuntimeInfo>> {
+  return invoke<RuntimeInfo>('engine_runtime_info');
+}
+
+/**
+ * Starts installing the GPU runtime.
+ *
+ * The engine answers as soon as it has accepted the transfer, not when the
+ * gigabytes have landed, so the caller follows progress by re-reading the state.
+ */
+export function engineRuntimeInstall(
+  accelerator: RuntimeRequest,
+): Promise<ShellResult<RuntimeInfo>> {
+  return invoke<RuntimeInfo>('engine_runtime_install', { accelerator });
+}
+
+/** Asks a running install to stop. Nothing half written survives. */
+export function engineRuntimeCancel(): Promise<ShellResult<RuntimeInfo>> {
+  return invoke<RuntimeInfo>('engine_runtime_cancel');
+}
+
+/** Deletes the installed GPU runtime and reclaims its gigabytes. */
+export function engineRuntimeRemove(): Promise<ShellResult<RuntimeInfo>> {
+  return invoke<RuntimeInfo>('engine_runtime_remove');
 }
 
 /** Reports where downloaded data is kept, and how much room is left there. */

@@ -66,6 +66,26 @@
     "download_write_failed": "The download could not be saved. Check the free space on this disk.",
     "download_range_refused": "The file on the model host is no longer the one this download started. What had arrived was removed; download it again to start from the beginning."
   },
+  "runtime": {
+    "install_failed": "The GPU runtime could not be installed.",
+    "unsupported_platform": "This version has no PyTorch build pinned for this system and Python version, so it cannot install one here.",
+    "unknown_variant": "That is not a build this system can install.",
+    "already_installing": "The GPU runtime is already being installed.",
+    "already_installed": "The GPU runtime is already installed. Remove it before installing another build.",
+    "not_installed": "There is no GPU runtime installed to remove.",
+    "busy_installing": "An install is running. Stop it before removing the GPU runtime.",
+    "downloads_disabled": "Downloads are turned off, so the GPU runtime cannot be fetched.",
+    "insufficient_space": "There is not enough room on that drive for the GPU runtime. Free some space, or move the download folder to another drive in Storage location.",
+    "download_rejected": "The PyTorch index refused the download. The build may have been withdrawn.",
+    "download_unreachable": "The PyTorch index could not be reached. Check your connection.",
+    "download_incomplete": "The download ended before the whole file arrived, so it was discarded.",
+    "checksum_mismatch": "A downloaded file was not the one expected, so nothing was installed. Try again; if it keeps happening, something on the way is altering the download.",
+    "unsafe_archive": "A downloaded package tried to write outside its own folder and was refused.",
+    "extract_failed": "A downloaded package could not be unpacked.",
+    "write_failed": "The GPU runtime could not be written. Check the free space on that drive.",
+    "remove_failed": "The GPU runtime could not be deleted. A file in it may still be open.",
+    "import_failed": "The GPU runtime is installed but will not load. Remove it and install it again."
+  },
   "storage": {
     "invalid_path": "That folder cannot be used for downloads.",
     "path_empty": "No folder was chosen.",
