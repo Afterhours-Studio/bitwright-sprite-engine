@@ -46,6 +46,8 @@
 
 import { create } from 'zustand';
 
+import { loadList, saveList, STORAGE_KEYS } from '@/lib/persist';
+
 /** How serious a notification is. Decides its colour and its timeout. */
 export type ToastSeverity = 'info' | 'success' | 'warning' | 'error';
 
@@ -130,7 +132,7 @@ export const MAX_VISIBLE = 3;
 /**
  * How many dismissed notifications the bell keeps.
  *
- * Fifty. The history is session-scoped and never written to disk, so the limit
+ * Fifty. The history is written to storage, so the limit
  * is not about storage but about what the panel is for: catching up on what was
  * missed. Fifty entries is far more than anyone scrolls back through, and it
  * bounds a run that fails in a loop rather than letting it grow without end.
@@ -221,9 +223,14 @@ function nextId(): string {
  */
 function archive(history: ToastNotification[], archived: ToastNotification[]): ToastNotification[] {
   const entries = archived.map((item) => ({ ...item, leaving: false }));
-  return [...entries, ...history]
+  const next = [...entries, ...history]
     .sort((left, right) => right.createdAt - left.createdAt)
     .slice(0, HISTORY_LIMIT);
+  // Written here rather than at every call site, because every path into the
+  // history goes through this function and a history that survives only some
+  // of them is worse than none.
+  saveList(STORAGE_KEYS.notifications, next, HISTORY_LIMIT);
+  return next;
 }
 
 export const useToastStore = create<ToastState>((set, get) => {
@@ -336,7 +343,11 @@ export const useToastStore = create<ToastState>((set, get) => {
   return {
     visible: [],
     queued: [],
-    history: [],
+    // A notification explaining why something failed overnight is exactly
+    // what someone comes back to read, so the history outlives the window.
+    // The unread count does not: it means "since you last looked", and
+    // everything is old news by the next launch.
+    history: loadList<ToastNotification>(STORAGE_KEYS.notifications, HISTORY_LIMIT),
     unread: 0,
     bellAnchor: null,
 
@@ -437,6 +448,7 @@ export const useToastStore = create<ToastState>((set, get) => {
 
     clearHistory: () => {
       set({ history: [] });
+      saveList(STORAGE_KEYS.notifications, [], HISTORY_LIMIT);
     },
 
     setBellAnchor: (bellAnchor) => {

@@ -289,11 +289,13 @@ export function GenerateScreen(): ReactElement {
             <DockPopover
               variant="chip"
               label={tCommon('downloads.title')}
-              // End aligned, like the bell beside it. Both sit at the window's
-              // trailing edge, and a centred panel hangs half of itself off the
-              // screen there - the shell clips rather than scrolls, so the half
-              // that leaves is simply gone.
+              // End aligned like the bell, and shifted past it, so both
+              // panels share one edge. Aligning each to its own trigger put
+              // them a control apart, which reads as one of them being wrong.
+              // Centred would be worse: at the window's trailing edge the
+              // shell clips rather than scrolls, so half the panel is gone.
               align="end"
+              endShift={1}
               width="w-80"
               padding="p-3"
               panel={() => <DownloadList />}

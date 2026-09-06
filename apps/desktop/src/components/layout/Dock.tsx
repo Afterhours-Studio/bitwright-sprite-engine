@@ -149,6 +149,10 @@ const DOCK_RAIL = cn(
   // plus the border matches the dock's 8px chip inside 1px of padding, which
   // is what puts all three bars on the same line rather than merely near it.
   '[&_button]:h-10 [&_button]:rounded-lg',
+  // Published so a panel can align to the rail's outer edge rather than to
+  // its own trigger. Two panels in one rail that each align to themselves
+  // sit one control apart, which reads as one of them being wrong.
+  '[--dock-control:2.5rem]',
   // An icon on its own gets a square: chip padding is sized for a 32px chip,
   // so at 40 it left the button wider than it was tall, which is a squat
   // rectangle rather than a button with an icon in it. A rail carrying a label
@@ -364,6 +368,14 @@ interface DockPanelProps {
   /** Which edge of the trigger to line up with. */
   align?: DockPanelAlign;
   /**
+   * How many controls sit between this one and the rail's trailing edge.
+   *
+   * A panel aligns to its own trigger, so several in one rail step inwards
+   * one control at a time. Naming the distance lets them share an edge
+   * without any of them knowing what the others are.
+   */
+  endShift?: number;
+  /**
    * The panel's width, as a class.
    *
    * A slot of its own rather than something a `className` overrides, and the
@@ -398,6 +410,7 @@ function DockPanel({
   label,
   open,
   align = 'center',
+  endShift = 0,
   width = 'w-72',
   padding = 'p-3',
   children,
@@ -408,6 +421,11 @@ function DockPanel({
       role="dialog"
       aria-label={label}
       aria-hidden={!open}
+      style={
+        endShift > 0
+          ? { marginInlineEnd: `calc(var(--dock-control, 2.5rem) * -${String(endShift)})` }
+          : undefined
+      }
       className={cn(
         'absolute bottom-[calc(100%+10px)] z-50',
         PANEL_ALIGN[align],
@@ -748,6 +766,8 @@ export interface DockPopoverProps {
   width?: string;
   /** The panel's padding, as a class. See {@link DockPanelProps}. */
   padding?: string;
+  /** Controls between this one and the rail's edge. See {@link DockPanelProps}. */
+  endShift?: number;
   /**
    * Receives the trigger element, for a caller that has to measure it.
    *
@@ -779,6 +799,7 @@ export function DockPopover({
   children,
   panel,
   align = 'center',
+  endShift = 0,
   width,
   padding,
   triggerRef,
@@ -868,6 +889,7 @@ export function DockPopover({
       )}
 
       <DockPanel
+        endShift={endShift}
         id={panelId}
         label={label}
         open={open}
