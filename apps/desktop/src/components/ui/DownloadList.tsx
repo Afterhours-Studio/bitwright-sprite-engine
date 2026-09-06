@@ -120,13 +120,12 @@ export function DownloadList({ className }: { className?: string }): ReactElemen
   const rows = [...active, ...finished];
 
   return (
-    <div className={cn('flex min-w-[280px] flex-col gap-3', className)}>
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-xs font-medium text-fg-secondary">{t('downloads.title')}</h2>
+    <div className={cn('flex min-w-[280px] flex-col', className)}>
+      <div className="flex items-center justify-between gap-3 px-2 py-1">
+        <h2 className="text-sm font-medium text-fg-primary">{t('downloads.title')}</h2>
         {history.length > 0 && (
           <Button
             variant="ghost"
-            className="px-2 py-0.5 text-xs"
             onClick={() => {
               clear();
             }}
@@ -137,9 +136,9 @@ export function DownloadList({ className }: { className?: string }): ReactElemen
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-xs text-fg-secondary">{t('downloads.empty')}</p>
+        <p className="px-2 py-1 text-xs text-fg-secondary">{t('downloads.empty')}</p>
       ) : (
-        <ul className="flex max-h-80 flex-col gap-3 overflow-auto">
+        <ul className="flex max-h-80 flex-col gap-3 overflow-auto px-2 py-1">
           {rows.map((row) => (
             <li key={row.id} className="flex flex-col gap-1">
               <div className="flex items-baseline justify-between gap-3">

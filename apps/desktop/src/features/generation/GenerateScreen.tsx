@@ -312,7 +312,7 @@ export function GenerateScreen(): ReactElement {
               triggerLabel={bellLabel}
               label={tCommon('notifications.title')}
               align="end"
-              width="w-auto"
+              width="w-80"
               padding="p-1"
               triggerRef={anchor}
               onOpen={markRead}
