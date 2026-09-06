@@ -65,7 +65,10 @@ export function PreviewRail({ images, selected, onSelect }: PreviewRailProps): R
     // The second column of the canvas container. It carries a leading hairline
     // rather than a border of its own, because a boxed panel here would put a
     // second frame inside the frame the container already draws.
-    <aside className="hidden w-40 shrink-0 flex-col gap-3 border-s border-line-subtle ps-3 lg:flex xl:w-[200px]">
+    // Takes the room the square does not. The stage is now only as wide as the
+    // sprite it shows, so a fixed width here left a band of empty card
+    // between the rail and the panel beside it.
+    <aside className="hidden min-w-40 flex-1 flex-col gap-3 border-s border-line-subtle ps-3 lg:flex">
       <RailCell title={t('canvas.actualSize')}>
         {image === undefined ? (
           <p className="px-2 py-6 text-center text-xs text-fg-secondary">{t('canvas.railEmpty')}</p>

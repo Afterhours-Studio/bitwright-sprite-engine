@@ -212,6 +212,30 @@ def _pypi(path: str) -> str:
 
 # The wheels every variant shares. torch's own dependency set is small and
 # identical across the targets below, so it is written once.
+_NUMPY_WINDOWS = Wheel(
+    name="numpy",
+    version="2.5.3",
+    url=_pypi(
+        "a4/73/d2c08231e4fde7e415501fd02c715d96e98599b2d8384445933944152984/numpy-2.5.3-cp314-cp314-win_amd64.whl"
+    ),
+    sha256="2c25dfa72943e4336ddb6b0ee4277b47a0c85bede0807530ec68103bf58e2c10",
+    size_bytes=12698179,
+    unpacked_bytes=40000000,
+    license_id="BSD-3-Clause",
+)
+
+_NUMPY_MACOS = Wheel(
+    name="numpy",
+    version="2.5.3",
+    url=_pypi(
+        "94/75/4640d2d6e4b64a049e48425a82728a41ef4adb61332d2cba68055774878b/numpy-2.5.3-cp314-cp314-macosx_14_0_arm64.whl"
+    ),
+    sha256="adc1ada2662f8a5f960b8a10d9986897e7499ef07e06d4cfe7197f8cce923c07",
+    size_bytes=5449793,
+    unpacked_bytes=20000000,
+    license_id="BSD-3-Clause",
+)
+
 _FSSPEC = Wheel(
     name="fsspec",
     version="2026.7.0",
@@ -341,16 +365,24 @@ should say what the metadata says.
 """
 
 
-def _common(markupsafe: Wheel) -> tuple[Wheel, ...]:
+def _common(markupsafe: Wheel, numpy: Wheel) -> tuple[Wheel, ...]:
     """Return the dependency wheels every variant shares.
+
+    NumPy is not a torch dependency, and torch runs without it. It is here
+    because torch says so itself on first import - "Failed to initialize NumPy"
+    - and because every path that turns a tensor into an image goes through it.
+    Leaving it out shipped a runtime that imported and then failed at the point
+    of use, which is the worst place to find out.
 
     Args:
         markupsafe: The compiled MarkupSafe wheel for this target.
+        numpy: The compiled NumPy wheel for this target.
 
     Returns:
         The dependencies, in the order pip resolved them.
     """
     return (
+        numpy,
         _FSSPEC,
         _NETWORKX,
         _SETUPTOOLS,
@@ -383,7 +415,7 @@ MANIFEST: dict[str, tuple[Variant, ...]] = {
                     unpacked_bytes=4191940016,
                     license_id=_TORCH_LICENSE,
                 ),
-                *_common(_MARKUPSAFE_WIN),
+                *_common(_MARKUPSAFE_WIN, _NUMPY_WINDOWS),
             ),
         ),
         Variant(
@@ -404,7 +436,7 @@ MANIFEST: dict[str, tuple[Variant, ...]] = {
                     unpacked_bytes=475950288,
                     license_id=_TORCH_LICENSE,
                 ),
-                *_common(_MARKUPSAFE_WIN),
+                *_common(_MARKUPSAFE_WIN, _NUMPY_WINDOWS),
             ),
         ),
     ),
@@ -427,7 +459,7 @@ MANIFEST: dict[str, tuple[Variant, ...]] = {
                     unpacked_bytes=524099129,
                     license_id=_TORCH_LICENSE,
                 ),
-                *_common(_MARKUPSAFE_MACOS_ARM64),
+                *_common(_MARKUPSAFE_MACOS_ARM64, _NUMPY_MACOS),
             ),
         ),
     ),

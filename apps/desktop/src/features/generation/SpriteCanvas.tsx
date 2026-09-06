@@ -13,7 +13,7 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-import type { CSSProperties, ReactElement } from 'react';
+import { useCallback, useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { MIN_GRID_CELL, PixelGridOverlay } from '@/features/generation/PixelGridOverlay';
@@ -70,6 +70,18 @@ export function SpriteCanvas({
 }: SpriteCanvasProps): ReactElement {
   const { t } = useTranslation('generation');
   const { ref, width, height } = useElementSize();
+  const [available, setAvailable] = useState(0);
+
+  // The room the column sits in, read from the node as it is attached. The
+  // column is about to become the answer, so measuring the column itself
+  // would be measuring the answer and the two would chase each other.
+  const attach = useCallback(
+    (node: HTMLElement | null) => {
+      ref(node);
+      setAvailable(node?.parentElement?.clientWidth ?? 0);
+    },
+    [ref],
+  );
 
   // The stage fills the room it has in the dimension that binds, and takes the
   // other from the requested shape. Sizing it in pixels rather than with an
@@ -77,7 +89,11 @@ export function SpriteCanvas({
   // `aspect-ratio` the box sizes to its content, so a square sat small in the
   // middle of the space instead of taking it.
   const ratio = requested.width / requested.height;
-  const stageWidth = width / height > ratio ? height * ratio : width;
+  const measured = width > 0 && height > 0;
+  // The cap is the room the column sits in rather than the column itself: the
+  // column is about to become the answer, so measuring it would be measuring
+  // the answer and the two would chase each other.
+  const stageWidth = Math.min(height * ratio, available > 0 ? available : width);
   const stageHeight = stageWidth / ratio;
 
   // The sprite gets everything inside the well's own inset.
@@ -94,52 +110,68 @@ export function SpriteCanvas({
 
   // The pattern is two sprite pixels across. Below a pixel it would be a
   // grey wash, so it stops shrinking there.
+  // One square per sprite pixel, so the pattern reads as the grid rather
+  // than as a texture behind it. Below four pixels it is a grey wash, so it
+  // stops shrinking there.
   const cellSize = image === undefined ? innerWidth / requested.width : scale;
   const checkerSize = Math.max(cellSize * 2, 4);
   const cells = image ?? requested;
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center">
+    // Only as wide as the square it holds, once there is a measurement to
+    // size it by. Filling the row left the next column's rule stranded away
+    // from the stage with a band of empty canvas between them, which reads
+    // as a gap rather than as a divider.
+    <div
+      className={cn(
+        'flex min-h-0 items-center justify-center',
+        measured ? 'shrink-0' : 'min-w-0 flex-1',
+      )}
+      style={measured ? { width: stageWidth } : undefined}
+    >
       {/* Measured rather than the stage itself: the stage's size is computed
           from this, so measuring it would be measuring the answer. */}
-      <div ref={ref} className="flex h-full min-h-0 w-full min-w-0 items-center justify-center">
+      <div ref={attach} className="flex h-full min-h-0 w-full min-w-0 items-center justify-center">
         <div
-          className={cn(
-            'relative flex items-center justify-center rounded-md',
-            showCheckerboard ? 'sprite-checkerboard' : 'bg-surface-well',
-          )}
-          style={
-            {
-              width: stageWidth,
-              height: stageHeight,
-              padding: WELL_INSET,
-              // Two sprite pixels per square, so the checker lands on cell
-              // boundaries instead of cutting across them.
-              '--sprite-checker-size': `${String(checkerSize)}px`,
-            } as CSSProperties
-          }
+          className={cn('relative flex items-center justify-center rounded-md bg-surface-well')}
+          style={{ width: stageWidth, height: stageHeight, padding: WELL_INSET }}
         >
           {image === undefined ? (
             <>
-              {/* The grid is drawn on the empty stage too. A 64x64 request
-                  should look like 64 cells before anything exists to put in
-                  them, which is what makes the canvas and the parameters agree
-                  at the moment the size is chosen rather than after a run. */}
-              {showPixelGrid && innerWidth / requested.width >= MIN_GRID_CELL && (
-                <PixelGridOverlay
-                  columns={requested.width}
-                  rows={requested.height}
-                  width={innerWidth}
-                  height={innerHeight}
-                />
-              )}
-              <div className="pointer-events-none rounded-md border border-line-subtle bg-surface-content px-4 py-3 text-center shadow-sm">
+              {/* One box holds both, inset to where the sprite would be. The
+                  grid canvas positions itself with `inset-0`, so anchoring the
+                  two patterns to different boxes is what put them twelve pixels
+                  out of step. The grid is the authority: it draws exactly the
+                  number of cells the request names. */}
+              <div className="absolute" style={{ inset: WELL_INSET }}>
+                {showCheckerboard && (
+                  <div
+                    className="sprite-checkerboard absolute inset-0"
+                    style={{ ['--sprite-checker-size' as string]: `${String(checkerSize)}px` }}
+                  />
+                )}
+                {showPixelGrid && innerWidth / requested.width >= MIN_GRID_CELL && (
+                  <PixelGridOverlay
+                    columns={requested.width}
+                    rows={requested.height}
+                    width={innerWidth}
+                    height={innerHeight}
+                  />
+                )}
+              </div>
+              <div className="pointer-events-none relative rounded-md border border-line-subtle bg-surface-content px-4 py-3 text-center shadow-sm">
                 <p className="text-sm text-fg-primary">{t('canvas.empty')}</p>
                 <p className="mt-1 text-xs text-fg-secondary">{t('canvas.hint')}</p>
               </div>
             </>
           ) : (
             <div className="relative" style={{ width: drawnWidth, height: drawnHeight }}>
+              {showCheckerboard && (
+                <div
+                  className="sprite-checkerboard absolute inset-0"
+                  style={{ ['--sprite-checker-size' as string]: `${String(checkerSize)}px` }}
+                />
+              )}
               <img
                 src={toDataUrl(image.data)}
                 width={image.width}
