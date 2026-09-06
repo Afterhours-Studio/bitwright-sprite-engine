@@ -365,6 +365,451 @@ should say what the metadata says.
 """
 
 
+# Everything diffusers needs on top of torch.
+#
+# Without these the local backends can load a GPU but not a model, which is the
+# state the application shipped in: generation ran, returned a placeholder in
+# two milliseconds, and looked for all the world like a broken renderer.
+#
+# `unpacked_bytes` here is three times the download rather than a measured
+# figure. It feeds the free-space check and the progress bar, and over
+# estimating a thirty five megabyte set is cheaper than a range request per
+# wheel at build time. The torch entries above are measured, because those are
+# the gigabytes that decide whether an install fits at all.
+
+_PYYAML = Wheel(
+    name="PyYAML",
+    version="6.0.3",
+    url=_pypi(
+        "23/20/bb6982b26a40bb43951265ba29d4c246ef0ff59c9fdcdf0ed04e0687de4d/pyyaml-6.0.3-cp314-cp314-win_amd64.whl"
+    ),
+    sha256="4a2e8cebe2ff6ab7d1050ecd59c25d4c8bd7e6f400f5f82b96557ac0abafd0ac",
+    size_bytes=156429,
+    unpacked_bytes=469287,
+    license_id="UNKNOWN",
+)
+
+_PYGMENTS = Wheel(
+    name="Pygments",
+    version="2.21.0",
+    url=_pypi(
+        "71/46/17f022dd3e953bf20a04a028a21ec746d942f8d2af30fa0f124fa0e6a684/pygments-2.21.0-py3-none-any.whl"
+    ),
+    sha256="2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9",
+    size_bytes=1250147,
+    unpacked_bytes=3750441,
+    license_id="BSD-2-Clause",
+)
+
+_ACCELERATE = Wheel(
+    name="accelerate",
+    version="1.14.0",
+    url=_pypi(
+        "a8/db/253133d7e7cb40d3af384bb2f5c0b4a2b7fdcffbc95c688cc67a20a3c103/accelerate-1.14.0-py3-none-any.whl"
+    ),
+    sha256="e94390c2863b873be18f623f9df48a0d8fe5eff13ea7f1a00092b0a7904888c6",
+    size_bytes=389246,
+    unpacked_bytes=1167738,
+    license_id="UNKNOWN",
+)
+
+_ANNOTATED_DOC = Wheel(
+    name="annotated-doc",
+    version="0.0.5",
+    url=_pypi(
+        "3e/30/e900b21425a860e195f32e37657aa1f7c7f2b1bfb26f03ca209b90933c06/annotated_doc-0.0.5-py3-none-any.whl"
+    ),
+    sha256="117bac03a25ede5df5440e855b32d556049ca169ead221505badf432fed4b101",
+    size_bytes=5302,
+    unpacked_bytes=15906,
+    license_id="MIT",
+)
+
+_ANYIO = Wheel(
+    name="anyio",
+    version="4.15.1",
+    url=_pypi(
+        "12/b8/4bd346e22b28902df4d651910f5242c28d84e4a5c2435ca5c3f797ed7e2e/anyio-4.15.1-py3-none-any.whl"
+    ),
+    sha256="6152fdbbf9a77fdec97731721bebf7c4c44f7c29b424b0065826173efc7ed101",
+    size_bytes=132079,
+    unpacked_bytes=396237,
+    license_id="MIT",
+)
+
+_CERTIFI = Wheel(
+    name="certifi",
+    version="2026.7.22",
+    url=_pypi(
+        "0b/a7/71ac2cff56fec219ed242bb11b8efb69fcc4bec75db06fb7bfe35de520e6/certifi-2026.7.22-py3-none-any.whl"
+    ),
+    sha256="62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775",
+    size_bytes=136983,
+    unpacked_bytes=410949,
+    license_id="UNKNOWN",
+)
+
+_CHARSET_NORMALIZER = Wheel(
+    name="charset-normalizer",
+    version="3.5.1",
+    url=_pypi(
+        "7a/7c/4938c329b6a9d446f6a59aa2092ff7118f274209b5ed0e26893d1d30a63c/charset_normalizer-3.5.1-cp314-cp314-win_amd64.whl"
+    ),
+    sha256="c658c50ac0c98cd755a2dd50b7977d3bca7df401dcc47fbdfa87db53ef7d4e8b",
+    size_bytes=204175,
+    unpacked_bytes=612525,
+    license_id="UNKNOWN",
+)
+
+_CLICK = Wheel(
+    name="click",
+    version="8.5.0",
+    url=_pypi(
+        "58/50/6c0d534c5f134586a8e1ba4e330569e32f057e33372ae556463212fb4cd3/click-8.5.0-py3-none-any.whl"
+    ),
+    sha256="255bc9599cf7748b4b1a446ccc735421bd08a2ae529a8b88597d3de5664ee360",
+    size_bytes=125251,
+    unpacked_bytes=375753,
+    license_id="BSD-3-Clause",
+)
+
+_COLORAMA = Wheel(
+    name="colorama",
+    version="0.4.6",
+    url=_pypi(
+        "d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl"
+    ),
+    sha256="4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6",
+    size_bytes=25335,
+    unpacked_bytes=76005,
+    license_id="UNKNOWN",
+)
+
+_DIFFUSERS = Wheel(
+    name="diffusers",
+    version="0.40.0",
+    url=_pypi(
+        "db/df/ffb593ebed2a068d2d6be44261283f39a6b809c0fcdfdcafbd448cbeec77/diffusers-0.40.0-py3-none-any.whl"
+    ),
+    sha256="5b5da7c3ddb62152fa4afc577f02e050af688c797375c34fb2d01006da3f3541",
+    size_bytes=5911654,
+    unpacked_bytes=17734962,
+    license_id="UNKNOWN",
+)
+
+_H11 = Wheel(
+    name="h11",
+    version="0.16.0",
+    url=_pypi(
+        "04/4b/29cac41a4d98d144bf5f6d33995617b185d14b22401f75ca86f384e87ff1/h11-0.16.0-py3-none-any.whl"
+    ),
+    sha256="63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86",
+    size_bytes=37515,
+    unpacked_bytes=112545,
+    license_id="UNKNOWN",
+)
+
+_HF_XET = Wheel(
+    name="hf-xet",
+    version="1.6.0",
+    url=_pypi(
+        "98/b7/8c59a66d15205024662f1d66968136f13893f96df1ddc5087e2e281fc95f/hf_xet-1.6.0-cp38-abi3-win_amd64.whl"
+    ),
+    sha256="fb4fadde1b2b70bf4c0c14a6dccbe7194b1c28947fefd5bbe3fed9d940676c3b",
+    size_bytes=4033128,
+    unpacked_bytes=12099384,
+    license_id="Apache-2.0",
+)
+
+_HTTPCORE = Wheel(
+    name="httpcore",
+    version="1.0.9",
+    url=_pypi(
+        "7e/f5/f66802a942d491edb555dd61e3a9961140fd64c90bce1eafd741609d334d/httpcore-1.0.9-py3-none-any.whl"
+    ),
+    sha256="2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55",
+    size_bytes=78784,
+    unpacked_bytes=236352,
+    license_id="BSD-3-Clause",
+)
+
+_HTTPX = Wheel(
+    name="httpx",
+    version="0.28.1",
+    url=_pypi(
+        "2a/39/e50c7c3a983047577ee07d2a9e53faf5a69493943ec3f6a384bdc792deb2/httpx-0.28.1-py3-none-any.whl"
+    ),
+    sha256="d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad",
+    size_bytes=73517,
+    unpacked_bytes=220551,
+    license_id="UNKNOWN",
+)
+
+_HUGGINGFACE_HUB = Wheel(
+    name="huggingface_hub",
+    version="1.30.0",
+    url=_pypi(
+        "c3/0e/3e45bbe0dd48f4e56b1d46649d342de853cd1c7e815323472ab62687f153/huggingface_hub-1.30.0-py3-none-any.whl"
+    ),
+    sha256="96ae0a8e99a234374a6fe43e989ebd21c04640b91ab2927e7e5773ba1131ca59",
+    size_bytes=796795,
+    unpacked_bytes=2390385,
+    license_id="UNKNOWN",
+)
+
+_IDNA = Wheel(
+    name="idna",
+    version="3.19",
+    url=_pypi(
+        "57/b0/0e52c878c53f245edd3a11020f20979b3f490f245af532c7cae3027754b5/idna-3.19-py3-none-any.whl"
+    ),
+    sha256="815e7be7a7806d54abb586dc943addc79e8b2ee16915059658cbeff4b1b43bf4",
+    size_bytes=68550,
+    unpacked_bytes=205650,
+    license_id="BSD-3-Clause",
+)
+
+_IMPORTLIB_METADATA = Wheel(
+    name="importlib_metadata",
+    version="9.0.1",
+    url=_pypi(
+        "b3/55/ecca97ae19075f1fac62def77731e7f535e6c1fb8f92ff08160c5e6dade8/importlib_metadata-9.0.1-py3-none-any.whl"
+    ),
+    sha256="bba5600596a7e21f3eef53281cf28d6a5195634d2f2b78ff9501a3272c6eaab0",
+    size_bytes=27920,
+    unpacked_bytes=83760,
+    license_id="Apache-2.0",
+)
+
+_MARKDOWN_IT_PY = Wheel(
+    name="markdown-it-py",
+    version="4.2.0",
+    url=_pypi(
+        "b3/81/4da04ced5a082363ecfa159c010d200ecbd959ae410c10c0264a38cac0f5/markdown_it_py-4.2.0-py3-none-any.whl"
+    ),
+    sha256="9f7ebbcd14fe59494226453aed97c1070d83f8d24b6fc3a3bcf9a38092641c4a",
+    size_bytes=91687,
+    unpacked_bytes=275061,
+    license_id="UNKNOWN",
+)
+
+_MDURL = Wheel(
+    name="mdurl",
+    version="0.1.2",
+    url=_pypi(
+        "b3/38/89ba8ad64ae25be8de66a6d463314cf1eb366222074cfda9ee839c56a4b4/mdurl-0.1.2-py3-none-any.whl"
+    ),
+    sha256="84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8",
+    size_bytes=9979,
+    unpacked_bytes=29937,
+    license_id="UNKNOWN",
+)
+
+_PACKAGING = Wheel(
+    name="packaging",
+    version="26.3",
+    url=_pypi(
+        "63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl"
+    ),
+    sha256="d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c",
+    size_bytes=129956,
+    unpacked_bytes=389868,
+    license_id="Apache-2.0 OR BSD-2-Clause",
+)
+
+_PILLOW = Wheel(
+    name="pillow",
+    version="12.3.0",
+    url=_pypi(
+        "f1/e0/492879f69d94f91f60fc8cd05ba03650e9520afebb2fb7aa12777d7c7f38/pillow-12.3.0-cp314-cp314-win_amd64.whl"
+    ),
+    sha256="fdafc9cce40277e0f7a0feabce0ee50dd2fa1800f3b38015e51296b5e814048d",
+    size_bytes=7237707,
+    unpacked_bytes=21713121,
+    license_id="MIT-CMU",
+)
+
+_PSUTIL = Wheel(
+    name="psutil",
+    version="7.2.2",
+    url=_pypi(
+        "b4/90/e2159492b5426be0c1fef7acba807a03511f97c5f86b3caeda6ad92351a7/psutil-7.2.2-cp37-abi3-win_amd64.whl"
+    ),
+    sha256="eb7e81434c8d223ec4a219b5fc1c47d0417b12be7ea866e24fb5ad6e84b3d988",
+    size_bytes=137737,
+    unpacked_bytes=413211,
+    license_id="UNKNOWN",
+)
+
+_REGEX = Wheel(
+    name="regex",
+    version="2026.9.3",
+    url=_pypi(
+        "d0/fe/ecb15616ae7aa4892299b9ca7c20ef0dd6e5c833643b7ed46e27ff5fcccd/regex-2026.9.3-cp314-cp314-win_amd64.whl"
+    ),
+    sha256="445623b1337e971ccc571d3642aeb3f2fec77e60b6ee193dd7688168471d1846",
+    size_bytes=280812,
+    unpacked_bytes=842436,
+    license_id="Apache-2.0 AND CNRI-Python",
+)
+
+_REQUESTS = Wheel(
+    name="requests",
+    version="2.34.2",
+    url=_pypi(
+        "a0/f4/c67b0b3f1b9245e8d266f0f112c500d50e5b4e83cb6f3b71b6528104182a/requests-2.34.2-py3-none-any.whl"
+    ),
+    sha256="2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0",
+    size_bytes=73075,
+    unpacked_bytes=219225,
+    license_id="UNKNOWN",
+)
+
+_RICH = Wheel(
+    name="rich",
+    version="15.0.0",
+    url=_pypi(
+        "82/3b/64d4899d73f91ba49a8c18a8ff3f0ea8f1c1d75481760df8c68ef5235bf5/rich-15.0.0-py3-none-any.whl"
+    ),
+    sha256="33bd4ef74232fb73fe9279a257718407f169c09b78a87ad3d296f548e27de0bb",
+    size_bytes=310654,
+    unpacked_bytes=931962,
+    license_id="UNKNOWN",
+)
+
+_SAFETENSORS = Wheel(
+    name="safetensors",
+    version="0.8.0",
+    url=_pypi(
+        "1b/6d/3fba214c1e5e0f69991677ec3bc17023f0421776975e1de0c682dca475e2/safetensors-0.8.0-cp310-abi3-win_amd64.whl"
+    ),
+    sha256="096ec1a98435df7beb08853bb5aa9081a84f23d0adc67ed1a0a10550f608373f",
+    size_bytes=355540,
+    unpacked_bytes=1066620,
+    license_id="UNKNOWN",
+)
+
+_SHELLINGHAM = Wheel(
+    name="shellingham",
+    version="1.5.4",
+    url=_pypi(
+        "e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl"
+    ),
+    sha256="7ecfff8f2fd72616f7481040475a65b2bf8af90a56c89140852d1120324e8686",
+    size_bytes=9755,
+    unpacked_bytes=29265,
+    license_id="UNKNOWN",
+)
+
+_TOKENIZERS = Wheel(
+    name="tokenizers",
+    version="0.23.2",
+    url=_pypi(
+        "db/f7/0a69ac6b82dbccf3f71add938a161c497952749294b8dd6dfe03a819dc40/tokenizers-0.23.2-cp310-abi3-win_amd64.whl"
+    ),
+    sha256="2e96f5699d5249c9c64aa8412e044f727aae3a4098cf830f9901ec1afc361cde",
+    size_bytes=2863236,
+    unpacked_bytes=8589708,
+    license_id="UNKNOWN",
+)
+
+_TQDM = Wheel(
+    name="tqdm",
+    version="4.70.0",
+    url=_pypi(
+        "f9/1c/01bfd571a64e7f270e6bab5e33777debe0edc56759233ce84f27dec92d14/tqdm-4.70.0-py3-none-any.whl"
+    ),
+    sha256="7f585706bfddbdebf89daac705b2dfcc16890130727d3197ca62c732b4310953",
+    size_bytes=80184,
+    unpacked_bytes=240552,
+    license_id="UNKNOWN",
+)
+
+_TRANSFORMERS = Wheel(
+    name="transformers",
+    version="5.16.1",
+    url=_pypi(
+        "0d/4d/ee3728674c0bbc637bb4af88ccf0be697f92e4e90b55f5dc110c44d61b61/transformers-5.16.1-py3-none-any.whl"
+    ),
+    sha256="2f2d5b98a5ad3718713653734298fa620754ed683702a635ebb587df3ed29c7e",
+    size_bytes=12080592,
+    unpacked_bytes=36241776,
+    license_id="UNKNOWN",
+)
+
+_TYPER = Wheel(
+    name="typer",
+    version="0.27.2",
+    url=_pypi(
+        "dc/bf/205d0004930ede8f542fb58f601526fccf4ae7626075ca1e6c4de5d3d652/typer-0.27.2-py3-none-any.whl"
+    ),
+    sha256="b3a5fc4342d5fc8fda8fc3010b1cf117e9249aab7fae800c2eff62fd3842d97d",
+    size_bytes=123130,
+    unpacked_bytes=369390,
+    license_id="MIT",
+)
+
+_URLLIB3 = Wheel(
+    name="urllib3",
+    version="2.7.0",
+    url=_pypi(
+        "7f/3e/5db95bcf282c52709639744ca2a8b149baccf648e39c8cc87553df9eae0c/urllib3-2.7.0-py3-none-any.whl"
+    ),
+    sha256="9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897",
+    size_bytes=131087,
+    unpacked_bytes=393261,
+    license_id="MIT",
+)
+
+_ZIPP = Wheel(
+    name="zipp",
+    version="4.1.0",
+    url=_pypi(
+        "3a/13/547360d81e6d88d58492968ffda9f9542854f11310ee556fef14260cc886/zipp-4.1.0-py3-none-any.whl"
+    ),
+    sha256="25ad4e16390cd314347dd8f1de67a2ac538ae658ed4ab9db16029c07c188e97f",
+    size_bytes=10238,
+    unpacked_bytes=30714,
+    license_id="MIT",
+)
+
+_DIFFUSION_SET: tuple[Wheel, ...] = (
+    _PYYAML,
+    _PYGMENTS,
+    _ACCELERATE,
+    _ANNOTATED_DOC,
+    _ANYIO,
+    _CERTIFI,
+    _CHARSET_NORMALIZER,
+    _CLICK,
+    _COLORAMA,
+    _DIFFUSERS,
+    _H11,
+    _HF_XET,
+    _HTTPCORE,
+    _HTTPX,
+    _HUGGINGFACE_HUB,
+    _IDNA,
+    _IMPORTLIB_METADATA,
+    _MARKDOWN_IT_PY,
+    _MDURL,
+    _PACKAGING,
+    _PILLOW,
+    _PSUTIL,
+    _REGEX,
+    _REQUESTS,
+    _RICH,
+    _SAFETENSORS,
+    _SHELLINGHAM,
+    _TOKENIZERS,
+    _TQDM,
+    _TRANSFORMERS,
+    _TYPER,
+    _URLLIB3,
+    _ZIPP,
+)
+
+
 def _common(markupsafe: Wheel, numpy: Wheel) -> tuple[Wheel, ...]:
     """Return the dependency wheels every variant shares.
 
@@ -383,6 +828,7 @@ def _common(markupsafe: Wheel, numpy: Wheel) -> tuple[Wheel, ...]:
     """
     return (
         numpy,
+        *_DIFFUSION_SET,
         _FSSPEC,
         _NETWORKX,
         _SETUPTOOLS,

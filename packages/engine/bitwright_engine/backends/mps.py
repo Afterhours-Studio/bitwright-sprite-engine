@@ -37,10 +37,15 @@ from bitwright_engine.backends.base import (
     GenerationRequest,
     GenerationResult,
 )
-from bitwright_engine.utils.images import placeholder, to_png_bytes
+from bitwright_engine.backends.pipeline import PipelineCache, run_pipeline
+from bitwright_engine.models import ModelDownloader
+from bitwright_engine.utils.images import to_png_bytes
 from bitwright_engine.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+DEVICE = "mps"
+"""Device string torch is asked for."""
 
 CAPABILITIES = frozenset(
     {
@@ -59,6 +64,16 @@ class MpsBackend(BaseBackend):
     """
 
     kind = BackendKind.MPS
+
+    def __init__(self, downloader: ModelDownloader | None = None) -> None:
+        """Create the backend.
+
+        Args:
+            downloader: Where weights come from. Defaults to one of its own,
+                which reads the same settings.
+        """
+        self._downloader = downloader if downloader is not None else ModelDownloader()
+        self._pipelines = PipelineCache()
 
     def available(self) -> Availability:
         """Check for a usable Metal device.
@@ -95,13 +110,13 @@ class MpsBackend(BaseBackend):
         return CAPABILITIES
 
     def _run(self, request: GenerationRequest) -> GenerationResult:
-        """Produce placeholder images for a validated request.
+        """Generate sprites on the Metal device.
 
         Args:
             request: Generation parameters, known to be supported.
 
         Returns:
-            One placeholder image per requested batch item.
+            One image per requested batch item.
         """
         started = time.monotonic()
         base_seed = request.seed if request.seed is not None else random.randrange(2**31)
@@ -114,15 +129,38 @@ class MpsBackend(BaseBackend):
             request.batch_size,
         )
 
-        images = [
-            GeneratedImage(
-                data=to_png_bytes(placeholder(request.width, request.height, base_seed + index)),
+        weights = self._downloader.ensure(request.model_id)
+        lora = None if request.lora_id is None else self._downloader.ensure(request.lora_id)
+        pipeline = self._pipelines.get(
+            weights,
+            request.model_id,
+            lora,
+            request.lora_id or "",
+            DEVICE,
+        )
+
+        images = []
+        for index in range(request.batch_size):
+            seed = base_seed + index
+            drawn = run_pipeline(
+                pipeline,
+                prompt=request.prompt,
+                negative_prompt=request.negative_prompt,
                 width=request.width,
                 height=request.height,
-                seed=base_seed + index,
+                steps=request.steps,
+                guidance_scale=request.guidance_scale,
+                seed=seed,
+                device=DEVICE,
             )
-            for index in range(request.batch_size)
-        ]
+            images.append(
+                GeneratedImage(
+                    data=to_png_bytes(drawn),
+                    width=drawn.width,
+                    height=drawn.height,
+                    seed=seed,
+                )
+            )
 
         elapsed_ms = int((time.monotonic() - started) * 1000)
         return GenerationResult(images=images, backend=self.kind, duration_ms=elapsed_ms)

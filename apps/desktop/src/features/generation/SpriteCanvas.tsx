@@ -172,12 +172,16 @@ export function SpriteCanvas({
                   style={{ ['--sprite-checker-size' as string]: `${String(checkerSize)}px` }}
                 />
               )}
+              {/* Positioned, so it paints above the checkerboard behind it.
+                  An absolutely positioned sibling paints after in-flow content
+                  regardless of source order, so a static image here was drawn
+                  underneath the pattern and the sprite simply never appeared. */}
               <img
                 src={toDataUrl(image.data)}
                 width={image.width}
                 height={image.height}
                 alt={t('title')}
-                className="block h-full w-full"
+                className="relative block h-full w-full"
                 style={{ imageRendering: 'pixelated' }}
               />
               {gridVisible && (
