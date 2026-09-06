@@ -35,11 +35,7 @@
     "download": "Cần tải về",
     "onDisk": "Chiếm chỗ sau khi cài",
     "needsFree": "Dung lượng trống cần có",
-    "accelerator": {
-      "cuda": "GPU NVIDIA (CUDA {{version}})",
-      "mps": "GPU Apple (Metal)",
-      "cpu": "Chỉ dùng CPU"
-    },
+    "accelerator": "Bản dựng",
     "recommended": "Phù hợp với máy này",
     "cpuNote": "Không tìm thấy GPU NVIDIA, nên bản này tạo ảnh bằng CPU và sẽ chậm hơn nhiều.",
     "installVariant": "Cài {{build}}",
@@ -68,7 +64,12 @@
     "repairHint": "Bộ chạy đang thiếu {{names}}. Chỉ tải những gói đó, không tải lại toàn bộ.",
     "packagesPresent": "Đã cài {{count}}",
     "packagesMissing": "Thiếu {{count}}",
-    "packagesComplete": "Đã cài đủ mọi gói được ghim."
+    "packagesComplete": "Đã cài đủ mọi gói được ghim.",
+    "accelerators": {
+      "cuda": "NVIDIA CUDA",
+      "mps": "Apple Metal",
+      "cpu": "Bộ xử lý"
+    }
   },
   "providers": {
     "title": "Nhà cung cấp AI",
