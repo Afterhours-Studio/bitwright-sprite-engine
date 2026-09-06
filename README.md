@@ -17,10 +17,10 @@ inference API, whichever you choose in Settings.
 <details>
 <summary><b>More screenshots</b></summary>
 
-| | Dark | Light |
-| --- | --- | --- |
+|          | Dark                                              | Light                                              |
+| -------- | ------------------------------------------------- | -------------------------------------------------- |
 | Generate | [view](docs/assets/screenshots/generate-dark.png) | [view](docs/assets/screenshots/generate-light.png) |
-| Gallery | [view](docs/assets/screenshots/gallery-dark.png) | [view](docs/assets/screenshots/gallery-light.png) |
+| Gallery  | [view](docs/assets/screenshots/gallery-dark.png)  | [view](docs/assets/screenshots/gallery-light.png)  |
 | Settings | [view](docs/assets/screenshots/settings-dark.png) | [view](docs/assets/screenshots/settings-light.png) |
 
 Captured on Windows 11. The backends are stubs in this release, so the canvas
@@ -147,16 +147,16 @@ More in [the quick start guide](docs/getting-started/quick-start.md).
 Most settings are in the application. The engine also reads environment
 variables, each prefixed `BITWRIGHT_`.
 
-| Setting | Variable | Default | Meaning |
-| --- | --- | --- | --- |
-| Backend | `BITWRIGHT_BACKEND` | `auto` | `auto`, `cuda`, `mps`, or `remote` |
-| Remote endpoint | `BITWRIGHT_REMOTE_ENDPOINT` | empty | Base URL of a remote API |
-| Remote API key | `BITWRIGHT_REMOTE_API_KEY` | empty | Bearer token for that endpoint |
-| Remote timeout | `BITWRIGHT_REMOTE_TIMEOUT_S` | `120` | Seconds to wait for a response |
-| Model cache | `BITWRIGHT_CACHE_DIR` | per platform | Where weights are stored |
-| Allow downloads | `BITWRIGHT_ALLOW_DOWNLOADS` | `true` | When false, a missing model is an error |
-| Port | `BITWRIGHT_PORT` | `0` | Engine port. Zero asks for a free one |
-| Log level | `BITWRIGHT_LOG_LEVEL` | `INFO` | Engine log level |
+| Setting         | Variable                     | Default      | Meaning                                 |
+| --------------- | ---------------------------- | ------------ | --------------------------------------- |
+| Backend         | `BITWRIGHT_BACKEND`          | `auto`       | `auto`, `cuda`, `mps`, or `remote`      |
+| Remote endpoint | `BITWRIGHT_REMOTE_ENDPOINT`  | empty        | Base URL of a remote API                |
+| Remote API key  | `BITWRIGHT_REMOTE_API_KEY`   | empty        | Bearer token for that endpoint          |
+| Remote timeout  | `BITWRIGHT_REMOTE_TIMEOUT_S` | `120`        | Seconds to wait for a response          |
+| Model cache     | `BITWRIGHT_CACHE_DIR`        | per platform | Where weights are stored                |
+| Allow downloads | `BITWRIGHT_ALLOW_DOWNLOADS`  | `true`       | When false, a missing model is an error |
+| Port            | `BITWRIGHT_PORT`             | `0`          | Engine port. Zero asks for a free one   |
+| Log level       | `BITWRIGHT_LOG_LEVEL`        | `INFO`       | Engine log level                        |
 
 Full list, and the generation parameters, in
 [the configuration reference](docs/reference/configuration.md).

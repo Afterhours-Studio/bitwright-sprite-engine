@@ -4,12 +4,12 @@ Getting a working build of all three parts, and the commands to run each one.
 
 ## Prerequisites
 
-| Tool | Version | Why |
-| --- | --- | --- |
-| Node.js | 20 or later | Frontend and tooling |
-| Python | 3.11 or later | The engine |
-| Rust | Stable | The Tauri shell |
-| Git | Any recent | Source control |
+| Tool    | Version       | Why                  |
+| ------- | ------------- | -------------------- |
+| Node.js | 20 or later   | Frontend and tooling |
+| Python  | 3.11 or later | The engine           |
+| Rust    | Stable        | The Tauri shell      |
+| Git     | Any recent    | Source control       |
 
 ### Platform packages
 
@@ -140,7 +140,7 @@ It prints a handshake naming the port it bound and the token that
 authenticates callers:
 
 ```json
-{"event": "ready", "port": 51234, "token": "3Qq7...", "version": "0.0.3"}
+{ "event": "ready", "port": 51234, "token": "3Qq7...", "version": "0.0.3" }
 ```
 
 Health needs no token; everything else does:

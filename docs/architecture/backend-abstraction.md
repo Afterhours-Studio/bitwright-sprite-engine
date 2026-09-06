@@ -61,11 +61,11 @@ class Capability(StrEnum):
     BATCH = "batch"
 ```
 
-| Backend | Capabilities |
-| --- | --- |
-| CUDA | All four |
-| MPS | Everything except IP-Adapter |
-| Remote | Batch only |
+| Backend | Capabilities                 |
+| ------- | ---------------------------- |
+| CUDA    | All four                     |
+| MPS     | Everything except IP-Adapter |
+| Remote  | Batch only                   |
 
 MPS omits IP-Adapter because it depends on operators the Metal device does not
 implement in the pinned version of PyTorch. The remote backend declares only
@@ -78,11 +78,11 @@ offers.
 Produces the images. It raises rather than returns on failure, and every error
 carries a code:
 
-| Exception | Code | Raised when |
-| --- | --- | --- |
-| `BackendUnavailableError` | the availability detail | The backend cannot run |
-| `UnsupportedCapabilityError` | the capability name | The request needs an undeclared capability |
-| `BackendError` | `backend.error` | Anything else |
+| Exception                    | Code                    | Raised when                                |
+| ---------------------------- | ----------------------- | ------------------------------------------ |
+| `BackendUnavailableError`    | the availability detail | The backend cannot run                     |
+| `UnsupportedCapabilityError` | the capability name     | The request needs an undeclared capability |
+| `BackendError`               | `backend.error`         | Anything else                              |
 
 ## Capability negotiation
 

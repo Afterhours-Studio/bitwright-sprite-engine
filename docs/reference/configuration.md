@@ -10,11 +10,11 @@ everything else has a default.
 
 ### Server
 
-| Setting | Environment variable | Default | Meaning |
-| --- | --- | --- | --- |
-| `host` | `BITWRIGHT_HOST` | `127.0.0.1` | Address to bind |
-| `port` | `BITWRIGHT_PORT` | `0` | Port to bind. `0` asks the operating system for a free one |
-| `log_level` | `BITWRIGHT_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL` |
+| Setting     | Environment variable  | Default     | Meaning                                                    |
+| ----------- | --------------------- | ----------- | ---------------------------------------------------------- |
+| `host`      | `BITWRIGHT_HOST`      | `127.0.0.1` | Address to bind                                            |
+| `port`      | `BITWRIGHT_PORT`      | `0`         | Port to bind. `0` asks the operating system for a free one |
+| `log_level` | `BITWRIGHT_LOG_LEVEL` | `INFO`      | `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`         |
 
 `host` must be a loopback address. The engine refuses to bind anything else, so
 that generation is never exposed to the network:
@@ -31,9 +31,9 @@ when you want the interactive documentation at a known address.
 
 ### Backend
 
-| Setting | Environment variable | Default | Meaning |
-| --- | --- | --- | --- |
-| `backend` | `BITWRIGHT_BACKEND` | `auto` | `auto`, `cuda`, `mps`, or `remote` |
+| Setting   | Environment variable | Default | Meaning                            |
+| --------- | -------------------- | ------- | ---------------------------------- |
+| `backend` | `BITWRIGHT_BACKEND`  | `auto`  | `auto`, `cuda`, `mps`, or `remote` |
 
 `auto` takes the first available backend in preference order: CUDA, then MPS,
 then remote. Local GPUs come first because they cost nothing per image and keep
@@ -44,10 +44,10 @@ screen can show it with its reason rather than hiding it.
 
 ### Remote API
 
-| Setting | Environment variable | Default | Meaning |
-| --- | --- | --- | --- |
-| `remote_endpoint` | `BITWRIGHT_REMOTE_ENDPOINT` | `""` | Base URL of the service |
-| `remote_api_key` | `BITWRIGHT_REMOTE_API_KEY` | `""` | Bearer token |
+| Setting            | Environment variable         | Default | Meaning                    |
+| ------------------ | ---------------------------- | ------- | -------------------------- |
+| `remote_endpoint`  | `BITWRIGHT_REMOTE_ENDPOINT`  | `""`    | Base URL of the service    |
+| `remote_api_key`   | `BITWRIGHT_REMOTE_API_KEY`   | `""`    | Bearer token               |
 | `remote_timeout_s` | `BITWRIGHT_REMOTE_TIMEOUT_S` | `120.0` | Request timeout in seconds |
 
 The remote backend is unavailable while either the endpoint or the key is empty.
@@ -57,21 +57,27 @@ through Afterhours Studio. See
 
 ### Models
 
-| Setting | Environment variable | Default | Meaning |
-| --- | --- | --- | --- |
-| `cache_dir` | `BITWRIGHT_CACHE_DIR` | Per platform, below | Where weights are stored |
-| `allow_downloads` | `BITWRIGHT_ALLOW_DOWNLOADS` | `true` | When false, a missing model is an error |
+| Setting           | Environment variable        | Default             | Meaning                                 |
+| ----------------- | --------------------------- | ------------------- | --------------------------------------- |
+| `data_root`       | `BITWRIGHT_DATA_ROOT`       | Per platform, below | Where everything downloaded is kept     |
+| `cache_dir`       | `BITWRIGHT_CACHE_DIR`       | `data_root/models`  | Where weights are stored                |
+| `allow_downloads` | `BITWRIGHT_ALLOW_DOWNLOADS` | `true`              | When false, a missing model is an error |
 
-Default cache directory:
+Default data root:
 
-| Platform | Path |
-| --- | --- |
-| Windows | `%LOCALAPPDATA%\studio.afterhours.bitwright\models` |
-| macOS | `~/Library/Application Support/studio.afterhours.bitwright/models` |
-| Linux | `$XDG_DATA_HOME/studio.afterhours.bitwright/models`, or `~/.local/share/...` |
+| Platform | Path                                                                  |
+| -------- | --------------------------------------------------------------------- |
+| Windows  | `%LOCALAPPDATA%\studio.afterhours.bitwright`                          |
+| macOS    | `~/Library/Application Support/studio.afterhours.bitwright`           |
+| Linux    | `$XDG_DATA_HOME/studio.afterhours.bitwright`, or `~/.local/share/...` |
 
-Move the cache to another drive by setting `BITWRIGHT_CACHE_DIR`. Models are
-several gigabytes each.
+Weights land in `models` under that root. `cache_dir` follows `data_root`
+unless it is set explicitly, in which case the explicit value wins.
+
+Move everything to another drive from Settings, under Storage location, or by
+setting `BITWRIGHT_DATA_ROOT`. Models are several gigabytes each. Changing the
+location never moves what is already downloaded: those files stay where they
+are, and the Settings screen names them.
 
 Set `allow_downloads` to false on a machine that must not fetch weights. A model
 that is not already cached then fails with `models.downloads_disabled` instead
@@ -107,24 +113,32 @@ bitwright-engine
 Some settings are in the interface rather than the environment, and are stored
 per user by the webview:
 
-| Setting | Where | Stored in |
-| --- | --- | --- |
-| Theme | Settings, Appearance | `localStorage`, `bitwright.theme` |
-| Language | Settings, Appearance | `localStorage`, `bitwright.language` |
-| Window size and position | Automatic | The window state plugin |
+| Setting                  | Where                     | Stored in                            |
+| ------------------------ | ------------------------- | ------------------------------------ |
+| Theme                    | Settings, Appearance      | `localStorage`, `bitwright.theme`    |
+| Language                 | Settings, Appearance      | `localStorage`, `bitwright.language` |
+| Window size and position | Automatic                 | The window state plugin              |
+| Storage location         | Settings, Storage         | `preferences.json`, see below        |
+
+The storage location cannot live in `localStorage`: the shell has to know it
+before it spawns the engine, which happens before the webview has loaded, and
+Rust cannot read the webview's storage. So the shell writes it to
+`preferences.json` in the platform configuration directory and passes it back
+as `BITWRIGHT_DATA_ROOT` on every launch. It is a shell preference, not engine
+configuration.
 
 ## Environment variables outside the engine
 
-| Variable | Read by | Meaning |
-| --- | --- | --- |
+| Variable             | Read by   | Meaning                                                                                         |
+| -------------------- | --------- | ----------------------------------------------------------------------------------------------- |
 | `BITWRIGHT_VIBRANCY` | The shell | Set to `acrylic` to opt in to acrylic on Windows 10, which stutters while the window is dragged |
 
 ## Command line
 
 The engine takes one argument, which the shell always passes:
 
-| Argument | Meaning |
-| --- | --- |
+| Argument             | Meaning                                                                  |
+| -------------------- | ------------------------------------------------------------------------ |
 | `--parent-pid <pid>` | Exit when this process exits, so that no orphan keeps holding GPU memory |
 
 There is no way to set the authentication token. It is generated on each start

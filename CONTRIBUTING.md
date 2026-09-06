@@ -93,11 +93,11 @@ Keep a pull request to one logical change. Split unrelated fixes.
 
 `<type>/<short-description>`, lowercase, words separated by hyphens.
 
-| Prefix | Use for |
-| --- | --- |
-| `feat/` | New functionality |
-| `fix/` | Bug fixes |
-| `docs/` | Documentation only |
+| Prefix   | Use for                            |
+| -------- | ---------------------------------- |
+| `feat/`  | New functionality                  |
+| `fix/`   | Bug fixes                          |
+| `docs/`  | Documentation only                 |
 | `chore/` | Tooling, dependencies, maintenance |
 
 Examples: `feat/mps-backend-lora`, `fix/sidecar-port-collision`,
@@ -118,19 +118,19 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/en/
 The description is imperative, lowercase, and has no trailing period. Keep the
 subject line at 72 characters or fewer.
 
-| Type | When to use | Example |
-| --- | --- | --- |
-| `feat` | A new feature | `feat(backends): add capability probe for LoRA hot swap` |
-| `fix` | A bug fix | `fix(sidecar): release the port when startup fails` |
-| `docs` | Documentation only | `docs(i18n): explain how to add a locale` |
-| `style` | Formatting with no code change | `style(ui): apply prettier to layout components` |
-| `refactor` | Neither fixes a bug nor adds a feature | `refactor(pipeline): extract grid packing helper` |
-| `perf` | Improves performance | `perf(quantize): cache the palette lookup table` |
-| `test` | Adds or corrects tests | `test(backends): cover the remote timeout path` |
-| `build` | Build system or dependencies | `build(deps): bump diffusers to 0.31` |
-| `ci` | CI configuration | `ci: run cargo clippy on windows` |
-| `chore` | Anything else with no source impact | `chore: add editorconfig for rust files` |
-| `revert` | Reverts an earlier commit | `revert: feat(backends): add capability probe` |
+| Type       | When to use                            | Example                                                  |
+| ---------- | -------------------------------------- | -------------------------------------------------------- |
+| `feat`     | A new feature                          | `feat(backends): add capability probe for LoRA hot swap` |
+| `fix`      | A bug fix                              | `fix(sidecar): release the port when startup fails`      |
+| `docs`     | Documentation only                     | `docs(i18n): explain how to add a locale`                |
+| `style`    | Formatting with no code change         | `style(ui): apply prettier to layout components`         |
+| `refactor` | Neither fixes a bug nor adds a feature | `refactor(pipeline): extract grid packing helper`        |
+| `perf`     | Improves performance                   | `perf(quantize): cache the palette lookup table`         |
+| `test`     | Adds or corrects tests                 | `test(backends): cover the remote timeout path`          |
+| `build`    | Build system or dependencies           | `build(deps): bump diffusers to 0.31`                    |
+| `ci`       | CI configuration                       | `ci: run cargo clippy on windows`                        |
+| `chore`    | Anything else with no source impact    | `chore: add editorconfig for rust files`                 |
+| `revert`   | Reverts an earlier commit              | `revert: feat(backends): add capability probe`           |
 
 Breaking changes carry a `!` after the type, and a `BREAKING CHANGE:` footer:
 

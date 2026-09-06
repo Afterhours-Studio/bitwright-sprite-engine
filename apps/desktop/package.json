@@ -1,6 +1,6 @@
 {
   "name": "@bitwright/desktop",
-  "version": "0.0.3",
+  "version": "0.1.0",
   "private": true,
   "description": "Cross-platform sprite generation engine for pixel art games",
   "license": "AGPL-3.0-only",
@@ -37,6 +37,7 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.1.1",
+    "cmdk": "^1.1.1",
     "i18next": "^23.16.8",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

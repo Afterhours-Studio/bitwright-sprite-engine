@@ -30,14 +30,14 @@ Nygard described.
 
 Each record has:
 
-| Section | Contents |
-| --- | --- |
-| Title | A number and a short phrase |
-| Date | When the decision was made |
-| Status | Proposed, Accepted, Deprecated, or Superseded by NNNN |
-| Context | The forces at play, including the alternatives |
-| Decision | What was chosen, in the active voice |
-| Consequences | What follows, good and bad |
+| Section      | Contents                                              |
+| ------------ | ----------------------------------------------------- |
+| Title        | A number and a short phrase                           |
+| Date         | When the decision was made                            |
+| Status       | Proposed, Accepted, Deprecated, or Superseded by NNNN |
+| Context      | The forces at play, including the alternatives        |
+| Decision     | What was chosen, in the active voice                  |
+| Consequences | What follows, good and bad                            |
 
 A record is written when a decision is hard to reverse, when it constrains
 future work, or when a reasonable person would ask why it was made.

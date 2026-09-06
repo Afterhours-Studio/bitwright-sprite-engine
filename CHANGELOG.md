@@ -6,15 +6,60 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Versions are `major.minor.develop`:
 
-| Part | Meaning |
-| --- | --- |
-| major | Breaking change. Stays at 0 until the first stable release |
-| minor | A user-facing capability is complete |
-| develop | A development pass within the current minor |
+| Part    | Meaning                                                    |
+| ------- | ---------------------------------------------------------- |
+| major   | Breaking change. Stays at 0 until the first stable release |
+| minor   | A user-facing capability is complete                       |
+| develop | A development pass within the current minor                |
 
-Both leading zeros are accurate today. Nothing has been released, and no
-user-facing capability is finished: the backends return placeholder images and
-model downloading is not implemented.
+The leading zero is accurate today: nothing has been released, and the
+backends still return placeholder images rather than generating anything.
+
+## [0.1.0] - 2026-09-06
+
+The minor moves because two user-facing capabilities are finished rather than
+sketched: model weights genuinely download, and a remote provider can be
+configured and used. Generation itself is still a placeholder, which is why the
+major stays at zero.
+
+### Added
+
+- Remote API providers. Several can be configured, one is active, and a
+  connection test reports what the endpoint actually said. Presets for four
+  OpenAI-compatible hosts, plus a custom endpoint for an aggregator or router.
+  API keys live in the operating system credential store, and never reach the
+  interface: it receives a presence flag and a masked hint.
+- A configurable storage location, so model weights can live off a full system
+  drive. Writability is proven by writing, and a change is refused while a
+  download is running.
+- Real model downloading: streamed, resumable to the extent of discarding a
+  partial cleanly, cancellable, with progress.
+- A notification system. Errors that were previously swallowed now surface, and
+  are kept in a history reachable from the dock.
+- A command palette, reached with Ctrl+K, that finds Vietnamese entries typed
+  without diacritics.
+- A dock carrying the drawing tools, and a system theme that follows the
+  operating system's own light and dark schedule.
+
+### Changed
+
+- The dark palette sits 0.080 OKLCH lightness higher throughout. The previous
+  values rendered the application almost black: OKLCH lightness is close to the
+  cube root of luminance down there, so numbers that read as reasonable came out
+  at sRGB 18.
+- Number fields draw their own stepper, and integer fields refuse a decimal
+  point rather than rounding one away later.
+
+### Fixed
+
+- The frozen sidecar shipped without Pillow and started only to exit, because
+  the freezer ran under whichever interpreter was on PATH. It now builds from
+  the engine's own environment, and the build fails if the artefact cannot
+  start.
+- A debug build runs the engine from source instead of the frozen bundle, so a
+  Python change no longer needs a freeze before it can be seen.
+- Scrollbar styling had never applied on Windows: declaring `scrollbar-width`
+  makes Chromium drop the whole `::-webkit-scrollbar` cascade.
 
 ## [0.0.3] - 2026-02-12
 

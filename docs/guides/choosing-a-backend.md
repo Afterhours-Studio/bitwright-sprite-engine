@@ -8,17 +8,17 @@ application never silently falls back to a remote service.
 
 ## The three
 
-| | Local GPU (NVIDIA) | Local GPU (Apple) | Remote API |
-| --- | --- | --- | --- |
-| Runs on | NVIDIA GPU with CUDA | Apple Silicon | Someone else's server |
-| Cost per image | Electricity | Electricity | Whatever the provider charges |
-| Prompts leave the machine | No | No | Yes |
-| Works offline | Yes, once the model is cached | Yes, once the model is cached | No |
-| Disk needed | Several GB per model | Several GB per model | None |
-| Batch | Yes | Yes | Yes |
-| Style adapters | Yes | Yes | No |
-| Pose control | Yes | Yes | No |
-| Reference image | Yes | No | No |
+|                           | Local GPU (NVIDIA)            | Local GPU (Apple)             | Remote API                    |
+| ------------------------- | ----------------------------- | ----------------------------- | ----------------------------- |
+| Runs on                   | NVIDIA GPU with CUDA          | Apple Silicon                 | Someone else's server         |
+| Cost per image            | Electricity                   | Electricity                   | Whatever the provider charges |
+| Prompts leave the machine | No                            | No                            | Yes                           |
+| Works offline             | Yes, once the model is cached | Yes, once the model is cached | No                            |
+| Disk needed               | Several GB per model          | Several GB per model          | None                          |
+| Batch                     | Yes                           | Yes                           | Yes                           |
+| Style adapters            | Yes                           | Yes                           | No                            |
+| Pose control              | Yes                           | Yes                           | No                            |
+| Reference image           | Yes                           | No                            | No                            |
 
 The capability rows are what the interface reads. An option a backend does not
 declare is disabled on the Generate screen.
@@ -41,15 +41,15 @@ graphics, or a machine where several gigabytes of weights are not welcome. See
 
 Settings shows a reason for every engine that cannot be selected.
 
-| Message | Cause | Fix |
-| --- | --- | --- |
-| PyTorch is not installed | The build has no local generation support | Use a release build, or install the extras from source |
-| No CUDA driver was found | The NVIDIA driver is missing or too old | Install driver 525 or later, then restart |
-| The CUDA driver reported no usable GPU | The driver is there, the device is not | Check `nvidia-smi` lists a GPU |
-| The Apple engine only runs on macOS | Not a Mac | Use another engine |
-| The Metal device is not available | Intel Mac, or a virtual machine | Use a remote API |
-| Set an endpoint in Settings | The remote endpoint is empty | Fill it in |
-| Set an API key in Settings | The remote key is empty | Fill it in |
+| Message                                | Cause                                     | Fix                                                    |
+| -------------------------------------- | ----------------------------------------- | ------------------------------------------------------ |
+| PyTorch is not installed               | The build has no local generation support | Use a release build, or install the extras from source |
+| No CUDA driver was found               | The NVIDIA driver is missing or too old   | Install driver 525 or later, then restart              |
+| The CUDA driver reported no usable GPU | The driver is there, the device is not    | Check `nvidia-smi` lists a GPU                         |
+| The Apple engine only runs on macOS    | Not a Mac                                 | Use another engine                                     |
+| The Metal device is not available      | Intel Mac, or a virtual machine           | Use a remote API                                       |
+| Set an endpoint in Settings            | The remote endpoint is empty              | Fill it in                                             |
+| Set an API key in Settings             | The remote key is empty                   | Fill it in                                             |
 
 ## How availability is decided
 

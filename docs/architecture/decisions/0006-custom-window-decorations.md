@@ -68,12 +68,12 @@ Platform handling:
 
 Background effects, applied in `main.rs` under `cfg` per target:
 
-| Platform | Effect | Notes |
-| --- | --- | --- |
-| macOS | `NSVisualEffectMaterial::UnderWindowBackground` | Tints from the desktop behind the window |
-| Windows 11 | Mica | Falls through to the next row when unavailable |
-| Windows 10 | Acrylic, opt in | Repaints the whole window during a drag, so it stutters. Off unless `BITWRIGHT_VIBRANCY=acrylic` |
-| Linux | None | No compositor-independent way to blur behind a window |
+| Platform   | Effect                                          | Notes                                                                                            |
+| ---------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| macOS      | `NSVisualEffectMaterial::UnderWindowBackground` | Tints from the desktop behind the window                                                         |
+| Windows 11 | Mica                                            | Falls through to the next row when unavailable                                                   |
+| Windows 10 | Acrylic, opt in                                 | Repaints the whole window during a drag, so it stutters. Off unless `BITWRIGHT_VIBRANCY=acrylic` |
+| Linux      | None                                            | No compositor-independent way to blur behind a window                                            |
 
 Applying an effect never panics. The result is recorded and returned by the
 `vibrancy_state` command.

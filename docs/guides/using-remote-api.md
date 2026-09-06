@@ -26,11 +26,11 @@ If prompts must not leave the machine, use a local engine. See
 
 Open **Settings**, then **Remote API**.
 
-| Field | Value |
-| --- | --- |
+| Field    | Value                                                              |
+| -------- | ------------------------------------------------------------------ |
 | Endpoint | The base URL of the service, for example `https://api.example.com` |
-| API key | The key the provider issued |
-| Timeout | Seconds to wait for a response. Default 120 |
+| API key  | The key the provider issued                                        |
+| Timeout  | Seconds to wait for a response. Default 120                        |
 
 Press **Use this engine** under **Remote API** once both fields are filled in.
 The engine stays unavailable while either is empty, with `Set an endpoint in
@@ -55,12 +55,12 @@ any other credential: it is not encrypted at rest in this release.
 
 ## What the remote backend supports
 
-| Capability | Supported |
-| --- | --- |
-| Batch | Yes |
-| Style adapters | No |
-| Pose control | No |
-| Reference image | No |
+| Capability      | Supported |
+| --------------- | --------- |
+| Batch           | Yes       |
+| Style adapters  | No        |
+| Pose control    | No        |
+| Reference image | No        |
 
 Only batching is declared, because adapter support varies between providers and
 cannot be assumed. The Generate screen disables the rest while this engine is
@@ -71,10 +71,10 @@ what it actually offers.
 
 ## Errors
 
-| Message | Cause |
-| --- | --- |
-| Set an endpoint in Settings | The endpoint field is empty |
-| Set an API key in Settings | The key field is empty |
+| Message                                                     | Cause                                                |
+| ----------------------------------------------------------- | ---------------------------------------------------- |
+| Set an endpoint in Settings                                 | The endpoint field is empty                          |
+| Set an API key in Settings                                  | The key field is empty                               |
 | The remote API rejected the request or could not be reached | Network failure, a rejected key, or a provider error |
 
 Availability is not probed over the network, because the Settings screen asks

@@ -10,11 +10,11 @@ This assumes Bitwright is installed. If it is not, see
 Open **Settings**, then **Engine**. Every engine is listed with its
 availability:
 
-| Engine | Available when |
-| --- | --- |
+| Engine             | Available when                                |
+| ------------------ | --------------------------------------------- |
 | Local GPU (NVIDIA) | A CUDA driver and a supported GPU are present |
-| Local GPU (Apple) | The machine is an Apple Silicon Mac |
-| Remote API | An endpoint and an API key are configured |
+| Local GPU (Apple)  | The machine is an Apple Silicon Mac           |
+| Remote API         | An endpoint and an API key are configured     |
 
 An unavailable engine is disabled and shows why. `No CUDA driver was found`
 means the NVIDIA driver is missing, not that the application is broken.
@@ -46,12 +46,12 @@ blurry, text, watermark, drop shadow
 
 The parameters panel is on the right. For a first run:
 
-| Parameter | Value | Why |
-| --- | --- | --- |
-| Width, Height | 64 | A common sprite size, and fast to generate |
-| Steps | 20 | Enough quality without a long wait |
-| Guidance | 7 | Follows the prompt without over-baking it |
-| Seed | Empty | A random seed each run |
+| Parameter     | Value | Why                                        |
+| ------------- | ----- | ------------------------------------------ |
+| Width, Height | 64    | A common sprite size, and fast to generate |
+| Steps         | 20    | Enough quality without a long wait         |
+| Guidance      | 7     | Follows the prompt without over-baking it  |
+| Seed          | Empty | A random seed each run                     |
 
 Leave post-processing at its defaults. Background removal is on, and the
 palette is limited to 32 colours, which is what turns a smooth render into

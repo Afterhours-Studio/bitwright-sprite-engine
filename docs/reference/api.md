@@ -28,7 +28,7 @@ BITWRIGHT_PORT=8000 bitwright-engine
 The engine generates a token at startup and prints it in the handshake:
 
 ```json
-{"event": "ready", "port": 51234, "token": "3Qq7...", "version": "0.0.3"}
+{ "event": "ready", "port": 51234, "token": "3Qq7...", "version": "0.0.3" }
 ```
 
 Send it on every authenticated call:
@@ -37,10 +37,10 @@ Send it on every authenticated call:
 curl -H "X-Bitwright-Token: $TOKEN" http://127.0.0.1:8000/v1/backends
 ```
 
-| Status | Code | Cause |
-| --- | --- | --- |
-| 401 | `auth.invalid_token` | The token is missing or wrong |
-| 403 | `auth.origin_not_allowed` | The request carried an `Origin` header |
+| Status | Code                      | Cause                                  |
+| ------ | ------------------------- | -------------------------------------- |
+| 401    | `auth.invalid_token`      | The token is missing or wrong          |
+| 403    | `auth.origin_not_allowed` | The request carried an `Origin` header |
 
 Loopback binding keeps the API off the network. It does not keep it away from
 other processes on the same machine, which is what the token is for. See
@@ -63,12 +63,12 @@ curl http://127.0.0.1:8000/health
 }
 ```
 
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `status` | string | `ok` once the process can serve requests |
-| `version` | string | Engine version |
-| `backend` | string | The selected backend: `cuda`, `mps`, or `remote` |
-| `backendReady` | boolean | Whether that backend can generate now |
+| Field          | Type    | Meaning                                          |
+| -------------- | ------- | ------------------------------------------------ |
+| `status`       | string  | `ok` once the process can serve requests         |
+| `version`      | string  | Engine version                                   |
+| `backend`      | string  | The selected backend: `cuda`, `mps`, or `remote` |
+| `backendReady` | boolean | Whether that backend can generate now            |
 
 `backendReady` being false is not an error. The process is up; the backend it
 holds cannot run, and `GET /v1/backends` says why.
@@ -117,14 +117,14 @@ curl -H "X-Bitwright-Token: $TOKEN" http://127.0.0.1:8000/v1/backends
 }
 ```
 
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `kind` | string | `cuda`, `mps`, or `remote` |
-| `available` | boolean | Can generate right now |
-| `detail` | string | Stable reason code when unavailable, empty otherwise |
-| `device` | string | Device or endpoint description when available |
-| `capabilities` | string[] | Supported optional features |
-| `selected` | boolean | Currently serving generation |
+| Field          | Type     | Meaning                                              |
+| -------------- | -------- | ---------------------------------------------------- |
+| `kind`         | string   | `cuda`, `mps`, or `remote`                           |
+| `available`    | boolean  | Can generate right now                               |
+| `detail`       | string   | Stable reason code when unavailable, empty otherwise |
+| `device`       | string   | Device or endpoint description when available        |
+| `capabilities` | string[] | Supported optional features                          |
+| `selected`     | boolean  | Currently serving generation                         |
 
 Capabilities are reported whether or not the backend is available, so the
 Settings screen can show what an engine would offer once its driver is
@@ -141,11 +141,11 @@ curl -X POST -H "X-Bitwright-Token: $TOKEN" \
 
 Returns the refreshed backend list, with the new selection marked.
 
-| Status | Meaning |
-| --- | --- |
-| 200 | Switched |
-| 404 | `backend.unknown_kind` |
-| 409 | The backend is unavailable; the reason code is in `detail` |
+| Status | Meaning                                                    |
+| ------ | ---------------------------------------------------------- |
+| 200    | Switched                                                   |
+| 404    | `backend.unknown_kind`                                     |
+| 409    | The backend is unavailable; the reason code is in `detail` |
 
 Selecting an unavailable backend is rejected here rather than at generation
 time, so the problem is reported where the user made the choice.
@@ -168,37 +168,35 @@ curl -X POST http://127.0.0.1:8000/v1/generate \
 
 ### Request
 
-| Field | Type | Default | Range |
-| --- | --- | --- | --- |
-| `prompt` | string | required | 1 to 2000 characters |
-| `negativePrompt` | string | `""` | up to 2000 characters |
-| `width` | integer | 64 | 8 to 2048 |
-| `height` | integer | 64 | 8 to 2048 |
-| `steps` | integer | 20 | 1 to 150 |
-| `guidanceScale` | number | 7.0 | 0 to 30 |
-| `seed` | integer or null | null | 0 to 2147483647 |
-| `batchSize` | integer | 1 | 1 to 16 |
-| `modelId` | string | `sd15-base` | a registry identifier |
-| `loraId` | string or null | null | a registry identifier |
-| `postprocess` | object | defaults below | |
+| Field            | Type            | Default        | Range                 |
+| ---------------- | --------------- | -------------- | --------------------- |
+| `prompt`         | string          | required       | 1 to 2000 characters  |
+| `negativePrompt` | string          | `""`           | up to 2000 characters |
+| `width`          | integer         | 64             | 8 to 2048             |
+| `height`         | integer         | 64             | 8 to 2048             |
+| `steps`          | integer         | 20             | 1 to 150              |
+| `guidanceScale`  | number          | 7.0            | 0 to 30               |
+| `seed`           | integer or null | null           | 0 to 2147483647       |
+| `batchSize`      | integer         | 1              | 1 to 16               |
+| `modelId`        | string          | `sd15-base`    | a registry identifier |
+| `loraId`         | string or null  | null           | a registry identifier |
+| `postprocess`    | object          | defaults below |                       |
 
 `postprocess`:
 
-| Field | Type | Default | Range |
-| --- | --- | --- | --- |
-| `removeBackground` | boolean | true | |
-| `backgroundTolerance` | integer | 12 | 0 to 255 |
-| `paletteSize` | integer or null | 32 | 2 to 256 |
-| `dither` | boolean | false | |
-| `pixelGrid` | integer or null | null | 1 to 64 |
+| Field                 | Type            | Default | Range    |
+| --------------------- | --------------- | ------- | -------- |
+| `removeBackground`    | boolean         | true    |          |
+| `backgroundTolerance` | integer         | 12      | 0 to 255 |
+| `paletteSize`         | integer or null | 32      | 2 to 256 |
+| `dither`              | boolean         | false   |          |
+| `pixelGrid`           | integer or null | null    | 1 to 64  |
 
 ### Response
 
 ```json
 {
-  "images": [
-    { "data": "iVBORw0KGgoAAAANSUhEUgAA...", "width": 64, "height": 64 }
-  ],
+  "images": [{ "data": "iVBORw0KGgoAAAANSUhEUgAA...", "width": 64, "height": 64 }],
   "backend": "remote",
   "durationMs": 42,
   "warnings": []
@@ -209,19 +207,19 @@ curl -X POST http://127.0.0.1:8000/v1/generate \
 
 ### Errors
 
-| Status | Body | Cause |
-| --- | --- | --- |
-| 422 | FastAPI validation detail | A field is outside its range |
-| 503 | `{"code": "...", "message": "..."}` | The backend failed |
+| Status | Body                                | Cause                        |
+| ------ | ----------------------------------- | ---------------------------- |
+| 422    | FastAPI validation detail           | A field is outside its range |
+| 503    | `{"code": "...", "message": "..."}` | The backend failed           |
 
 Backend codes:
 
-| Code | Meaning |
-| --- | --- |
-| `backend.unavailable` | The backend cannot run on this machine |
-| `backend.unsupported_capability` | The request needs a capability the backend lacks |
-| `backend.remote.request_failed` | The remote endpoint rejected the request or was unreachable |
-| `backend.error` | Anything else |
+| Code                             | Meaning                                                     |
+| -------------------------------- | ----------------------------------------------------------- |
+| `backend.unavailable`            | The backend cannot run on this machine                      |
+| `backend.unsupported_capability` | The request needs a capability the backend lacks            |
+| `backend.remote.request_failed`  | The remote endpoint rejected the request or was unreachable |
+| `backend.error`                  | Anything else                                               |
 
 A request that needs an undeclared capability is rejected before generation
 starts, so `batchSize: 4` against a backend without `batch` fails immediately
@@ -252,16 +250,16 @@ curl -H "X-Bitwright-Token: $TOKEN" http://127.0.0.1:8000/v1/models
 }
 ```
 
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `modelId` | string | Registry identifier |
-| `name` | string | Display name |
-| `kind` | string | `base`, `lora`, or `segmentation` |
-| `licenseId` | string | Licence identifier or name |
-| `licenseUrl` | string | Where to read the full text |
+| Field           | Type    | Meaning                                    |
+| --------------- | ------- | ------------------------------------------ |
+| `modelId`       | string  | Registry identifier                        |
+| `name`          | string  | Display name                               |
+| `kind`          | string  | `base`, `lora`, or `segmentation`          |
+| `licenseId`     | string  | Licence identifier or name                 |
+| `licenseUrl`    | string  | Where to read the full text                |
 | `commercialUse` | boolean | Whether the licence permits commercial use |
-| `sizeMb` | integer | Approximate download size |
-| `cached` | boolean | Already on this machine |
+| `sizeMb`        | integer | Approximate download size                  |
+| `cached`        | boolean | Already on this machine                    |
 
 The licence is part of the response because the user has to see it before
 anything is downloaded. Weights are not covered by the application's own

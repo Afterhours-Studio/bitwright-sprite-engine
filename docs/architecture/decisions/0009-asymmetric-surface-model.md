@@ -52,16 +52,16 @@ Three changes.
 no alias. A number says how high a surface sits, which is only meaningful if
 height is what separates surfaces, and in light mode it is not.
 
-| Token | Role |
-| --- | --- |
-| `--surface-canvas` | The application background. Headings only, never body text |
-| `--surface-content` | The default surface for anything with text |
-| `--surface-content-alt` | A content surface nested in another one |
-| `--surface-input` | Text fields, text areas, selects |
-| `--surface-well` | Decorative, and never carries text |
-| `--surface-float` | Dropdowns, tooltips, menus |
-| `--surface-disabled` | A control that cannot be used |
-| `--surface-anchor` | The status bar |
+| Token                   | Role                                                       |
+| ----------------------- | ---------------------------------------------------------- |
+| `--surface-canvas`      | The application background. Headings only, never body text |
+| `--surface-content`     | The default surface for anything with text                 |
+| `--surface-content-alt` | A content surface nested in another one                    |
+| `--surface-input`       | Text fields, text areas, selects                           |
+| `--surface-well`        | Decorative, and never carries text                         |
+| `--surface-float`       | Dropdowns, tooltips, menus                                 |
+| `--surface-disabled`    | A control that cannot be used                              |
+| `--surface-anchor`      | The status bar                                             |
 
 `--surface-content` also carries the guarantee that ADR 0006 introduced under
 that name: it is always fully opaque. The two meanings agree, because a surface

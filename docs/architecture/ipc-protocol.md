@@ -56,7 +56,7 @@ One JSON object, one line, on standard output, written before the server starts
 accepting:
 
 ```json
-{"event": "ready", "port": 51234, "token": "3Qq7...", "version": "0.0.3"}
+{ "event": "ready", "port": 51234, "token": "3Qq7...", "version": "0.0.3" }
 ```
 
 The token authenticates every later call. It is generated fresh on each start,
@@ -74,11 +74,11 @@ The shell allows 30 seconds. Past that it reports `sidecar.startup_timeout`.
 
 The shell emits these to the frontend:
 
-| Event | Payload | When |
-| --- | --- | --- |
-| `sidecar://ready` | `SidecarStatus` | The handshake arrived |
+| Event              | Payload         | When                                                   |
+| ------------------ | --------------- | ------------------------------------------------------ |
+| `sidecar://ready`  | `SidecarStatus` | The handshake arrived                                  |
 | `sidecar://failed` | `SidecarStatus` | Spawn failed, startup timed out, or the process exited |
-| `startup://gpu` | `GpuReport` | The GPU probe finished |
+| `startup://gpu`    | `GpuReport`     | The GPU probe finished                                 |
 
 The frontend also polls `sidecar_status` when it mounts, because the sidecar can
 become ready before the webview finishes loading, and in that case the event has
@@ -86,20 +86,20 @@ already fired.
 
 ## Commands
 
-| Command | Returns | Purpose |
-| --- | --- | --- |
-| `sidecar_status` | `SidecarStatus` | Current status, for the initial poll |
-| `engine_backends` | JSON | Every backend and its capabilities |
-| `engine_select_backend` | JSON | Switch the active backend |
-| `engine_generate` | JSON | Generate sprites |
-| `engine_models` | JSON | Registered models and their licences |
-| `vibrancy_state` | `VibrancyState` | Whether a background effect applied |
-| `platform_info` | `PlatformInfo` | Operating system, and who draws the window buttons |
-| `check_gpu` | `GpuReport` | Probe for a usable GPU driver |
-| `window_minimize` | - | Minimize |
-| `window_toggle_maximize` | `boolean` | Maximize or restore, returning the new state |
-| `window_is_maximized` | `boolean` | Current maximized state |
-| `window_close` | - | Close, which quits |
+| Command                  | Returns         | Purpose                                            |
+| ------------------------ | --------------- | -------------------------------------------------- |
+| `sidecar_status`         | `SidecarStatus` | Current status, for the initial poll               |
+| `engine_backends`        | JSON            | Every backend and its capabilities                 |
+| `engine_select_backend`  | JSON            | Switch the active backend                          |
+| `engine_generate`        | JSON            | Generate sprites                                   |
+| `engine_models`          | JSON            | Registered models and their licences               |
+| `vibrancy_state`         | `VibrancyState` | Whether a background effect applied                |
+| `platform_info`          | `PlatformInfo`  | Operating system, and who draws the window buttons |
+| `check_gpu`              | `GpuReport`     | Probe for a usable GPU driver                      |
+| `window_minimize`        | -               | Minimize                                           |
+| `window_toggle_maximize` | `boolean`       | Maximize or restore, returning the new state       |
+| `window_is_maximized`    | `boolean`       | Current maximized state                            |
+| `window_close`           | -               | Close, which quits                                 |
 
 Every fallible command returns `Result<T, CommandError>`, where `CommandError`
 is `{ code, detail }`. The code is stable and translated by the frontend; the
@@ -133,14 +133,14 @@ Endpoints are documented in [the API reference](../reference/api.md).
 
 ## Failure
 
-| Failure | Code | What the user sees |
-| --- | --- | --- |
-| Executable missing | `sidecar.spawn_failed` | The engine could not be started |
-| Wrong or missing token | `auth.invalid_token` | An unexpected error occurred |
-| Request carried an Origin | `auth.origin_not_allowed` | An unexpected error occurred |
-| No handshake in 30s | `sidecar.startup_timeout` | The engine did not finish starting in time |
-| Process exits while running | `sidecar.exited` | The engine stopped unexpectedly |
-| Request before ready | `sidecar.not_ready` | The engine is still starting |
+| Failure                     | Code                      | What the user sees                         |
+| --------------------------- | ------------------------- | ------------------------------------------ |
+| Executable missing          | `sidecar.spawn_failed`    | The engine could not be started            |
+| Wrong or missing token      | `auth.invalid_token`      | An unexpected error occurred               |
+| Request carried an Origin   | `auth.origin_not_allowed` | An unexpected error occurred               |
+| No handshake in 30s         | `sidecar.startup_timeout` | The engine did not finish starting in time |
+| Process exits while running | `sidecar.exited`          | The engine stopped unexpectedly            |
+| Request before ready        | `sidecar.not_ready`       | The engine is still starting               |
 
 Startup failure is never fatal to the shell. The window opens, the frontend is
 told, and the user sees a message rather than an application that silently does

@@ -1,6 +1,6 @@
 {
   "name": "bitwright-sprite-engine",
-  "version": "0.0.3",
+  "version": "0.1.0",
   "private": true,
   "description": "Cross-platform sprite generation engine for pixel art games",
   "license": "AGPL-3.0-only",
@@ -30,8 +30,8 @@
     "typecheck": "npm run typecheck --workspace @bitwright/desktop",
     "test": "npm run test --workspace @bitwright/desktop",
     "check:contrast": "tsx scripts/check-contrast.ts",
-    "format": "prettier --write \"apps/desktop/src/**/*.{ts,tsx,css}\" \"apps/desktop/*.{ts,js}\" \"scripts/*.ts\"",
-    "format:check": "prettier --check \"apps/desktop/src/**/*.{ts,tsx,css}\" \"apps/desktop/*.{ts,js}\" \"scripts/*.ts\""
+    "format": "prettier --write \"apps/desktop/src/**/*.{ts,tsx,css}\" \"apps/desktop/*.{ts,js}\" \"scripts/*.ts\" \"docs/**/*.md\" \"*.md\"",
+    "format:check": "prettier --check \"apps/desktop/src/**/*.{ts,tsx,css}\" \"apps/desktop/*.{ts,js}\" \"scripts/*.ts\" \"docs/**/*.md\" \"*.md\""
   },
   "devDependencies": {
     "@types/culori": "^2.1.1",

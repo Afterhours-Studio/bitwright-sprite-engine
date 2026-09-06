@@ -8,9 +8,9 @@ land on the latest build only. Upgrade before reporting an issue against an
 older one.
 
 | Version | Supported |
-| --- | --- |
-| 0.0.3 | Yes |
-| < 0.0.3 | No |
+| ------- | --------- |
+| 0.0.3   | Yes       |
+| < 0.0.3 | No        |
 
 ## Reporting a vulnerability
 
@@ -32,10 +32,10 @@ Include, where you can:
 
 ## What to expect
 
-| Stage | Target |
-| --- | --- |
-| Acknowledgement | 3 business days |
-| Initial assessment | 10 business days |
+| Stage                  | Target                    |
+| ---------------------- | ------------------------- |
+| Acknowledgement        | 3 business days           |
+| Initial assessment     | 10 business days          |
 | Fix or mitigation plan | 30 days for high severity |
 
 Maintainers keep you updated in the advisory thread, credit you in the advisory
@@ -49,6 +49,7 @@ In scope:
 - The desktop application and its Tauri shell.
 - The Python sidecar, its HTTP API, and the loopback transport between them.
 - The model download and verification path.
+- Storage and handling of remote provider API keys.
 - Build and release workflows in this repository.
 
 Out of scope:
@@ -65,3 +66,14 @@ Out of scope:
 The application runs locally. Prompts and generated images stay on the machine
 unless you select a remote backend, in which case they are sent to the endpoint
 you configured. Bitwright sends no telemetry.
+
+API keys for remote providers are stored in the operating system credential
+store - Windows Credential Manager, the macOS Keychain, or a Linux Secret
+Service provider - and not in the application's configuration files. On a
+machine that offers no credential store, they fall back to a file created
+with owner-only permissions in the per-user configuration directory; the
+application reports which of the two is in force on the Settings screen.
+Keys are never written to logs, never returned by the local API, and never
+sent to the webview: the interface receives only a presence flag and a
+masked hint. Cleartext `http` endpoints are refused for anything but this
+machine.

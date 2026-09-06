@@ -34,13 +34,13 @@ pytest -k capability       # by name
 pytest -v                  # verbose
 ```
 
-| File | Covers |
-| --- | --- |
-| `test_backends.py` | The protocol, availability, capability rejection |
-| `test_pipeline.py` | Generation and sheet packing |
-| `test_postprocess.py` | Background removal, quantization, grid packing |
-| `test_models.py` | The registry and the download cache |
-| `test_api.py` | Every HTTP endpoint |
+| File                  | Covers                                           |
+| --------------------- | ------------------------------------------------ |
+| `test_backends.py`    | The protocol, availability, capability rejection |
+| `test_pipeline.py`    | Generation and sheet packing                     |
+| `test_postprocess.py` | Background removal, quantization, grid packing   |
+| `test_models.py`      | The registry and the download cache              |
+| `test_api.py`         | Every HTTP endpoint                              |
 
 `tests/conftest.py` provides a fake backend with configurable availability and
 capabilities. Use it rather than a mock: it goes through the same validation as
@@ -161,11 +161,11 @@ Not worth a test:
 
 ## Adding a test
 
-| Language | Location | Naming |
-| --- | --- | --- |
-| Python | `packages/engine/tests/` | `test_<module>.py`, functions describing the behaviour |
-| TypeScript | Next to the code, or `src/test/` | `<name>.test.ts` or `.test.tsx` |
-| Rust | A `#[cfg(test)] mod tests` in the file | Functions describing the behaviour |
+| Language   | Location                               | Naming                                                 |
+| ---------- | -------------------------------------- | ------------------------------------------------------ |
+| Python     | `packages/engine/tests/`               | `test_<module>.py`, functions describing the behaviour |
+| TypeScript | Next to the code, or `src/test/`       | `<name>.test.ts` or `.test.tsx`                        |
+| Rust       | A `#[cfg(test)] mod tests` in the file | Functions describing the behaviour                     |
 
 Name a test after the behaviour, not the function:
 `test_generate_rejects_an_unsupported_capability`, not `test_generate_2`.

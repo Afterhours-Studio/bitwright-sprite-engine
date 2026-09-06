@@ -7,12 +7,12 @@ page is the mechanics.
 
 ## Where the colour lives
 
-| File | Contains |
-| --- | --- |
-| `apps/desktop/src/styles/tokens.css` | Every colour, both themes, both token sets |
-| `apps/desktop/tailwind.config.ts` | The mapping from tokens to Tailwind classes |
-| `apps/desktop/src/styles/global.css` | Base styles and the checkerboard pattern |
-| `scripts/check-contrast.ts` | The checks and the declared text pairings |
+| File                                 | Contains                                    |
+| ------------------------------------ | ------------------------------------------- |
+| `apps/desktop/src/styles/tokens.css` | Every colour, both themes, both token sets  |
+| `apps/desktop/tailwind.config.ts`    | The mapping from tokens to Tailwind classes |
+| `apps/desktop/src/styles/global.css` | Base styles and the checkerboard pattern    |
+| `scripts/check-contrast.ts`          | The checks and the declared text pairings   |
 
 `tokens.css` is the only file allowed to define a colour value. Everything else
 refers to a token.
@@ -22,14 +22,14 @@ refers to a token.
 The root element carries three attributes:
 
 ```html
-<html data-theme="dark" data-platform="windows" data-vibrancy="off">
+<html data-theme="dark" data-platform="windows" data-vibrancy="off"></html>
 ```
 
-| Attribute | Values | Set by |
-| --- | --- | --- |
-| `data-theme` | `dark`, `light` | The shell store, from the user's choice |
-| `data-platform` | `macos`, `windows`, `linux` | The shell store, from `platform_info` |
-| `data-vibrancy` | `on`, `off` | The shell store, from `vibrancy_state` |
+| Attribute       | Values                      | Set by                                  |
+| --------------- | --------------------------- | --------------------------------------- |
+| `data-theme`    | `dark`, `light`             | The shell store, from the user's choice |
+| `data-platform` | `macos`, `windows`, `linux` | The shell store, from `platform_info`   |
+| `data-vibrancy` | `on`, `off`                 | The shell store, from `vibrancy_state`  |
 
 CSS decides what those mean. Nothing in a component sets a colour directly, and
 `applyRootAttributes` in `useShellStore.ts` is the only code that writes them.
@@ -60,11 +60,11 @@ border or shadow named in the `@separation` declaration is still strong enough.
 
 OKLCH is `oklch(L C H)`:
 
-| Channel | Range | Meaning |
-| --- | --- | --- |
-| L | 0 to 1 | Perceived lightness |
-| C | 0 to about 0.4 | Chroma, or saturation |
-| H | 0 to 360 | Hue |
+| Channel | Range          | Meaning               |
+| ------- | -------------- | --------------------- |
+| L       | 0 to 1         | Perceived lightness   |
+| C       | 0 to about 0.4 | Chroma, or saturation |
+| H       | 0 to 360       | Hue                   |
 
 Neutrals here use hue 85, a warm grey, with a small non-zero chroma. Chroma of
 exactly zero reads as dead, and slightly blue, on most displays.

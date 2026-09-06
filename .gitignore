@@ -56,3 +56,6 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# Agent worktrees. These are checkouts of this repository, not content.
+.claude/worktrees/

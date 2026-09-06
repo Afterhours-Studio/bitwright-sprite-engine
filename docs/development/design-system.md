@@ -14,16 +14,16 @@ There is no `surface-1` or `surface-2`. A number says how high a surface sits,
 which is only useful if height is what separates surfaces, and in light mode it
 is not.
 
-| Token | Role |
-| --- | --- |
-| `--surface-canvas` | The application background. Headings only, never body text |
-| `--surface-content` | The default surface for anything with text: cards, panels, dialogs |
-| `--surface-content-alt` | A content surface nested inside another one |
-| `--surface-input` | Text fields, text areas, selects |
-| `--surface-well` | Decorative, and never carries text: the checkerboard, tracks |
-| `--surface-float` | Dropdowns, tooltips, menus |
-| `--surface-disabled` | A control that cannot be used |
-| `--surface-anchor` | The status bar |
+| Token                   | Role                                                               |
+| ----------------------- | ------------------------------------------------------------------ |
+| `--surface-canvas`      | The application background. Headings only, never body text         |
+| `--surface-content`     | The default surface for anything with text: cards, panels, dialogs |
+| `--surface-content-alt` | A content surface nested inside another one                        |
+| `--surface-input`       | Text fields, text areas, selects                                   |
+| `--surface-well`        | Decorative, and never carries text: the checkerboard, tracks       |
+| `--surface-float`       | Dropdowns, tooltips, menus                                         |
+| `--surface-disabled`    | A control that cannot be used                                      |
+| `--surface-anchor`      | The status bar                                                     |
 
 `--surface-content` carries a second guarantee: it is always fully opaque, in
 every mode and whether or not a window background effect is active. A surface
@@ -106,63 +106,64 @@ mechanism and requires the lightness step on the same pairs.
 
 ### Light mode
 
-| Token | Value | Notes |
-| --- | --- | --- |
-| `--surface-canvas` | `oklch(0.930 0.005 85)` | The only large grey |
-| `--surface-content` | `oklch(1.000 0 0)` | White |
-| `--surface-content-alt` | `oklch(0.975 0.003 85)` | Nested card |
-| `--surface-input` | `oklch(1.000 0 0)` | White, separated by its border |
-| `--surface-well` | `oklch(0.890 0.006 85)` | Decorative only |
-| `--surface-float` | `oklch(1.000 0 0)` | White, separated by shadow |
-| `--surface-disabled` | `oklch(0.930 0.005 85)` | Grey means disabled |
-| `--surface-anchor` | `oklch(0.220 0.008 85)` | Status bar |
-| `--border-subtle` | `oklch(0 0 0 / 0.08)` | |
-| `--border-default` | `oklch(0 0 0 / 0.14)` | Carries content to content-alt |
-| `--border-strong` | `oklch(0 0 0 / 0.24)` | |
-| `--input-border` | `oklch(0 0 0 / 0.18)` | Carries content to input |
-| `--input-border-focus` | `oklch(0.700 0.150 105)` | |
-| `--fg-primary` | `oklch(0.230 0.010 85)` | Body text |
-| `--fg-secondary` | `oklch(0.440 0.008 85)` | Anything that carries meaning |
-| `--fg-muted` | `oklch(0.560 0.008 85)` | Disabled labels only |
-| `--fg-placeholder` | `oklch(0.545 0.008 85)` | Inputs only, at a full 4.5:1 |
-| `--fg-on-anchor` | `oklch(0.960 0.004 85)` | Status bar only |
-| `--accent` | `oklch(0.880 0.190 105)` | |
-| `--accent-hover` | `oklch(0.845 0.190 105)` | Darker, away from the surface |
-| `--accent-fg` | `oklch(0.220 0.030 105)` | Dark in both modes |
+| Token                   | Value                    | Notes                          |
+| ----------------------- | ------------------------ | ------------------------------ |
+| `--surface-canvas`      | `oklch(0.930 0.005 85)`  | The only large grey            |
+| `--surface-content`     | `oklch(1.000 0 0)`       | White                          |
+| `--surface-content-alt` | `oklch(0.975 0.003 85)`  | Nested card                    |
+| `--surface-input`       | `oklch(1.000 0 0)`       | White, separated by its border |
+| `--surface-well`        | `oklch(0.890 0.006 85)`  | Decorative only                |
+| `--surface-float`       | `oklch(1.000 0 0)`       | White, separated by shadow     |
+| `--surface-disabled`    | `oklch(0.930 0.005 85)`  | Grey means disabled            |
+| `--surface-anchor`      | `oklch(0.220 0.008 85)`  | Status bar                     |
+| `--border-subtle`       | `oklch(0 0 0 / 0.08)`    |                                |
+| `--border-default`      | `oklch(0 0 0 / 0.14)`    | Carries content to content-alt |
+| `--border-strong`       | `oklch(0 0 0 / 0.24)`    |                                |
+| `--input-border`        | `oklch(0 0 0 / 0.18)`    | Carries content to input       |
+| `--input-border-focus`  | `oklch(0.700 0.150 105)` |                                |
+| `--fg-primary`          | `oklch(0.230 0.010 85)`  | Body text                      |
+| `--fg-secondary`        | `oklch(0.440 0.008 85)`  | Anything that carries meaning  |
+| `--fg-muted`            | `oklch(0.560 0.008 85)`  | Disabled labels only           |
+| `--fg-placeholder`      | `oklch(0.545 0.008 85)`  | Inputs only, at a full 4.5:1   |
+| `--fg-on-anchor`        | `oklch(0.960 0.004 85)`  | Status bar only                |
+| `--accent`              | `oklch(0.880 0.190 105)` |                                |
+| `--accent-hover`        | `oklch(0.845 0.190 105)` | Darker, away from the surface  |
+| `--accent-fg`           | `oklch(0.220 0.030 105)` | Dark in both modes             |
 
 ### Dark mode
 
-| Token | Value | Step |
-| --- | --- | --- |
-| `--surface-canvas` | `oklch(0.175 0.008 85)` | base |
-| `--surface-content` | `oklch(0.235 0.009 85)` | +0.060 |
-| `--surface-content-alt` | `oklch(0.290 0.010 85)` | +0.055 |
-| `--surface-input` | `oklch(0.145 0.008 85)` | -0.090 from content |
-| `--surface-well` | `oklch(0.130 0.008 85)` | -0.105 from content |
-| `--surface-float` | `oklch(0.340 0.011 85)` | +0.050 from content-alt |
-| `--surface-disabled` | `oklch(0.205 0.008 85)` | +0.060 from input |
-| `--surface-anchor` | `oklch(0.095 0.005 85)` | -0.080 from canvas |
-| `--border-subtle` | `oklch(1 0 0 / 0.08)` | |
-| `--border-default` | `oklch(1 0 0 / 0.14)` | |
-| `--border-strong` | `oklch(1 0 0 / 0.24)` | |
-| `--input-border` | `oklch(1 0 0 / 0.20)` | |
-| `--input-border-focus` | `oklch(0.850 0.170 105)` | |
-| `--fg-primary` | `oklch(0.960 0.004 85)` | |
-| `--fg-secondary` | `oklch(0.760 0.006 85)` | |
-| `--fg-muted` | `oklch(0.620 0.008 85)` | |
-| `--fg-placeholder` | `oklch(0.640 0.008 85)` | |
-| `--fg-on-anchor` | `oklch(0.940 0.004 85)` | |
-| `--accent` | `oklch(0.850 0.170 105)` | L and chroma both down |
-| `--accent-hover` | `oklch(0.885 0.180 105)` | Lighter, away from the surface |
-| `--accent-fg` | `oklch(0.180 0.030 105)` | |
+| Token                   | Value                    | Step                           |
+| ----------------------- | ------------------------ | ------------------------------ |
+| `--surface-canvas`      | `oklch(0.175 0.008 85)`  | base                           |
+| `--surface-content`     | `oklch(0.235 0.009 85)`  | +0.060                         |
+| `--surface-content-alt` | `oklch(0.290 0.010 85)`  | +0.055                         |
+| `--surface-input`       | `oklch(0.145 0.008 85)`  | -0.090 from content            |
+| `--surface-well`        | `oklch(0.130 0.008 85)`  | -0.105 from content            |
+| `--surface-float`       | `oklch(0.340 0.011 85)`  | +0.050 from content-alt        |
+| `--surface-disabled`    | `oklch(0.205 0.008 85)`  | +0.060 from input              |
+| `--surface-anchor`      | `oklch(0.095 0.005 85)`  | -0.080 from canvas             |
+| `--border-subtle`       | `oklch(1 0 0 / 0.08)`    |                                |
+| `--border-default`      | `oklch(1 0 0 / 0.14)`    |                                |
+| `--border-strong`       | `oklch(1 0 0 / 0.24)`    |                                |
+| `--input-border`        | `oklch(1 0 0 / 0.20)`    |                                |
+| `--input-border-focus`  | `oklch(0.850 0.170 105)` |                                |
+| `--fg-primary`          | `oklch(0.960 0.004 85)`  |                                |
+| `--fg-secondary`        | `oklch(0.760 0.006 85)`  |                                |
+| `--fg-muted`            | `oklch(0.620 0.008 85)`  |                                |
+| `--fg-placeholder`      | `oklch(0.640 0.008 85)`  |                                |
+| `--fg-on-anchor`        | `oklch(0.940 0.004 85)`  |                                |
+| `--accent`              | `oklch(0.850 0.170 105)` | L and chroma both down         |
+| `--accent-hover`        | `oklch(0.885 0.180 105)` | Lighter, away from the surface |
+| `--accent-fg`           | `oklch(0.180 0.030 105)` |                                |
 
 ### About the accent
 
-One saturated colour, used sparingly: the active navigation pill, the primary
-button, and the single most important value on a screen. Used for decoration it
-stops reading as a state.
+One saturated colour, used sparingly: the selected tab in the title bar, the
+primary button, and the single most important value on a screen. Used for
+decoration it stops reading as a state.
 
-Navigation pills take the accent. A secondary row of filters takes
+The sliding indicator behind the selected tab is the accent. A secondary row of
+pills, the gallery filters and the engine buttons in Settings, takes
 `--surface-anchor` instead, so that only one thing on screen is yellow.
 
 Two details are easy to get wrong:
@@ -190,14 +191,14 @@ Enforced exhaustively by `scripts/check-contrast.ts`. The script measures every
 foreground against every text-bearing surface, so this table is the contract
 rather than the list of what happens to be checked.
 
-| Foreground | Used on | Held to |
-| --- | --- | --- |
-| `--fg-primary` | Every text-bearing surface except the anchor and the accent | 4.5:1 |
-| `--fg-secondary` | Every text-bearing surface except the anchor and the accent | 4.5:1 |
-| `--fg-muted` | `--surface-disabled` only | Exempt, WCAG 1.4.3 |
-| `--fg-placeholder` | `--surface-input` only | 4.5:1, never waivable |
-| `--fg-on-anchor` | `--surface-anchor` only | 4.5:1 |
-| `--accent-fg` | `--accent` and `--accent-hover` only | 4.5:1 |
+| Foreground         | Used on                                                     | Held to               |
+| ------------------ | ----------------------------------------------------------- | --------------------- |
+| `--fg-primary`     | Every text-bearing surface except the anchor and the accent | 4.5:1                 |
+| `--fg-secondary`   | Every text-bearing surface except the anchor and the accent | 4.5:1                 |
+| `--fg-muted`       | `--surface-disabled` only                                   | Exempt, WCAG 1.4.3    |
+| `--fg-placeholder` | `--surface-input` only                                      | 4.5:1, never waivable |
+| `--fg-on-anchor`   | `--surface-anchor` only                                     | 4.5:1                 |
+| `--accent-fg`      | `--accent` and `--accent-hover` only                        | 4.5:1                 |
 
 `--surface-well` carries no text at all.
 
@@ -213,14 +214,21 @@ elevation system and outside the contrast checks.
 <div className="bg-surface-content text-fg-primary border border-line-subtle shadow-sm">
 ```
 
-| Class | Token |
-| --- | --- |
-| `bg-surface-canvas`, `bg-surface-content`, `bg-surface-content-alt`, `bg-surface-input`, `bg-surface-well`, `bg-surface-float`, `bg-surface-disabled`, `bg-surface-anchor` | the surfaces |
-| `text-fg-primary`, `text-fg-secondary`, `text-fg-muted`, `text-fg-placeholder`, `text-fg-on-anchor` | the text tokens |
-| `bg-accent`, `text-accent-fg` | the accent |
-| `border-line-subtle`, `border-line`, `border-line-strong`, `border-line-input`, `border-line-focus` | the borders |
-| `rounded-sm`, `rounded-md`, `rounded-lg`, `rounded-pill` | the radii |
-| `shadow-sm`, `shadow-md`, `shadow-lg` | the shadows |
+| Class                                                                                                                                                                      | Token                                              |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `bg-surface-canvas`, `bg-surface-content`, `bg-surface-content-alt`, `bg-surface-input`, `bg-surface-well`, `bg-surface-float`, `bg-surface-disabled`, `bg-surface-anchor` | the surfaces                                       |
+| `text-fg-primary`, `text-fg-secondary`, `text-fg-muted`, `text-fg-placeholder`, `text-fg-on-anchor`                                                                        | the text tokens                                    |
+| `bg-accent`, `bg-accent-hover`, `text-accent-fg`                                                                                                                           | the accent                                         |
+| `border-line-subtle`, `border-line`, `border-line-strong`, `border-line-input`, `border-line-focus`                                                                        | the borders                                        |
+| `rounded-sm`, `rounded-md`, `rounded-lg`, `rounded-pill`                                                                                                                   | the radii                                          |
+| `rounded-window`, `rounded-window-inner`                                                                                                                                   | the window corner, and the corner inside the bezel |
+| `shadow-sm`, `shadow-md`, `shadow-lg`                                                                                                                                      | the shadows                                        |
+| `bg-danger`, `text-danger-fg`                                                                                                                                              | the only two literal colours in the theme          |
+| `h-titlebar`                                                                                                                                                               | the title bar height                               |
+
+`danger` is a pair of hex values rather than tokens, and the only such pair. The
+Windows close button has to turn the system red on hover, which is a platform
+colour and not part of the palette.
 
 ### Nesting
 
@@ -241,35 +249,116 @@ Inputs and wells are not nesting levels. An input goes on any content surface
 and is separated by its own border; a well goes inside a content surface and
 carries no text.
 
-### Translucency
+## The window chrome
 
-When a platform background effect is active, a second token set takes over,
-selected by `[data-vibrancy="on"]` on the root element.
+The chrome is the part of the window that is not a screen: the bezel around the
+interface, the title bar, and the floating dock of tools. It uses the same
+tokens as everything else, with two radii of its own, and it is where the
+platform background effect is shown.
 
-**The frontend never guesses whether the effect applied.** Rust reports it, and
-the frontend sets the attribute. Opaque is the default and the safe one: an
-active effect behind opaque surfaces looks flat, while transparent surfaces with
-no effect leave text over a wallpaper.
+### The bezel
 
-**The translucent set is dark mode only.** A translucent surface composites as
-`alpha * surface + (1 - alpha) * wallpaper`, and the wallpaper is the user's.
-In light mode the chrome sits at L 0.95, just under the ceiling, so any dark
-wallpaper drags it below the content surface at L 0.905 and the elevation order
-inverts: the panel reads as lower than the canvas it sits on. Measured on a real
-desktop, surface-1 rendered at sRGB 209 against content at 225. No alpha fixes
-it, because light mode has no headroom above the chrome. Dark mode has the whole
-range below its chrome, so it blends safely.
+`.app-bezel`, in `global.css`, is the ring of window around the interface. It is
+4px of padding, and it carries no text of any kind.
 
-Three rules:
+That is what makes it the right place for the background effect. Under
+`[data-vibrancy="on"]` the bezel is transparent and the platform draws Mica or
+vibrancy there. With no effect it falls back to `--surface-anchor`, which is a
+deliberate dark frame rather than a hole. Everything inside the bezel is opaque:
+`--surface-canvas` immediately within it, and the usual content surfaces above
+that.
 
-1. **Text is never placed directly on a vibrancy surface.** The image behind it
-   is outside our control, so no contrast guarantee can be made. Text sits on a
-   surface with alpha of at least 0.85, or a fully opaque one.
-2. **Only chrome is translucent.** Title bar, sidebar, outermost background. The
-   content area uses `--surface-content`, which is never overridden.
-3. **Light mode stays opaque.** See above.
+**Every surface token is fully opaque, in every mode, whether or not an effect
+is active.** There is no second, translucent token set any more. Text is never
+composited against the user's wallpaper, and the declared lightness steps are
+never at the wallpaper's mercy.
 
-See [decision 0006](../architecture/decisions/0006-custom-window-decorations.md).
+Because the one translucent thing holds no text, translucency is now safe in
+**both** modes, which the earlier arrangement could not manage.
+[ADR 0006](../architecture/decisions/0006-custom-window-decorations.md)
+introduced a translucent token set for the chrome and concluded, from running
+the application rather than from reading the tokens, that it had to be dark mode
+only: a light mode chrome at L 0.95 composites toward the wallpaper and drops
+below the content surface, measured at sRGB 209 against 225, which inverts the
+elevation order.
+[ADR 0009](../architecture/decisions/0009-asymmetric-surface-model.md) reached
+the same conclusion from the surface side, and more sharply, because light
+mode's content surfaces are pure white and have no headroom above them at all.
+Neither conclusion was wrong. The bezel changes the premise: nothing that
+carries text, or that has to hold a place in the elevation order, is translucent
+any more, so neither failure can occur in either mode.
+
+The frontend still never guesses whether an effect applied. Rust reports it and
+the shell store sets `data-vibrancy`. Opaque is the default and the safe one.
+
+### Window radius
+
+Two radii belong to the window rather than to a component.
+
+| Token                   | Value | What it is                  |
+| ----------------------- | ----- | --------------------------- |
+| `--radius-window`       | `8px` | The window's own corner     |
+| `--radius-window-inner` | `4px` | The corner inside the bezel |
+
+`--radius-window` has to match what the compositor draws, rather than being
+chosen for looks. Windows 11 rounds a window at 8px. A bezel rounded more than
+that leaves a wedge of bezel outside the system's rounded edge at each corner,
+which reads as a rendering fault rather than as a design.
+
+`--radius-window-inner` is derived, not chosen: the outer radius minus the gap
+between the two corners, so 8 minus the 4px of bezel padding leaves 4. A corner
+nested inside another and rounded more than its parent produces the same visible
+wedge, one level in.
+
+### The title bar
+
+The title bar is `--titlebar-height` tall and paints no surface of its own, so
+the canvas shows through it. The controls on it are content surfaces with a
+shadow, which is how they separate from the canvas: by shadow in light mode and
+by a lightness step in dark, exactly like a card.
+
+It carries the application menu, back and forward, the name and tagline, the
+navigation, the engine control, the theme switch, and the window buttons on the
+platforms where the system draws none. `--titlebar-inset-start` reserves room
+for the macOS traffic lights.
+
+The whole header is a drag region and only the controls opt out of it, with
+`.no-drag`, so the gaps between the clusters still drag the window.
+
+### The segmented tabs
+
+Navigation is a segmented control in the title bar rather than a rail down the
+side of the window. One track holds the three screens, and a single indicator on
+the accent slides between them instead of a highlight blinking from one to the
+next.
+
+The indicator's offset and width are measured from the buttons with a
+`ResizeObserver`, because a translated label is a different width from the
+English one and the geometry is therefore not knowable before layout. See
+[ADR 0010](../architecture/decisions/0010-custom-overlay-controls.md).
+
+### The dock
+
+Per-screen tools live in a floating pill along the bottom of the content area,
+on `--surface-anchor` with `--fg-on-anchor`. A screen with no tools renders no
+dock, so only Generate has one.
+
+The dock is not a status bar, and there is no status bar. Engine name and
+readiness are a control in the title bar instead, which reports the state and
+changes it in the same place, rather than a permanent band of text that is read
+once and acted on somewhere else. The role table above still names
+`--surface-anchor` after the status bar; the dock carries that role now, along
+with the bezel whenever no background effect is active.
+
+### Dropdowns and menus
+
+Everything that floats above the interface, the select, the application menu,
+and the engine control, is built on one `Overlay` component painted with
+`--surface-float`. That is the only surface above a card, and it is held apart
+from `--surface-content-alt` by shadow in light mode and by a lightness step in
+dark, which is the pair `tokens.css` declares. Why those controls are written
+rather than native is
+[ADR 0010](../architecture/decisions/0010-custom-overlay-controls.md).
 
 ## Common mistakes
 
@@ -297,10 +386,17 @@ cost a debugging session already.
 invisible against a dark ground. Dark mode needs a lightness step and a border;
 the check refuses a dark pair that leans on a shadow.
 
-**Assuming a translucent surface keeps its place in the order.** It ends up
-somewhere between its own value and the user's wallpaper, and no check can
-predict where. This is why the translucent variant is dark mode only, why its
-alphas are all at or above 0.90, and why it never touches `--surface-content`.
+**Making a surface translucent so that the background effect shows through it.**
+A translucent surface ends up somewhere between its own value and the user's
+wallpaper, and no check can predict where. Every surface token is opaque in
+every mode, and the effect is shown by the bezel, which carries no text and
+holds no place in the elevation order.
+
+**Rounding a nested corner more than the corner outside it.** The inner radius
+has to be the outer radius minus the gap between them. Rounded further, the
+outer element shows as a wedge outside the inner curve at each corner, and it
+reads as a rendering fault. This is why `--radius-window-inner` is derived from
+`--radius-window` and the bezel padding rather than picked.
 
 **Using `--fg-muted` for anything but a disabled control.** It does not clear
 4.5:1, and the WCAG exemption that allows it covers disabled controls only. A

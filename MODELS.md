@@ -20,11 +20,11 @@ particular differs from model to model.
 
 ## Where weights are stored
 
-| Platform | Default cache path |
-| --- | --- |
-| Windows | `%LOCALAPPDATA%\studio.afterhours.bitwright\models` |
-| macOS | `~/Library/Application Support/studio.afterhours.bitwright/models` |
-| Linux | `~/.local/share/studio.afterhours.bitwright/models` |
+| Platform | Default cache path                                                 |
+| -------- | ------------------------------------------------------------------ |
+| Windows  | `%LOCALAPPDATA%\studio.afterhours.bitwright\models`                |
+| macOS    | `~/Library/Application Support/studio.afterhours.bitwright/models` |
+| Linux    | `~/.local/share/studio.afterhours.bitwright/models`                |
 
 The path is configurable through `models.cache_dir`. See
 [docs/reference/configuration.md](docs/reference/configuration.md).
@@ -34,12 +34,12 @@ The path is configurable through `models.cache_dir`. See
 The registry in `packages/engine/bitwright_engine/models/registry.py` is the
 single source of truth. The table below mirrors it.
 
-| Registry ID | Purpose | Publisher | License | Commercial use |
-| --- | --- | --- | --- | --- |
-| `sd15-base` | Base diffusion model | Stability AI, RunwayML | CreativeML Open RAIL-M | Permitted with use restrictions |
-| `sdxl-base` | Higher resolution base model | Stability AI | CreativeML Open RAIL++-M | Permitted with use restrictions |
-| `pixel-art-lora` | Pixel art style adapter | Community | CreativeML Open RAIL-M | Permitted with use restrictions |
-| `rembg-u2net` | Background removal | rembg project | Apache-2.0 | Permitted |
+| Registry ID      | Purpose                      | Publisher              | License                  | Commercial use                  |
+| ---------------- | ---------------------------- | ---------------------- | ------------------------ | ------------------------------- |
+| `sd15-base`      | Base diffusion model         | Stability AI, RunwayML | CreativeML Open RAIL-M   | Permitted with use restrictions |
+| `sdxl-base`      | Higher resolution base model | Stability AI           | CreativeML Open RAIL++-M | Permitted with use restrictions |
+| `pixel-art-lora` | Pixel art style adapter      | Community              | CreativeML Open RAIL-M   | Permitted with use restrictions |
+| `rembg-u2net`    | Background removal           | rembg project          | Apache-2.0               | Permitted                       |
 
 The RAIL licenses attach use restrictions. Among other things they forbid
 generating content that harasses individuals, or that is presented as legal,

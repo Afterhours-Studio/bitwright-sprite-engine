@@ -100,19 +100,19 @@ Get-FileHash .\Bitwright_0.0.3_x64-setup.exe -Algorithm SHA256
 
 ## Uninstalling
 
-| Platform | Steps |
-| --- | --- |
-| Windows | Settings, then Apps, then Bitwright, then Uninstall |
-| macOS | Move `/Applications/Bitwright.app` to the Bin |
-| Linux (deb) | `sudo apt remove bitwright` |
-| Linux (rpm) | `sudo dnf remove bitwright` |
-| Linux (AppImage) | Delete the AppImage file |
+| Platform         | Steps                                               |
+| ---------------- | --------------------------------------------------- |
+| Windows          | Settings, then Apps, then Bitwright, then Uninstall |
+| macOS            | Move `/Applications/Bitwright.app` to the Bin       |
+| Linux (deb)      | `sudo apt remove bitwright`                         |
+| Linux (rpm)      | `sudo dnf remove bitwright`                         |
+| Linux (AppImage) | Delete the AppImage file                            |
 
 Uninstalling leaves the model cache in place, because it is large and may be
 shared with another tool. Remove it separately:
 
-| Platform | Path |
-| --- | --- |
-| Windows | `%LOCALAPPDATA%\studio.afterhours.bitwright` |
-| macOS | `~/Library/Application Support/studio.afterhours.bitwright` |
-| Linux | `~/.local/share/studio.afterhours.bitwright` |
+| Platform | Path                                                        |
+| -------- | ----------------------------------------------------------- |
+| Windows  | `%LOCALAPPDATA%\studio.afterhours.bitwright`                |
+| macOS    | `~/Library/Application Support/studio.afterhours.bitwright` |
+| Linux    | `~/.local/share/studio.afterhours.bitwright`                |

@@ -27,15 +27,15 @@ the lighting words identical between runs, and change only the subject.
 
 ## Parameters
 
-| Parameter | Range | Default | What it does |
-| --- | --- | --- | --- |
-| Width, Height | 8 to 2048 | 64 | Output size before post-processing |
-| Steps | 1 to 150 | 20 | Denoising steps. More is slower, with diminishing returns past about 30 |
-| Guidance | 0 to 30 | 7 | How closely the prompt is followed. Above about 12 the image becomes harsh |
-| Seed | 0 to 2147483647 | Random | Reproduces a result exactly |
-| Batch size | 1 to 16 | 1 | Images per run. Needs an engine that supports batching |
-| Model | Registry | `sd15-base` | The base diffusion model |
-| Style adapter | Registry | None | A LoRA. Needs an engine that supports adapters |
+| Parameter     | Range           | Default     | What it does                                                               |
+| ------------- | --------------- | ----------- | -------------------------------------------------------------------------- |
+| Width, Height | 8 to 2048       | 64          | Output size before post-processing                                         |
+| Steps         | 1 to 150        | 20          | Denoising steps. More is slower, with diminishing returns past about 30    |
+| Guidance      | 0 to 30         | 7           | How closely the prompt is followed. Above about 12 the image becomes harsh |
+| Seed          | 0 to 2147483647 | Random      | Reproduces a result exactly                                                |
+| Batch size    | 1 to 16         | 1           | Images per run. Needs an engine that supports batching                     |
+| Model         | Registry        | `sd15-base` | The base diffusion model                                                   |
+| Style adapter | Registry        | None        | A LoRA. Needs an engine that supports adapters                             |
 
 ### Size
 
@@ -88,12 +88,12 @@ Every engine declares what it supports, and the interface disables the rest.
 This is deliberate: being told after a two minute wait that an option was never
 available is worse than not being offered it.
 
-| Capability | What it enables |
-| --- | --- |
-| `batch` | Batch size above one |
-| `lora_hotswap` | Style adapters |
-| `controlnet` | Pose control, planned |
-| `ip_adapter` | Reference image, planned |
+| Capability     | What it enables          |
+| -------------- | ------------------------ |
+| `batch`        | Batch size above one     |
+| `lora_hotswap` | Style adapters           |
+| `controlnet`   | Pose control, planned    |
+| `ip_adapter`   | Reference image, planned |
 
 ## Reproducibility
 

@@ -9,12 +9,12 @@ every generated image.
 
 ## The steps
 
-| Step | Default | What it does |
-| --- | --- | --- |
-| Pixel grid | Off | Averages each block of pixels into one flat colour |
-| Palette size | 32 | Reduces the image to that many colours |
-| Dither | Off | Spreads quantization error across neighbouring pixels |
-| Remove background | On | Makes the background transparent |
+| Step              | Default | What it does                                          |
+| ----------------- | ------- | ----------------------------------------------------- |
+| Pixel grid        | Off     | Averages each block of pixels into one flat colour    |
+| Palette size      | 32      | Reduces the image to that many colours                |
+| Dither            | Off     | Spreads quantization error across neighbouring pixels |
+| Remove background | On      | Makes the background transparent                      |
 
 ## Order
 
@@ -42,11 +42,11 @@ Leave it off when generating directly at the sprite size.
 Fewer colours is what makes an image read as pixel art rather than as a small
 painting.
 
-| Colours | Look |
-| --- | --- |
-| 4 to 8 | Game Boy or one-bit style |
-| 16 | Classic 8-bit |
-| 32 | Balanced, and the default |
+| Colours    | Look                             |
+| ---------- | -------------------------------- |
+| 4 to 8     | Game Boy or one-bit style        |
+| 16         | Classic 8-bit                    |
+| 32         | Balanced, and the default        |
 | 64 or more | Modern pixel art, softer shading |
 
 Alpha survives quantization: the colour channels are reduced and the original

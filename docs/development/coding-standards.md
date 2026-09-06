@@ -18,7 +18,7 @@ review rather than in this document.
   it from a neighbouring file, and do not put your own name in the copyright
   line; authorship is in the git history.
 - A comment explains why, not what. `// increment i` is noise; `// The eye
-  separates dark values less well` is not.
+separates dark values less well` is not.
 
 ## Python
 
