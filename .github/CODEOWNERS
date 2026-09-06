@@ -1,0 +1,35 @@
+# Code owners for Bitwright - Sprite Engine.
+#
+# A review from the owner listed for a path is required before a pull request
+# touching it can be merged. Later rules win, so the specific paths below
+# override the default.
+#
+# Copyright in the project belongs to Afterhours Studio. The people listed here
+# are maintainers, not copyright holders.
+
+# Default owner for everything.
+*                                   @h1dr0nn
+
+# Legal and licensing. Changes here need the maintainer, because they affect
+# what the project may be relicensed as, and what it may depend on.
+/LICENSE                            @h1dr0nn
+/NOTICE                             @h1dr0nn
+/MODELS.md                          @h1dr0nn
+/THIRD_PARTY_LICENSES.md            @h1dr0nn
+/SECURITY.md                        @h1dr0nn
+/CONTRIBUTING.md                    @h1dr0nn
+/scripts/check-licenses.py          @h1dr0nn
+
+# Build, release, and CI.
+/.github/                           @h1dr0nn
+/apps/desktop/src-tauri/            @h1dr0nn
+
+# Documentation and translations are open to contributors. No named owner, so
+# any maintainer review is enough and a translator is not blocked on one
+# person's availability.
+/docs/
+/apps/desktop/src/locales/
+
+# The architecture decision records are the exception: they record decisions
+# rather than describe them, so they need the maintainer.
+/docs/architecture/decisions/       @h1dr0nn

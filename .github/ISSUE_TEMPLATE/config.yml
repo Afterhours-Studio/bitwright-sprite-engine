@@ -1,0 +1,18 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/Afterhours-Studio/bitwright-sprite-engine/security/advisories/new
+    about: Report privately through a GitHub Security Advisory. Never in a public issue.
+
+  - name: Question or idea
+    url: https://github.com/Afterhours-Studio/bitwright-sprite-engine/discussions
+    about: Ask how something works, or float an idea before it becomes a request.
+
+  - name: Documentation
+    url: https://github.com/Afterhours-Studio/bitwright-sprite-engine/tree/main/docs
+    about: Installation, guides, architecture, and the configuration reference.
+
+  - name: Model licences
+    url: https://github.com/Afterhours-Studio/bitwright-sprite-engine/blob/main/MODELS.md
+    about: What the downloaded model weights are licensed under, and what that permits.

@@ -1,0 +1,101 @@
+name: Bug report
+description: Something does not work as documented
+title: 'fix: '
+labels: [bug, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        Thank you for the report. Do not use this form for a security issue.
+        Follow
+        [SECURITY.md](https://github.com/Afterhours-Studio/bitwright-sprite-engine/blob/main/SECURITY.md)
+        instead, which reports it privately.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before reporting
+      options:
+        - label: I searched the existing issues and did not find this one.
+          required: true
+        - label: I am on the latest release.
+          required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+      placeholder: Generation fails after about ten seconds with "Generation failed".
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The shortest sequence that shows the problem.
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: From Settings, then About.
+      placeholder: 0.0.2
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows 11
+        - Windows 10
+        - macOS 14 or later
+        - macOS 11 to 13
+        - Linux
+    validations:
+      required: true
+
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Engine
+      description: From Settings, then Engine.
+      options:
+        - Local GPU (NVIDIA)
+        - Local GPU (Apple)
+        - Remote API
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: hardware
+    attributes:
+      label: GPU
+      description: Model and driver version, if you are generating locally.
+      placeholder: NVIDIA GeForce RTX 4070, driver 560.94
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: >
+        Relevant output from the engine. Remove any API key before pasting.
+      render: text
+
+  - type: checkboxes
+    id: conduct
+    attributes:
+      label: Code of Conduct
+      options:
+        - label: I agree to follow this project's Code of Conduct.
+          required: true
