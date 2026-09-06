@@ -25,6 +25,7 @@
   },
   "theme": {
     "label": "Theme",
+    "system": "System",
     "dark": "Dark",
     "light": "Light",
     "toggle": "Switch theme"
@@ -39,12 +40,15 @@
     "cancel": "Cancel",
     "close": "Close",
     "save": "Save",
-    "copy": "Copy"
+    "copy": "Copy",
+    "increase": "Increase {{label}}",
+    "decrease": "Decrease {{label}}"
   },
   "units": {
     "pixels": "px",
     "milliseconds": "ms",
-    "megabytes": "MB"
+    "megabytes": "MB",
+    "gigabytes": "GB"
   },
   "empty": {
     "title": "Nothing here yet",
@@ -59,5 +63,40 @@
     "unfavourite": "Remove from favourites",
     "remove": "Remove",
     "clear": "Clear gallery"
+  },
+  "menu": {
+    "label": "Menu",
+    "file": "File",
+    "edit": "Edit",
+    "view": "View",
+    "undo": "Undo",
+    "redo": "Redo",
+    "quit": "Quit",
+    "search": "Search"
+  },
+  "palette": {
+    "label": "Command palette",
+    "placeholder": "Search commands",
+    "empty": "No matching command",
+    "goTo": "Go to"
+  },
+  "notifications": {
+    "label": "Notifications",
+    "title": "Notifications",
+    "empty": "Nothing has happened yet",
+    "clear": "Clear",
+    "dismiss": "Dismiss notification",
+    "unread": "{{count}} unread",
+    "severity": {
+      "info": "Information",
+      "success": "Success",
+      "warning": "Warning",
+      "error": "Error"
+    },
+    "engineFailed": "Engine problem",
+    "generationFailed": "Generation failed",
+    "downloadFailed": "Could not download {{name}}",
+    "modelReady": "{{name}} is downloaded and ready to use.",
+    "gpuUnavailable": "No usable GPU"
   }
 }

@@ -59,12 +59,12 @@ export default tseslint.config(
         {
           selector: `Literal[value=/${COLOUR_LITERAL}/]`,
           message:
-            'Use a token from src/styles/tokens.css, through a Tailwind class such as bg-surface-2. Literal colours are not checked for contrast and do not follow the theme.',
+            'Use a token from src/styles/tokens.css, through a Tailwind class such as bg-surface-content. Surfaces are named by role, not by height: canvas, content, content-alt, input, well, float, disabled, anchor. Literal colours are not checked for contrast and do not follow the theme.',
         },
         {
           selector: `TemplateElement[value.raw=/${COLOUR_LITERAL}/]`,
           message:
-            'Use a token from src/styles/tokens.css, through a Tailwind class such as bg-surface-2. Literal colours are not checked for contrast and do not follow the theme.',
+            'Use a token from src/styles/tokens.css, through a Tailwind class such as bg-surface-content. Surfaces are named by role, not by height: canvas, content, content-alt, input, well, float, disabled, anchor. Literal colours are not checked for contrast and do not follow the theme.',
         },
       ],
     },

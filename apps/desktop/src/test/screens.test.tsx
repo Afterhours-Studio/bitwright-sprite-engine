@@ -21,9 +21,14 @@
  * inline colour. A component that reaches for a literal instead of a token
  * would pass a visual glance in one theme and fail in the other, so this is
  * checked mechanically rather than by eye.
+ *
+ * Navigation is the segmented tab control in the title bar, so the screens are
+ * reached through `role="tab"` rather than through a sidebar, and the window
+ * chrome is queried apart from the screen: `<main>` holds the current screen,
+ * and everything else in the window belongs to the title bar.
  */
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { App } from '@/App';
@@ -97,8 +102,14 @@ describe('screens', () => {
     useShellStore.getState().setScreen('settings');
     render(<App />);
 
+    // Scoped to the content area, because the engine picker in the title bar
+    // lists the same reasons and its overlay stays mounted while closed. An
+    // unscoped query would pass on the chrome without the screen showing
+    // anything at all.
+    const main = within(screen.getByRole('main'));
+
     expect(
-      screen.getByText('No CUDA driver was found. Install the NVIDIA driver and restart.'),
+      main.getByText('No CUDA driver was found. Install the NVIDIA driver and restart.'),
     ).toBeInTheDocument();
   });
 
@@ -111,7 +122,26 @@ describe('screens', () => {
     useShellStore.getState().setScreen('generate');
     render(<App />);
 
-    expect(screen.getByLabelText('Batch size')).toBeDisabled();
+    expect(screen.getByLabelText('Batch Size')).toBeDisabled();
+  });
+
+  it('opens the screen belonging to the tab that was clicked', () => {
+    useShellStore.getState().setScreen('generate');
+    render(<App />);
+
+    const gallery = screen.getByRole('tab', { name: 'Gallery' });
+    expect(gallery).toHaveAttribute('aria-selected', 'false');
+
+    fireEvent.click(gallery);
+
+    const main = within(screen.getByRole('main'));
+
+    // Both the tab and the content area are checked. A tab that reports the
+    // change while the content area still shows the previous screen is the
+    // failure worth catching, and only the second assertion would see it.
+    expect(gallery).toHaveAttribute('aria-selected', 'true');
+    expect(main.getByRole('heading', { level: 1, name: 'Gallery' })).toBeInTheDocument();
+    expect(main.getByText('Nothing here yet')).toBeInTheDocument();
   });
 
   it('translates the interface when the language changes', async () => {
@@ -119,10 +149,18 @@ describe('screens', () => {
     await i18n.changeLanguage('vi');
     render(<App />);
 
-    // The expected text is read from the locale file rather than written here,
-    // so that translated strings live only under locales/vi.
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      resources.vi.generation.title,
+    const main = within(screen.getByRole('main'));
+
+    // The generate screen has no heading any more: the selected tab is what
+    // names it, so the tab is what this reads. The parameter panel is checked
+    // as well, so that translated chrome around an untranslated screen would
+    // still fail. The expected text is read from the locale files rather than
+    // written here, so that translated strings live only under locales/vi.
+    expect(screen.getByRole('tab', { selected: true })).toHaveTextContent(
+      resources.vi.common.nav.generate,
     );
+    expect(
+      main.getByRole('heading', { level: 2, name: resources.vi.generation.parameters.title }),
+    ).toBeInTheDocument();
   });
 });

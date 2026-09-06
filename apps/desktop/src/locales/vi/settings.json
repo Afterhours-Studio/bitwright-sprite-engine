@@ -13,6 +13,72 @@
     "device": "Thiết bị",
     "capabilities": "Hỗ trợ"
   },
+  "providers": {
+    "title": "Nhà cung cấp AI",
+    "description": "Engine từ xa gửi yêu cầu tới một trong các nhà cung cấp này. Bạn có thể thêm bao nhiêu tuỳ ý và chọn cái đang dùng. Yêu cầu đi thẳng tới nhà cung cấp bạn cấu hình, không đi qua hạ tầng của Afterhours Studio.",
+    "compatibility": "Endpoint tự nhập phải nói được API tương thích OpenAI: GET {baseUrl}/models để lấy danh sách model, và POST {baseUrl}/images/generations để tạo ảnh. Mọi dịch vụ tổng hợp hay router mô phỏng đúng dạng đó đều dùng được ở đây.",
+    "empty": "Chưa cấu hình nhà cung cấp nào. Hãy thêm một cái để dùng engine từ xa.",
+    "add": "Thêm nhà cung cấp",
+    "limitReached": "Đã cấu hình tối đa {{max}} nhà cung cấp. Hãy xoá bớt một cái trước khi thêm mới.",
+    "storage": {
+      "label": "Khoá API được lưu ở",
+      "keychain": "kho thông tin đăng nhập của hệ điều hành",
+      "file": "một tệp chỉ tài khoản của bạn đọc được",
+      "fileWarning": "Máy này không có kho thông tin đăng nhập của hệ điều hành, nên khoá được ghi thành tệp văn bản thường trong thư mục cấu hình. Mọi chương trình chạy dưới tài khoản của bạn đều đọc được tệp đó."
+    },
+    "form": {
+      "addTitle": "Thêm nhà cung cấp",
+      "editTitle": "Sửa nhà cung cấp",
+      "source": "Nhà cung cấp",
+      "sourceCustom": "Endpoint tự nhập",
+      "name": "Tên hiển thị",
+      "namePlaceholder": "Nhà cung cấp của tôi",
+      "baseUrl": "URL gốc",
+      "baseUrlPlaceholder": "https://api.example.com/v1",
+      "baseUrlHint": "Không cần dấu gạch chéo ở cuối. Chỉ chấp nhận http thường cho endpoint chạy ngay trên máy này, vì khoá gửi qua đó có thể bị đọc trên đường truyền.",
+      "model": "Model",
+      "modelPlaceholder": "black-forest-labs/FLUX.1-schnell",
+      "modelHint": "Mã định danh mà nhà cung cấp này dùng để gọi model.",
+      "apiKey": "Khoá API",
+      "apiKeyPlaceholder": "Dán khoá của bạn",
+      "apiKeyKept": "Để trống nếu muốn giữ nguyên khoá đã lưu.",
+      "apiKeyStored": "Đã lưu một khoá, kết thúc bằng {{hint}}",
+      "reveal": "Hiện khoá",
+      "hide": "Ẩn khoá",
+      "auth": "Gửi khoá theo dạng",
+      "authBearer": "Authorization: Bearer",
+      "authHeader": "Header tự đặt tên",
+      "authNone": "Không cần khoá",
+      "authHeaderName": "Tên header",
+      "authHeaderPlaceholder": "x-api-key",
+      "timeout": "Thời gian chờ (giây)",
+      "documentation": "Nơi lấy khoá",
+      "makeActive": "Dùng nhà cung cấp này để tạo ảnh"
+    },
+    "row": {
+      "active": "Đang dùng",
+      "use": "Dùng nhà cung cấp này",
+      "noKey": "Chưa lưu khoá",
+      "keyStored": "Khoá kết thúc bằng {{hint}}",
+      "custom": "Endpoint tự nhập",
+      "preset": "Dựa trên {{name}}"
+    },
+    "actions": {
+      "edit": "Sửa",
+      "remove": "Xoá",
+      "test": "Kiểm tra kết nối",
+      "testing": "Đang kiểm tra"
+    },
+    "test": {
+      "ok": "Phản hồi sau {{ms}} ms, liệt kê {{models}} model",
+      "failed": "Kiểm tra kết nối không thành công"
+    },
+    "confirm": {
+      "title": "Xoá nhà cung cấp này?",
+      "body": "Khoá API đã lưu sẽ bị xoá cùng. Thao tác này không hoàn tác được, và bạn sẽ phải dán lại khoá nếu muốn thêm nhà cung cấp này về.",
+      "action": "Xoá nhà cung cấp"
+    }
+  },
   "remote": {
     "title": "API từ xa",
     "description": "Yêu cầu được gửi tới endpoint bạn cấu hình ở đây. Chúng không đi qua hạ tầng của Afterhours Studio.",
@@ -30,7 +96,32 @@
     "cached": "Đã tải",
     "notCached": "Chưa tải",
     "commercialYes": "Cho phép dùng thương mại",
-    "commercialNo": "Không cho dùng thương mại"
+    "commercialNo": "Không cho dùng thương mại",
+    "download": "Tải về",
+    "downloading": "Đang tải",
+    "cancelDownload": "Dừng tải",
+    "progress": "Đã tải {{percent}}%",
+    "confirmTitle": "Tải trọng số này về?",
+    "confirmBody": "Trọng số do bên thứ ba phát hành theo giấy phép riêng của họ, không theo giấy phép của ứng dụng này. Hãy đọc giấy phép trước khi tiếp tục.",
+    "confirmAction": "Chấp nhận và tải về"
+  },
+  "storage": {
+    "title": "Nơi lưu dữ liệu",
+    "description": "Mỗi model nặng vài gigabyte. Hãy để chúng trên ổ đĩa còn nhiều dung lượng, không nhất thiết phải là ổ cài ứng dụng.",
+    "current": "Thư mục",
+    "free": "Dung lượng trống",
+    "used": "Đã dùng cho tệp tải về",
+    "existing": "Đã tải về ở đây",
+    "none": "Chưa có gì",
+    "unknownSpace": "Không đọc được",
+    "isDefault": "Đây là thư mục mặc định, nằm trong hồ sơ người dùng của bạn.",
+    "browse": "Chọn thư mục",
+    "reset": "Dùng lại thư mục mặc định",
+    "confirmTitle": "Lưu tệp tải về ở đây?",
+    "confirmBody": "Từ giờ các tệp tải mới sẽ nằm ở đây. Những model đã tải về không được di chuyển và vẫn ở chỗ cũ.",
+    "confirmAction": "Dùng thư mục này",
+    "lowSpace": "Chỗ này còn ít hơn mức mà model lớn nhất cần, là {{needed}}.",
+    "leftBehind": "Những model sau vẫn ở thư mục cũ và không được di chuyển: {{models}}. Chúng vẫn nằm trong {{path}}."
   },
   "appearance": {
     "title": "Hiển thị",
@@ -45,6 +136,7 @@
     "engineVersion": "Phiên bản engine",
     "license": "Cấp phép theo AGPL-3.0-only",
     "copyright": "Copyright (C) 2026 Afterhours Studio",
-    "repository": "Mã nguồn"
+    "repository": "Mã nguồn",
+    "appVersion": "Phiên bản ứng dụng"
   }
 }

@@ -29,9 +29,14 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type {
   BackendKind,
   BackendListResponse,
+  ConnectionTestResult,
   GenerateRequest,
   GenerateResponse,
   ModelInfo,
+  ProviderListResponse,
+  ProviderSaveRequest,
+  StorageChange,
+  StorageInfo,
 } from '@/types/engine';
 
 /** A failed command, carrying a code the `errors` namespace can translate. */
@@ -181,6 +186,109 @@ export function engineModels(): Promise<ShellResult<{ models: ModelInfo[] }>> {
   return invoke<{ models: ModelInfo[] }>('engine_models');
 }
 
+/**
+ * Starts downloading a model's weights.
+ *
+ * The engine answers as soon as it has accepted the transfer, not when the
+ * transfer finishes, and reports the model's new state.
+ */
+export function engineDownloadModel(modelId: string): Promise<ShellResult<ModelInfo>> {
+  return invoke<ModelInfo>('engine_download_model', { modelId });
+}
+
+/** Cancels a download that is in progress. */
+export function engineCancelDownload(modelId: string): Promise<ShellResult<ModelInfo>> {
+  return invoke<ModelInfo>('engine_cancel_download', { modelId });
+}
+
+/** Reports where downloaded data is kept, and how much room is left there. */
+export function storageInfo(): Promise<ShellResult<StorageInfo>> {
+  return invoke<StorageInfo>('storage_info');
+}
+
+/**
+ * Checks a directory without adopting it.
+ *
+ * The engine creates it if it is missing and proves it writable by writing a
+ * file and deleting it again, then reports the free space on its volume. That
+ * is what lets the interface warn before a four gigabyte download onto a
+ * volume with one gigabyte left.
+ */
+export function storageValidate(path: string): Promise<ShellResult<StorageInfo>> {
+  return invoke<StorageInfo>('storage_validate', { path });
+}
+
+/**
+ * Moves where downloaded data is kept, and remembers the choice.
+ *
+ * Nothing on disk is moved. The result names what stayed at the old location.
+ */
+export function storageSetRoot(path: string): Promise<ShellResult<StorageChange>> {
+  return invoke<StorageChange>('storage_set_root', { path });
+}
+
+/** Goes back to the per-user default location. */
+export function storageResetRoot(): Promise<ShellResult<StorageChange>> {
+  return invoke<StorageChange>('storage_reset_root');
+}
+
+/**
+ * Opens the system's own directory picker.
+ *
+ * Resolves to null when the user closed the dialog without choosing, which is
+ * an answer rather than a failure.
+ */
+export function storagePickDirectory(): Promise<ShellResult<string | null>> {
+  return invoke<string | null>('storage_pick_directory');
+}
+
+/**
+ * Lists configured providers, the built-in catalogue, and where keys are kept.
+ *
+ * No response from any of these commands carries an API key. The engine
+ * accepts one and never returns it; what comes back is a presence flag and a
+ * masked hint.
+ */
+export function engineProviders(): Promise<ShellResult<ProviderListResponse>> {
+  return invoke<ProviderListResponse>('engine_providers');
+}
+
+/**
+ * Creates a provider, or replaces an existing one.
+ *
+ * Omitting `apiKey` leaves the stored credential alone, which is what an edit
+ * that never opened the key field sends.
+ */
+export function engineSaveProvider(
+  request: ProviderSaveRequest,
+): Promise<ShellResult<ProviderListResponse>> {
+  return invoke<ProviderListResponse>('engine_save_provider', { request });
+}
+
+/** Deletes a provider and the credential stored for it. */
+export function engineRemoveProvider(
+  providerId: string,
+): Promise<ShellResult<ProviderListResponse>> {
+  return invoke<ProviderListResponse>('engine_remove_provider', { providerId });
+}
+
+/** Selects the provider that serves generation. */
+export function engineActivateProvider(
+  providerId: string,
+): Promise<ShellResult<ProviderListResponse>> {
+  return invoke<ProviderListResponse>('engine_activate_provider', { providerId });
+}
+
+/**
+ * Runs one connection test against a stored provider.
+ *
+ * Resolves rather than rejects when the endpoint refuses: a rejected key is the
+ * answer the user asked for, not a failure of the call.
+ */
+export function engineTestProvider(providerId: string): Promise<ShellResult<ConnectionTestResult>> {
+  return invoke<ConnectionTestResult>('engine_test_provider', { providerId });
+}
+
 /** Returns which window background effect was applied. */
 export function vibrancyState(): Promise<ShellResult<VibrancyState>> {
   return invoke<VibrancyState>('vibrancy_state');
@@ -189,6 +297,11 @@ export function vibrancyState(): Promise<ShellResult<VibrancyState>> {
 /** Returns the platform facts the title bar depends on. */
 export function platformInfo(): Promise<ShellResult<PlatformInfo>> {
   return invoke<PlatformInfo>('platform_info');
+}
+
+/** Returns the application's own version, as built into the shell. */
+export function appVersion(): Promise<ShellResult<string>> {
+  return invoke<string>('app_version');
 }
 
 /** Probes for a usable GPU. */

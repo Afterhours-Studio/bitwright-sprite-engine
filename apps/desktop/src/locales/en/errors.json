@@ -28,14 +28,56 @@
       "device_unavailable": "The Metal device is not available on this machine."
     },
     "remote": {
-      "endpoint_missing": "Set an endpoint in Settings before using the remote API.",
-      "api_key_missing": "Set an API key in Settings before using the remote API.",
-      "request_failed": "The remote API rejected the request or could not be reached."
+      "api_key_missing": "This provider has no API key stored. Edit it in Settings and paste one in.",
+      "bad_key": "The endpoint rejected the API key.",
+      "endpoint_missing": "Add an AI provider in Settings before using the remote engine.",
+      "forbidden": "The key was recognised, but it is not allowed to do this.",
+      "insecure_url": "Plain http is accepted only for an endpoint on this machine. An API key sent over it would be readable on the way.",
+      "invalid_base_url": "That is not a usable base URL. It has to start with https:// and carry no query string.",
+      "invalid_header": "One of the headers is not usable. Names and values have to be plain text on a single line.",
+      "limit_reached": "No more providers can be stored. Remove one before adding another.",
+      "model_missing": "Name the model this provider should generate with.",
+      "name_missing": "Give the provider a display name.",
+      "no_active_provider": "Providers are configured, but none is selected. Choose one in Settings.",
+      "not_found": "There is no model listing at that base URL. It is probably missing a path such as /v1.",
+      "provider_unknown": "That provider is not configured any more.",
+      "rate_limited": "The provider is throttling this key. Wait a moment and try again.",
+      "reachable": "The endpoint answered and accepted the key.",
+      "refused": "Something is at that address and refused the connection. Check the port.",
+      "request_failed": "The remote API rejected the request or could not be reached.",
+      "secret_read_failed": "The API key could not be read. The credential store may be locked.",
+      "secret_write_failed": "The API key could not be stored. The credential store refused it.",
+      "server_error": "The provider failed on its own side. Nothing is wrong with your settings.",
+      "store_write_failed": "The provider list could not be saved. Check the free space and the permissions on this disk.",
+      "timeout": "The endpoint accepted the connection and then did not answer.",
+      "unexpected_shape": "Something answered, but not with an OpenAI compatible model list. Check that the base URL points at the API and not at a web page.",
+      "unknown_preset": "That provider is not one this version knows. Use a custom endpoint instead.",
+      "unreachable": "That host could not be reached. Check the base URL and your connection."
     }
   },
   "models": {
     "download_failed": "The model could not be downloaded.",
-    "downloads_disabled": "Downloads are turned off, and this model is not on this machine."
+    "downloads_disabled": "Downloads are turned off, and this model is not on this machine.",
+    "unknown": "That model is not in the registry.",
+    "already_downloading": "That model is already downloading.",
+    "download_rejected": "The model host refused the download. The file may have moved.",
+    "download_unreachable": "The model host could not be reached. Check your connection.",
+    "download_incomplete": "The download ended before the whole file arrived, so it was discarded.",
+    "download_write_failed": "The download could not be saved. Check the free space on this disk."
+  },
+  "storage": {
+    "invalid_path": "That folder cannot be used for downloads.",
+    "path_empty": "No folder was chosen.",
+    "path_not_absolute": "Choose a full path, starting from a drive or from the root.",
+    "path_too_long": "That path is too long to be a folder.",
+    "path_invalid": "That path contains characters a folder name cannot have.",
+    "not_a_directory": "That path is a file, not a folder.",
+    "create_failed": "That folder could not be created. Check the drive is connected and not full.",
+    "not_writable": "That folder refused to be written to. It may be read-only, or on a share you cannot write to.",
+    "inside_installation": "That folder is inside the application itself, and would be erased by the next update.",
+    "busy_downloading": "A download is running. Stop it before moving where downloads are kept.",
+    "not_remembered": "The folder is in use now, but could not be saved, so the next launch will use the previous one.",
+    "picker_failed": "The folder picker could not be opened."
   },
   "gpu": {
     "ok": "A usable GPU was found.",

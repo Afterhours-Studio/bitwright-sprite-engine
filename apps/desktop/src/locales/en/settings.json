@@ -13,12 +13,78 @@
     "device": "Device",
     "capabilities": "Supports"
   },
+  "providers": {
+    "title": "AI providers",
+    "description": "The remote engine sends its requests to one of these. Add as many as you need and choose which one is in use. Requests go straight to the provider you configured and are not routed through Afterhours Studio.",
+    "compatibility": "A custom endpoint has to speak the OpenAI compatible API: GET {baseUrl}/models for the model list, and POST {baseUrl}/images/generations to generate. Any aggregator or router that imitates that shape works here.",
+    "empty": "No provider is configured yet. Add one to use the remote engine.",
+    "add": "Add provider",
+    "limitReached": "The maximum of {{max}} providers is already configured. Remove one before adding another.",
+    "storage": {
+      "label": "API keys are kept in",
+      "keychain": "the system credential store",
+      "file": "a file only your account can read",
+      "fileWarning": "No system credential store was found on this machine, so keys are written to a plain file in your configuration directory. Any program running as you can read it."
+    },
+    "form": {
+      "addTitle": "Add a provider",
+      "editTitle": "Edit provider",
+      "source": "Provider",
+      "sourceCustom": "Custom endpoint",
+      "name": "Display name",
+      "namePlaceholder": "My provider",
+      "baseUrl": "Base URL",
+      "baseUrlPlaceholder": "https://api.example.com/v1",
+      "baseUrlHint": "No trailing slash needed. Plain http is accepted only for an endpoint on this machine, because a key sent over it would be readable on the way.",
+      "model": "Model",
+      "modelPlaceholder": "black-forest-labs/FLUX.1-schnell",
+      "modelHint": "The identifier this provider knows the model by.",
+      "apiKey": "API key",
+      "apiKeyPlaceholder": "Paste your key",
+      "apiKeyKept": "Leave this blank to keep the key already stored.",
+      "apiKeyStored": "A key is stored, ending {{hint}}",
+      "reveal": "Show the key",
+      "hide": "Hide the key",
+      "auth": "Send the credential as",
+      "authBearer": "Authorization: Bearer",
+      "authHeader": "A named header",
+      "authNone": "No credential",
+      "authHeaderName": "Header name",
+      "authHeaderPlaceholder": "x-api-key",
+      "timeout": "Timeout (seconds)",
+      "documentation": "Where to get a key",
+      "makeActive": "Use this provider for generation"
+    },
+    "row": {
+      "active": "In use",
+      "use": "Use this provider",
+      "noKey": "No key stored",
+      "keyStored": "Key ending {{hint}}",
+      "custom": "Custom endpoint",
+      "preset": "Based on {{name}}"
+    },
+    "actions": {
+      "edit": "Edit",
+      "remove": "Remove",
+      "test": "Test connection",
+      "testing": "Testing"
+    },
+    "test": {
+      "ok": "Answered in {{ms}} ms, {{models}} models listed",
+      "failed": "The connection test did not succeed"
+    },
+    "confirm": {
+      "title": "Remove this provider?",
+      "body": "The stored API key is deleted along with it. This cannot be undone, and the key has to be pasted again to add the provider back.",
+      "action": "Remove provider"
+    }
+  },
   "remote": {
     "title": "Remote API",
     "description": "Requests go to the endpoint you configure here. They are not routed through Afterhours Studio.",
     "endpoint": "Endpoint",
     "endpointPlaceholder": "https://api.example.com",
-    "apiKey": "API key",
+    "apiKey": "API Key",
     "apiKeyPlaceholder": "Paste your key",
     "timeout": "Timeout (seconds)"
   },
@@ -26,11 +92,36 @@
     "title": "Models",
     "description": "Model weights are not part of this application and are not covered by its licence. Each one is downloaded on first use, under its own terms.",
     "license": "Licence",
-    "size": "Download size",
+    "size": "Download Size",
     "cached": "Downloaded",
     "notCached": "Not downloaded",
     "commercialYes": "Commercial use permitted",
-    "commercialNo": "No commercial use"
+    "commercialNo": "No commercial use",
+    "download": "Download",
+    "downloading": "Downloading",
+    "cancelDownload": "Stop Download",
+    "progress": "{{percent}}% downloaded",
+    "confirmTitle": "Download these weights?",
+    "confirmBody": "The weights are published by a third party under their own licence, which is not the licence of this application. Read it before you continue.",
+    "confirmAction": "Accept and download"
+  },
+  "storage": {
+    "title": "Storage location",
+    "description": "Model weights are several gigabytes each. Keep them on a volume with room, which need not be the one this application is installed on.",
+    "current": "Location",
+    "free": "Free space",
+    "used": "Used by downloads",
+    "existing": "Downloaded here",
+    "none": "Nothing yet",
+    "unknownSpace": "Could not be read",
+    "isDefault": "This is the default location, under your user profile.",
+    "browse": "Choose a folder",
+    "reset": "Use the default again",
+    "confirmTitle": "Keep downloads here?",
+    "confirmBody": "New downloads go here from now on. Weights already downloaded are not moved, and stay where they are.",
+    "confirmAction": "Use this folder",
+    "lowSpace": "There is less room here than the largest model needs, which is {{needed}}.",
+    "leftBehind": "These stayed at the previous location and were not moved: {{models}}. They are still in {{path}}."
   },
   "appearance": {
     "title": "Appearance",
@@ -45,6 +136,7 @@
     "engineVersion": "Engine version",
     "license": "Licensed under AGPL-3.0-only",
     "copyright": "Copyright (C) 2026 Afterhours Studio",
-    "repository": "Source code"
+    "repository": "Source code",
+    "appVersion": "Application version"
   }
 }

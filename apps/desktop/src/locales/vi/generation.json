@@ -50,5 +50,26 @@
     "duration": "Mất {{ms}} ms",
     "count_one": "{{count}} sprite",
     "count_other": "{{count}} sprite"
+  },
+  "dock": {
+    "tools": "Công cụ",
+    "toolPencil": "Bút chì",
+    "toolEraser": "Tẩy",
+    "toolFill": "Tô màu",
+    "toolSelect": "Chọn vùng",
+    "shapes": "Hình khối",
+    "shapeLine": "Đường thẳng",
+    "shapeCurve": "Đường cong",
+    "shapeRectangle": "Hình chữ nhật",
+    "shapeEllipse": "Hình elip",
+    "dimensions": "{{width}} x {{height}}",
+    "lastRun": "Lần tạo gần nhất",
+    "runNone": "Chưa tạo lần nào",
+    "runDuration": "Thời gian",
+    "seedRandomise": "Chọn seed ngẫu nhiên",
+    "seedHint": "Để trống để mỗi lần tạo dùng một seed mới.",
+    "resetWarning": "Thao tác này xoá phần mô tả, toàn bộ tham số và kết quả của lần tạo gần nhất.",
+    "resetConfirm": "Đặt lại tất cả",
+    "resetCancel": "Huỷ"
   }
 }

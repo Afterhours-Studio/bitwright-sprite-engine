@@ -24,9 +24,50 @@
 
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
-import { afterEach } from 'vitest';
+import { afterEach, vi } from 'vitest';
 
 import '@/lib/i18n';
+
+/**
+ * jsdom ships no ResizeObserver, and `components/ui/SegmentedTabs.tsx` measures
+ * its sliding indicator with one. Without this stub the component throws the
+ * moment it mounts, so every test that renders the title bar depends on it:
+ * it is used, even though nothing imports it by name. Do not remove it.
+ *
+ * Nothing has a size under jsdom, so the observer would never report anything
+ * worth acting on. The interface is left as it is and the missing browser API
+ * is supplied here rather than guarded against in the component.
+ */
+class ResizeObserverStub implements ResizeObserver {
+  /** Records nothing: jsdom reports every element as zero sized. */
+  observe(): void {
+    return;
+  }
+
+  /** Records nothing, for the same reason. */
+  unobserve(): void {
+    return;
+  }
+
+  /** Nothing was observed, so there is nothing to release. */
+  disconnect(): void {
+    return;
+  }
+}
+
+vi.stubGlobal('ResizeObserver', ResizeObserverStub);
+
+/**
+ * jsdom lays nothing out and scrolls nothing, so `Element.scrollIntoView` is
+ * absent rather than inert. `cmdk` calls it every time the command palette's
+ * selection moves, including on the first render, so without this stub every
+ * test that mounts the shell throws before it asserts anything. Like the
+ * observer above, the missing browser API is supplied here rather than guarded
+ * against in the component, because the component is correct in a browser.
+ */
+Element.prototype.scrollIntoView = function scrollIntoView(): void {
+  return;
+};
 
 afterEach(() => {
   cleanup();

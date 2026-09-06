@@ -17,11 +17,16 @@
 /**
  * Token discipline.
  *
- * A literal colour written into a component sits outside the elevation system
- * and outside the contrast checks, and it will not follow the theme. This test
- * scans the source for one. `tokens.css` is the only file allowed to define
- * colour values, and the Tailwind config is allowed the two Windows system
- * colours the close button needs.
+ * A literal colour written into a component sits outside the surface model and
+ * outside the contrast checks, and it will not follow the theme. This test
+ * scans `src` for one, where `tokens.css` is the only file allowed to define
+ * colour values. The Tailwind config sits outside `src`, and is where the two
+ * Windows system colours the close button needs are written.
+ *
+ * Surfaces are named by role rather than by height: there is no `surface-1`,
+ * and no `surface-sunken`. A number claims that height is what separates two
+ * surfaces, which is not true in light mode, where content surfaces are all
+ * white and separated by border and shadow instead.
  */
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
@@ -87,6 +92,36 @@ describe('colour tokens', () => {
     // scripts/check-contrast.ts, which can tell a colour from a length.
     for (const name of dark) {
       expect(light.has(name), `${name} is missing from the light theme`).toBe(true);
+    }
+  });
+
+  it('names every surface by role, and gives each one a value in both themes', () => {
+    const css = readFileSync(join(SRC, 'styles', 'tokens.css'), 'utf8').replace(
+      /\/\*[\s\S]*?\*\//g,
+      '',
+    );
+
+    const surfaces = (selector: string): string[] =>
+      tokenNames(block(css, selector))
+        .filter((name) => name.startsWith('--surface-'))
+        .sort();
+
+    const light = surfaces(':root {');
+    const dark = surfaces("[data-theme='dark'] {");
+
+    expect(light.length).toBeGreaterThan(0);
+
+    // A surface is a colour, so unlike the scales it has to be declared in
+    // both themes. This is the direction the check above cannot make, because
+    // there it cannot tell a colour from a length.
+    expect(dark).toEqual(light);
+
+    // Height is not what separates surfaces in light mode, so a numbered or
+    // depth-named surface is a name that stopped being true. Roles are.
+    for (const name of light) {
+      expect(name, `${name} is named by height rather than by role`).not.toMatch(
+        /^--surface-(?:\d+|sunken|raised|overlay-\d+)$/,
+      );
     }
   });
 });

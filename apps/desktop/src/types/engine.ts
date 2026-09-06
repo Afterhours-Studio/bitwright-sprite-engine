@@ -67,6 +67,50 @@ export interface ModelInfo {
   commercialUse: boolean;
   sizeMb: number;
   cached: boolean;
+  /** True while the engine is fetching these weights. */
+  downloading: boolean;
+  /** How much of the download is done, from 0 to 1. Zero when idle. */
+  progress: number;
+  /** Stable reason code for the last failed download, empty otherwise. */
+  error: string;
+}
+
+/**
+ * One data root, as reported by `GET /v1/storage`.
+ *
+ * Weights are several gigabytes each, so the volume this sits on matters more
+ * than any other path in the application.
+ */
+export interface StorageInfo {
+  /** The directory that holds everything the application downloads. */
+  root: string;
+  /** Where weights live inside that root. */
+  modelsDir: string;
+  /** The per-user default, so the interface can offer to go back to it. */
+  defaultRoot: string;
+  /** Whether `root` is that default. */
+  isDefault: boolean;
+  /** Free space on the volume behind `root`, or null when it cannot be read. */
+  freeBytes: number | null;
+  /** Size of that volume, or null for the same reason. */
+  totalBytes: number | null;
+  /** Bytes already taken by models under this root. */
+  usedBytes: number;
+  /** Identifiers of the models found under this root. */
+  existingModels: string[];
+}
+
+/** The outcome of moving the data root, from `POST /v1/storage`. */
+export interface StorageChange {
+  /** The root now in use. */
+  current: StorageInfo;
+  /** The root that was in use, and whatever is still sitting in it. */
+  previous: StorageInfo;
+  /**
+   * Always false. The application never moves gigabytes on its own, so what
+   * was already downloaded stays where it is and the user has to be told.
+   */
+  dataMoved: boolean;
 }
 
 /** Post-processing options sent with a generation request. */
@@ -108,6 +152,122 @@ export interface GenerateResponse {
   durationMs: number;
   warnings: string[];
 }
+
+/** Whether a provider came from the built-in catalogue or from the user. */
+export type ProviderKind = 'preset' | 'custom';
+
+/** How a provider expects the credential to be presented. */
+export type AuthScheme = 'bearer' | 'header' | 'none';
+
+/**
+ * Where API keys are being kept on this machine.
+ *
+ * `keychain` is the operating system credential store. `file` is the fallback
+ * for a machine that offers none, and is weaker: it is a permission-restricted
+ * plain file. The interface shows which one is in force, because a guarantee
+ * the user cannot see is one they cannot act on.
+ */
+export type SecretStorage = 'keychain' | 'file';
+
+/**
+ * One configured provider, as reported by `GET /v1/providers`.
+ *
+ * There is deliberately no field carrying the API key. The engine accepts a
+ * key and never returns one; {@link hasKey} and {@link keyHint} are what comes
+ * back instead.
+ */
+export interface ProviderInfo {
+  /** Stable identifier. */
+  providerId: string;
+  /** Display name, chosen by the user. */
+  name: string;
+  /** Whether this came from the catalogue or from the user. */
+  kind: ProviderKind;
+  /** Catalogue entry this came from, empty for a custom provider. */
+  presetId: string;
+  /** Where requests are sent, with no trailing slash. */
+  baseUrl: string;
+  /** Model identifier sent with generation requests. */
+  model: string;
+  /** How the credential is presented. */
+  authScheme: AuthScheme;
+  /** Header the credential is sent in, when `authScheme` is `header`. */
+  authHeader: string;
+  /** Further headers this provider requires. */
+  extraHeaders: Record<string, string>;
+  /** Request timeout in seconds. */
+  timeoutS: number;
+  /** Whether a credential is stored for this provider. */
+  hasKey: boolean;
+  /** Masked hint, such as `****a1b2`. Empty when no credential is stored. */
+  keyHint: string;
+  /** Whether this provider serves generation. */
+  active: boolean;
+}
+
+/** One catalogue entry, offered when adding a provider. */
+export interface ProviderPreset {
+  presetId: string;
+  name: string;
+  baseUrl: string;
+  /** Model proposed when the provider is added. Empty when the user must choose. */
+  defaultModel: string;
+  authScheme: AuthScheme;
+  authHeader: string;
+  /** Where the user gets a key. */
+  documentationUrl: string;
+}
+
+/** The response from `GET /v1/providers`. */
+export interface ProviderListResponse {
+  providers: ProviderInfo[];
+  presets: ProviderPreset[];
+  /** Identifier of the provider serving generation, empty when none is. */
+  activeId: string;
+  /** How credentials are being held on this machine. */
+  secretStorage: SecretStorage;
+  /** How many providers may be stored in total. */
+  maxProviders: number;
+}
+
+/**
+ * A provider to create or replace.
+ *
+ * `apiKey` travels in this direction only. Omitting it leaves the stored
+ * credential untouched, which is what an edit that never opened the key field
+ * sends; an empty string removes it.
+ */
+export interface ProviderSaveRequest {
+  providerId: string;
+  name: string;
+  kind: ProviderKind;
+  presetId: string;
+  baseUrl: string;
+  model: string;
+  authScheme: AuthScheme;
+  authHeader: string;
+  extraHeaders: Record<string, string>;
+  timeoutS: number;
+  apiKey?: string;
+  activate: boolean;
+}
+
+/** The outcome of one connection test. */
+export interface ConnectionTestResult {
+  /** Whether the endpoint answered and accepted the credential. */
+  ok: boolean;
+  /** Stable reason code, translated by the `errors` namespace, including on success. */
+  code: string;
+  /** Short English description, for logs and bug reports. */
+  detail: string;
+  /** Round trip time in milliseconds. */
+  latencyMs: number;
+  /** How many models the endpoint listed. */
+  modelCount: number;
+}
+
+/** Reserved preset identifier meaning "the user supplies the base URL". */
+export const CUSTOM_PRESET_ID = 'custom';
 
 /** The response from `GET /health`. */
 export interface HealthResponse {

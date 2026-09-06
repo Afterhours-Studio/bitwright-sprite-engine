@@ -25,6 +25,7 @@
   },
   "theme": {
     "label": "Giao diện",
+    "system": "Theo hệ thống",
     "dark": "Tối",
     "light": "Sáng",
     "toggle": "Đổi giao diện"
@@ -39,12 +40,15 @@
     "cancel": "Huỷ",
     "close": "Đóng",
     "save": "Lưu",
-    "copy": "Sao chép"
+    "copy": "Sao chép",
+    "increase": "Tăng {{label}}",
+    "decrease": "Giảm {{label}}"
   },
   "units": {
     "pixels": "px",
     "milliseconds": "ms",
-    "megabytes": "MB"
+    "megabytes": "MB",
+    "gigabytes": "GB"
   },
   "empty": {
     "title": "Chưa có gì ở đây",
@@ -59,5 +63,40 @@
     "unfavourite": "Bỏ khỏi yêu thích",
     "remove": "Xoá",
     "clear": "Xoá thư viện"
+  },
+  "menu": {
+    "label": "Menu",
+    "file": "Tệp",
+    "edit": "Chỉnh sửa",
+    "view": "Hiển thị",
+    "undo": "Hoàn tác",
+    "redo": "Làm lại",
+    "quit": "Thoát",
+    "search": "Tìm kiếm"
+  },
+  "palette": {
+    "label": "Bảng lệnh",
+    "placeholder": "Tìm lệnh",
+    "empty": "Không có lệnh nào khớp",
+    "goTo": "Đi tới"
+  },
+  "notifications": {
+    "label": "Thông báo",
+    "title": "Thông báo",
+    "empty": "Chưa có gì xảy ra",
+    "clear": "Xoá hết",
+    "dismiss": "Đóng thông báo",
+    "unread": "{{count}} chưa đọc",
+    "severity": {
+      "info": "Thông tin",
+      "success": "Thành công",
+      "warning": "Cảnh báo",
+      "error": "Lỗi"
+    },
+    "engineFailed": "Sự cố engine",
+    "generationFailed": "Tạo sprite thất bại",
+    "downloadFailed": "Không tải được {{name}}",
+    "modelReady": "Đã tải xong {{name}} và có thể dùng ngay.",
+    "gpuUnavailable": "Không có GPU dùng được"
   }
 }

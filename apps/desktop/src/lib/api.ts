@@ -25,18 +25,35 @@
  */
 
 import {
+  engineActivateProvider,
   engineBackends,
+  engineCancelDownload,
+  engineDownloadModel,
   engineGenerate,
   engineModels,
+  engineProviders,
+  engineRemoveProvider,
+  engineSaveProvider,
   engineSelectBackend,
+  engineTestProvider,
+  storageInfo,
+  storagePickDirectory,
+  storageResetRoot,
+  storageSetRoot,
+  storageValidate,
   type ShellError,
 } from '@/lib/tauri';
 import type {
   BackendKind,
   BackendListResponse,
+  ConnectionTestResult,
   GenerateRequest,
   GenerateResponse,
   ModelInfo,
+  ProviderListResponse,
+  ProviderSaveRequest,
+  StorageChange,
+  StorageInfo,
 } from '@/types/engine';
 
 /** A failure from the engine, carrying a code the `errors` namespace translates. */
@@ -87,6 +104,102 @@ export function selectBackend(kind: BackendKind): Promise<BackendListResponse> {
 export async function listModels(): Promise<ModelInfo[]> {
   const response = await unwrap(engineModels());
   return response.models;
+}
+
+/**
+ * Starts downloading a model's weights.
+ *
+ * Resolves once the engine has accepted the transfer, not once it has
+ * finished, so the caller has to follow the progress by re-reading the list.
+ */
+export function downloadModel(modelId: string): Promise<ModelInfo> {
+  return unwrap(engineDownloadModel(modelId));
+}
+
+/** Cancels a download that is in progress. */
+export function cancelDownload(modelId: string): Promise<ModelInfo> {
+  return unwrap(engineCancelDownload(modelId));
+}
+
+/** Reports where downloaded data is kept, and how much room is left there. */
+export function getStorage(): Promise<StorageInfo> {
+  return unwrap(storageInfo());
+}
+
+/**
+ * Checks a directory without adopting it.
+ *
+ * Rejects with the reason code for a directory that cannot hold the data, so
+ * the user learns that a drive is read-only before they confirm rather than
+ * four gigabytes into a download.
+ */
+export function validateStorage(path: string): Promise<StorageInfo> {
+  return unwrap(storageValidate(path));
+}
+
+/**
+ * Moves where downloaded data is kept.
+ *
+ * Weights already on disk are not moved. The result names what stayed at the
+ * old location so the user can be told.
+ */
+export function setStorageRoot(path: string): Promise<StorageChange> {
+  return unwrap(storageSetRoot(path));
+}
+
+/** Goes back to the per-user default location. */
+export function resetStorageRoot(): Promise<StorageChange> {
+  return unwrap(storageResetRoot());
+}
+
+/**
+ * Opens the system's own directory picker.
+ *
+ * Resolves to null when the dialog was closed without a choice.
+ */
+export function pickDirectory(): Promise<string | null> {
+  return unwrap(storagePickDirectory());
+}
+
+/**
+ * Lists configured providers, the built-in catalogue, and where keys are kept.
+ *
+ * Nothing this returns carries an API key. See {@link saveProvider} for the
+ * direction a key does travel in.
+ */
+export function listProviders(): Promise<ProviderListResponse> {
+  return unwrap(engineProviders());
+}
+
+/**
+ * Creates a provider, or replaces an existing one.
+ *
+ * A key goes in here and never comes back out. Omitting `apiKey` from the
+ * request leaves the stored credential untouched, so a form can round-trip a
+ * provider it was never shown the key for.
+ */
+export function saveProvider(request: ProviderSaveRequest): Promise<ProviderListResponse> {
+  return unwrap(engineSaveProvider(request));
+}
+
+/** Deletes a provider and the credential stored for it. */
+export function removeProvider(providerId: string): Promise<ProviderListResponse> {
+  return unwrap(engineRemoveProvider(providerId));
+}
+
+/** Selects the provider that serves generation. */
+export function activateProvider(providerId: string): Promise<ProviderListResponse> {
+  return unwrap(engineActivateProvider(providerId));
+}
+
+/**
+ * Runs one connection test against a stored provider.
+ *
+ * Resolves with the outcome whether or not the endpoint answered. A refused key
+ * is the result, not an error.
+ */
+export function testProvider(providerId: string): Promise<ConnectionTestResult> {
+  return unwrap(engineTestProvider(providerId));
 }
 
 /** Generates sprites. */

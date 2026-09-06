@@ -37,7 +37,7 @@ export function GalleryScreen(): ReactElement {
   const shown = visibleItems(items, filter);
 
   return (
-    <section className="flex h-full flex-col gap-4 p-4">
+    <section className="flex h-full flex-col gap-4 overflow-auto p-4">
       <header className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-base font-semibold text-fg-primary">{t('gallery.title')}</h1>

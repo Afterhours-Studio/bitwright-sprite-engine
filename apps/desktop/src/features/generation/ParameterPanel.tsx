@@ -16,8 +16,9 @@
 import type { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Card } from '@/components/ui/Card';
-import { Field, SelectField, Toggle } from '@/components/ui/Field';
+import { Toggle } from '@/components/ui/Field';
+import { NumberField } from '@/components/ui/NumberField';
+import { Select } from '@/components/ui/Select';
 import { useCapabilities } from '@/hooks/useCapabilities';
 import { useEngineStore } from '@/stores/useEngineStore';
 import { useGenerationStore } from '@/stores/useGenerationStore';
@@ -25,11 +26,14 @@ import { useGenerationStore } from '@/stores/useGenerationStore';
 /**
  * The right hand column of parameters.
  *
- * Each group is a card on the canvas rather than a panel with cards inside it.
+ * One container that scrolls inside itself, rather than loose cards scrolling
+ * in the page. Loose cards leave the scrollbar out in the canvas with nothing
+ * beside it, and the cards slide out from under the title bar with no edge to
+ * pass behind.
+ *
  * Controls whose capability the selected engine lacks are disabled here, with
- * the reason shown as a hint, so the user never presses generate only to be
- * told no. The reason is secondary text, not muted: it is information the user
- * has to act on.
+ * the reason as a hint, so the user never presses generate only to be told no.
+ * The reason is secondary text: it is information they have to act on.
  */
 export function ParameterPanel(): ReactElement {
   const { t } = useTranslation('generation');
@@ -47,82 +51,86 @@ export function ParameterPanel(): ReactElement {
   const loraModels = models.filter((model) => model.kind === 'lora');
 
   return (
-    <aside className="flex w-80 shrink-0 flex-col gap-4 overflow-auto pe-1">
-      <Card title={t('parameters.title')}>
-        <div className="flex flex-col gap-3">
+    <aside className="flex w-80 shrink-0 flex-col overflow-hidden rounded-lg border border-line-subtle bg-surface-content shadow-sm">
+      <div className="flex flex-col gap-5 overflow-auto p-4">
+        <section className="flex flex-col gap-3">
+          <h2 className="text-sm font-semibold text-fg-primary">{t('parameters.title')}</h2>
+
           <div className="grid grid-cols-2 gap-3">
-            <Field
+            <NumberField
               label={t('parameters.width')}
-              type="number"
               min={8}
               max={2048}
               value={request.width}
-              onChange={(event) => {
-                patch({ width: Number(event.target.value) });
+              onValueChange={(width) => {
+                patch({ width });
               }}
             />
-            <Field
+            <NumberField
               label={t('parameters.height')}
-              type="number"
               min={8}
               max={2048}
               value={request.height}
-              onChange={(event) => {
-                patch({ height: Number(event.target.value) });
+              onValueChange={(height) => {
+                patch({ height });
               }}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field
+            <NumberField
               label={t('parameters.steps')}
-              type="number"
               min={1}
               max={150}
               value={request.steps}
-              onChange={(event) => {
-                patch({ steps: Number(event.target.value) });
+              onValueChange={(steps) => {
+                patch({ steps });
               }}
             />
-            <Field
+            {/* The one parameter here that is genuinely fractional. */}
+            <NumberField
               label={t('parameters.guidance')}
-              type="number"
+              mode="decimal"
               min={0}
               max={30}
               step={0.5}
               value={request.guidanceScale}
-              onChange={(event) => {
-                patch({ guidanceScale: Number(event.target.value) });
+              onValueChange={(guidanceScale) => {
+                patch({ guidanceScale });
               }}
             />
           </div>
 
-          <Field
+          {/* No stepper. A seed is an integer but not a quantity: the sprite
+              from seed 41 tells you nothing about the one from seed 42, so a
+              button that nudges it by one is an affordance that promises
+              something it cannot do. Empty means the engine picks one. */}
+          <NumberField
             label={t('parameters.seed')}
-            type="number"
+            clearable
+            stepper={false}
             min={0}
+            max={2147483647}
             placeholder={t('parameters.seedRandom')}
-            value={request.seed ?? ''}
-            onChange={(event) => {
-              const raw = event.target.value;
-              patch({ seed: raw === '' ? null : Number(raw) });
+            value={request.seed}
+            onValueChange={(seed) => {
+              patch({ seed });
             }}
           />
 
-          <Field
+          <NumberField
             label={t('parameters.batch')}
-            type="number"
             min={1}
             max={16}
             disabled={!canBatch}
             {...(canBatch ? {} : { hint: unsupported })}
             value={request.batchSize}
-            onChange={(event) => {
-              patch({ batchSize: Number(event.target.value) });
+            onValueChange={(batchSize) => {
+              patch({ batchSize });
             }}
           />
 
-          <SelectField
+          <Select
             label={t('parameters.model')}
             value={request.modelId}
             options={baseModels.map((model) => ({ value: model.modelId, label: model.name }))}
@@ -131,7 +139,7 @@ export function ParameterPanel(): ReactElement {
             }}
           />
 
-          <SelectField
+          <Select
             label={t('parameters.lora')}
             value={request.loraId ?? ''}
             disabled={!canLora}
@@ -144,11 +152,11 @@ export function ParameterPanel(): ReactElement {
               patch({ loraId: value === '' ? null : value });
             }}
           />
-        </div>
-      </Card>
+        </section>
 
-      <Card title={t('postprocess.title')}>
-        <div className="flex flex-col gap-3">
+        <section className="flex flex-col gap-3 border-t border-line-subtle pt-4">
+          <h2 className="text-sm font-semibold text-fg-primary">{t('postprocess.title')}</h2>
+
           <Toggle
             label={t('postprocess.removeBackground')}
             checked={request.postprocess.removeBackground}
@@ -163,30 +171,28 @@ export function ParameterPanel(): ReactElement {
               patchPostprocess({ dither: checked });
             }}
           />
-          <Field
+          <NumberField
             label={t('postprocess.paletteSize')}
-            type="number"
+            clearable
             min={2}
             max={256}
-            value={request.postprocess.paletteSize ?? ''}
-            onChange={(event) => {
-              const raw = event.target.value;
-              patchPostprocess({ paletteSize: raw === '' ? null : Number(raw) });
+            value={request.postprocess.paletteSize}
+            onValueChange={(paletteSize) => {
+              patchPostprocess({ paletteSize });
             }}
           />
-          <Field
+          <NumberField
             label={t('postprocess.pixelGrid')}
-            type="number"
+            clearable
             min={1}
             max={64}
-            value={request.postprocess.pixelGrid ?? ''}
-            onChange={(event) => {
-              const raw = event.target.value;
-              patchPostprocess({ pixelGrid: raw === '' ? null : Number(raw) });
+            value={request.postprocess.pixelGrid}
+            onValueChange={(pixelGrid) => {
+              patchPostprocess({ pixelGrid });
             }}
           />
-        </div>
-      </Card>
+        </section>
+      </div>
     </aside>
   );
 }

@@ -4,7 +4,7 @@
   "prompt": {
     "label": "Prompt",
     "placeholder": "A knight in silver armour, side view",
-    "negativeLabel": "Negative prompt",
+    "negativeLabel": "Negative Prompt",
     "negativePlaceholder": "blurry, text, watermark"
   },
   "parameters": {
@@ -16,17 +16,17 @@
     "guidance": "Guidance",
     "seed": "Seed",
     "seedRandom": "Random",
-    "batch": "Batch size",
+    "batch": "Batch Size",
     "model": "Model",
-    "lora": "Style adapter",
+    "lora": "Style Adapter",
     "loraNone": "None"
   },
   "postprocess": {
     "title": "Post-processing",
-    "removeBackground": "Remove background",
-    "paletteSize": "Palette size",
+    "removeBackground": "Remove Background",
+    "paletteSize": "Palette Size",
     "dither": "Dither",
-    "pixelGrid": "Pixel grid"
+    "pixelGrid": "Pixel Grid"
   },
   "actions": {
     "generate": "Generate",
@@ -40,15 +40,36 @@
   },
   "capability": {
     "unsupported": "Not supported by the selected engine",
-    "batch": "Batch generation",
-    "loraHotswap": "Style adapters",
-    "controlnet": "Pose control",
-    "ipAdapter": "Reference image"
+    "batch": "Batch Generation",
+    "loraHotswap": "Style Adapters",
+    "controlnet": "Pose Control",
+    "ipAdapter": "Reference Image"
   },
   "result": {
     "seed": "Seed {{seed}}",
     "duration": "Took {{ms}} ms",
     "count_one": "{{count}} sprite",
     "count_other": "{{count}} sprites"
+  },
+  "dock": {
+    "tools": "Tools",
+    "toolPencil": "Pencil",
+    "toolEraser": "Eraser",
+    "toolFill": "Fill",
+    "toolSelect": "Select",
+    "shapes": "Shapes",
+    "shapeLine": "Line",
+    "shapeCurve": "Curve",
+    "shapeRectangle": "Rectangle",
+    "shapeEllipse": "Ellipse",
+    "dimensions": "{{width}} x {{height}}",
+    "lastRun": "Last Run",
+    "runNone": "No runs yet",
+    "runDuration": "Duration",
+    "seedRandomise": "Pick a random seed",
+    "seedHint": "Leave this empty to draw a new seed for every run.",
+    "resetWarning": "This clears the prompt, every parameter, and the results of the last run.",
+    "resetConfirm": "Reset everything",
+    "resetCancel": "Cancel"
   }
 }

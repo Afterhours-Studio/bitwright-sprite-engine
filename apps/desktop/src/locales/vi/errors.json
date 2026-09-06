@@ -28,14 +28,56 @@
       "device_unavailable": "Thiết bị Metal không khả dụng trên máy này."
     },
     "remote": {
-      "endpoint_missing": "Hãy đặt endpoint trong Cài đặt trước khi dùng API từ xa.",
-      "api_key_missing": "Hãy đặt khoá API trong Cài đặt trước khi dùng API từ xa.",
-      "request_failed": "API từ xa từ chối yêu cầu hoặc không kết nối được."
+      "api_key_missing": "Nhà cung cấp này chưa lưu khoá API. Hãy mở Cài đặt và dán khoá vào.",
+      "bad_key": "Endpoint đã từ chối khoá API.",
+      "endpoint_missing": "Hãy thêm một nhà cung cấp AI trong Cài đặt trước khi dùng engine từ xa.",
+      "forbidden": "Khoá được nhận diện nhưng không có quyền thực hiện việc này.",
+      "insecure_url": "Chỉ chấp nhận http thường cho endpoint chạy ngay trên máy này. Khoá API gửi qua đó có thể bị đọc trên đường truyền.",
+      "invalid_base_url": "Đó không phải URL gốc hợp lệ. URL phải bắt đầu bằng https:// và không kèm chuỗi truy vấn.",
+      "invalid_header": "Có một header không dùng được. Tên và giá trị phải là văn bản thường trên một dòng.",
+      "limit_reached": "Không lưu thêm được nhà cung cấp nào nữa. Hãy xoá bớt một cái trước.",
+      "model_missing": "Hãy nhập tên model mà nhà cung cấp này sẽ dùng để tạo ảnh.",
+      "name_missing": "Hãy đặt tên hiển thị cho nhà cung cấp.",
+      "no_active_provider": "Đã có nhà cung cấp nhưng chưa chọn cái nào. Hãy chọn một cái trong Cài đặt.",
+      "not_found": "Không có danh sách model ở URL gốc đó. Nhiều khả năng URL còn thiếu một phần đường dẫn như /v1.",
+      "provider_unknown": "Nhà cung cấp đó không còn được cấu hình nữa.",
+      "rate_limited": "Nhà cung cấp đang giới hạn tần suất của khoá này. Hãy chờ một lát rồi thử lại.",
+      "reachable": "Endpoint đã phản hồi và chấp nhận khoá.",
+      "refused": "Có thứ gì đó ở địa chỉ này nhưng đã từ chối kết nối. Hãy kiểm tra lại cổng.",
+      "request_failed": "API từ xa từ chối yêu cầu hoặc không kết nối được.",
+      "secret_read_failed": "Không đọc được khoá API. Kho thông tin đăng nhập có thể đang bị khoá.",
+      "secret_write_failed": "Không lưu được khoá API. Kho thông tin đăng nhập đã từ chối.",
+      "server_error": "Nhà cung cấp gặp lỗi ở phía họ. Cấu hình của bạn không có vấn đề gì.",
+      "store_write_failed": "Không lưu được danh sách nhà cung cấp. Hãy kiểm tra dung lượng trống và quyền ghi của ổ đĩa.",
+      "timeout": "Endpoint đã nhận kết nối nhưng sau đó không trả lời.",
+      "unexpected_shape": "Có phản hồi, nhưng không phải danh sách model tương thích OpenAI. Hãy kiểm tra URL gốc trỏ tới API chứ không phải một trang web.",
+      "unknown_preset": "Phiên bản này không biết nhà cung cấp đó. Hãy dùng endpoint tự nhập thay thế.",
+      "unreachable": "Không kết nối được tới máy chủ đó. Hãy kiểm tra URL gốc và kết nối mạng."
     }
   },
   "models": {
     "download_failed": "Không tải được model.",
-    "downloads_disabled": "Tính năng tải đang tắt, và model này chưa có trên máy."
+    "downloads_disabled": "Tính năng tải đang tắt, và model này chưa có trên máy.",
+    "unknown": "Model đó không có trong danh sách.",
+    "already_downloading": "Model đó đang được tải.",
+    "download_rejected": "Máy chủ model từ chối lượt tải. Có thể tệp đã được chuyển đi nơi khác.",
+    "download_unreachable": "Không kết nối được tới máy chủ model. Hãy kiểm tra kết nối mạng.",
+    "download_incomplete": "Lượt tải kết thúc khi tệp chưa về đủ nên đã bị bỏ đi.",
+    "download_write_failed": "Không lưu được tệp tải về. Hãy kiểm tra dung lượng trống của ổ đĩa."
+  },
+  "storage": {
+    "invalid_path": "Không dùng được thư mục đó để lưu tệp tải về.",
+    "path_empty": "Bạn chưa chọn thư mục nào.",
+    "path_not_absolute": "Hãy chọn đường dẫn đầy đủ, bắt đầu từ ổ đĩa hoặc từ thư mục gốc.",
+    "path_too_long": "Đường dẫn đó quá dài để là một thư mục.",
+    "path_invalid": "Đường dẫn đó chứa ký tự mà tên thư mục không thể có.",
+    "not_a_directory": "Đường dẫn đó là một tệp, không phải thư mục.",
+    "create_failed": "Không tạo được thư mục đó. Hãy kiểm tra ổ đĩa đã kết nối và còn chỗ trống.",
+    "not_writable": "Thư mục đó không cho ghi. Có thể nó ở chế độ chỉ đọc, hoặc nằm trên ổ chia sẻ mà bạn không có quyền ghi.",
+    "inside_installation": "Thư mục đó nằm trong chính ứng dụng và sẽ bị xoá ở lần cập nhật sau.",
+    "busy_downloading": "Đang có lượt tải chạy. Hãy dừng lượt tải trước khi đổi nơi lưu.",
+    "not_remembered": "Thư mục đã được dùng ngay bây giờ nhưng không lưu lại được, nên lần mở tới sẽ quay về thư mục cũ.",
+    "picker_failed": "Không mở được hộp thoại chọn thư mục."
   },
   "gpu": {
     "ok": "Đã tìm thấy GPU dùng được.",
