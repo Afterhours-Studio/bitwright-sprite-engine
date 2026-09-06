@@ -63,7 +63,9 @@
     "lowSpace": "Ổ đĩa đó còn ít chỗ hơn mức cần thiết là {{needed}}.",
     "removeTitle": "Gỡ runtime GPU?",
     "removeBody": "Thao tác này xoá {{size}} khỏi {{path}}. Việc tạo ảnh trên máy sẽ ngừng hoạt động cho tới khi bạn cài lại.",
-    "removeConfirm": "Xoá Đi"
+    "removeConfirm": "Xoá Đi",
+    "repair": "Cài gói còn thiếu",
+    "repairHint": "Bộ chạy đang thiếu {{names}}. Chỉ tải những gói đó, không tải lại toàn bộ."
   },
   "providers": {
     "title": "Nhà cung cấp AI",

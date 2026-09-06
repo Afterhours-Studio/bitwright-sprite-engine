@@ -35,6 +35,7 @@ import {
   getRuntime,
   installRuntime,
   removeRuntime,
+  repairRuntime,
 } from '@/lib/api';
 import type { RuntimeInfo, RuntimeRequest } from '@/types/engine';
 
@@ -54,6 +55,8 @@ interface RuntimeState {
   /** Starts installing a build. Only ever called from a confirmation. */
   install: (accelerator: RuntimeRequest) => Promise<void>;
   /** Asks a running install to stop. */
+  /** Adds the packages the installed runtime is missing, and nothing else. */
+  repair: () => Promise<void>;
   cancel: () => Promise<void>;
   /** Deletes the installed runtime. Only ever called from a confirmation. */
   remove: () => Promise<void>;
@@ -134,6 +137,16 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => {
       set({ loading: true, error: null });
       try {
         accept(await installRuntime(accelerator));
+      } catch (error) {
+        fail(error);
+        await get().refresh();
+      }
+    },
+
+    repair: async () => {
+      set({ loading: true, error: null });
+      try {
+        accept(await repairRuntime());
       } catch (error) {
         fail(error);
         await get().refresh();

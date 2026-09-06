@@ -63,7 +63,9 @@
     "lowSpace": "There is less room on that drive than this needs, which is {{needed}}.",
     "removeTitle": "Remove the GPU runtime?",
     "removeBody": "This deletes {{size}} from {{path}}. Local generation stops working until it is installed again.",
-    "removeConfirm": "Delete It"
+    "removeConfirm": "Delete It",
+    "repair": "Install Missing Packages",
+    "repairHint": "The runtime is missing {{names}}. Only those are downloaded, not the whole runtime."
   },
   "providers": {
     "title": "AI providers",

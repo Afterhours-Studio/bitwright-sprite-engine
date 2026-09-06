@@ -84,7 +84,8 @@
     "extract_failed": "A downloaded package could not be unpacked.",
     "write_failed": "The GPU runtime could not be written. Check the free space on that drive.",
     "remove_failed": "The GPU runtime could not be deleted. A file in it may still be open.",
-    "import_failed": "The GPU runtime is installed but will not load. Remove it and install it again."
+    "import_failed": "The GPU runtime is installed but will not load. Remove it and install it again.",
+    "nothing_to_repair": "The GPU runtime is missing packages."
   },
   "storage": {
     "invalid_path": "That folder cannot be used for downloads.",

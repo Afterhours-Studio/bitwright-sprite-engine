@@ -40,7 +40,8 @@
     },
     "directions": "Số hướng",
     "directionCount_other": "{{count}} hướng",
-    "directionCount_one": "{{count}} hướng"
+    "directionCount_one": "{{count}} hướng",
+    "loraNotDownloaded": "{{name}} (chưa tải)"
   },
   "postprocess": {
     "title": "Hậu xử lý",

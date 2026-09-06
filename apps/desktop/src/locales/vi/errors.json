@@ -84,7 +84,8 @@
     "extract_failed": "Không giải nén được một gói tải về.",
     "write_failed": "Không ghi được runtime GPU. Hãy kiểm tra dung lượng trống của ổ đĩa.",
     "remove_failed": "Không xoá được runtime GPU. Có thể một tệp trong đó vẫn đang mở.",
-    "import_failed": "Runtime GPU đã được cài nhưng không nạp được. Hãy gỡ ra rồi cài lại."
+    "import_failed": "Runtime GPU đã được cài nhưng không nạp được. Hãy gỡ ra rồi cài lại.",
+    "nothing_to_repair": "Bộ chạy GPU đang thiếu gói."
   },
   "storage": {
     "invalid_path": "Không dùng được thư mục đó để lưu tệp tải về.",

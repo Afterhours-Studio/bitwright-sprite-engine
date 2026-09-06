@@ -233,6 +233,11 @@ export function engineRuntimeInstall(
   return invoke<RuntimeInfo>('engine_runtime_install', { accelerator });
 }
 
+/** Adds the packages the installed runtime is missing, and nothing else. */
+export function engineRuntimeRepair(): Promise<ShellResult<RuntimeInfo>> {
+  return invoke<RuntimeInfo>('engine_runtime_repair');
+}
+
 /** Asks a running install to stop. Nothing half written survives. */
 export function engineRuntimeCancel(): Promise<ShellResult<RuntimeInfo>> {
   return invoke<RuntimeInfo>('engine_runtime_cancel');

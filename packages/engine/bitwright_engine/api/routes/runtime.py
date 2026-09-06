@@ -126,7 +126,10 @@ def _describe(state: EngineState, gpu: str) -> RuntimeInfo:
 
     suggestion = recommended(gpu)
 
+    absent = installer.missing()
     return RuntimeInfo(
+        missing_packages=[wheel.name for wheel in absent],
+        missing_bytes=sum(wheel.size_bytes for wheel in absent),
         supported=bool(variants),
         unsupported_reason="" if variants else UNSUPPORTED,
         target=target_key(),
@@ -244,6 +247,32 @@ def install(body: RuntimeInstallBody, state: StateDep) -> RuntimeInfo:
         variant.download_bytes,
     )
     return _describe(state, gpu)
+
+
+@router.post("/repair", response_model=RuntimeInfo, status_code=status.HTTP_202_ACCEPTED)
+def repair(state: StateDep) -> RuntimeInfo:
+    """Add the pinned packages the installed runtime is missing.
+
+    Fetches only the difference. A package added to the manifest after a
+    runtime was installed would otherwise cost a full reinstall, which for this
+    runtime is gigabytes to add megabytes.
+
+    Args:
+        state: The engine state.
+
+    Returns:
+        The runtime state, with the repair running.
+
+    Raises:
+        HTTPException: There is nothing installed, nothing missing, downloads
+            are off, or work is already running.
+    """
+    try:
+        state.runtime.repair()
+    except RuntimeInstallError as error:
+        raise _refuse(error) from error
+
+    return _describe(state, "")
 
 
 @router.post("/cancel", response_model=RuntimeInfo, status_code=status.HTTP_202_ACCEPTED)

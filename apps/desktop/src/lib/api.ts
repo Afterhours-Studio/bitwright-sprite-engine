@@ -40,6 +40,7 @@ import {
   engineRuntimeInfo,
   engineRuntimeInstall,
   engineRuntimeRemove,
+  engineRuntimeRepair,
   engineTestProvider,
   storageInfo,
   storagePickDirectory,
@@ -163,6 +164,16 @@ export function getRuntime(): Promise<RuntimeInfo> {
  */
 export function installRuntime(accelerator: RuntimeRequest): Promise<RuntimeInfo> {
   return unwrap(engineRuntimeInstall(accelerator));
+}
+
+/**
+ * Adds the packages the installed runtime is missing.
+ *
+ * Fetches the difference rather than the whole runtime, which is what makes
+ * a package added after the fact cost megabytes instead of gigabytes.
+ */
+export function repairRuntime(): Promise<RuntimeInfo> {
+  return unwrap(engineRuntimeRepair());
 }
 
 /** Asks a running install to stop. Nothing half written is left behind. */

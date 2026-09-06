@@ -53,7 +53,13 @@ import httpx
 
 from bitwright_engine.config import Settings, get_settings
 from bitwright_engine.config.storage import directory_size, volume_space
-from bitwright_engine.runtime.manifest import Variant, find_variant, target_key, variants_for
+from bitwright_engine.runtime.manifest import (
+    Variant,
+    Wheel,
+    find_variant,
+    target_key,
+    variants_for,
+)
 from bitwright_engine.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -206,6 +212,12 @@ class RemoveFailedError(RuntimeInstallError):
     """Raised when the installed runtime could not be deleted."""
 
     code = "runtime.remove_failed"
+
+
+class NothingToRepairError(RuntimeInstallError):
+    """Raised when the installed tree already matches the manifest."""
+
+    code = "runtime.nothing_to_repair"
 
 
 class _CancelledError(Exception):
@@ -403,6 +415,89 @@ class RuntimeInstaller:
             )
         except (KeyError, TypeError, ValueError):
             return None
+
+    def missing(self) -> tuple[Wheel, ...]:
+        """Return the pinned wheels that are not in the installed tree.
+
+        A runtime can be complete for the manifest it was installed from and
+        incomplete for the manifest that ships today, because a package was
+        added after the fact. NumPy arrived that way: the tree imported and
+        then failed at the first tensor. Re-downloading two and a half
+        gigabytes to add twelve megabytes is not a repair, so the difference is
+        computed and only that is fetched.
+
+        Presence is judged by the wheel's dist-info directory, which is what a
+        wheel always installs and what names its version.
+
+        Returns:
+            The wheels to add, in manifest order. Empty when the tree matches.
+        """
+        record = self.record()
+        if record is None:
+            return ()
+
+        try:
+            variant = self.plan(record.accelerator)
+        except (UnsupportedTargetError, UnknownVariantError):
+            # The tree was installed for something this build no longer
+            # describes. That is a reinstall, not a repair.
+            return ()
+
+        present = (
+            {entry.name for entry in self.site_dir.iterdir()} if self.site_dir.is_dir() else set()
+        )
+        return tuple(
+            wheel
+            for wheel in variant.wheels
+            if f"{wheel.name}-{wheel.version}.dist-info" not in present
+        )
+
+    def repair(self) -> tuple[Wheel, ...]:
+        """Add the pinned wheels the installed tree is missing.
+
+        Runs in the background like an install, and answers with what it is
+        about to fetch.
+
+        Returns:
+            The wheels being added.
+
+        Raises:
+            DownloadsDisabledError: Downloads are turned off in settings.
+            NotInstalledError: There is no runtime to repair.
+            NothingToRepairError: The tree already matches the manifest.
+            AlreadyInstallingError: An install is already running.
+        """
+        if not self._settings.allow_downloads:
+            raise DownloadsDisabledError("runtime downloads are disabled")
+        if self.record() is None:
+            raise NotInstalledError("no runtime is installed")
+
+        wheels = self.missing()
+        if not wheels:
+            raise NothingToRepairError("the runtime already matches the manifest")
+
+        with self._lock:
+            if self._state.installing:
+                raise AlreadyInstallingError("an install is already running")
+
+            self._state.cancel = threading.Event()
+            self._state.installing = True
+            self._state.phase = "download"
+            self._state.done_units = 0
+            self._state.total_units = sum(
+                wheel.size_bytes + wheel.unpacked_bytes for wheel in wheels
+            )
+            self._state.error = ""
+            worker = threading.Thread(
+                target=self._repair_work,
+                args=(wheels, self._state),
+                name="runtime-repair",
+                daemon=True,
+            )
+            self._state.thread = worker
+
+        worker.start()
+        return wheels
 
     def state(self) -> InstallState:
         """Report what the installer is doing.
@@ -607,6 +702,47 @@ class RuntimeInstaller:
         except Exception:
             code = RuntimeInstallError.code
             logger.exception("unexpected failure installing the runtime")
+
+        with self._lock:
+            state.installing = False
+            state.phase = ""
+            state.done_units = 0
+            state.error = code
+
+    def _repair_work(self, wheels: tuple[Wheel, ...], state: _Progress) -> None:
+        """Fetch missing wheels and unpack them into the installed tree.
+
+        Unlike an install this writes into the live tree rather than staging a
+        replacement: the tree is gigabytes and only a few megabytes are being
+        added, so copying it aside to add to it would cost more than the fetch.
+        A wheel is unpacked only after its digest matches, so a failed fetch
+        adds nothing, and a partly added wheel leaves the tree exactly as
+        complete as it was before that wheel started.
+
+        Args:
+            wheels: The wheels to add.
+            state: The bookkeeping slot claimed for the work.
+        """
+        code = ""
+        partial = self.root / PARTIAL_DIRNAME
+        try:
+            partial.mkdir(parents=True, exist_ok=True)
+            for wheel in wheels:
+                archive = partial / f"{wheel.name}-{wheel.version}.whl"
+                self._fetch(wheel.url, wheel.sha256, wheel.size_bytes, archive, state)
+                self._unpack(archive, self.site_dir, state)
+                archive.unlink(missing_ok=True)
+            logger.info("added %d missing wheel(s) to %s", len(wheels), self.site_dir)
+        except _CancelledError:
+            logger.info("runtime repair cancelled")
+        except RuntimeInstallError as error:
+            code = error.code
+            logger.warning("runtime repair failed: %s (%s)", error.code, error)
+        except Exception:
+            code = RuntimeInstallError.code
+            logger.exception("unexpected failure repairing the runtime")
+        finally:
+            shutil.rmtree(partial, ignore_errors=True)
 
         with self._lock:
             state.installing = False

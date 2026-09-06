@@ -208,6 +208,10 @@ export interface RuntimeInfo {
   device: string;
   /** Stable reason code when torch is present but unusable. */
   probeDetail: string;
+  /** Packages the installed tree lacks against the manifest this build ships. */
+  missingPackages: string[];
+  /** What adding them would download. */
+  missingBytes: number;
   /** True when a runtime is installed and the engine has not picked it up yet. */
   restartRequired: boolean;
 

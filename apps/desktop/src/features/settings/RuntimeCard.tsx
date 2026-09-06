@@ -105,6 +105,7 @@ export function RuntimeCard(): ReactElement {
   const refresh = useRuntimeStore((state) => state.refresh);
   const install = useRuntimeStore((state) => state.install);
   const cancel = useRuntimeStore((state) => state.cancel);
+  const repair = useRuntimeStore((state) => state.repair);
   const remove = useRuntimeStore((state) => state.remove);
   const stopPolling = useRuntimeStore((state) => state.stopPolling);
 
@@ -143,6 +144,12 @@ export function RuntimeCard(): ReactElement {
 
   return (
     <Card title={t('runtime.title')} description={t('runtime.description')}>
+      {info !== null && info.missingPackages.length > 0 && !info.installing && (
+        <p className="mb-3 text-xs text-fg-secondary">
+          {t('runtime.repairHint', { names: info.missingPackages.join(', ') })}{' '}
+          {formatSize(info.missingBytes, units)}
+        </p>
+      )}
       <div className="flex flex-col gap-3">
         <Summary info={info} units={units} unknownSpace={unknownSpace} />
 
@@ -197,6 +204,25 @@ export function RuntimeCard(): ReactElement {
               {t('runtime.removeAction')}
             </Button>
           )}
+
+          {/* Adding a package costs megabytes and destroys nothing, so unlike
+              install and remove it does not ask first. Offered only when the
+              tree is actually short of something. */}
+          {info !== null &&
+            info.installed &&
+            !info.installing &&
+            info.missingPackages.length > 0 && (
+              <Button
+                variant="secondary"
+                className="px-3 py-1 text-xs"
+                disabled={loading || !engineReady}
+                onClick={() => {
+                  void repair();
+                }}
+              >
+                {t('runtime.repair')}
+              </Button>
+            )}
 
           {/* Hung from the start edge through the component's own `align`,
               because the buttons sit against the start edge of the card. A

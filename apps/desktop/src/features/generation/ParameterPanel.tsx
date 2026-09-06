@@ -258,7 +258,12 @@ export function ParameterPanel(): ReactElement {
             {...(canLora ? {} : { hint: unsupported })}
             options={[
               { value: '', label: t('parameters.loraNone') },
-              ...loraModels.map((model) => ({ value: model.modelId, label: model.name })),
+              ...loraModels.map((model) => ({
+                value: model.modelId,
+                label: model.cached
+                  ? model.name
+                  : t('parameters.loraNotDownloaded', { name: model.name }),
+              })),
             ]}
             onValueChange={(value) => {
               patch({ loraId: value === '' ? null : value });

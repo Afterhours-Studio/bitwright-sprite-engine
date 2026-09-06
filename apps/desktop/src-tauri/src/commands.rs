@@ -443,6 +443,20 @@ pub async fn engine_runtime_install<R: Runtime>(
 /// # Errors
 ///
 /// Returns the engine's reason code when the call fails.
+/// Adds the pinned packages the installed runtime is missing.
+///
+/// Only the difference is fetched. A package added to the manifest after a
+/// runtime was installed would otherwise cost a full reinstall, which for this
+/// runtime is gigabytes to add megabytes.
+///
+/// # Errors
+///
+/// Returns the engine's reason code when the call fails.
+#[tauri::command]
+pub async fn engine_runtime_repair<R: Runtime>(app: AppHandle<R>) -> Result<Value, CommandError> {
+    Ok(engine::call(&app, Method::Post, "/v1/runtime/repair", None).await?)
+}
+
 #[tauri::command]
 pub async fn engine_runtime_cancel<R: Runtime>(app: AppHandle<R>) -> Result<Value, CommandError> {
     Ok(engine::call(&app, Method::Post, "/v1/runtime/cancel", None).await?)
@@ -768,6 +782,7 @@ pub fn handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + 
         engine_test_provider,
         engine_runtime_info,
         engine_runtime_install,
+        engine_runtime_repair,
         engine_runtime_cancel,
         engine_runtime_remove,
         storage_info,

@@ -25,6 +25,8 @@ is the last moment before two and a half gigabytes start moving.
 
 from __future__ import annotations
 
+from pydantic import Field
+
 from bitwright_engine.api.schemas.common import CamelModel
 
 
@@ -109,6 +111,11 @@ class RuntimeInfo(CamelModel):
         recommended_accelerator: Which variant suits the GPU the shell probed
             for, or an empty string when none can be offered.
         plans: What each installable variant would download.
+        missing_packages: Names the installed tree is missing against the
+            manifest this build ships. A runtime can be complete for the
+            manifest it was installed from and incomplete for the current
+            one, which is a repair rather than a reinstall.
+        missing_bytes: What adding them would download.
         installing: True while an install is running.
         phase: ``download``, ``extract``, ``publish``, or an empty string.
         progress: Fraction between 0.0 and 1.0. Zero when nothing is running.
@@ -141,6 +148,8 @@ class RuntimeInfo(CamelModel):
     recommended_accelerator: str
     plans: list[RuntimePlan]
 
+    missing_packages: list[str] = Field(default_factory=list)
+    missing_bytes: int = 0
     installing: bool
     phase: str
     progress: float

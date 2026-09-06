@@ -40,7 +40,8 @@
     },
     "directions": "Directions",
     "directionCount_one": "{{count}} direction",
-    "directionCount_other": "{{count}} directions"
+    "directionCount_other": "{{count}} directions",
+    "loraNotDownloaded": "{{name}} (not downloaded)"
   },
   "postprocess": {
     "title": "Post-processing",

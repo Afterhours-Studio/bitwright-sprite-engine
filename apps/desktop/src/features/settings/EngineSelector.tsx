@@ -63,17 +63,28 @@ export function EngineSelector(): ReactElement {
                 </span>
               </StatusDot>
 
-              <Pill
-                className="shrink-0"
-                tone="anchor"
-                active={backend.selected}
-                disabled={!backend.available || loading}
-                onClick={() => {
-                  void select(backend.kind);
-                }}
-              >
-                {backend.selected ? t('engine.selected') : t('engine.select')}
-              </Pill>
+              {/* The engine in use is a state, not an offer. Rendering it as a
+                  button that does nothing when pressed is what made the card
+                  look broken on a machine where the right engine had already
+                  been chosen automatically: the others are disabled because
+                  they are unavailable, so nothing on the card could be
+                  pressed. */}
+              {backend.selected ? (
+                <span className="shrink-0 rounded-pill bg-accent px-3 py-1 text-xs font-medium text-accent-fg">
+                  {t('engine.selected')}
+                </span>
+              ) : (
+                <Pill
+                  className="shrink-0"
+                  tone="anchor"
+                  disabled={!backend.available || loading}
+                  onClick={() => {
+                    void select(backend.kind);
+                  }}
+                >
+                  {t('engine.select')}
+                </Pill>
+              )}
             </div>
 
             {backend.available && backend.device !== '' && (
