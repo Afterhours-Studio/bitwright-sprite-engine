@@ -88,9 +88,22 @@ the rest of this module has only one case to handle.
 
 
 class RemoteBackendError(BackendError):
-    """Raised when the remote endpoint rejects a request or cannot be reached."""
+    """Raised when the remote endpoint rejects a request or cannot be reached.
 
-    code = "backend.remote.request_failed"
+    The code is per instance rather than per class, because one failure here
+    covers a wrong key, an account without billing, a quota that ran out and a
+    host that never answered. Collapsing those into one message sends the
+    reader to look in four places at once.
+    """
+
+    def __init__(self, code: str = "backend.remote.request_failed") -> None:
+        """Create the error.
+
+        Args:
+            code: Stable reason code naming what actually happened.
+        """
+        super().__init__(code)
+        self.code = code
 
 
 @dataclass(frozen=True, slots=True)
@@ -259,44 +272,51 @@ class RemoteBackend(BaseBackend):
         )
 
         api_key = self._providers.api_key(config.provider_id)
-        url = join_url(config.base_url, "images/generations")
-        size = _request_size(request.width, request.height)
+        headers = config.headers(api_key)
 
-        payload = {
-            "model": model,
-            "prompt": request.prompt,
-            "n": request.batch_size,
-            "size": size,
-            "response_format": "b64_json",
-        }
+        # Not every model that draws is reached through the images endpoint.
+        # Google's image models answer on chat completions and refuse the
+        # images one outright, so the shape follows the model rather than the
+        # provider - the alternative is telling the user their key is broken
+        # when the request simply went to the wrong door.
+        via_chat = _draws_through_chat(model)
+        path = "chat/completions" if via_chat else "images/generations"
+        url = join_url(config.base_url, path)
+        payload = (
+            _chat_payload(model, request.prompt)
+            if via_chat
+            else _image_payload(model, request, _request_size(request.width, request.height))
+        )
 
         try:
             with httpx.Client(timeout=config.timeout_s, follow_redirects=False) as client:
-                response = client.post(url, json=payload, headers=config.headers(api_key))
+                response = client.post(url, json=payload, headers=headers)
         except httpx.HTTPError as error:
             raise RemoteBackendError(codes.REQUEST_FAILED) from error
 
         if response.is_error:
             # The provider's own message is not carried through: some echo the
-            # offending key back in it.
+            # offending key back in it. The status is, because "rejected or
+            # unreachable" covers a wrong key, an unpaid account and a quota
+            # that ran out, and sends the reader to look in three places at
+            # once.
             logger.warning("remote generate refused with HTTP %d", response.status_code)
-            raise RemoteBackendError(codes.REQUEST_FAILED)
+            raise RemoteBackendError(_refusal(response.status_code))
 
         try:
-            entries = response.json()["data"]
+            body = response.json()
+            decoded = _from_chat(body) if via_chat else _decode(body["data"])
         except (ValueError, KeyError, TypeError) as error:
             raise RemoteBackendError(codes.UNEXPECTED_SHAPE) from error
 
         images = [
             GeneratedImage(
-                data=to_png_bytes(
-                    reduce_to(decoded, request.width, request.height),
-                ),
+                data=to_png_bytes(reduce_to(image, request.width, request.height)),
                 width=request.width,
                 height=request.height,
                 seed=base_seed + index,
             )
-            for index, decoded in enumerate(_decode(entries))
+            for index, image in enumerate(decoded)
         ]
 
         if not images:
@@ -355,5 +375,123 @@ def _decode(entries: object) -> list[Image.Image]:
             images.append(Image.open(io.BytesIO(base64.b64decode(encoded))).convert("RGBA"))
         except (ValueError, OSError):
             logger.warning("a returned image could not be decoded")
+
+    return images
+
+
+def _refusal(status: int) -> str:
+    """Return the reason code for a status a provider refused with.
+
+    Args:
+        status: The HTTP status.
+
+    Returns:
+        A stable reason code naming what to do about it.
+    """
+    if status == httpx.codes.UNAUTHORIZED:
+        return codes.BAD_KEY
+    if status == httpx.codes.FORBIDDEN:
+        return codes.FORBIDDEN
+    if status == httpx.codes.TOO_MANY_REQUESTS:
+        return codes.RATE_LIMITED
+    if status == httpx.codes.NOT_FOUND:
+        return codes.NOT_FOUND
+    if status >= httpx.codes.INTERNAL_SERVER_ERROR:
+        return codes.SERVER_ERROR
+    return codes.REJECTED
+
+
+def _draws_through_chat(model: str) -> bool:
+    """Report whether a model draws through chat completions.
+
+    Named by the model rather than by the provider, because one provider can
+    offer both kinds: Google's Imagen models answer on the images endpoint and
+    its Gemini image models answer on chat, from the same base URL.
+
+    Args:
+        model: The model identifier.
+
+    Returns:
+        True when the request should go to chat completions.
+    """
+    name = model.lower()
+    return "gemini" in name and "image" in name
+
+
+def _image_payload(model: str, request: GenerationRequest, size: str) -> dict[str, object]:
+    """Build the body for the images endpoint.
+
+    Args:
+        model: Model identifier.
+        request: The generation parameters.
+        size: Size to ask the provider for.
+
+    Returns:
+        The request body.
+    """
+    return {
+        "model": model,
+        "prompt": request.prompt,
+        "n": request.batch_size,
+        "size": size,
+        "response_format": "b64_json",
+    }
+
+
+def _chat_payload(model: str, prompt: str) -> dict[str, object]:
+    """Build the body for a model that draws through chat completions.
+
+    Args:
+        model: Model identifier.
+        prompt: What to draw.
+
+    Returns:
+        The request body.
+    """
+    return {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "modalities": ["image", "text"],
+    }
+
+
+def _from_chat(body: object) -> list[Image.Image]:
+    """Read the images out of a chat completion.
+
+    A chat model returns them as attachments on the message rather than as a
+    data array, so the two shapes cannot share a reader.
+
+    Args:
+        body: The decoded response body.
+
+    Returns:
+        The decoded images.
+    """
+    if not isinstance(body, dict):
+        return []
+
+    choices = body.get("choices")
+    if not isinstance(choices, list):
+        return []
+
+    images: list[Image.Image] = []
+    for choice in choices:
+        if not isinstance(choice, dict):
+            continue
+        message = choice.get("message")
+        if not isinstance(message, dict):
+            continue
+        for item in message.get("images") or []:
+            if not isinstance(item, dict):
+                continue
+            url = item.get("image_url")
+            source = url.get("url") if isinstance(url, dict) else url
+            if not isinstance(source, str) or "base64," not in source:
+                continue
+            try:
+                raw = base64.b64decode(source.split("base64,", 1)[1])
+                images.append(Image.open(io.BytesIO(raw)).convert("RGBA"))
+            except (ValueError, OSError):
+                logger.warning("a returned image could not be decoded")
 
     return images
