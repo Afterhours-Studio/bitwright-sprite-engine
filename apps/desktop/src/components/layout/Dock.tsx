@@ -296,16 +296,23 @@ function ChipContent({ label, icon, expanded, magnify }: ChipContentProps): Reac
 }
 
 /** Which edge of its trigger a panel lines up with. */
-export type DockPanelAlign = 'center' | 'end';
+export type DockPanelAlign = 'start' | 'center' | 'end';
 
 /**
  * Where a panel sits, and the corner it grows from.
  *
- * `end` exists for the rails. A panel centred on a control near the window's
- * trailing edge hangs half of itself off the screen; aligned to that edge it
- * opens inwards, over the window it belongs to.
+ * `start` and `end` exist for the rails. A panel centred on a control near
+ * either edge of the window hangs half of itself off the screen; aligned to
+ * that edge it opens inwards, over the window it belongs to.
+ *
+ * Each of the three sets exactly one inset and lets the width come from the
+ * panel. An absolutely positioned box given a start, an end and a width is
+ * over-constrained, and the resolution is not a compromise: one inset wins and
+ * the other is discarded, which is how a panel ends up hanging off the screen
+ * while the classes read as though it could not.
  */
 const PANEL_ALIGN: Record<DockPanelAlign, string> = {
+  start: 'start-0 origin-bottom-left',
   center: 'start-1/2 -translate-x-1/2 origin-bottom',
   end: 'end-0 origin-bottom-right',
 };

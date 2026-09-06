@@ -18,10 +18,27 @@ import { useTranslation } from 'react-i18next';
 
 import { Toggle } from '@/components/ui/Field';
 import { NumberField } from '@/components/ui/NumberField';
+import { Pill } from '@/components/ui/Pill';
 import { Select } from '@/components/ui/Select';
 import { useCapabilities } from '@/hooks/useCapabilities';
 import { useEngineStore } from '@/stores/useEngineStore';
 import { useGenerationStore } from '@/stores/useGenerationStore';
+
+/**
+ * The sprite sizes worth reaching in one press.
+ *
+ * Powers of two, and square, because that is what a tile sheet and an atlas
+ * packer both want. They used to sit in a dock popover, which was the one part
+ * of that popover the panel did not already own; the rest of it was a second
+ * copy of the two fields below. The presets moved here with it, so that the
+ * size is set in exactly one place and setting it is still one press.
+ */
+const SIZE_PRESETS: readonly { readonly width: number; readonly height: number }[] = [
+  { width: 16, height: 16 },
+  { width: 32, height: 32 },
+  { width: 64, height: 64 },
+  { width: 128, height: 128 },
+];
 
 /**
  * The right hand column of parameters.
@@ -55,6 +72,24 @@ export function ParameterPanel(): ReactElement {
       <div className="flex flex-col gap-5 overflow-auto p-4">
         <section className="flex flex-col gap-3">
           <h2 className="text-sm font-semibold text-fg-primary">{t('parameters.title')}</h2>
+
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium text-fg-secondary">{t('parameters.presets')}</span>
+            <div className="flex flex-wrap gap-2">
+              {SIZE_PRESETS.map((preset) => (
+                <Pill
+                  key={`${String(preset.width)}x${String(preset.height)}`}
+                  tone="anchor"
+                  active={request.width === preset.width && request.height === preset.height}
+                  onClick={() => {
+                    patch({ width: preset.width, height: preset.height });
+                  }}
+                >
+                  {t('parameters.dimensions', { width: preset.width, height: preset.height })}
+                </Pill>
+              ))}
+            </div>
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <NumberField
@@ -181,8 +216,15 @@ export function ParameterPanel(): ReactElement {
               patchPostprocess({ paletteSize });
             }}
           />
+          {/* Named for what it does to the image, not for the lines a viewer
+              sees. It resamples the sprite onto blocks of this size inside the
+              engine and hands back a different image; the dock's Pixel Grid
+              draws over the sprite and changes nothing. Two controls that both
+              read "Pixel Grid" would be two controls nobody could tell apart,
+              so the hint states the difference where it is read. */}
           <NumberField
             label={t('postprocess.pixelGrid')}
+            hint={t('postprocess.pixelGridHint')}
             clearable
             min={1}
             max={64}

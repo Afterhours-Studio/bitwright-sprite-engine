@@ -10,6 +10,8 @@
   "parameters": {
     "title": "Tham số",
     "size": "Kích thước",
+    "presets": "Kích thước dựng sẵn",
+    "dimensions": "{{width}} x {{height}}",
     "width": "Chiều rộng",
     "height": "Chiều cao",
     "steps": "Số bước",
@@ -26,7 +28,8 @@
     "removeBackground": "Xoá nền",
     "paletteSize": "Số màu",
     "dither": "Tán màu",
-    "pixelGrid": "Lưới pixel"
+    "pixelGrid": "Ghép về lưới",
+    "pixelGridHint": "Lấy mẫu lại sprite theo khối có cạnh bằng số này ngay khi tạo. Nó đổi chính ảnh, không phải lớp lưới canvas vẽ đè lên."
   },
   "actions": {
     "generate": "Tạo",
@@ -36,7 +39,11 @@
   },
   "canvas": {
     "empty": "Sprite của bạn sẽ hiện ở đây",
-    "hint": "Ô bàn cờ thể hiện vùng trong suốt"
+    "hint": "Ô bàn cờ thể hiện vùng trong suốt",
+    "actualSize": "Kích thước thật",
+    "batch": "Loạt ảnh",
+    "railEmpty": "Chưa có gì để xem trước",
+    "selectSprite": "Xem sprite {{index}}"
   },
   "capability": {
     "unsupported": "Engine đang chọn không hỗ trợ",
@@ -62,12 +69,19 @@
     "shapeCurve": "Đường cong",
     "shapeRectangle": "Hình chữ nhật",
     "shapeEllipse": "Hình elip",
-    "dimensions": "{{width}} x {{height}}",
+    "brush": "Nét cọ",
+    "brushSize": "Cỡ cọ",
+    "brushShape": "Dáng cọ",
+    "brushCircle": "Tròn",
+    "brushSquare": "Vuông",
+    "view": "Hiển thị",
+    "pixelGrid": "Lưới pixel",
+    "pixelGridHint": "Vẽ một đường ở từng pixel của sprite. Lưới tự ẩn khi mỗi pixel nhỏ hơn sáu điểm ảnh màn hình, vì lúc đó nó chỉ còn là một mảng xám.",
+    "checkerboard": "Nền bàn cờ",
+    "checkerboardHint": "Hiện các pixel trong suốt dưới dạng ô bàn cờ.",
     "lastRun": "Lần tạo gần nhất",
     "runNone": "Chưa tạo lần nào",
     "runDuration": "Thời gian",
-    "seedRandomise": "Chọn seed ngẫu nhiên",
-    "seedHint": "Để trống để mỗi lần tạo dùng một seed mới.",
     "resetWarning": "Thao tác này xoá phần mô tả, toàn bộ tham số và kết quả của lần tạo gần nhất.",
     "resetConfirm": "Đặt lại tất cả",
     "resetCancel": "Huỷ"

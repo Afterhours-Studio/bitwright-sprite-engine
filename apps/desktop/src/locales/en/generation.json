@@ -10,6 +10,8 @@
   "parameters": {
     "title": "Parameters",
     "size": "Size",
+    "presets": "Presets",
+    "dimensions": "{{width}} x {{height}}",
     "width": "Width",
     "height": "Height",
     "steps": "Steps",
@@ -26,7 +28,8 @@
     "removeBackground": "Remove Background",
     "paletteSize": "Palette Size",
     "dither": "Dither",
-    "pixelGrid": "Pixel Grid"
+    "pixelGrid": "Snap to Grid",
+    "pixelGridHint": "Resamples the sprite onto blocks of this size while it is generated. It changes the image, not what the canvas draws over it."
   },
   "actions": {
     "generate": "Generate",
@@ -36,7 +39,11 @@
   },
   "canvas": {
     "empty": "Your sprite will appear here",
-    "hint": "The checkerboard shows transparent pixels"
+    "hint": "The checkerboard shows transparent pixels",
+    "actualSize": "Actual Size",
+    "batch": "Batch",
+    "railEmpty": "Nothing to preview yet",
+    "selectSprite": "Show sprite {{index}}"
   },
   "capability": {
     "unsupported": "Not supported by the selected engine",
@@ -62,12 +69,19 @@
     "shapeCurve": "Curve",
     "shapeRectangle": "Rectangle",
     "shapeEllipse": "Ellipse",
-    "dimensions": "{{width}} x {{height}}",
+    "brush": "Brush",
+    "brushSize": "Brush Size",
+    "brushShape": "Brush Shape",
+    "brushCircle": "Circle",
+    "brushSquare": "Square",
+    "view": "View",
+    "pixelGrid": "Pixel Grid",
+    "pixelGridHint": "Draws a line at every sprite pixel. It hides itself below six screen pixels per sprite pixel, where it would be a grey wash rather than a grid.",
+    "checkerboard": "Checkerboard",
+    "checkerboardHint": "Shows transparent pixels as a checker pattern.",
     "lastRun": "Last Run",
     "runNone": "No runs yet",
     "runDuration": "Duration",
-    "seedRandomise": "Pick a random seed",
-    "seedHint": "Leave this empty to draw a new seed for every run.",
     "resetWarning": "This clears the prompt, every parameter, and the results of the last run.",
     "resetConfirm": "Reset everything",
     "resetCancel": "Cancel"

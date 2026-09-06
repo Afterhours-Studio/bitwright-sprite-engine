@@ -13,7 +13,7 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-import type { ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -26,46 +26,59 @@ import {
 } from '@/components/layout/Dock';
 import { NotificationList } from '@/components/ui/NotificationList';
 import { Button } from '@/components/ui/Button';
-import { Field, TextAreaField, Toggle } from '@/components/ui/Field';
+import { TextAreaField, Toggle } from '@/components/ui/Field';
+import { NumberField } from '@/components/ui/NumberField';
 import { Pill } from '@/components/ui/Pill';
 import { ParameterPanel } from '@/features/generation/ParameterPanel';
+import { PreviewRail } from '@/features/generation/PreviewRail';
 import { SpriteCanvas } from '@/features/generation/SpriteCanvas';
 import { useCapabilities } from '@/hooks/useCapabilities';
 import { useErrorMessage } from '@/hooks/useErrorMessage';
-import { SHAPES, useEditorStore, type Shape, type Tool } from '@/stores/useEditorStore';
+import {
+  BRUSH_SHAPES,
+  MAX_BRUSH_SIZE,
+  MIN_BRUSH_SIZE,
+  SHAPES,
+  useEditorStore,
+  type BrushShape,
+  type Shape,
+  type Tool,
+} from '@/stores/useEditorStore';
 import { useGenerationStore } from '@/stores/useGenerationStore';
 import { useToastStore } from '@/stores/useToastStore';
 import { useToastAnchor } from '@/hooks/useToastAnchor';
 import { cn } from '@/lib/cn';
 
-const MAX_SEED = 2 ** 31 - 1;
-
 /**
- * The sprite sizes worth reaching in one press.
- *
- * Powers of two, and square, because that is what a tile sheet and an atlas
- * packer both want. Anything else is typed into the two fields beneath them,
- * or into the parameter panel, which remains the full surface.
- */
-const SIZE_PRESETS: readonly { readonly width: number; readonly height: number }[] = [
-  { width: 16, height: 16 },
-  { width: 32, height: 32 },
-  { width: 64, height: 64 },
-  { width: 128, height: 128 },
-];
-
-/**
- * The generate screen: prompt and canvas on the left, parameters on the right.
+ * The generate screen: the stage and its rail on the left, parameters on the
+ * right, the prompt underneath and the dock floating over the lot.
  *
  * There is no heading. The selected tab already says Generate, and a title
  * repeating it cost a band of vertical space at the top of the one screen that
  * wants every pixel for the canvas.
  *
- * The dock along the bottom is shortcuts, not a second parameter panel. It
- * carries the three things reached most often between one run and the next -
- * the size, the seed, and the post-processing - plus reset, behind a confirm.
- * Everything in it opens a popover; only Generate acts on its own press. See
- * the note in Dock.tsx for why that rule exists.
+ * THE DOCK HOLDS WHAT THE RIGHT PANEL DOES NOT, AND NOTHING ELSE.
+ *
+ * The right panel is the generation request: what to make. Size, steps,
+ * guidance, seed, batch, model, style adapter and post-processing all live
+ * there, in full. The dock used to carry a second copy of the size, the seed
+ * and the post-processing, which bought nothing and cost a second place to
+ * change one value; those are gone.
+ *
+ * What is left is the other half of the division: acting on the sprite in front
+ * of you, and the canvas you are looking at. The tool cluster, the brush that
+ * tool uses, and what the canvas draws over the sprite. Reset stays because it
+ * belongs to neither the request nor the view and has no other home; it is the
+ * one entry whose popover contains a press that acts, and that press is behind
+ * a confirm.
+ *
+ * Everything in it opens a popover or moves a selection; only Generate acts on
+ * its own press. See the note in Dock.tsx for why that rule exists.
+ *
+ * THE RUN PILL IS ON THE LEADING RAIL AND THE BELL IS ALONE ON THE TRAILING
+ * ONE. The bar between them is held on the window's centre by the grid in
+ * Dock.tsx rather than by the space the rails leave over, so moving a rail from
+ * one side to the other cannot slide it.
  */
 export function GenerateScreen(): ReactElement {
   const { t } = useTranslation('generation');
@@ -74,7 +87,6 @@ export function GenerateScreen(): ReactElement {
 
   const request = useGenerationStore((state) => state.request);
   const patch = useGenerationStore((state) => state.patch);
-  const patchPostprocess = useGenerationStore((state) => state.patchPostprocess);
   const reset = useGenerationStore((state) => state.reset);
   const run = useGenerationStore((state) => state.run);
   const running = useGenerationStore((state) => state.running);
@@ -84,8 +96,24 @@ export function GenerateScreen(): ReactElement {
 
   const tool = useEditorStore((state) => state.tool);
   const shape = useEditorStore((state) => state.shape);
+  const brushSize = useEditorStore((state) => state.brushSize);
+  const brushShape = useEditorStore((state) => state.brushShape);
+  const showPixelGrid = useEditorStore((state) => state.showPixelGrid);
+  const showCheckerboard = useEditorStore((state) => state.showCheckerboard);
   const setTool = useEditorStore((state) => state.setTool);
   const setShape = useEditorStore((state) => state.setShape);
+  const setBrushSize = useEditorStore((state) => state.setBrushSize);
+  const setBrushShape = useEditorStore((state) => state.setBrushShape);
+  const setShowPixelGrid = useEditorStore((state) => state.setShowPixelGrid);
+  const setShowCheckerboard = useEditorStore((state) => state.setShowCheckerboard);
+
+  // Which sprite of the batch the stage is showing. Local rather than in a
+  // store: it means nothing outside this screen and it does not survive a run.
+  // It is clamped on read rather than reset on every new run, because a run
+  // that returns fewer sprites than the last one is the only way it can go out
+  // of range and clamping handles that without a subscription.
+  const [chosen, setChosen] = useState(0);
+  const selected = images.length === 0 ? 0 : Math.min(chosen, images.length - 1);
 
   const unread = useToastStore((state) => state.unread);
   const markRead = useToastStore((state) => state.markRead);
@@ -106,7 +134,7 @@ export function GenerateScreen(): ReactElement {
   // are entered now. The two stop agreeing the moment the user changes a field
   // after a run, and post-processing can resize the output anyway, so the
   // request is the wrong place to ask what the last run produced.
-  const produced = images[0];
+  const produced = images[selected];
   const runFace = running
     ? t('actions.generating')
     : produced === undefined
@@ -122,6 +150,11 @@ export function GenerateScreen(): ReactElement {
 
   // Built here rather than at module scope, because the labels are translated
   // and have to be read again when the language changes.
+  const brushShapes: Record<BrushShape, string> = {
+    circle: t('dock.brushCircle'),
+    square: t('dock.brushSquare'),
+  };
+
   const shapes: Record<Shape, { label: string; icon: ReactElement }> = {
     line: { label: t('dock.shapeLine'), icon: <ShapeLineIcon /> },
     curve: { label: t('dock.shapeCurve'), icon: <ShapeCurveIcon /> },
@@ -182,9 +215,25 @@ export function GenerateScreen(): ReactElement {
   return (
     <div className="flex h-full gap-4 p-4 pb-16">
       <section className="flex min-w-0 flex-1 flex-col gap-4">
-        <SpriteCanvas images={images} />
+        {/* The canvas area is two regions, not one. A square sprite centred in
+            a wide content area leaves a column of dead space at each side at
+            every window size; the rail is what goes in it. `min-h-0` is what
+            lets the pair shrink instead of pushing the prompt card off the
+            bottom, since a flex item's automatic minimum is its content. */}
+        <div className="flex min-h-0 flex-1 gap-4">
+          <SpriteCanvas
+            image={images[selected]}
+            showPixelGrid={showPixelGrid}
+            showCheckerboard={showCheckerboard}
+          />
+          <PreviewRail images={images} selected={selected} onSelect={setChosen} />
+        </div>
 
-        <div className="flex flex-col gap-3 rounded-lg border border-line-subtle bg-surface-content p-4 shadow-sm">
+        {/* p-3 rather than p-4, and the failure line renders only when there is
+            one. Both are the stage's height: the prompt card and the stage
+            share a column, so every row this card reserves for something that
+            is usually not there comes off the sprite. */}
+        <div className="flex shrink-0 flex-col gap-3 rounded-lg border border-line-subtle bg-surface-content p-3 shadow-sm">
           <TextAreaField
             label={t('prompt.label')}
             value={request.prompt}
@@ -206,9 +255,7 @@ export function GenerateScreen(): ReactElement {
           {/* Only the failure reason. What a run produced is stated by the run
               pill in the dock, and a figure in two places is a figure that
               disagrees with itself the first time one of them is missed. */}
-          <p className="min-h-4 text-xs text-fg-secondary">
-            {message !== null && <span>{message}</span>}
-          </p>
+          {message !== null && <p className="text-xs text-fg-secondary">{message}</p>}
         </div>
       </section>
 
@@ -223,73 +270,77 @@ export function GenerateScreen(): ReactElement {
             onValueChange={setTool}
           />
         }
+        leadingRail={
+          /* States what the last run produced, and opens the detail. The
+             figures come from the run, so pressing it can only ever show more
+             of what the face already says.
+             Aligned to the start, not centred: it sits at the window's leading
+             edge, and a 224px panel centred on it would hang half of itself
+             off the screen. */
+          <DockPopover
+            variant="pill"
+            label={t('dock.lastRun')}
+            align="start"
+            width="w-56"
+            panel={() =>
+              produced === undefined ? (
+                <p className="text-sm text-fg-secondary">{t('dock.runNone')}</p>
+              ) : (
+                <dl className="flex flex-col gap-2">
+                  <RunRow
+                    label={t('parameters.size')}
+                    value={t('parameters.dimensions', {
+                      width: produced.width,
+                      height: produced.height,
+                    })}
+                  />
+                  <RunRow
+                    label={t('dock.runDuration')}
+                    value={`${String(durationMs)} ${tCommon('units.milliseconds')}`}
+                  />
+                </dl>
+              )
+            }
+          >
+            <span className="tabular-nums">{runFace}</span>
+          </DockPopover>
+        }
         trailingRail={
-          <>
-            {/* States what the last run produced, and opens the detail. The
-                figures come from the run, so pressing it can only ever show
-                more of what the face already says. */}
-            <DockPopover
-              variant="pill"
-              label={t('dock.lastRun')}
-              align="end"
-              width="w-56"
-              panel={() =>
-                produced === undefined ? (
-                  <p className="text-sm text-fg-secondary">{t('dock.runNone')}</p>
-                ) : (
-                  <dl className="flex flex-col gap-2">
-                    <RunRow
-                      label={t('parameters.size')}
-                      value={t('dock.dimensions', {
-                        width: produced.width,
-                        height: produced.height,
-                      })}
-                    />
-                    <RunRow
-                      label={t('dock.runDuration')}
-                      value={`${String(durationMs)} ${tCommon('units.milliseconds')}`}
-                    />
-                  </dl>
-                )
-              }
-            >
-              <span className="tabular-nums">{runFace}</span>
-            </DockPopover>
-
-            {/* The panel is the shared notification list, which draws no
-                surface of its own and expects to sit in one of ours. */}
-            <DockPopover
-              triggerLabel={bellLabel}
-              label={tCommon('notifications.title')}
-              align="end"
-              width="w-auto"
-              padding="p-1"
-              triggerRef={anchor}
-              onOpen={markRead}
-              panel={() => <NotificationList />}
-            >
-              <BellIcon />
-              {unread > 0 && (
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    'absolute -end-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center',
-                    'rounded-full px-1 text-[10px] font-semibold leading-none',
-                    // Inverted rather than accent. The accent already marks the
-                    // chosen tool and the Generate pill in this same row, and a
-                    // third yellow thing stops reading as "look here" and starts
-                    // reading as decoration. Inverting is the only thing in the
-                    // bar that does it, so it stands out by being unlike the
-                    // rest. The pair is --fg-primary against --surface-float
-                    // with the roles swapped, so it carries that pair's ratio.
-                    'bg-fg-primary text-surface-float',
-                  )}
-                >
-                  {unread}
-                </span>
-              )}
-            </DockPopover>
-          </>
+          /* The bell, alone. Everything that used to sit beside it has moved
+             to the leading rail. The panel is the shared notification list,
+             which draws no surface of its own and expects to sit in one of
+             ours. */
+          <DockPopover
+            triggerLabel={bellLabel}
+            label={tCommon('notifications.title')}
+            align="end"
+            width="w-auto"
+            padding="p-1"
+            triggerRef={anchor}
+            onOpen={markRead}
+            panel={() => <NotificationList />}
+          >
+            <BellIcon />
+            {unread > 0 && (
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'absolute -end-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center',
+                  'rounded-full px-1 text-[10px] font-semibold leading-none',
+                  // Inverted rather than accent. The accent already marks the
+                  // chosen tool and the Generate pill in this same row, and a
+                  // third yellow thing stops reading as "look here" and starts
+                  // reading as decoration. Inverting is the only thing in the
+                  // bar that does it, so it stands out by being unlike the
+                  // rest. The pair is --fg-primary against --surface-float
+                  // with the roles swapped, so it carries that pair's ratio.
+                  'bg-fg-primary text-surface-float',
+                )}
+              >
+                {unread}
+              </span>
+            )}
+          </DockPopover>
         }
         action={
           <DockAction
@@ -302,118 +353,75 @@ export function GenerateScreen(): ReactElement {
           </DockAction>
         }
       >
-        <DockEntry label={t('parameters.size')} icon={<SizeIcon />}>
+        {/* THE BRUSH, BESIDE THE TOOL IT SIZES.
+
+            Aseprite puts brush size and shape in a context bar directly above
+            the sprite editor, Pixelorama in a tool options panel under the
+            toolbox, Piskel in the tool row itself. The common factor is that
+            all three sit next to the tool selector rather than in a general
+            purpose panel: a size control is meaningless without knowing which
+            tool it sizes.
+
+            Nothing consumes these yet, because there is no painting surface.
+            That is the standing the tool selector beside it has had since it
+            was built, and it is honest for the same reason - choosing says
+            what a stroke would do, and no stroke is being claimed. */}
+        <DockEntry label={t('dock.brush')} icon={<BrushIcon />}>
           {() => (
             <div className="flex flex-col gap-3">
-              <div className="flex flex-wrap gap-2">
-                {SIZE_PRESETS.map((preset) => (
-                  <Pill
-                    key={`${preset.width}x${preset.height}`}
-                    tone="anchor"
-                    active={request.width === preset.width && request.height === preset.height}
-                    onClick={() => {
-                      patch({ width: preset.width, height: preset.height });
-                    }}
-                  >
-                    {t('dock.dimensions', { width: preset.width, height: preset.height })}
-                  </Pill>
-                ))}
-              </div>
+              <NumberField
+                label={t('dock.brushSize')}
+                min={MIN_BRUSH_SIZE}
+                max={MAX_BRUSH_SIZE}
+                value={brushSize}
+                onValueChange={setBrushSize}
+              />
 
-              <div className="grid grid-cols-2 gap-3">
-                <Field
-                  label={t('parameters.width')}
-                  type="number"
-                  min={8}
-                  max={2048}
-                  value={request.width}
-                  onChange={(event) => {
-                    patch({ width: Number(event.target.value) });
-                  }}
-                />
-                <Field
-                  label={t('parameters.height')}
-                  type="number"
-                  min={8}
-                  max={2048}
-                  value={request.height}
-                  onChange={(event) => {
-                    patch({ height: Number(event.target.value) });
-                  }}
-                />
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium text-fg-secondary">
+                  {t('dock.brushShape')}
+                </span>
+                <div className="flex gap-2">
+                  {BRUSH_SHAPES.map((option) => (
+                    <Pill
+                      key={option}
+                      tone="anchor"
+                      active={brushShape === option}
+                      onClick={() => {
+                        setBrushShape(option);
+                      }}
+                    >
+                      {brushShapes[option]}
+                    </Pill>
+                  ))}
+                </div>
               </div>
             </div>
           )}
         </DockEntry>
 
-        <DockEntry label={t('parameters.seed')} icon={<SeedIcon />}>
-          {() => (
-            <div className="flex flex-col gap-3">
-              <Field
-                label={t('parameters.seed')}
-                type="number"
-                min={0}
-                placeholder={t('parameters.seedRandom')}
-                hint={t('dock.seedHint')}
-                value={request.seed ?? ''}
-                onChange={(event) => {
-                  const raw = event.target.value;
-                  patch({ seed: raw === '' ? null : Number(raw) });
-                }}
-              />
+        {/* WHAT THE CANVAS DRAWS, NOT WHAT THE ENGINE MAKES.
 
-              {/* Randomising overwrites whatever the user typed, which is why
-                  it lives in here. In the bar it was one stray press away at
-                  all times. */}
-              <Button
-                onClick={() => {
-                  patch({ seed: Math.floor(Math.random() * MAX_SEED) });
-                }}
-              >
-                {t('dock.seedRandomise')}
-              </Button>
-            </div>
-          )}
-        </DockEntry>
-
-        <DockEntry label={t('postprocess.title')} icon={<PostprocessIcon />}>
+            Both of these change the view and nothing else. Neither touches the
+            request, the sprite, or anything that is saved. The request's own
+            `postprocess.pixelGrid` is a different thing entirely - a block size
+            the engine resamples the sprite onto, which produces a different
+            image - and it is named "Snap to Grid" in the parameter panel so
+            that the two are never read as the same control. */}
+        <DockEntry label={t('dock.view')} icon={<GridIcon />}>
           {() => (
             <div className="flex flex-col gap-3">
               <Toggle
-                label={t('postprocess.removeBackground')}
-                checked={request.postprocess.removeBackground}
-                onCheckedChange={(checked) => {
-                  patchPostprocess({ removeBackground: checked });
-                }}
+                label={t('dock.pixelGrid')}
+                hint={t('dock.pixelGridHint')}
+                checked={showPixelGrid}
+                onCheckedChange={setShowPixelGrid}
               />
               <Toggle
-                label={t('postprocess.dither')}
-                checked={request.postprocess.dither}
-                onCheckedChange={(checked) => {
-                  patchPostprocess({ dither: checked });
-                }}
-              />
-              <Field
-                label={t('postprocess.paletteSize')}
-                type="number"
-                min={2}
-                max={256}
-                value={request.postprocess.paletteSize ?? ''}
-                onChange={(event) => {
-                  const raw = event.target.value;
-                  patchPostprocess({ paletteSize: raw === '' ? null : Number(raw) });
-                }}
-              />
-              <Field
-                label={t('postprocess.pixelGrid')}
-                type="number"
-                min={1}
-                max={64}
-                value={request.postprocess.pixelGrid ?? ''}
-                onChange={(event) => {
-                  const raw = event.target.value;
-                  patchPostprocess({ pixelGrid: raw === '' ? null : Number(raw) });
-                }}
+                label={t('dock.checkerboard')}
+                hint={t('dock.checkerboardHint')}
+                checked={showCheckerboard}
+                onCheckedChange={setShowCheckerboard}
               />
             </div>
           )}
@@ -619,41 +627,32 @@ function ShapeEllipseIcon(): ReactElement {
  * anything about the theme.
  */
 
-/** A frame with its corners drawn in, for the sprite's dimensions. */
-function SizeIcon(): ReactElement {
+/** A round tip on a handle, for the footprint a stroke lays down. */
+function BrushIcon(): ReactElement {
   return (
     <svg viewBox="0 0 16 16" aria-hidden="true" className="h-4 w-4" fill="none">
-      <rect x="2" y="2" width="12" height="12" rx="2.5" stroke="currentColor" strokeWidth="1.4" />
       <path
-        d="M5.6 9.4V6.6h2.8M10.4 6.6v2.8H7.6"
+        d="M13.1 2.9c-1 1-4.3 3.2-5.6 4.1l1.5 1.5c.9-1.3 3.1-4.6 4.1-5.6z"
         stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M6.6 8.2a2.1 2.1 0 0 1 1.2 1.2c.4 1.2-.5 2.6-2.1 2.9-1.1.2-2.4 0-3.2-.3.8-.4 1-1 1.1-1.8.2-1.4 1.6-2.4 3-2z"
+        stroke="currentColor"
+        strokeWidth="1.3"
         strokeLinejoin="round"
       />
     </svg>
   );
 }
 
-/** A die, for the number a run is rolled from. */
-function SeedIcon(): ReactElement {
+/** Four cells, for the lines the canvas draws over the sprite. */
+function GridIcon(): ReactElement {
   return (
     <svg viewBox="0 0 16 16" aria-hidden="true" className="h-4 w-4" fill="none">
-      <rect x="2" y="2" width="12" height="12" rx="3" stroke="currentColor" strokeWidth="1.4" />
-      <circle cx="5.6" cy="5.6" r="1" fill="currentColor" />
-      <circle cx="8" cy="8" r="1" fill="currentColor" />
-      <circle cx="10.4" cy="10.4" r="1" fill="currentColor" />
-    </svg>
-  );
-}
-
-/** Two sliders, for the passes run over a finished sprite. */
-function PostprocessIcon(): ReactElement {
-  return (
-    <svg viewBox="0 0 16 16" aria-hidden="true" className="h-4 w-4" fill="none">
-      <path d="M2.5 5h11M2.5 11h11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-      <circle cx="6" cy="5" r="1.9" stroke="currentColor" strokeWidth="1.4" />
-      <circle cx="10.5" cy="11" r="1.9" stroke="currentColor" strokeWidth="1.4" />
+      <rect x="2" y="2" width="12" height="12" rx="2.5" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M8 2.4v11.2M2.4 8h11.2" stroke="currentColor" strokeWidth="1.4" />
     </svg>
   );
 }

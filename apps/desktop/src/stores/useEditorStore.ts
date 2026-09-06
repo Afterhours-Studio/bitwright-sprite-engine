@@ -46,6 +46,19 @@
  * group of six. The two left out, polygon and contour, are the ones that need
  * a different input model - repeated clicks to close a path, or a freehand
  * drag - rather than the two corners the other four take.
+ *
+ * The brush settings sit here for the same reason the tool does: they are a
+ * property of the tool, not of the generation request, and Aseprite,
+ * Libresprite, Piskel and Pixelorama all put them beside the tool selector
+ * rather than in a general purpose panel. Nothing consumes them yet either.
+ *
+ * The view settings are a different kind of thing again, and they are here
+ * rather than in the generation store on purpose. They change what the canvas
+ * DRAWS; they never change what is asked for or what comes back. The
+ * generation request carries its own `postprocess.pixelGrid`, which resamples
+ * the sprite onto blocks of a given size inside the engine and is a property of
+ * the image rather than of the view. The two are unrelated and are deliberately
+ * not named the same thing.
  */
 
 import { create } from 'zustand';
@@ -55,6 +68,9 @@ export type Tool = 'pencil' | 'eraser' | 'fill' | 'select' | 'shape';
 
 /** The outline the shape tool lays down. */
 export type Shape = 'line' | 'curve' | 'rectangle' | 'ellipse';
+
+/** The footprint a brush lays down at sizes above one pixel. */
+export type BrushShape = 'circle' | 'square';
 
 /** The tools, in the order a toolbar lists them. */
 export const TOOLS: readonly Tool[] = ['pencil', 'eraser', 'fill', 'select', 'shape'];
@@ -67,27 +83,73 @@ export const TOOLS: readonly Tool[] = ['pencil', 'eraser', 'fill', 'select', 'sh
  */
 export const SHAPES: readonly Shape[] = ['line', 'curve', 'rectangle', 'ellipse'];
 
+/** The brush footprints, in the order the popover lists them. */
+export const BRUSH_SHAPES: readonly BrushShape[] = ['circle', 'square'];
+
+/** The smallest brush. One pixel, which is what a pixel artist draws with. */
+export const MIN_BRUSH_SIZE = 1;
+
+/**
+ * The largest brush.
+ *
+ * Sixteen rather than Aseprite's and Libresprite's `kMaxBrushSize = 64`. The
+ * sizes anyone uses for sprite work are 1 to 4; the cap only has to be far
+ * enough above that to not be in the way, and a 64 pixel brush on a 64 pixel
+ * sprite covers the whole canvas in one press.
+ */
+export const MAX_BRUSH_SIZE = 16;
+
 /** The tool a session starts on. */
 export const DEFAULT_TOOL: Tool = 'pencil';
 
 /** The shape a session starts on. */
 export const DEFAULT_SHAPE: Shape = 'rectangle';
 
+/** The brush a session starts on: one pixel, the pixel artist's default. */
+export const DEFAULT_BRUSH_SIZE = 1;
+
+/** The footprint a session starts on. */
+export const DEFAULT_BRUSH_SHAPE: BrushShape = 'circle';
+
 interface EditorState {
   /** The tool the next stroke would use. */
   tool: Tool;
   /** The outline the shape tool would lay down. */
   shape: Shape;
+  /** How many sprite pixels across the brush covers. */
+  brushSize: number;
+  /** The brush's footprint at sizes above one pixel. */
+  brushShape: BrushShape;
+  /** Whether the canvas draws a line at every sprite pixel boundary. */
+  showPixelGrid: boolean;
+  /** Whether the canvas shows transparent pixels as a checker pattern. */
+  showCheckerboard: boolean;
 
   /** Chooses the tool. */
   setTool: (tool: Tool) => void;
   /** Chooses the shape, and with it the shape tool. */
   setShape: (shape: Shape) => void;
+  /** Sets the brush width, clamped to the supported range. */
+  setBrushSize: (size: number) => void;
+  /** Chooses the brush footprint. */
+  setBrushShape: (shape: BrushShape) => void;
+  /** Shows or hides the pixel grid overlay. */
+  setShowPixelGrid: (show: boolean) => void;
+  /** Shows or hides the transparency checkerboard. */
+  setShowCheckerboard: (show: boolean) => void;
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
   tool: DEFAULT_TOOL,
   shape: DEFAULT_SHAPE,
+  brushSize: DEFAULT_BRUSH_SIZE,
+  brushShape: DEFAULT_BRUSH_SHAPE,
+  // On by default. The grid is the thing that tells a viewer where one sprite
+  // pixel ends and the next begins, and it suppresses itself whenever it would
+  // be a grey wash instead, so leaving it on costs nothing when it is not
+  // wanted.
+  showPixelGrid: true,
+  showCheckerboard: true,
 
   setTool: (tool) => {
     set({ tool });
@@ -98,5 +160,28 @@ export const useEditorStore = create<EditorState>((set) => ({
     // for an ellipse and then being told to also press the shape button would
     // be an extra press to confirm something already said.
     set({ shape, tool: 'shape' });
+  },
+
+  setBrushSize: (size) => {
+    // Clamped here rather than trusted from the control, so that the store's
+    // own guarantee holds however the value arrives. A number field can hand
+    // over an empty string parsed to NaN mid-edit, and NaN survives every
+    // comparison it is put through.
+    const clamped = Number.isFinite(size)
+      ? Math.min(MAX_BRUSH_SIZE, Math.max(MIN_BRUSH_SIZE, Math.round(size)))
+      : DEFAULT_BRUSH_SIZE;
+    set({ brushSize: clamped });
+  },
+
+  setBrushShape: (brushShape) => {
+    set({ brushShape });
+  },
+
+  setShowPixelGrid: (showPixelGrid) => {
+    set({ showPixelGrid });
+  },
+
+  setShowCheckerboard: (showCheckerboard) => {
+    set({ showCheckerboard });
   },
 }));
