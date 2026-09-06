@@ -315,8 +315,10 @@ function Summary({ info, units, unknownSpace }: SummaryProps): ReactElement {
 
   return (
     <div className="rounded-md border border-line bg-surface-content-alt p-3">
-      {/* One label-and-value pair per cell, two pairs to a row once there is
-          room. Seven pairs in a single column left most of the card empty to
+      {/* State and the install path take a row each: the first is what the
+          card is about, and the second is a path, which is long and cannot be
+          broken at a sensible point. The rest pair up two to a row once there
+          is width for it. Seven pairs in a single column left most of the card empty to
           the right while the list ran down past the controls; the label column
           stays `auto` inside each pair so values still line up with each
           other rather than starting wherever a label happens to end.
@@ -325,14 +327,7 @@ function Summary({ info, units, unknownSpace }: SummaryProps): ReactElement {
           wide enough for every other value. */}
       <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-xs text-fg-secondary md:grid-cols-[auto_1fr_auto_1fr]">
         <dt>{t('runtime.state')}</dt>
-        <dd className="text-fg-primary">{state}</dd>
-
-        <dt>{t('runtime.packages')}</dt>
-        <dd className="tabular-nums text-fg-primary">
-          {info === null || info.totalPackages === 0
-            ? '-'
-            : `${String(info.totalPackages - info.missingPackages.length)}/${String(info.totalPackages)}`}
-        </dd>
+        <dd className="text-fg-primary md:col-span-3">{state}</dd>
 
         <dt className="md:col-start-1">{t('runtime.location')}</dt>
         <dd className="break-all text-fg-primary md:col-span-3">
@@ -367,17 +362,15 @@ function Summary({ info, units, unknownSpace }: SummaryProps): ReactElement {
           </>
         )}
 
+        <dt>{t('runtime.packages')}</dt>
+        <dd className="tabular-nums text-fg-primary">
+          {info === null || info.totalPackages === 0
+            ? '-'
+            : `${String(info.totalPackages - info.missingPackages.length)}/${String(info.totalPackages)}`}
+        </dd>
+
         <dt>{t('runtime.target')}</dt>
         <dd className="text-fg-primary">{info === null ? '-' : info.target}</dd>
-
-        <dt>{t('runtime.accelerator')}</dt>
-        <dd className="text-fg-primary">
-          {info === null || info.installedAccelerator === ''
-            ? '-'
-            : t(`runtime.accelerators.${info.installedAccelerator}`, {
-                defaultValue: info.installedAccelerator,
-              })}
-        </dd>
       </dl>
 
       {info !== null && info.restartRequired && (

@@ -35,7 +35,6 @@
     "download": "Download",
     "onDisk": "On disk once installed",
     "needsFree": "Free space needed",
-    "accelerator": "Build",
     "recommended": "Recommended for this machine",
     "cpuNote": "No NVIDIA GPU was found, so this build generates on the processor, which is much slower.",
     "installVariant": "Install {{build}}",
@@ -64,12 +63,7 @@
     "repairHint": "The runtime is missing {{names}}. Only those are downloaded, not the whole runtime.",
     "packagesPresent": "{{count}} installed",
     "packagesMissing": "{{count}} missing",
-    "packagesComplete": "Every pinned package is installed.",
-    "accelerators": {
-      "cuda": "NVIDIA CUDA",
-      "mps": "Apple Metal",
-      "cpu": "Processor"
-    }
+    "packagesComplete": "Every pinned package is installed."
   },
   "providers": {
     "title": "AI Providers",
