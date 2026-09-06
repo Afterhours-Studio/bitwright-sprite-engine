@@ -132,7 +132,7 @@ return <button>{t('actions.generate')}</button>;
 
 No hex, `rgb()`, or `hsl()` in a component. ESLint rejects them, and a test
 scans the source as well. Colour comes from a token, through a Tailwind class
-such as `bg-surface-2`. See [the design system](design-system.md).
+such as `bg-surface-content`. See [the design system](design-system.md).
 
 ### Documentation
 

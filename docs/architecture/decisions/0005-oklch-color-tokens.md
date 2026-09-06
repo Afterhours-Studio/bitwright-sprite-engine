@@ -4,7 +4,14 @@ Date: 2026-02-03
 
 ## Status
 
-Accepted
+Superseded by [0009](0009-asymmetric-surface-model.md).
+
+The choice of OKLCH stands, and so does the idea that separation should be a
+number a script checks. What 0009 replaces is the surface model: the symmetric
+lightness ladder described below made every light-mode surface grey, and
+therefore put every piece of text in the application on grey. The record is kept
+because the reasoning about perceptual uniformity, about the light-mode ceiling,
+and about shadows being invisible in dark mode is what 0009 is built on.
 
 ## Context
 

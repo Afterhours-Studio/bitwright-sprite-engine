@@ -48,9 +48,13 @@ the safe one; see
 3. Fix anything it reports.
 4. Run the application and look at both themes.
 
-A surface change usually needs its neighbours moved too, because the step is
-measured between adjacent surfaces. Raising surface-1 without raising surface-2
-narrows the gap above it.
+In dark mode a surface change usually needs its neighbours moved too, because
+the step is measured between adjacent surfaces: raising `--surface-content`
+without raising `--surface-content-alt` narrows the gap above it.
+
+In light mode that is mostly not true, because content surfaces are separated by
+border and shadow rather than by lightness. There the thing to check is that the
+border or shadow named in the `@separation` declaration is still strong enough.
 
 ### Picking a value
 
@@ -75,60 +79,32 @@ Themes are attribute-selected, so a third is a new block.
 
 ### 1. Add the block
 
-In `tokens.css`, after the dark block:
+In `tokens.css`, after the dark block, declaring every colour token. A token
+declared in one theme and missing from another falls back to the `:root` value,
+which will be from the wrong palette.
 
-```css
-[data-theme='high-contrast'] {
-  --surface-sunken: oklch(0.05 0 0);
-  --surface-canvas: oklch(0.12 0 0);
-  --surface-1: oklch(0.2 0 0);
-  --surface-2: oklch(0.28 0 0);
-  --surface-float: oklch(0.36 0 0);
-  /* every colour token from the dark block */
-}
-```
-
-Every colour token, not a subset. A token declared in one theme and missing from
-another falls back to the `:root` value, which will be from the wrong palette.
+Decide first which separation model the theme follows. A light theme separates
+content surfaces by border and shadow; a dark theme separates them by a
+lightness step of at least 0.050. That choice drives every value in the block.
 
 ### 2. Register it in the store
 
-In `useShellStore.ts`:
-
-```typescript
-export type Theme = 'dark' | 'light' | 'high-contrast';
-```
-
-Then add it to the theme selector in `SettingsScreen.tsx`, and add its label to
-`common.json` under `theme` in **every** locale.
+In `useShellStore.ts`, add it to the `Theme` union, then to the theme selector
+in `SettingsScreen.tsx`, and add its label to `common.json` under `theme` in
+**every** locale.
 
 ### 3. Teach the check about it
 
-`scripts/check-contrast.ts` reads two blocks. Add the third:
+`scripts/check-contrast.ts` reads two blocks. Add the third to `BLOCK_START` and
+to `MODES`, and give it a minimum step in `MIN_STEP`. The adjacency list comes
+from the `@separation` declarations and does not need changing, but a light-like
+theme has to satisfy the declared mechanism while a dark-like theme has to
+satisfy the lightness rule.
 
-```typescript
-const BLOCKS = {
-  light: ':root {',
-  dark: "[data-theme='dark'] {",
-  highContrast: "[data-theme='high-contrast'] {",
-} as const;
-```
+### 4. Add the translucent variant, if the theme is dark
 
-Then give it a minimum step in `MIN_STEP` and an adjacency list in `ADJACENT`.
-A dark theme uses the dark values: 0.050, and five steps.
-
-### 4. Add the translucent set, if the theme is used with vibrancy
-
-```css
-[data-vibrancy='on'][data-theme='high-contrast'] {
-  --surface-canvas: transparent;
-  --surface-1: oklch(0.2 0 0 / 0.74);
-  --surface-2: oklch(0.28 0 0 / 0.86);
-  --surface-float: oklch(0.36 0 0 / 0.94);
-}
-```
-
-Keep every alpha that carries text at 0.85 or above.
+Keep every alpha at or above 0.90, so that the declared steps survive
+compositing against an unknown wallpaper, and leave `--surface-content` opaque.
 
 ### 5. Verify
 
@@ -140,67 +116,79 @@ npm run test
 ## Reading the check output
 
 ```
+Bitwright colour token check
+Discovered 5 foreground and 8 surface tokens, and 7 declared adjacencies.
+
 LIGHT MODE
 
-  Elevation steps (minimum 0.040 L)
-    pass  --surface-sunken -> --surface-canvas       0.045
-    pass  --surface-canvas -> --surface-1            0.045
-    pass  --surface-1 -> --surface-2                 0.040
+  Surface separation (the declared mechanism, lightness minimum 0.040 L)
+    pass  canvas > content       lightness  0.070 of 0.040
+    pass  content > input        border     --input-border at 0.18 of 0.14
+    pass  content-alt > float    shadow     --shadow-md at 0.12 of 0.06
 
-  Text contrast
-    pass  --fg-primary on --surface-canvas           12.06:1 (body, needs 4.5:1)
-    pass  --fg-muted on --surface-1                  3.28:1 (large, needs 3:1)
-    skip  --fg-muted on --surface-disabled           3.04:1 (disabled controls are exempt)
+  Pairs that may never be waived
+    pass  --fg-placeholder on --surface-input     4.96:1, needs 4.5:1
 
-  Token parity
-    pass  both modes declare 17 colour tokens
+  Text contrast, every foreground on every text-bearing surface
+                      canvas   content   input   disabled   anchor   accent
+    primary             13.7      16.9    16.9       13.7      n/a     11.9
+    muted                n/a       4.7     4.7       wcag      n/a      n/a
+    n/a = declared unused in EXEMPT, wcag = disabled control exemption
+
+TOKEN PARITY
+  pass  both modes declare 21 colour tokens
 
 All checks passed.
 ```
 
-Three sections per mode:
+Four sections.
 
-**Elevation steps** is the lightness difference between surfaces that touch. A
-failure names the pair and how far short it falls:
-
-```
-[dark] elevation: --surface-1 -> --surface-2 is 0.032 L, short by 0.018
-```
-
-Fix it by moving one of the two, and check the neighbour on the other side of
-whichever you moved.
-
-**Text contrast** is the WCAG ratio for each declared pairing. `body` needs
-4.5:1, `large` needs 3:1. A failure means either the foreground or the surface
-has to move:
+**Surface separation** checks each declared adjacency. In light mode it verifies
+the mechanism the declaration names; in dark mode it ignores the mechanism and
+requires the lightness step, because nothing else works there. A failure names
+the pair, the mechanism, and how far short it falls:
 
 ```
-[light] contrast: --fg-secondary on --surface-canvas is 3.90:1, short of 4.5:1 for body text
+[dark] separation: content > content-alt is 0.032 L, short by 0.018
+[light] separation: content > input declares border --input-border, whose alpha 0.10 is below 0.14
 ```
 
-Darkening a foreground in light mode, or lightening it in dark mode, is usually
-the smaller change. Moving a surface affects its elevation steps as well.
+**Pairs that may never be waived** is a short list that no exemption can cover.
+Placeholder text on an input is the first entry, because it is the pair the
+previous version of this script missed entirely.
 
-`skip` lines are the documented exemptions.
+**Text contrast** is the full matrix: every foreground against every surface
+that is allowed to carry text. A cell is a ratio when it passes, `n/a` when the
+pairing is declared unused, `wcag` for the one disabled-control exemption, and
+`FAIL` otherwise.
 
-**Token parity** compares the colour tokens declared in each mode. The radius,
-spacing, and layout scales are the same in both modes by design and are declared
-once, so they are not compared.
+A failing cell means one of two things. Either the pairing is real, and a token
+has to move, or the pairing does not occur and the script has not been told.
+Both are decisions; neither is a suppression.
+
+**Token parity** compares the colour tokens declared in each mode. Radius,
+spacing, and layout scales are declared once and are not compared.
 
 ## Adding a text pairing
 
-Using an existing foreground on a surface it is not declared for means adding
-the pairing to `TEXT_ON` in `scripts/check-contrast.ts`:
+There is no list of allowed pairings to add to. The script measures everything,
+so using an existing foreground somewhere new is checked automatically the next
+time it runs.
+
+What you may have to change is the opposite: if the script reports a failure for
+a pairing that does not occur in the interface, add it to `EXEMPT` in
+`scripts/check-contrast.ts` with `kind: 'unused'` and a reason.
 
 ```typescript
-{ fg: '--fg-muted', bg: '--surface-canvas', size: 'large' },
+...outOfScope('--fg-placeholder', ['--surface-anchor']),
 ```
 
-The check then measures it in every mode. If it fails, the pairing is not
-allowed, and the fix is a different token rather than a suppression.
+That list is how each token's scope is enforced rather than merely documented.
+Marking a pairing unused when it does occur is the one way to defeat the check,
+so it is worth being sure.
 
-Not adding it is worse than adding a failing one: an unreviewed pairing is one
-nobody has measured.
+Adding a new token forces this too: every one of its pairings is measured, and
+the failures have to be classified before the check will pass.
 
 ## Checklist
 
@@ -212,5 +200,8 @@ Before opening a pull request that touches colour:
 - [ ] The boundary between canvas, panel, and card is visible without effort in
       both themes.
 - [ ] With vibrancy off, the interface still reads correctly.
-- [ ] With vibrancy on, no text sits on a translucent surface.
+- [ ] With vibrancy on, no text sits on a surface below 0.90 alpha.
+- [ ] In light mode, the boundary between two white surfaces is visible through
+      its border or its shadow.
+- [ ] A disabled control looks clearly different from an enabled one.
 - [ ] No hex, `rgb()`, or `hsl()` anywhere outside `tokens.css`.
