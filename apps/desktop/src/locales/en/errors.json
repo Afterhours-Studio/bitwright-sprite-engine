@@ -53,7 +53,8 @@
       "unexpected_shape": "Something answered, but not with an OpenAI compatible model list. Check that the base URL points at the API and not at a web page.",
       "unknown_preset": "That provider is not one this version knows. Use a custom endpoint instead.",
       "unreachable": "That host could not be reached. Check the base URL and your connection.",
-      "rejected": "The provider refused the request. Check the API key and the model name."
+      "rejected": "The provider refused the request. Check the API key and the model name.",
+      "no_allowance": "This plan has no allowance for that model, so waiting will not help. Enable billing with the provider, or generate on a local engine."
     },
     "adapter_unsupported": "The GPU runtime is missing a package that style adapters need. Install the missing packages in Settings, then restart.",
     "adapter_mismatch": "That style adapter was made for a different base model. Pick one that matches the model you selected."

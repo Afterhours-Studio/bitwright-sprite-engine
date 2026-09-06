@@ -53,7 +53,8 @@
       "unexpected_shape": "Có phản hồi, nhưng không phải danh sách model tương thích OpenAI. Hãy kiểm tra URL gốc trỏ tới API chứ không phải một trang web.",
       "unknown_preset": "Phiên bản này không biết nhà cung cấp đó. Hãy dùng endpoint tự nhập thay thế.",
       "unreachable": "Không kết nối được tới máy chủ đó. Hãy kiểm tra URL gốc và kết nối mạng.",
-      "rejected": "Provider từ chối yêu cầu. Hãy kiểm tra khoá API và tên model."
+      "rejected": "Provider từ chối yêu cầu. Hãy kiểm tra khoá API và tên model.",
+      "no_allowance": "Gói này không có hạn mức nào cho model đó, nên chờ cũng không được. Hãy bật thanh toán ở provider, hoặc tạo sprite bằng engine chạy trên máy."
     },
     "adapter_unsupported": "Bộ chạy GPU đang thiếu gói cần cho bộ điều chỉnh phong cách. Hãy cài gói còn thiếu trong Cài đặt rồi khởi động lại.",
     "adapter_mismatch": "Bộ điều chỉnh phong cách đó dành cho model nền khác. Hãy chọn cái khớp với model bạn đang dùng."

@@ -102,6 +102,9 @@ NOT_FOUND = "backend.remote.not_found"
 REJECTED = "backend.remote.rejected"
 """The provider refused the request itself, rather than the transport."""
 
+NO_ALLOWANCE = "backend.remote.no_allowance"
+"""The plan has no allowance for this model at all, rather than none left."""
+
 RATE_LIMITED = "backend.remote.rate_limited"
 """The provider is throttling this key."""
 
@@ -139,6 +142,7 @@ ALL_CODES: frozenset[str] = frozenset(
         FORBIDDEN,
         NOT_FOUND,
         RATE_LIMITED,
+        NO_ALLOWANCE,
         SERVER_ERROR,
         UNEXPECTED_SHAPE,
         REQUEST_FAILED,

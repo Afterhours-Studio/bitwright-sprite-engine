@@ -301,7 +301,7 @@ class RemoteBackend(BaseBackend):
             # that ran out, and sends the reader to look in three places at
             # once.
             logger.warning("remote generate refused with HTTP %d", response.status_code)
-            raise RemoteBackendError(_refusal(response.status_code))
+            raise RemoteBackendError(_refusal(response.status_code, response.text))
 
         try:
             body = response.json()
@@ -379,11 +379,18 @@ def _decode(entries: object) -> list[Image.Image]:
     return images
 
 
-def _refusal(status: int) -> str:
+def _refusal(status: int, body: str) -> str:
     """Return the reason code for a status a provider refused with.
+
+    The body is read for one thing only: whether a 429 means the allowance ran
+    out or that there was never one. Google answers both with 429, and telling
+    someone to wait for a quota of zero to replenish is telling them to wait
+    for ever. Nothing from the body is shown to the user - some providers echo
+    the offending key back inside it.
 
     Args:
         status: The HTTP status.
+        body: The response body, read but never carried through.
 
     Returns:
         A stable reason code naming what to do about it.
@@ -393,7 +400,7 @@ def _refusal(status: int) -> str:
     if status == httpx.codes.FORBIDDEN:
         return codes.FORBIDDEN
     if status == httpx.codes.TOO_MANY_REQUESTS:
-        return codes.RATE_LIMITED
+        return codes.NO_ALLOWANCE if "limit: 0" in body else codes.RATE_LIMITED
     if status == httpx.codes.NOT_FOUND:
         return codes.NOT_FOUND
     if status >= httpx.codes.INTERNAL_SERVER_ERROR:
