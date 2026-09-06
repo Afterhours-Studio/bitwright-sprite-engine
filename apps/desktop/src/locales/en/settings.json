@@ -173,7 +173,10 @@
       "base": "Base Model",
       "lora": "Style Adapter",
       "segmentation": "Background Removal"
-    }
+    },
+    "removeTitle": "Remove these weights?",
+    "removeBody": "The file is deleted from this machine. Downloading it again is the only way back.",
+    "removeAction": "Remove"
   },
   "storage": {
     "title": "Storage location",

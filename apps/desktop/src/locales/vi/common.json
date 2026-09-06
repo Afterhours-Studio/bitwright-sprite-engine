@@ -108,5 +108,13 @@
     "runtimeRepairedTitle": "Đã vá bộ chạy",
     "runtimeRemovedTitle": "Đã gỡ bộ chạy GPU",
     "modelRemovedTitle": "Đã gỡ model"
+  },
+  "downloads": {
+    "title": "Tải xuống",
+    "empty": "Chưa tải gì cả.",
+    "clear": "Xoá danh sách",
+    "done": "Đã xong",
+    "cancelled": "Đã dừng",
+    "failed": "Thất bại"
   }
 }

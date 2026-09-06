@@ -31,6 +31,7 @@ import { NumberField } from '@/components/ui/NumberField';
 import { Pill } from '@/components/ui/Pill';
 import { ParameterPanel } from '@/features/generation/ParameterPanel';
 import { SystemStatusFace, SystemStatusPanel } from '@/components/layout/SystemStatus';
+import { DownloadList } from '@/components/ui/DownloadList';
 import { PreviewRail } from '@/features/generation/PreviewRail';
 import { SpriteCanvas } from '@/features/generation/SpriteCanvas';
 import { useCapabilities } from '@/hooks/useCapabilities';
@@ -279,41 +280,59 @@ export function GenerateScreen(): ReactElement {
           </DockPopover>
         }
         trailingRail={
-          /* The bell, alone. Everything that used to sit beside it has moved
-             to the leading rail. The panel is the shared notification list,
-             which draws no surface of its own and expects to sit in one of
-             ours. */
-          <DockPopover
-            triggerLabel={bellLabel}
-            label={tCommon('notifications.title')}
-            align="end"
-            width="w-auto"
-            padding="p-1"
-            triggerRef={anchor}
-            onOpen={markRead}
-            panel={() => <NotificationList />}
-          >
-            <BellIcon />
-            {unread > 0 && (
-              <span
-                aria-hidden="true"
-                className={cn(
-                  'absolute -end-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center',
-                  'rounded-full px-1 text-[10px] font-semibold leading-none',
-                  // Inverted rather than accent. The accent already marks the
-                  // chosen tool and the Generate pill in this same row, and a
-                  // third yellow thing stops reading as "look here" and starts
-                  // reading as decoration. Inverting is the only thing in the
-                  // bar that does it, so it stands out by being unlike the
-                  // rest. The pair is --fg-primary against --surface-float
-                  // with the roles swapped, so it carries that pair's ratio.
-                  'bg-fg-primary text-surface-float',
-                )}
-              >
-                {unread}
-              </span>
-            )}
-          </DockPopover>
+          <>
+            {/* Transfers, then notifications. A download in flight is the
+                thing most likely to be checked while it runs, and it reads
+                left to right into the bell that reports how it ended. Both
+                panels draw no surface of their own and expect to sit in one
+                of ours. */}
+            <DockPopover
+              variant="chip"
+              label={tCommon('downloads.title')}
+              // End aligned, like the bell beside it. Both sit at the window's
+              // trailing edge, and a centred panel hangs half of itself off the
+              // screen there - the shell clips rather than scrolls, so the half
+              // that leaves is simply gone.
+              align="end"
+              width="w-80"
+              padding="p-3"
+              panel={() => <DownloadList />}
+            >
+              <DownloadIcon />
+            </DockPopover>
+
+            <DockPopover
+              triggerLabel={bellLabel}
+              label={tCommon('notifications.title')}
+              align="end"
+              width="w-auto"
+              padding="p-1"
+              triggerRef={anchor}
+              onOpen={markRead}
+              panel={() => <NotificationList />}
+            >
+              <BellIcon />
+              {unread > 0 && (
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    'absolute -end-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center',
+                    'rounded-full px-1 text-[10px] font-semibold leading-none',
+                    // Inverted rather than accent. The accent already marks the
+                    // chosen tool and the Generate pill in this same row, and a
+                    // third yellow thing stops reading as "look here" and starts
+                    // reading as decoration. Inverting is the only thing in the
+                    // bar that does it, so it stands out by being unlike the
+                    // rest. The pair is --fg-primary against --surface-float
+                    // with the roles swapped, so it carries that pair's ratio.
+                    'bg-fg-primary text-surface-float',
+                  )}
+                >
+                  {unread}
+                </span>
+              )}
+            </DockPopover>
+          </>
         }
         action={
           <DockAction
@@ -435,6 +454,27 @@ export interface RunRowProps {
   label: string;
   /** The figure. */
   value: string;
+}
+
+/** Transfers: an arrow coming down into a tray. */
+function DownloadIcon(): ReactElement {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" className="h-4 w-4" fill="none">
+      <path
+        d="M8 2.5v7m0 0L5.2 6.7M8 9.5l2.8-2.8"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M3 11.5v1a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
 }
 
 /** The notification bell. */

@@ -144,7 +144,7 @@ interface ModelRowProps {
 }
 
 /** Which confirmation the row's single popover is currently asking. */
-type Confirmation = 'licence' | 'stop' | 'discard';
+type Confirmation = 'licence' | 'stop' | 'discard' | 'remove';
 
 /** The words one confirmation puts in that popover. */
 interface ConfirmationText {
@@ -192,6 +192,7 @@ function ModelRow({ model }: ModelRowProps): ReactElement {
 
   const download = useEngineStore((state) => state.download);
   const cancel = useEngineStore((state) => state.cancel);
+  const removeWeights = useEngineStore((state) => state.removeWeights);
   const pause = useEngineStore((state) => state.pause);
 
   const anchor = useRef<HTMLDivElement>(null);
@@ -206,13 +207,15 @@ function ModelRow({ model }: ModelRowProps): ReactElement {
     close();
     if (asking === 'licence') {
       void download(model.modelId);
+    } else if (asking === 'remove') {
+      void removeWeights(model.modelId);
     } else if (asking !== null) {
       // Stopping and discarding are one operation to the engine: drop the
       // bytes. They are two confirmations because the sentence the user has to
       // read is different when a transfer is still running.
       void cancel(model.modelId);
     }
-  }, [cancel, close, confirming, download, model.modelId]);
+  }, [cancel, close, confirming, download, model.modelId, removeWeights]);
 
   const units: ByteUnits = {
     megabytes: tCommon('units.megabytes'),
@@ -265,6 +268,11 @@ function ModelRow({ model }: ModelRowProps): ReactElement {
       title: t('models.discardTitle'),
       body: t('models.discardBody'),
       action: t('models.discardAction'),
+    },
+    remove: {
+      title: t('models.removeTitle'),
+      body: t('models.removeBody'),
+      action: t('models.removeAction'),
     },
   };
   const asked = confirming === null ? null : confirmations[confirming];

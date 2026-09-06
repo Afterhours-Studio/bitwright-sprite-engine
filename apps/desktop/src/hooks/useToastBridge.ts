@@ -20,6 +20,7 @@ import { useEngineStore } from '@/stores/useEngineStore';
 import { useRuntimeStore } from '@/stores/useRuntimeStore';
 import { useGenerationStore } from '@/stores/useGenerationStore';
 import { useShellStore } from '@/stores/useShellStore';
+import { useDownloadStore } from '@/stores/useDownloadStore';
 import { useToastStore } from '@/stores/useToastStore';
 import type { ModelInfo } from '@/types/engine';
 
@@ -53,6 +54,7 @@ import type { ModelInfo } from '@/types/engine';
 export function useToastBridge(): void {
   useEffect(() => {
     const notify = useToastStore.getState().notify;
+    const record = useDownloadStore.getState().record;
 
     /**
      * Finds a model in the previous list.
@@ -122,6 +124,12 @@ export function useToastBridge(): void {
             messageKey: `errors:${model.error}`,
             values: { name: model.name },
           });
+          record({
+            name: model.name,
+            outcome: 'failed',
+            error: model.error,
+            bytes: model.downloadedBytes,
+          });
           reported = true;
           continue;
         }
@@ -150,6 +158,7 @@ export function useToastBridge(): void {
             messageKey: 'common:notifications.modelReady',
             values: { name: model.name },
           });
+          record({ name: model.name, outcome: 'done', error: '', bytes: model.downloadedBytes });
           reported = true;
         }
       }

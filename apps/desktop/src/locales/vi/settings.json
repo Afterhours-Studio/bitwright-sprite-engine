@@ -173,7 +173,10 @@
       "base": "Model nền",
       "lora": "Bộ điều chỉnh phong cách",
       "segmentation": "Xoá nền"
-    }
+    },
+    "removeTitle": "Gỡ trọng số này?",
+    "removeBody": "Tệp sẽ bị xoá khỏi máy này. Muốn có lại thì phải tải về lần nữa.",
+    "removeAction": "Gỡ"
   },
   "storage": {
     "title": "Nơi lưu dữ liệu",

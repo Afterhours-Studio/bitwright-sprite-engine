@@ -108,5 +108,13 @@
     "runtimeRepairedTitle": "Runtime Repaired",
     "runtimeRemovedTitle": "GPU Runtime Removed",
     "modelRemovedTitle": "Model Removed"
+  },
+  "downloads": {
+    "title": "Downloads",
+    "empty": "Nothing has been downloaded yet.",
+    "clear": "Clear",
+    "done": "Finished",
+    "cancelled": "Stopped",
+    "failed": "Failed"
   }
 }
