@@ -20,7 +20,14 @@ import type { Config } from 'tailwindcss';
  * Every colour in the theme resolves to a token from `src/styles/tokens.css`.
  * Tailwind's own palette is removed rather than extended, so `bg-gray-800` is
  * not a class that exists. That is deliberate: a stock palette colour would sit
- * outside the elevation system and outside the contrast checks.
+ * outside the surface model and outside the contrast checks.
+ *
+ * Surfaces are named by role, not by height. There is no `surface-1`.
+ *
+ * Note for anyone adding a token here: Tailwind does not pick up a change to
+ * this file while the dev server is running. Restart it, or the new class will
+ * simply not exist and the result will look like a broken token rather than a
+ * missing class.
  */
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
@@ -33,32 +40,33 @@ export default {
       inherit: 'inherit',
 
       surface: {
-        sunken: 'var(--surface-sunken)',
         canvas: 'var(--surface-canvas)',
-        1: 'var(--surface-1)',
-        2: 'var(--surface-2)',
-        float: 'var(--surface-float)',
         content: 'var(--surface-content)',
+        'content-alt': 'var(--surface-content-alt)',
+        input: 'var(--surface-input)',
+        well: 'var(--surface-well)',
+        float: 'var(--surface-float)',
         disabled: 'var(--surface-disabled)',
+        anchor: 'var(--surface-anchor)',
       },
       fg: {
         primary: 'var(--fg-primary)',
         secondary: 'var(--fg-secondary)',
         muted: 'var(--fg-muted)',
+        placeholder: 'var(--fg-placeholder)',
+        'on-anchor': 'var(--fg-on-anchor)',
       },
       accent: {
         DEFAULT: 'var(--accent)',
         hover: 'var(--accent-hover)',
         fg: 'var(--accent-fg)',
       },
-      anchor: {
-        DEFAULT: 'var(--anchor)',
-        fg: 'var(--anchor-fg)',
-      },
       line: {
         subtle: 'var(--border-subtle)',
         DEFAULT: 'var(--border-default)',
         strong: 'var(--border-strong)',
+        input: 'var(--input-border)',
+        focus: 'var(--input-border-focus)',
       },
       /* The only two literal colours in the theme. The Windows close button
          must use the system red on hover, which is not part of the palette. */

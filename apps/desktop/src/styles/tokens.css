@@ -19,71 +19,137 @@
 /*
  * The single source of truth for colour. Every value is OKLCH, because it is
  * the only space in wide use where the L channel matches perceived lightness,
- * which is what lets the elevation steps below be checked numerically.
+ * which is what lets the separation rules below be checked numerically.
  *
- * Rules this file encodes, explained in full in docs/development/design-system.md:
+ * ---------------------------------------------------------------------------
+ * SURFACES ARE NAMED BY ROLE, NOT BY HEIGHT
+ * ---------------------------------------------------------------------------
  *
- *   1. The canvas is never pure white or pure black. Both extremes are
- *      reserved, so that layers have room to rise above the canvas and to sink
- *      below it.
- *   2. Higher layers are lighter in BOTH modes. Sunken layers are darker than
- *      the canvas in both modes. The direction never flips.
- *   3. Adjacent surfaces differ by at least 0.040 L in light mode and 0.050 L
- *      in dark mode. scripts/check-contrast.ts fails the build otherwise.
- *   4. Light mode has four surface steps, dark mode has five. Light mode is
- *      capped at L = 1.0, so a fifth step would collide with the fourth; the
- *      floating layer is separated by shadow there instead.
- *   5. Dark mode shadows are nearly invisible, so dark surfaces are separated
- *      by lightness AND a hairline border, never by shadow alone.
+ * There is no surface-1 or surface-2 any more. A number says how high a
+ * surface sits, which is only useful if height is what separates surfaces, and
+ * in light mode it is not. A role says what the surface is for, which holds in
+ * both modes.
  *
- * Neutrals keep a small non-zero chroma at hue 85, a warm grey. A chroma of
- * exactly zero reads as dead and slightly blue on most displays.
+ *   --surface-canvas       The application background. Carries headings, never
+ *                          body text.
+ *   --surface-content      The default surface for anything containing text:
+ *                          cards, panels, the sidebar, dialogs.
+ *   --surface-content-alt  A content surface nested inside another one.
+ *   --surface-input        Text fields, text areas, selects.
+ *   --surface-well         Decorative only, and never carries text: the sprite
+ *                          checkerboard, slider tracks, progress backgrounds.
+ *   --surface-float        The highest layer: dropdowns, tooltips, menus.
+ *   --surface-disabled     A control that cannot be used.
+ *   --surface-anchor       The contrast anchor: the status bar.
+ *
+ * ---------------------------------------------------------------------------
+ * THE TWO MODES SEPARATE SURFACES BY DIFFERENT MEANS
+ * ---------------------------------------------------------------------------
+ *
+ * This is the core rule, and it replaces the symmetric lightness ladder that
+ * came before it. See ADR 0009, which supersedes ADR 0005.
+ *
+ * LIGHT MODE: the canvas is grey and every content surface is white or nearly
+ * white. Content surfaces do NOT separate from each other by lightness; they
+ * separate by border and shadow. Only the canvas-to-content boundary uses
+ * lightness. This is what GitHub Primer, Atlassian, and Material 3 all do, and
+ * it is why their light themes read cleanly: text sits on white, not on grey.
+ *
+ * DARK MODE: content surfaces separate by lightness, in real steps of 0.050 L
+ * or more, with a hairline border as support. Shadow is not a separation
+ * mechanism here at all. Against a dark ground it is close to invisible, and
+ * treating it as one is how a dark theme ends up with cards nobody can find.
+ *
+ * IN BOTH MODES: the input surface moves AWAY from the text colour. Light mode
+ * goes up to white, dark mode goes down toward black. An input is where the
+ * user types, so it gets the most headroom for its text.
+ *
+ * Pure white is used deliberately in light mode, for surface-content,
+ * surface-input, and surface-float. It is allowed there because those are
+ * content surfaces. It remains forbidden for the canvas, which is what the old
+ * rule was really protecting: a white canvas leaves nowhere for content to sit.
+ *
+ * ---------------------------------------------------------------------------
+ * DECLARED SEPARATION
+ * ---------------------------------------------------------------------------
+ *
+ * Each @separation line names an adjacent pair of surfaces and the mechanism
+ * that separates them IN LIGHT MODE, and the token that carries it.
+ * scripts/check-contrast.ts parses these and verifies the declared mechanism
+ * actually holds, rather than guessing which one applies.
+ *
+ * Dark mode ignores the declared mechanism: every listed pair must clear
+ * 0.050 L there, with no exceptions, because lightness is the only mechanism
+ * that works against a dark ground.
+ *
+ * @separation surface-canvas > surface-content: lightness
+ * @separation surface-canvas > surface-anchor: lightness
+ * @separation surface-content > surface-content-alt: border(--border-default)
+ * @separation surface-content > surface-input: border(--input-border)
+ * @separation surface-content > surface-well: lightness
+ * @separation surface-content-alt > surface-float: shadow(--shadow-md)
+ * @separation surface-input > surface-disabled: lightness
+ *
+ * Neutrals keep a small non-zero chroma at hue 85, a warm grey, except where a
+ * value is pure white. Chroma of exactly zero elsewhere reads as dead, and
+ * slightly blue, on most displays.
  */
 
 :root {
-  /* Surfaces. Light mode: four steps, plus a float that reuses surface-2's
-     lightness and is separated by shadow. */
-  --surface-sunken: oklch(0.86 0.006 85);
-  --surface-canvas: oklch(0.905 0.005 85);
-  --surface-1: oklch(0.95 0.004 85);
-  --surface-2: oklch(0.99 0.003 85);
-  --surface-float: oklch(0.99 0.003 85);
+  /* Surfaces. Content, input, and float are all pure white: they are NOT
+     distinguished from each other by lightness, but by border and shadow. That
+     is deliberate, and it is the standard light-mode model.
 
-  /* The main content area. Identical to the canvas, and never translucent,
-     because the image behind a vibrancy surface is the user's wallpaper and no
-     contrast guarantee can be made against it. Chrome may be translucent;
-     content may not. */
-  --surface-content: oklch(0.905 0.005 85);
+     --surface-content carries a second guarantee as well as its role: it is
+     always fully opaque, in every mode and whether or not a window background
+     effect is active. It is the surface the main content area is painted with,
+     so text on it is never left sitting over the user's wallpaper. The two
+     meanings agree, because a surface that holds text has to be opaque
+     anyway. */
+  --surface-canvas: oklch(0.93 0.005 85);
+  --surface-content: oklch(1 0 0);
+  --surface-content-alt: oklch(0.975 0.003 85);
+  --surface-input: oklch(1 0 0);
+  --surface-well: oklch(0.89 0.006 85);
+  --surface-float: oklch(1 0 0);
 
-  /* A disabled control is a surface of its own, never a faded copy of an
-     enabled one. Opacity on a container would let the layer underneath bleed
-     through and break the elevation order. */
-  --surface-disabled: oklch(0.925 0.004 85);
+  /* Now that content surfaces are white, grey is free to mean disabled, which
+     is what a reader already expects it to mean. A disabled control is a
+     surface of its own, never a faded copy of an enabled one: opacity on a
+     container lets the layer underneath bleed through and destroys the
+     separation the rest of this file guarantees. */
+  --surface-disabled: oklch(0.93 0.005 85);
+
+  --surface-anchor: oklch(0.22 0.008 85);
 
   --border-subtle: oklch(0 0 0 / 0.08);
   --border-default: oklch(0 0 0 / 0.14);
   --border-strong: oklch(0 0 0 / 0.24);
 
-  /* Text. Each token is cleared for a specific set of surfaces, listed in
-     docs/development/design-system.md and enforced by scripts/check-contrast.ts.
+  /* Inputs carry their own border, stronger than the default, because in light
+     mode it is the only thing separating a white field from the white card it
+     sits on. */
+  --input-border: oklch(0 0 0 / 0.18);
+  --input-border-focus: oklch(0.7 0.15 105);
 
-       --fg-primary    Body text. Cleared for every surface.
-
-       --fg-secondary  Every piece of text that carries meaning but is not the
-                       primary line: status, descriptions, hints, placeholders,
-                       and the reason an engine is unavailable. Cleared for
-                       every surface at 4.5:1.
-
-       --fg-muted      The label of a DISABLED control, and nothing else. It
-                       measures 3.28:1 on surface-1 in light mode, which is
-                       below the 4.5:1 that body text needs. WCAG 1.4.3 exempts
-                       disabled controls; it does not exempt text that tells the
-                       user something. "No CUDA driver was found" is
-                       information the user has to act on, so it is secondary,
-                       not muted. */
-  --fg-primary: oklch(0.25 0.01 85);
-  --fg-secondary: oklch(0.45 0.008 85);
-  --fg-muted: oklch(0.61 0.006 85);
+  /* Text.
+       --fg-primary      Body text. Cleared for every text-bearing surface.
+       --fg-secondary    Everything that carries meaning but is not the primary
+                         line: status, descriptions, hints, and the reason an
+                         engine is unavailable. Held to 4.5:1 like body text.
+       --fg-muted        The label of a DISABLED control, and nothing else. It
+                         does not clear 4.5:1 on the disabled surface, and the
+                         WCAG 1.4.3 exemption that allows that covers disabled
+                         controls only. It is not a general de-emphasis token.
+       --fg-placeholder  Placeholder text in an input, and nothing else. Held to
+                         a full 4.5:1 on --surface-input: a placeholder is read,
+                         so it is not decoration.
+       --fg-on-anchor    Text on the status bar, and nothing else. */
+  --fg-primary: oklch(0.23 0.01 85);
+  --fg-secondary: oklch(0.44 0.008 85);
+  --fg-muted: oklch(0.56 0.008 85);
+  --fg-placeholder: oklch(0.545 0.008 85);
+  --fg-on-anchor: oklch(0.96 0.004 85);
 
   /* One saturated accent, used only for the active state and for the single
      most important value on screen. */
@@ -91,21 +157,18 @@
   --accent-hover: oklch(0.845 0.19 105);
   --accent-fg: oklch(0.22 0.03 105);
 
-  /* The dark anchor bar at the bottom of the window. It is the only large dark
-     area in light mode, and it is what stops the screen from floating. */
-  --anchor: oklch(0.22 0.008 85);
-  --anchor-fg: oklch(0.96 0.004 85);
-
   --radius-sm: 8px;
   --radius-md: 14px;
   --radius-lg: 20px;
   --radius-pill: 999px;
 
-  /* Wide, low opacity, small vertical offset. A tight dark shadow reads as a
-     cheap drop shadow; a diffuse one reads as height. */
-  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.06), 0 2px 8px oklch(0 0 0 / 0.06);
-  --shadow-md: 0 2px 4px oklch(0 0 0 / 0.08), 0 8px 24px oklch(0 0 0 / 0.1);
-  --shadow-lg: 0 4px 8px oklch(0 0 0 / 0.1), 0 16px 48px oklch(0 0 0 / 0.14);
+  /* In light mode a shadow is a real separation mechanism, and the only thing
+     holding surface-float apart from the white beneath it. Wide, low opacity,
+     small vertical offset: a tight dark shadow reads as a cheap drop shadow, a
+     diffuse one reads as height. */
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.06), 0 2px 8px oklch(0 0 0 / 0.08);
+  --shadow-md: 0 2px 4px oklch(0 0 0 / 0.1), 0 8px 24px oklch(0 0 0 / 0.12);
+  --shadow-lg: 0 4px 8px oklch(0 0 0 / 0.12), 0 16px 48px oklch(0 0 0 / 0.16);
 
   --space-1: 4px;
   --space-2: 8px;
@@ -120,7 +183,7 @@
   --space-11: 44px;
   --space-12: 48px;
 
-  --titlebar-height: 40px;
+  --titlebar-height: 52px;
   --statusbar-height: 28px;
 
   /* Reserved for the macOS traffic lights, which the system draws over the
@@ -129,24 +192,35 @@
 }
 
 [data-theme='dark'] {
-  /* Dark mode gets five steps and a larger 0.050 stride, because the eye
-     separates dark values less well than light ones. */
-  --surface-sunken: oklch(0.15 0.008 85);
-  --surface-canvas: oklch(0.2 0.008 85);
-  --surface-1: oklch(0.25 0.009 85);
-  --surface-2: oklch(0.3 0.01 85);
-  --surface-float: oklch(0.355 0.011 85);
-  --surface-content: oklch(0.2 0.008 85);
-
-  --surface-disabled: oklch(0.225 0.008 85);
+  /* Dark mode uses real lightness steps, every one at least 0.050:
+       canvas 0.175 -> content 0.235          0.060
+       content 0.235 -> content-alt 0.290     0.055
+       content-alt 0.290 -> float 0.340       0.050
+       content 0.235 -> input 0.145           0.090, downward
+       input 0.145 -> disabled 0.205          0.060
+       canvas 0.175 -> anchor 0.095           0.080
+       content 0.235 -> well 0.130            0.105, downward */
+  --surface-canvas: oklch(0.175 0.008 85);
+  --surface-content: oklch(0.235 0.009 85);
+  --surface-content-alt: oklch(0.29 0.01 85);
+  --surface-input: oklch(0.145 0.008 85);
+  --surface-well: oklch(0.13 0.008 85);
+  --surface-float: oklch(0.34 0.011 85);
+  --surface-disabled: oklch(0.205 0.008 85);
+  --surface-anchor: oklch(0.095 0.005 85);
 
   --border-subtle: oklch(1 0 0 / 0.08);
   --border-default: oklch(1 0 0 / 0.14);
   --border-strong: oklch(1 0 0 / 0.24);
 
+  --input-border: oklch(1 0 0 / 0.2);
+  --input-border-focus: oklch(0.85 0.17 105);
+
   --fg-primary: oklch(0.96 0.004 85);
-  --fg-secondary: oklch(0.75 0.006 85);
-  --fg-muted: oklch(0.58 0.008 85);
+  --fg-secondary: oklch(0.76 0.006 85);
+  --fg-muted: oklch(0.62 0.008 85);
+  --fg-placeholder: oklch(0.64 0.008 85);
+  --fg-on-anchor: oklch(0.94 0.004 85);
 
   /* Yellow at full chroma on a dark ground reads as neon. Both L and chroma
      come down. Hover goes lighter here and darker in light mode, so that hover
@@ -155,14 +229,13 @@
   --accent-hover: oklch(0.885 0.18 105);
   --accent-fg: oklch(0.18 0.03 105);
 
-  --anchor: oklch(0.12 0.006 85);
-  --anchor-fg: oklch(0.94 0.004 85);
-
-  /* Shadows are close to invisible against a dark ground. They stay only as a
-     hint on the topmost layer, and never carry separation on their own. */
-  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.3);
-  --shadow-md: 0 2px 6px oklch(0 0 0 / 0.4);
-  --shadow-lg: 0 8px 32px oklch(0 0 0 / 0.5);
+  /* Shadows here are decoration, not separation. They are permitted only on
+     surface-float, which also clears its lightness step; every other dark
+     surface is held apart by lightness and a hairline border. A dark theme
+     that leans on shadow is a dark theme with invisible cards. */
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.4);
+  --shadow-md: 0 2px 6px oklch(0 0 0 / 0.5);
+  --shadow-lg: 0 8px 32px oklch(0 0 0 / 0.6);
 }
 
 [data-platform='macos'] {
@@ -170,35 +243,30 @@
 }
 
 /*
- * Translucent token set, used only when Rust reports that a background effect
- * was actually applied, and only in dark mode. The frontend never guesses: an
- * opaque canvas over an active effect hides it completely, and a transparent
- * canvas without one leaves text on the desktop wallpaper.
+ * Translucent variant, used only when Rust reports that a window background
+ * effect actually applied, and only in dark mode. The frontend never guesses:
+ * an opaque canvas over an active effect hides it, and a transparent canvas
+ * without one leaves text on the desktop wallpaper.
  *
- * DARK MODE ONLY, and this is not an oversight.
+ * Dark mode only. Under the role-based model, light mode's content surfaces
+ * are pure white, so there is no headroom above them at all: any alpha at all
+ * composites them downward, toward whatever the wallpaper is, and the
+ * canvas-to-content lightness boundary that light mode depends on collapses.
+ * This is the same conclusion ADR 0006 reached from the elevation side, now
+ * reached again from the surface model. See ADR 0009.
  *
- * A translucent surface composites as alpha * surface + (1 - alpha) *
- * wallpaper, and the wallpaper is whatever the user chose. In light mode the
- * chrome sits at L 0.95, a hair below the 1.0 ceiling, so any dark wallpaper
- * pulls it BELOW the content surface at L 0.905 and the elevation order
- * inverts: the panel reads as lower than the canvas it is supposed to sit on.
- * Measured on a real desktop, surface-1 rendered at sRGB 209 against content at
- * 225. There is no alpha that fixes this, because light mode has no headroom
- * above the chrome to compensate with. See ADR 0005 on why light mode is
- * capped, and ADR 0006 on the fallback rules.
+ * The alphas are high on purpose. Every one is at or above 0.90, so a surface
+ * contributes at most ten percent of the wallpaper and the declared lightness
+ * steps survive compositing rather than being at its mercy. That is also above
+ * the 0.85 floor for any surface that carries text.
  *
- * Dark mode has the room. Its chrome sits at L 0.25 with the whole range below
- * it, so blending toward any wallpaper keeps it above the content at L 0.20.
- *
- * Within dark mode: only chrome is translucent, 0.85 is the floor for any
- * surface that carries text, and --surface-content is never overridden,
- * because the image behind a vibrancy surface is the user's wallpaper and no
- * contrast guarantee can be made against it.
+ * surface-input, surface-well, surface-disabled, and surface-anchor stay fully
+ * opaque. They are the surfaces where text is smallest or contrast matters
+ * most, and none of them gains anything from the effect.
  */
 [data-vibrancy='on'][data-theme='dark'] {
-  --surface-canvas: transparent;
-  --surface-1: oklch(0.25 0.009 85 / 0.85);
-  --surface-2: oklch(0.3 0.01 85 / 0.92);
-  --surface-float: oklch(0.355 0.011 85 / 0.96);
-  /* --surface-content is deliberately not overridden. */
+  --surface-canvas: oklch(0.175 0.008 85 / 0.9);
+  --surface-content: oklch(0.235 0.009 85 / 0.92);
+  --surface-content-alt: oklch(0.29 0.01 85 / 0.94);
+  --surface-float: oklch(0.34 0.011 85 / 0.96);
 }

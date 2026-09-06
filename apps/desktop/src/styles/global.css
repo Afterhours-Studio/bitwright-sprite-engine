@@ -31,7 +31,7 @@
 
   body {
     margin: 0;
-    background: var(--surface-canvas);
+    background: transparent;
     color: var(--fg-primary);
     font-family: theme('fontFamily.sans');
     font-size: 14px;
@@ -39,27 +39,15 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /* The window is transparent so that the platform effect shows through. The
-     canvas token becomes transparent at the same time, which is why both are
-     driven by the same attribute rather than set independently.
-
-     Dark mode only, matching tokens.css: a translucent light-mode chrome
-     composites darker than the content it sits on and inverts the elevation
-     order, and light mode has no headroom to compensate. */
+  /* The window is transparent so that the platform effect and the rounded
+     corners of the bezel show through. Dark mode only, matching tokens.css. */
   [data-vibrancy='on'][data-theme='dark'],
   [data-vibrancy='on'][data-theme='dark'] body {
     background: transparent;
   }
 
-  /* Custom decorations mean the window corners are ours to draw. Without this
-     the webview paints square corners over the rounded system shadow. */
-  #root {
-    overflow: hidden;
-    border-radius: var(--radius-md);
-  }
-
   :focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--input-border-focus);
     outline-offset: 2px;
   }
 
@@ -67,14 +55,56 @@
     background: var(--accent);
     color: var(--accent-fg);
   }
+
+  /* The platform scrollbar is a grey slab that ignores the theme entirely, and
+     it is the first thing that gives away a web view. These rules are
+     supported by all three engines the application ships on. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-default);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: var(--radius-pill);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--border-strong);
+    background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
 }
 
 @layer components {
+  /* The dark bezel the whole application sits inside. It is what makes the
+     window read as one object rather than as a browser pane, and it is the
+     only place the window's rounded corners are drawn. */
+  .app-bezel {
+    background: var(--surface-anchor);
+    border-radius: var(--radius-lg);
+    padding: var(--space-2);
+  }
+
   /* The checkerboard behind the sprite canvas, so transparent pixels read as
-     transparent rather than as white. Built from gradients over the sunken
+     transparent rather than as white. Built from gradients over the well
      token, so it follows the theme. */
   .sprite-checkerboard {
-    background-color: var(--surface-sunken);
+    background-color: var(--surface-well);
     background-image:
       linear-gradient(45deg, var(--border-subtle) 25%, transparent 25%),
       linear-gradient(-45deg, var(--border-subtle) 25%, transparent 25%),
