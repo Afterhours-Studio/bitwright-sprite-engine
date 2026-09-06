@@ -29,6 +29,7 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type {
   BackendKind,
   BackendListResponse,
+  ConformResponse,
   ConnectionTestResult,
   GenerateRequest,
   GenerateResponse,
@@ -204,6 +205,11 @@ export function engineDownloadModel(modelId: string): Promise<ShellResult<ModelI
 /** Stops a download and deletes the bytes it had. */
 export function engineCancelDownload(modelId: string): Promise<ShellResult<ModelInfo>> {
   return invoke<ModelInfo>('engine_cancel_download', { modelId });
+}
+
+/** Corrects one sprite that already exists. */
+export function engineConform(request: unknown): Promise<ShellResult<ConformResponse>> {
+  return invoke<ConformResponse>('engine_conform', { request });
 }
 
 /** Deletes a model's weights from this machine. */

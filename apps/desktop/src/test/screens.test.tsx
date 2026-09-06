@@ -156,7 +156,10 @@ describe('screens', () => {
     // as well, so that translated chrome around an untranslated screen would
     // still fail. The expected text is read from the locale files rather than
     // written here, so that translated strings live only under locales/vi.
-    expect(screen.getByRole('tab', { selected: true })).toHaveTextContent(
+    // Scoped to the screen switcher, because the canvas now carries a second
+    // tab strip of its own and an unscoped query would find both.
+    const nav = within(screen.getByRole('tablist', { name: resources.vi.common.app.name }));
+    expect(nav.getByRole('tab', { selected: true })).toHaveTextContent(
       resources.vi.common.nav.generate,
     );
     expect(

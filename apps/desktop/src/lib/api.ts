@@ -28,6 +28,7 @@ import {
   engineActivateProvider,
   engineBackends,
   engineCancelDownload,
+  engineConform,
   engineDownloadModel,
   engineRemoveModel,
   engineGenerate,
@@ -53,6 +54,8 @@ import {
 import type {
   BackendKind,
   BackendListResponse,
+  ConformOptions,
+  ConformResponse,
   ConnectionTestResult,
   GenerateRequest,
   GenerateResponse,
@@ -135,6 +138,19 @@ export function downloadModel(modelId: string): Promise<ModelInfo> {
  */
 export function cancelDownload(modelId: string): Promise<ModelInfo> {
   return unwrap(engineCancelDownload(modelId));
+}
+
+/**
+ * Corrects one sprite, and reports the palette it ended up with.
+ *
+ * The corrections are the ones generation already applies; what is new is
+ * asking for them afterwards, so the same sprite can be adjusted repeatedly
+ * without paying for generation again.
+ */
+export function conformSprite(
+  request: ConformOptions & { image: string },
+): Promise<ConformResponse> {
+  return unwrap(engineConform(request));
 }
 
 /** Deletes a model's weights, reclaiming the space they occupy. */

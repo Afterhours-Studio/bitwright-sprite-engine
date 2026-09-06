@@ -114,5 +114,8 @@
     "apply_failed": "Không áp dụng được hiệu ứng làm mờ nền.",
     "windows10_opt_in": "Hiệu ứng làm mờ nền mặc định tắt trên Windows 10 vì làm chậm khi kéo cửa sổ.",
     "unsupported_platform": "Hệ thống này không hỗ trợ làm mờ nền."
+  },
+  "conform": {
+    "bad_image": "Không đọc được ảnh đó."
   }
 }

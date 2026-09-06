@@ -132,5 +132,18 @@
     "modelCount": "{{cached}} of {{total}} downloaded",
     "modelsHint": "Download at least one model in Settings.",
     "empty": "Still checking this machine."
+  },
+  "tools": {
+    "label": "Sprite Tools",
+    "adjust": "Adjust",
+    "colour": "Colour",
+    "empty": "Generate a sprite to adjust it.",
+    "adjustHint": "A model produces something that looks like pixel art. These make it pixel art.",
+    "snapTo": "Snap to Cell",
+    "snapToHint": "Resamples onto cells of this size. 1 leaves the grid alone.",
+    "conform": "Apply",
+    "conforming": "Applying",
+    "noPalette": "Reduce the colours in Adjust to get a palette.",
+    "paletteHint": "The colours this sprite uses, most used first."
   }
 }

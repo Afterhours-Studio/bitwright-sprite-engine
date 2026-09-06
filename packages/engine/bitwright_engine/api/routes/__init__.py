@@ -25,6 +25,7 @@ from fastapi import APIRouter
 
 from bitwright_engine.api.routes import (
     backends,
+    conform,
     generation,
     health,
     models,
@@ -39,6 +40,7 @@ health_router.include_router(health.router)
 protected_router = APIRouter()
 protected_router.include_router(health.shutdown_router)
 protected_router.include_router(backends.router)
+protected_router.include_router(conform.router)
 protected_router.include_router(generation.router)
 protected_router.include_router(models.router)
 protected_router.include_router(providers.router)

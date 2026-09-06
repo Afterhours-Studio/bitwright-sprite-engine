@@ -41,6 +41,7 @@ import {
   selectBackend,
 } from '@/lib/api';
 import type { SidecarStatus } from '@/lib/tauri';
+import { useDownloadStore } from '@/stores/useDownloadStore';
 import type { BackendInfo, BackendKind, Capability, ModelInfo } from '@/types/engine';
 
 /**
@@ -96,6 +97,49 @@ const UNKNOWN_SIDECAR: SidecarStatus = {
   detail: '',
 };
 
+/**
+ * Files transfers that have just ended.
+ *
+ * Kept here, where every model list arrives, rather than in a subscriber
+ * beside the store: a subscriber is attached once and a replaced module leaves
+ * the old one holding a reference nothing updates, so the record quietly stops
+ * being written while everything still appears to work.
+ *
+ * @param before - The list as it was.
+ * @param after - The list as it now is.
+ */
+function recordFinished(before: ModelInfo[], after: ModelInfo[]): void {
+  const record = useDownloadStore.getState().record;
+
+  for (const model of after) {
+    const previous = before.find((entry) => entry.modelId === model.modelId);
+    if (previous === undefined || !previous.downloading || model.downloading) {
+      continue;
+    }
+
+    if (model.error !== '') {
+      record({
+        name: model.name,
+        outcome: 'failed',
+        error: model.error,
+        bytes: model.downloadedBytes,
+      });
+    } else if (model.cached) {
+      record({ name: model.name, outcome: 'done', error: '', bytes: model.downloadedBytes });
+    } else {
+      // Stopped running, no reason code, and nothing on disk: the user asked
+      // for it to stop. A pause leaves bytes behind and is not an ending, so it
+      // is not filed.
+      record({
+        name: model.name,
+        outcome: model.resumable ? 'done' : 'cancelled',
+        error: '',
+        bytes: model.downloadedBytes,
+      });
+    }
+  }
+}
+
 export const useEngineStore = create<EngineState>((set, get) => {
   /** The running poll, or null when no download is being followed. */
   let poll: ReturnType<typeof setInterval> | null = null;
@@ -137,6 +181,7 @@ export const useEngineStore = create<EngineState>((set, get) => {
   const readModels = async (): Promise<void> => {
     try {
       const models = await listModels();
+      recordFinished(get().models, models);
       set({ models });
       syncPolling(models);
     } catch (error) {

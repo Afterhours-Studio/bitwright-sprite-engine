@@ -275,6 +275,32 @@ export const DIRECTION_COUNTS: Record<CameraAngle, readonly number[]> = {
   front: [1],
 };
 
+/** What to correct about a sprite that already exists. */
+export interface ConformOptions {
+  /** Whether to make the background transparent. */
+  removeBackground: boolean;
+  /** How close a pixel must be to the corner colour to count as background. */
+  backgroundTolerance: number;
+  /** Cell size to resample onto, or 1 to leave the grid alone. */
+  snapTo: number;
+  /** Colours to reduce to, or null to leave them alone. */
+  paletteSize: number | null;
+  /** Whether to dither while reducing. */
+  dither: boolean;
+}
+
+/** A corrected sprite. */
+export interface ConformResponse {
+  /** The result, base64 encoded PNG. */
+  image: string;
+  /** Result width in pixels. */
+  width: number;
+  /** Result height in pixels. */
+  height: number;
+  /** Every colour the result uses, most used first. */
+  palette: string[];
+}
+
 export interface GenerateRequest {
   prompt: string;
   negativePrompt: string;

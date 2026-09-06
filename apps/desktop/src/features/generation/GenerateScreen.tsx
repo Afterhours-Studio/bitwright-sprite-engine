@@ -32,7 +32,7 @@ import { Pill } from '@/components/ui/Pill';
 import { ParameterPanel } from '@/features/generation/ParameterPanel';
 import { SystemStatusFace, SystemStatusPanel } from '@/components/layout/SystemStatus';
 import { DownloadList } from '@/components/ui/DownloadList';
-import { PreviewRail } from '@/features/generation/PreviewRail';
+import { SpriteTools } from '@/features/generation/SpriteTools';
 import { SpriteCanvas } from '@/features/generation/SpriteCanvas';
 import { useCapabilities } from '@/hooks/useCapabilities';
 import { useErrorMessage } from '@/hooks/useErrorMessage';
@@ -113,7 +113,7 @@ export function GenerateScreen(): ReactElement {
   // It is clamped on read rather than reset on every new run, because a run
   // that returns fewer sprites than the last one is the only way it can go out
   // of range and clamping handles that without a subscription.
-  const [chosen, setChosen] = useState(0);
+  const [chosen] = useState(0);
   const selected = images.length === 0 ? 0 : Math.min(chosen, images.length - 1);
 
   const unread = useToastStore((state) => state.unread);
@@ -218,7 +218,12 @@ export function GenerateScreen(): ReactElement {
             showCheckerboard={showCheckerboard}
             requested={{ width: request.width, height: request.height }}
           />
-          <PreviewRail images={images} selected={selected} onSelect={setChosen} />
+          {/* The second column: what to do to the sprite in front of you.
+              The preview rail it replaces showed the sprite again at its own
+              size, which is a fact the stage already carries. */}
+          <aside className="hidden min-w-56 flex-1 flex-col ps-1 lg:flex">
+            <SpriteTools selected={selected} />
+          </aside>
         </div>
 
         {/* p-3 rather than p-4, and the failure line renders only when there is

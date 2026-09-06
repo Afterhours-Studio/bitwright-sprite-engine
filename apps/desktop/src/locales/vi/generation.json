@@ -132,5 +132,18 @@
     "modelCount": "Đã tải {{cached}} trên {{total}}",
     "modelsHint": "Hãy tải ít nhất một model trong Cài đặt.",
     "empty": "Đang kiểm tra máy này."
+  },
+  "tools": {
+    "label": "Công cụ sprite",
+    "adjust": "Chỉnh",
+    "colour": "Màu",
+    "empty": "Hãy tạo sprite trước khi chỉnh.",
+    "adjustHint": "Model tạo ra thứ trông giống pixel art. Các bước này biến nó thành pixel art thật.",
+    "snapTo": "Ghép về ô",
+    "snapToHint": "Lấy mẫu lại theo ô cỡ này. Để 1 là giữ nguyên lưới.",
+    "conform": "Áp dụng",
+    "conforming": "Đang áp dụng",
+    "noPalette": "Hãy giảm số màu ở tab Chỉnh để có bảng màu.",
+    "paletteHint": "Các màu sprite này đang dùng, nhiều nhất trước."
   }
 }

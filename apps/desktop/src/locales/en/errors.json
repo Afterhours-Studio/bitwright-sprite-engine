@@ -114,5 +114,8 @@
     "apply_failed": "The window blur effect could not be applied.",
     "windows10_opt_in": "Window blur is off by default on Windows 10, because it slows down dragging.",
     "unsupported_platform": "Window blur is not available on this system."
+  },
+  "conform": {
+    "bad_image": "That image could not be read."
   }
 }

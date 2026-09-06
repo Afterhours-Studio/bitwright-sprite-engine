@@ -26,9 +26,14 @@ import { create } from 'zustand';
 
 import { loadValue, saveValue, STORAGE_KEYS } from '@/lib/persist';
 
-import { ApiError, generate } from '@/lib/api';
+import { ApiError, conformSprite, generate } from '@/lib/api';
 import { useGalleryStore } from '@/stores/useGalleryStore';
-import type { GenerateRequest, GenerateResponse, SpriteImage } from '@/types/engine';
+import type {
+  ConformOptions,
+  GenerateRequest,
+  GenerateResponse,
+  SpriteImage,
+} from '@/types/engine';
 
 /** The parameters a run starts from. */
 export const DEFAULT_REQUEST: GenerateRequest = {
@@ -59,6 +64,12 @@ interface GenerationState {
   request: GenerateRequest;
   /** True while a run is in flight. */
   running: boolean;
+  /** True while a correction is being applied to the shown sprite. */
+  conforming: boolean;
+  /** Colours the shown sprite uses, most used first. Empty until conformed. */
+  palette: string[];
+  /** Corrects one sprite in place, and reports its palette. */
+  conform: (index: number, options: ConformOptions) => Promise<void>;
   /** The sprites from the last successful run. */
   images: SpriteImage[];
   /** How long the last run took, in milliseconds. */
@@ -84,9 +95,37 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     ...((loadValue(STORAGE_KEYS.request) as Partial<GenerateRequest> | null) ?? {}),
   },
   running: false,
+  conforming: false,
+  palette: [],
   images: [],
   durationMs: 0,
   error: null,
+
+  conform: async (selected, options) => {
+    const { images } = get();
+    const image = images[selected];
+    if (image === undefined) {
+      return;
+    }
+
+    set({ conforming: true, error: null });
+    try {
+      const result = await conformSprite({ image: image.data, ...options });
+      // Replaced in place rather than appended: this is the same sprite
+      // corrected, not another attempt at it, and a batch strip that grew every
+      // time a correction ran would stop meaning what it says.
+      const next = images.map((entry, index) =>
+        index === selected
+          ? { ...entry, data: result.image, width: result.width, height: result.height }
+          : entry,
+      );
+      set({ images: next, palette: result.palette });
+    } catch (error) {
+      set({ error: error instanceof ApiError ? error.code : 'unknown' });
+    } finally {
+      set({ conforming: false });
+    }
+  },
 
   patch: (patch) => {
     const request = { ...get().request, ...patch };

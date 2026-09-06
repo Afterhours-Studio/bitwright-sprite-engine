@@ -348,6 +348,19 @@ fn provider_action_path(provider_id: &str, action: &str) -> Result<String, Comma
     Ok(format!("/v1/providers/{provider_id}/{action}"))
 }
 
+/// Corrects one sprite that already exists.
+///
+/// # Errors
+///
+/// Returns the engine's reason code when the call fails.
+#[tauri::command]
+pub async fn engine_conform<R: Runtime>(
+    app: AppHandle<R>,
+    request: Value,
+) -> Result<Value, CommandError> {
+    Ok(engine::call(&app, Method::Post, "/v1/conform", Some(request)).await?)
+}
+
 /// Deletes a model's weights from this machine.
 ///
 /// # Errors
@@ -789,6 +802,7 @@ pub fn handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + 
         engine_models,
         engine_download_model,
         engine_cancel_download,
+        engine_conform,
         engine_remove_model,
         engine_pause_download,
         engine_providers,

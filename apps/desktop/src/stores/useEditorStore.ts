@@ -123,6 +123,14 @@ interface EditorState {
   /** The brush's footprint at sizes above one pixel. */
   brushShape: BrushShape;
   /** Whether the canvas draws a line at every sprite pixel boundary. */
+  /**
+   * The colour painting uses, as hex, or null when none is chosen.
+   *
+   * Null rather than a default: a sprite's palette is not known until it has
+   * one, and picking white in advance would be the interface inventing a
+   * colour the sprite may not contain.
+   */
+  colour: string | null;
   showPixelGrid: boolean;
   /** Whether the canvas shows transparent pixels as a checker pattern. */
   showCheckerboard: boolean;
@@ -136,6 +144,8 @@ interface EditorState {
   /** Chooses the brush footprint. */
   setBrushShape: (shape: BrushShape) => void;
   /** Shows or hides the pixel grid overlay. */
+  /** Chooses the colour painting uses. */
+  setColour: (colour: string) => void;
   setShowPixelGrid: (show: boolean) => void;
   /** Shows or hides the transparency checkerboard. */
   setShowCheckerboard: (show: boolean) => void;
@@ -185,6 +195,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   // pixel ends and the next begins, and it suppresses itself whenever it would
   // be a grey wash instead, so leaving it on costs nothing when it is not
   // wanted.
+  colour: null,
   ...storedView(),
 
   setTool: (tool) => {
@@ -211,6 +222,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setBrushShape: (brushShape) => {
     set({ brushShape });
+  },
+
+  setColour: (colour) => {
+    set({ colour });
   },
 
   setShowPixelGrid: (showPixelGrid) => {
