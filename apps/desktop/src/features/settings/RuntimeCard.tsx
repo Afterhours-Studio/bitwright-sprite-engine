@@ -338,14 +338,22 @@ function Summary({ info, units, unknownSpace }: SummaryProps): ReactElement {
 
   return (
     <div className="rounded-md border border-line bg-surface-content-alt p-3">
-      {/* Two columns, so the values line up with each other rather than
-          starting wherever their label happens to end. */}
-      <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-xs text-fg-secondary">
+      {/* One label-and-value pair per cell, two pairs to a row once there is
+          room. Seven pairs in a single column left most of the card empty to
+          the right while the list ran down past the controls; the label column
+          stays `auto` inside each pair so values still line up with each
+          other rather than starting wherever a label happens to end.
+          The location is the exception: a path is long and unbreakable, so it
+          takes the full width rather than forcing the column that holds it
+          wide enough for every other value. */}
+      <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-xs text-fg-secondary md:grid-cols-[auto_1fr_auto_1fr]">
         <dt>{t('runtime.state')}</dt>
         <dd className="text-fg-primary">{state}</dd>
 
-        <dt>{t('runtime.location')}</dt>
-        <dd className="break-all text-fg-primary">{info === null ? '-' : info.installDir}</dd>
+        <dt className="md:col-start-1">{t('runtime.location')}</dt>
+        <dd className="break-all text-fg-primary md:col-span-3">
+          {info === null ? '-' : info.installDir}
+        </dd>
 
         <dt>{t('runtime.free')}</dt>
         <dd className="text-fg-primary">
