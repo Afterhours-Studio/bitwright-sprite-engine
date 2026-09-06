@@ -144,7 +144,7 @@
        --fg-placeholder  Placeholder text in an input, and nothing else. Held to
                          a full 4.5:1 on --surface-input: a placeholder is read,
                          so it is not decoration.
-       --fg-on-anchor    Text on the status bar, and nothing else. */
+       --fg-on-anchor    Text on --surface-anchor, and nothing else. */
   --fg-primary: oklch(0.23 0.01 85);
   --fg-secondary: oklch(0.44 0.008 85);
   --fg-muted: oklch(0.56 0.008 85);
@@ -157,10 +157,52 @@
   --accent-hover: oklch(0.845 0.19 105);
   --accent-fg: oklch(0.22 0.03 105);
 
-  --radius-sm: 8px;
-  --radius-md: 14px;
-  --radius-lg: 20px;
+  /* Severity. Four marker colours for a notification: the icon beside it, and
+     nothing wider. They are NOT surfaces and NOT general foregrounds, which is
+     why they are named `--severity-*` rather than `--fg-*` or `--surface-*`.
+
+     A notification is drawn on --surface-float and takes --fg-primary for its
+     heading and --fg-secondary for its body, both already cleared for that
+     surface. The severity colour only ever paints a glyph, so the rule that
+     applies to it is WCAG 1.4.11's 3:1 for a non-text graphic. Every one of
+     these clears 4.5:1 on --surface-float anyway, in both modes, measured with
+     the same `wcagContrast` the contrast script uses:
+
+       mode   info  success  warning  error
+       light  4.85  5.17     5.11     5.38
+       dark   4.56  5.10     5.12     4.64
+
+     The extra headroom is deliberate: it means a later change that puts a
+     severity colour on a word, rather than on a glyph, is already legal instead
+     of quietly failing at 3.2:1.
+
+     Hues are the four a reader already has a meaning for, and they are the
+     four hues furthest from the yellow accent, so a severity marker is never
+     mistaken for the selected state. Chroma is held down in dark mode for the
+     same reason the accent is: full chroma on a dark ground reads as neon. */
+  --severity-info: oklch(0.55 0.15 250);
+  --severity-success: oklch(0.52 0.14 150);
+  --severity-warning: oklch(0.545 0.135 70);
+  --severity-error: oklch(0.55 0.2 25);
+
+  /* Kept deliberately tight. A 20px card corner at this card size reads as a
+     rounded rectangle first and a panel second; the curve starts competing with
+     the content sitting inside it. */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
   --radius-pill: 999px;
+
+  /* The window's own corner. It has to match what the compositor draws, or the
+     bezel shows a hard corner outside the system's rounded one and the gap
+     between the two reads as a rendering fault. Windows 11 rounds at 8px.
+
+     The inner value is derived, not chosen: a corner nested inside another has
+     to be the outer radius minus the gap between them, or the two curves run at
+     different rates and the corner reads as a mistake. 8 minus the 4px bezel
+     leaves 4. */
+  --radius-window: 8px;
+  --radius-window-inner: 4px;
 
   /* In light mode a shadow is a real separation mechanism, and the only thing
      holding surface-float apart from the white beneath it. Wide, low opacity,
@@ -184,7 +226,6 @@
   --space-12: 48px;
 
   --titlebar-height: 52px;
-  --statusbar-height: 28px;
 
   /* Reserved for the macOS traffic lights, which the system draws over the
      client area at the top left. */
@@ -193,21 +234,29 @@
 
 [data-theme='dark'] {
   /* Dark mode uses real lightness steps, every one at least 0.050:
-       canvas 0.175 -> content 0.235          0.060
-       content 0.235 -> content-alt 0.290     0.055
-       content-alt 0.290 -> float 0.340       0.050
-       content 0.235 -> input 0.145           0.090, downward
-       input 0.145 -> disabled 0.205          0.060
-       canvas 0.175 -> anchor 0.095           0.080
-       content 0.235 -> well 0.130            0.105, downward */
-  --surface-canvas: oklch(0.175 0.008 85);
-  --surface-content: oklch(0.235 0.009 85);
-  --surface-content-alt: oklch(0.29 0.01 85);
-  --surface-input: oklch(0.145 0.008 85);
-  --surface-well: oklch(0.13 0.008 85);
-  --surface-float: oklch(0.34 0.011 85);
-  --surface-disabled: oklch(0.205 0.008 85);
-  --surface-anchor: oklch(0.095 0.005 85);
+       canvas 0.255 -> content 0.315          0.060
+       content 0.315 -> content-alt 0.370     0.055
+       content-alt 0.370 -> float 0.420       0.050
+       content 0.315 -> input 0.225           0.090, downward
+       input 0.225 -> disabled 0.285          0.060
+       canvas 0.255 -> anchor 0.175           0.080
+       content 0.315 -> well 0.210            0.105, downward
+
+     The whole ladder sits 0.080 higher than it first did. OKLCH lightness is
+     not sRGB lightness: the first set read as reasonable numbers and rendered
+     as an almost black interface, because L is close to the cube root of
+     luminance down here. Measured off a screenshot, the old canvas came out at
+     sRGB 18 and the old input at 11 - not a dark theme, an unlit one. The step
+     sizes are unchanged, so every declared separation still holds; only the
+     floor moved. Check any future value by rendering it, never by reading it. */
+  --surface-canvas: oklch(0.255 0.008 85);
+  --surface-content: oklch(0.315 0.009 85);
+  --surface-content-alt: oklch(0.37 0.01 85);
+  --surface-input: oklch(0.225 0.008 85);
+  --surface-well: oklch(0.21 0.008 85);
+  --surface-float: oklch(0.42 0.011 85);
+  --surface-disabled: oklch(0.285 0.008 85);
+  --surface-anchor: oklch(0.175 0.005 85);
 
   --border-subtle: oklch(1 0 0 / 0.08);
   --border-default: oklch(1 0 0 / 0.14);
@@ -217,7 +266,10 @@
   --input-border-focus: oklch(0.85 0.17 105);
 
   --fg-primary: oklch(0.96 0.004 85);
-  --fg-secondary: oklch(0.76 0.006 85);
+  /* Raised with the surface ladder. surface-float is the lightest surface that
+     carries text, so it sets the floor for this token; at the old 0.760 the
+     secondary text inside a popover fell to 3.94:1. */
+  --fg-secondary: oklch(0.815 0.006 85);
   --fg-muted: oklch(0.62 0.008 85);
   --fg-placeholder: oklch(0.64 0.008 85);
   --fg-on-anchor: oklch(0.94 0.004 85);
@@ -228,6 +280,15 @@
   --accent: oklch(0.85 0.17 105);
   --accent-hover: oklch(0.885 0.18 105);
   --accent-fg: oklch(0.18 0.03 105);
+
+  /* Severity, lifted above --surface-float rather than dropped below it. In
+     dark mode a marker has to be lighter than the surface it sits on, and the
+     float surface is the lightest one in the ladder, so these are the lightest
+     colours in the file. */
+  --severity-info: oklch(0.8 0.11 250);
+  --severity-success: oklch(0.82 0.14 150);
+  --severity-warning: oklch(0.84 0.13 80);
+  --severity-error: oklch(0.82 0.115 25);
 
   /* Shadows here are decoration, not separation. They are permitted only on
      surface-float, which also clears its lightness step; every other dark
@@ -243,30 +304,15 @@
 }
 
 /*
- * Translucent variant, used only when Rust reports that a window background
- * effect actually applied, and only in dark mode. The frontend never guesses:
- * an opaque canvas over an active effect hides it, and a transparent canvas
- * without one leaves text on the desktop wallpaper.
+ * There is no translucent surface variant any more.
  *
- * Dark mode only. Under the role-based model, light mode's content surfaces
- * are pure white, so there is no headroom above them at all: any alpha at all
- * composites them downward, toward whatever the wallpaper is, and the
- * canvas-to-content lightness boundary that light mode depends on collapses.
- * This is the same conclusion ADR 0006 reached from the elevation side, now
- * reached again from the surface model. See ADR 0009.
+ * The window background effect is shown by the bezel instead: the ring of
+ * window around the interface, which carries no text of any kind. That is the
+ * one place translucency is safe, and because it is safe it works in BOTH
+ * modes, where the earlier translucent token set had to be limited to dark.
  *
- * The alphas are high on purpose. Every one is at or above 0.90, so a surface
- * contributes at most ten percent of the wallpaper and the declared lightness
- * steps survive compositing rather than being at its mercy. That is also above
- * the 0.85 floor for any surface that carries text.
- *
- * surface-input, surface-well, surface-disabled, and surface-anchor stay fully
- * opaque. They are the surfaces where text is smallest or contrast matters
- * most, and none of them gains anything from the effect.
+ * Every surface in this file stays fully opaque, in every mode, whether or not
+ * an effect is active. Text is therefore never composited against the user's
+ * wallpaper, and the declared lightness steps are never at its mercy. See
+ * ADR 0006 and ADR 0009.
  */
-[data-vibrancy='on'][data-theme='dark'] {
-  --surface-canvas: oklch(0.175 0.008 85 / 0.9);
-  --surface-content: oklch(0.235 0.009 85 / 0.92);
-  --surface-content-alt: oklch(0.29 0.01 85 / 0.94);
-  --surface-float: oklch(0.34 0.011 85 / 0.96);
-}

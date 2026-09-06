@@ -85,6 +85,8 @@ export default {
       md: 'var(--radius-md)',
       lg: 'var(--radius-lg)',
       pill: 'var(--radius-pill)',
+      window: 'var(--radius-window)',
+      'window-inner': 'var(--radius-window-inner)',
       full: '9999px',
     },
     boxShadow: {
@@ -108,7 +110,6 @@ export default {
         11: 'var(--space-11)',
         12: 'var(--space-12)',
         titlebar: 'var(--titlebar-height)',
-        statusbar: 'var(--statusbar-height)',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],

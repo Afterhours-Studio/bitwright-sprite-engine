@@ -39,10 +39,11 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /* The window is transparent so that the platform effect and the rounded
-     corners of the bezel show through. Dark mode only, matching tokens.css. */
-  [data-vibrancy='on'][data-theme='dark'],
-  [data-vibrancy='on'][data-theme='dark'] body {
+  /* The window is transparent so that the platform effect shows through the
+     bezel. Both modes: the bezel is the only translucent thing and it holds no
+     text, so there is nothing for a wallpaper to make unreadable. */
+  [data-vibrancy='on'],
+  [data-vibrancy='on'] body {
     background: transparent;
   }
 
@@ -56,21 +57,68 @@
     color: var(--accent-fg);
   }
 
-  /* The platform scrollbar is a grey slab that ignores the theme entirely, and
-     it is the first thing that gives away a web view. These rules are
-     supported by all three engines the application ships on. */
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: var(--border-strong) transparent;
+  /* The platform's own number stepper: a pair of tiny arrows drawn inside the
+     field in the system's colours, at the system's size, ignoring the theme
+     completely. It is the same problem the native select had, and it gets the
+     same answer - the control is drawn by `components/ui/NumberField.tsx`
+     instead.
+
+     Both halves are needed, and neither is redundant. `appearance: textfield`
+     is what Gecko honours and what the standard says; Chromium, which is what
+     WebView2 and the Linux WebKitGTK build come down to in practice, keeps
+     drawing the buttons regardless and only stops once the pseudo-elements are
+     switched off by name. The margin reset goes with them, because WebKit
+     leaves the space they occupied behind otherwise.
+
+     This is an element-level reset rather than a class, so it also covers the
+     number inputs that have not been moved onto NumberField yet. None of them
+     is left showing system arrows in the meantime. */
+  input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
   }
+
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    appearance: none;
+    margin: 0;
+  }
+
+  /* The platform scrollbar is a grey slab that ignores the theme entirely, and
+     it is the first thing that gives away a web view.
+
+     Styled entirely through the ::-webkit-scrollbar parts, with no
+     scrollbar-width or scrollbar-color anywhere. Those two are the standard
+     properties, but declaring either one makes Chromium drop the whole
+     ::-webkit-scrollbar cascade for that element - the two systems do not
+     compose, the standard one simply wins and every part rule is ignored.
+     That is what made an inset track do nothing here. The parts are also the
+     wider support: WebView2 and WKWebView and WebKitGTK all honour them, while
+     scrollbar-width reaches none of the WebKit ones. */
 
   ::-webkit-scrollbar {
     width: 10px;
     height: 10px;
   }
 
+  /* Inset from both ends of the track by the corner radius. A scrollbar runs
+     the full height of its scroll box, so inside a rounded card the thumb
+     reaches the point where the edge has already started to curve away and
+     reads as sticking out of the corner. Insetting the track keeps the thumb
+     within the straight part of the edge. The horizontal rule does the same for
+     that bar's ends.
+
+     Physical margins, not margin-block/margin-inline: these scrollbar parts are
+     legacy non-standard pseudo-elements and do not resolve logical properties,
+     which is why the first attempt here had no effect at all. */
   ::-webkit-scrollbar-track {
     background: transparent;
+    margin: var(--radius-md) 0;
+  }
+
+  ::-webkit-scrollbar-track:horizontal {
+    margin: 0 var(--radius-md);
   }
 
   ::-webkit-scrollbar-thumb {
@@ -91,13 +139,25 @@
 }
 
 @layer components {
-  /* The dark bezel the whole application sits inside. It is what makes the
-     window read as one object rather than as a browser pane, and it is the
-     only place the window's rounded corners are drawn. */
+  /* The ring of window around the interface.
+
+     With a background effect active it is transparent, so the platform draws
+     Mica or vibrancy there and the application reads as part of the system.
+     Without one it falls back to the anchor colour, which is a deliberate dark
+     frame rather than a hole.
+
+     The radius matches --radius-window, not a decorative value. A bezel
+     rounded more than the compositor's own corner leaves a wedge of bezel
+     outside the window's rounded edge at each corner, which looks like a
+     rendering fault rather than a design. */
   .app-bezel {
     background: var(--surface-anchor);
-    border-radius: var(--radius-lg);
-    padding: var(--space-2);
+    border-radius: var(--radius-window);
+    padding: var(--space-1);
+  }
+
+  [data-vibrancy='on'] .app-bezel {
+    background: transparent;
   }
 
   /* The checkerboard behind the sprite canvas, so transparent pixels read as
