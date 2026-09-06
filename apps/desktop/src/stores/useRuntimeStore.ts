@@ -29,6 +29,8 @@
 
 import { create } from 'zustand';
 
+import { useDownloadStore } from '@/stores/useDownloadStore';
+
 import {
   ApiError,
   cancelRuntimeInstall,
@@ -65,6 +67,9 @@ interface RuntimeState {
   /** Clears the last error. */
   clearError: () => void;
 }
+
+/** What the transfers panel calls a runtime install. */
+const RUNTIME_LABEL = 'GPU runtime';
 
 export const useRuntimeStore = create<RuntimeState>((set, get) => {
   // Module scope rather than store state: a timer is not something a component
@@ -110,7 +115,36 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => {
    *
    * @param info - The runtime state the engine reported.
    */
+  /**
+   * Files a finished install, so the transfers panel remembers it.
+   *
+   * Recorded here, where every runtime state arrives, for the same reason the
+   * model records are written where the model list arrives: a subscriber
+   * attached beside the store stops being called when its module is replaced,
+   * and the record silently stops being written.
+   *
+   * @param before - The state as it was.
+   * @param after - The state as it now is.
+   * @param failure - The reason code, when the work failed.
+   */
+  const recordFinished = (
+    before: RuntimeInfo | null,
+    after: RuntimeInfo,
+    failure: string | null,
+  ): void => {
+    if (before === null || !before.installing || after.installing) {
+      return;
+    }
+    useDownloadStore.getState().record({
+      name: RUNTIME_LABEL,
+      outcome: failure !== null ? 'failed' : 'done',
+      error: failure ?? '',
+      bytes: after.usedBytes,
+    });
+  };
+
   const accept = (info: RuntimeInfo): void => {
+    recordFinished(get().info, info, get().error);
     set({ info, loading: false });
     sync();
   };

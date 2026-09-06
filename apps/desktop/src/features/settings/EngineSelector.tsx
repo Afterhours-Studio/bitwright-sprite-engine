@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 
 import { StatusDot } from '@/components/ui/Field';
 import { Pill } from '@/components/ui/Pill';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { useErrorMessage } from '@/hooks/useErrorMessage';
 import { useEngineStore } from '@/stores/useEngineStore';
 import type { BackendInfo } from '@/types/engine';
@@ -74,16 +75,22 @@ export function EngineSelector(): ReactElement {
                   {t('engine.selected')}
                 </span>
               ) : (
-                <Pill
-                  className="shrink-0"
-                  tone="anchor"
-                  disabled={!backend.available || loading}
-                  onClick={() => {
-                    void select(backend.kind);
-                  }}
-                >
-                  {t('engine.select')}
-                </Pill>
+                // The reason is on the control rather than under the row.
+                // A disabled button with a sentence beneath it repeats for
+                // every unavailable engine; on the button it is there when it
+                // is asked for and takes no room when it is not.
+                <Tooltip label={reason ?? t('engine.select')}>
+                  <Pill
+                    className="shrink-0"
+                    tone="anchor"
+                    disabled={!backend.available || loading}
+                    onClick={() => {
+                      void select(backend.kind);
+                    }}
+                  >
+                    {t('engine.select')}
+                  </Pill>
+                </Tooltip>
               )}
             </div>
 
@@ -93,10 +100,6 @@ export function EngineSelector(): ReactElement {
                 {': '}
                 {backend.device}
               </p>
-            )}
-
-            {!backend.available && reason !== null && (
-              <p className="text-xs text-fg-secondary">{reason}</p>
             )}
 
             <p className="text-xs text-fg-secondary">

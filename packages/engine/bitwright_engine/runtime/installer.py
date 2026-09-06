@@ -42,6 +42,7 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import json
+import re
 import shutil
 import threading
 import zipfile
@@ -329,6 +330,24 @@ def _safe_member(name: str) -> bool:
     return all(part not in ("..", ".") for part in name.replace("\\", "/").split("/") if part != "")
 
 
+def _normalise(name: str) -> str:
+    """Return a distribution name in the form a wheel writes it.
+
+    A wheel escapes its own name when it names its dist-info directory: runs of
+    dot, hyphen and underscore become a single underscore, and the whole thing
+    is lower cased. So `PyYAML` sits on disk as `pyyaml` and `hf-xet` as
+    `hf_xet`, and comparing the manifest's spelling against the directory
+    listing reported six installed packages as missing.
+
+    Args:
+        name: A distribution name, or a directory name.
+
+    Returns:
+        The escaped form.
+    """
+    return re.sub(r"[-_.]+", "_", name).lower()
+
+
 class RuntimeInstaller:
     """Installs, reports on, and removes the GPU runtime.
 
@@ -444,12 +463,14 @@ class RuntimeInstaller:
             return ()
 
         present = (
-            {entry.name for entry in self.site_dir.iterdir()} if self.site_dir.is_dir() else set()
+            {_normalise(entry.name) for entry in self.site_dir.iterdir()}
+            if self.site_dir.is_dir()
+            else set()
         )
         return tuple(
             wheel
             for wheel in variant.wheels
-            if f"{wheel.name}-{wheel.version}.dist-info" not in present
+            if _normalise(f"{wheel.name}-{wheel.version}.dist-info") not in present
         )
 
     def repair(self) -> tuple[Wheel, ...]:

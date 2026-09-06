@@ -193,9 +193,14 @@ def run_pipeline(
     """Produce one image at the requested size.
 
     The size asked for is what the sprite ends up as, not what the model is
-    asked for. The result is brought down with a nearest neighbour reduction,
-    which keeps edges hard rather than averaging them into the blur this
-    application exists to remove.
+    asked for.
+
+    The reduction averages over each cell rather than sampling one pixel from
+    it. Nearest neighbour is right for scaling pixel art up, and wrong here:
+    taking one pixel in every eight from a detailed render throws away seven
+    eighths of the shape and returns speckle, which is exactly what it did.
+    Averaging keeps the shape; the palette reduction that follows is what makes
+    the result read as pixel art rather than as a small photograph.
 
     Args:
         pipeline: A loaded pipeline.
@@ -232,5 +237,5 @@ def run_pipeline(
 
     image: Image.Image = result.images[0]
     if (image.width, image.height) != (width, height):
-        image = image.resize((width, height), Image.Resampling.NEAREST)
+        image = image.resize((width, height), Image.Resampling.BOX)
     return image

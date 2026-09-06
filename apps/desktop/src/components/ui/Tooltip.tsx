@@ -49,6 +49,9 @@ export interface TooltipProps {
 /** How close to the window edge a label may sit before it is nudged back. */
 const EDGE_MARGIN_PX = 8;
 
+/** The gap between a label and its trigger, matching the offsets in SIDE. */
+const GAP_PX = 6;
+
 const OPEN_DELAY_MS = 400;
 
 /**
@@ -134,6 +137,17 @@ export function Tooltip({ label, side = 'bottom', children }: TooltipProps): Rea
    * this one was missing.
    */
   const [shift, setShift] = useState(0);
+
+  /**
+   * The side the label ends up on.
+   *
+   * The caller says where it would like the label, and that is right until
+   * the trigger is near an edge: a label above a control at the top of the
+   * window is clipped, and nudging along the inline axis cannot help. It
+   * flips to the other side instead, which is what every tooltip does and
+   * what this one was missing.
+   */
+  const [placement, setPlacement] = useState<TooltipSide>(side);
 
   // Whether the focus about to arrive was caused by a press on the trigger.
   // `:focus-visible` already answers that in every engine that implements it;
@@ -229,6 +243,23 @@ export function Tooltip({ label, side = 'bottom', children }: TooltipProps): Rea
       }
       node.style.marginInlineStart = '';
       const box = node.getBoundingClientRect();
+
+      // Measured against the side asked for, then flipped only when that side
+      // does not fit and the other one does: flipping whenever the preferred
+      // side is tight would make a label jump about while the window resizes.
+      const height = box.height;
+      const trigger = wrapper.current?.getBoundingClientRect();
+      if (trigger !== undefined) {
+        const above = trigger.top - height - GAP_PX;
+        const below = window.innerHeight - (trigger.bottom + height + GAP_PX);
+        if (side === 'top' && above < EDGE_MARGIN_PX && below >= EDGE_MARGIN_PX) {
+          setPlacement('bottom');
+        } else if (side === 'bottom' && below < EDGE_MARGIN_PX && above >= EDGE_MARGIN_PX) {
+          setPlacement('top');
+        } else {
+          setPlacement(side);
+        }
+      }
       const overflowStart = EDGE_MARGIN_PX - box.left;
       const overflowEnd = box.right - (window.innerWidth - EDGE_MARGIN_PX);
       if (overflowStart > 0) {
@@ -245,7 +276,7 @@ export function Tooltip({ label, side = 'bottom', children }: TooltipProps): Rea
     return () => {
       window.removeEventListener('resize', measure);
     };
-  }, [showing, label]);
+  }, [showing, label, side]);
 
   // Escape and a press anywhere both close it. The press is watched on the
   // document, in the capture phase, so that the label is gone before whatever
@@ -314,7 +345,7 @@ export function Tooltip({ label, side = 'bottom', children }: TooltipProps): Rea
           'rounded-sm border border-line bg-surface-float px-2 py-1 shadow-md',
           'text-xs font-medium text-fg-primary',
           'transition-[opacity,transform] duration-150',
-          SIDE[side],
+          SIDE[placement],
           showing ? 'scale-100 opacity-100' : 'scale-95 opacity-0',
         )}
       >

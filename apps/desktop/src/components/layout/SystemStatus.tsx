@@ -130,7 +130,10 @@ function useParts(): { parts: Part[]; ready: number; counted: number } {
       id: `backend-${backend.kind}`,
       label: t(`binaries.backend.${backend.kind}`),
       value: backend.available ? backend.device : t('binaries.unavailable'),
-      ...(backend.available ? {} : { hint: describe(backend.detail) }),
+      // No reason here. Every backend that is not the one in use carries one,
+      // and three sentences among nine one-line facts is a paragraph pretending
+      // to be a table. Settings names the reason, on the control that acts on
+      // it.
       tone: backend.available ? 'ready' : 'missing',
     });
   }

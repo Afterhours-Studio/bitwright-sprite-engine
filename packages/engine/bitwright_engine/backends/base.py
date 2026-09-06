@@ -36,6 +36,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Protocol, runtime_checkable
 
+from bitwright_engine.utils.logging import get_logger
+
 
 class Capability(StrEnum):
     """An optional feature a backend may or may not support.
@@ -171,6 +173,9 @@ class UnsupportedCapabilityError(BackendError):
     code = "backend.unsupported_capability"
 
 
+logger = get_logger(__name__)
+
+
 @runtime_checkable
 class Backend(Protocol):
     """Structural interface every sprite generation backend satisfies.
@@ -260,13 +265,23 @@ class BaseBackend(abc.ABC):
             BackendUnavailableError: The backend cannot run on this machine.
             UnsupportedCapabilityError: The request needs an undeclared
                 capability.
+            BackendError: Generation failed for any other reason.
         """
         availability = self.available()
         if not availability.ready:
             raise BackendUnavailableError(availability.detail or "backend.unavailable")
 
         self._check_capabilities(request)
-        return self._run(request)
+        try:
+            return self._run(request)
+        except BackendError:
+            raise
+        except Exception as error:
+            # Carried through as a backend failure rather than escaping as an
+            # unhandled exception, which the route answers with a 500 and the
+            # shell reads as the engine having gone away.
+            logger.exception("generation failed on the %s backend", self.kind.value)
+            raise BackendError(str(error)) from error
 
     @abc.abstractmethod
     def _run(self, request: GenerationRequest) -> GenerationResult:

@@ -773,7 +773,23 @@ _ZIPP = Wheel(
     license_id="MIT",
 )
 
+_PEFT = Wheel(
+    name="peft",
+    version="0.20.0",
+    url=_pypi(
+        "28/79/13bcabb8048126422d5c4b880575d40886c726f354db88cfeed4325525bb/peft-0.20.0-py3-none-any.whl"
+    ),
+    sha256="0fbba16ffebfad3de96e06f2da6860fd860292324b85b6141909fa1e26ea9233",
+    size_bytes=775777,
+    unpacked_bytes=2327331,
+    license_id="Apache-2.0",
+)
+
 _DIFFUSION_SET: tuple[Wheel, ...] = (
+    # Fusing a style adapter goes through peft. Without it diffusers refuses
+    # the call outright, which is how choosing an adapter came to fail at
+    # generation time with a message about a backend nobody had heard of.
+    _PEFT,
     _PYYAML,
     _PYGMENTS,
     _ACCELERATE,
