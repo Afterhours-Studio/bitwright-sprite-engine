@@ -25,6 +25,7 @@
 
 mod commands;
 mod engine;
+mod preferences;
 mod sidecar;
 
 use tauri::{Emitter, Manager, RunEvent, WebviewWindow};
@@ -38,7 +39,22 @@ const EVENT_GPU: &str = "startup://gpu";
 
 fn main() {
     tauri::Builder::default()
+        // Without this every log::info! and log::warn! in the shell is
+        // discarded, including the ones reporting that the sidecar failed to
+        // start. The crate only records lines once something installs a
+        // logger, and nothing did.
+        // The builder already writes to stdout and to the log directory.
+        // `.target()` appends rather than replaces, so naming those two again
+        // is what made every line appear twice.
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .level(log::LevelFilter::Info)
+                .build(),
+        )
         .plugin(tauri_plugin_shell::init())
+        // Only for the directory picker on the Settings screen: the user has
+        // to be able to point gigabytes of weights at a volume with room.
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .manage(SidecarManager::default())
         .manage(VibrancyManager::default())

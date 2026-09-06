@@ -20,14 +20,17 @@
 //! The frontend translates that code, so no English string from this file
 //! reaches the user.
 
+use std::path::Path;
 use std::process::Command as ProcessCommand;
 use std::sync::Mutex;
 
 use serde::Serialize;
-use serde_json::Value;
+use serde_json::{json, Value};
 use tauri::{AppHandle, Runtime, State, Window};
+use tauri_plugin_dialog::DialogExt;
 
 use crate::engine::{self, EngineError, Method};
+use crate::preferences;
 use crate::sidecar::{SidecarManager, SidecarStatus};
 
 /// An error returned to the frontend.
@@ -190,6 +193,362 @@ pub async fn engine_models<R: Runtime>(app: AppHandle<R>) -> Result<Value, Comma
     Ok(engine::call(&app, Method::Get, "/v1/models", None).await?)
 }
 
+/// Starts downloading a model's weights.
+///
+/// The engine answers immediately and fetches in the background; the frontend
+/// follows the transfer by re-reading the model list.
+///
+/// # Errors
+///
+/// Returns `models.unknown` when the id is not a plain identifier, and the
+/// engine's reason code when the call fails, including `models.unknown` for an
+/// id the registry does not hold and `models.already_downloading` when a
+/// transfer for that model is already running.
+#[tauri::command]
+pub async fn engine_download_model<R: Runtime>(
+    app: AppHandle<R>,
+    model_id: String,
+) -> Result<Value, CommandError> {
+    let path = model_action_path(&model_id, "download")?;
+    Ok(engine::call(&app, Method::Post, &path, None).await?)
+}
+
+/// Cancels a download that is in progress.
+///
+/// # Errors
+///
+/// Returns `models.unknown` when the id is not a plain identifier, and the
+/// engine's reason code when the call fails.
+#[tauri::command]
+pub async fn engine_cancel_download<R: Runtime>(
+    app: AppHandle<R>,
+    model_id: String,
+) -> Result<Value, CommandError> {
+    let path = model_action_path(&model_id, "cancel")?;
+    Ok(engine::call(&app, Method::Post, &path, None).await?)
+}
+
+/// Lists configured providers, the built-in catalogue, and where keys are kept.
+///
+/// No response from any provider command carries an API key. The engine accepts
+/// one and never returns it, so there is nothing here to redact.
+///
+/// # Errors
+///
+/// Returns the engine's reason code when the call fails.
+#[tauri::command]
+pub async fn engine_providers<R: Runtime>(app: AppHandle<R>) -> Result<Value, CommandError> {
+    Ok(engine::call(&app, Method::Get, "/v1/providers", None).await?)
+}
+
+/// Creates a provider, or replaces an existing one.
+///
+/// The body carries the API key on its way in. It is passed through and never
+/// logged.
+///
+/// # Errors
+///
+/// Returns the engine's reason code when the call fails.
+#[tauri::command]
+pub async fn engine_save_provider<R: Runtime>(
+    app: AppHandle<R>,
+    request: Value,
+) -> Result<Value, CommandError> {
+    Ok(engine::call(&app, Method::Post, "/v1/providers/save", Some(request)).await?)
+}
+
+/// Deletes a provider and the credential stored for it.
+///
+/// # Errors
+///
+/// Returns `backend.remote.provider_unknown` when the id is not a plain
+/// identifier, and the engine's reason code when the call fails.
+#[tauri::command]
+pub async fn engine_remove_provider<R: Runtime>(
+    app: AppHandle<R>,
+    provider_id: String,
+) -> Result<Value, CommandError> {
+    let path = provider_action_path(&provider_id, "remove")?;
+    Ok(engine::call(&app, Method::Post, &path, None).await?)
+}
+
+/// Selects the provider that serves generation.
+///
+/// # Errors
+///
+/// Returns `backend.remote.provider_unknown` when the id is not a plain
+/// identifier, and the engine's reason code when the call fails.
+#[tauri::command]
+pub async fn engine_activate_provider<R: Runtime>(
+    app: AppHandle<R>,
+    provider_id: String,
+) -> Result<Value, CommandError> {
+    let path = provider_action_path(&provider_id, "activate")?;
+    Ok(engine::call(&app, Method::Post, &path, None).await?)
+}
+
+/// Runs one connection test against a stored provider.
+///
+/// Answers whether or not the endpoint did: a refused key is the result, not a
+/// failure of this call.
+///
+/// # Errors
+///
+/// Returns `backend.remote.provider_unknown` when the id is not a plain
+/// identifier, and the engine's reason code when the call fails.
+#[tauri::command]
+pub async fn engine_test_provider<R: Runtime>(
+    app: AppHandle<R>,
+    provider_id: String,
+) -> Result<Value, CommandError> {
+    let path = provider_action_path(&provider_id, "test")?;
+    Ok(engine::call(&app, Method::Post, &path, None).await?)
+}
+
+/// Builds the path for an action on one provider.
+///
+/// The id comes from the frontend and goes into a URL path, so it is checked
+/// against the shape an identifier has rather than trusted, exactly as a model
+/// id is. Provider ids are `p` followed by sixteen hex characters, which
+/// `is_plain_identifier` already accepts.
+///
+/// # Errors
+///
+/// Returns `backend.remote.provider_unknown` when the id is not a plain
+/// identifier.
+fn provider_action_path(provider_id: &str, action: &str) -> Result<String, CommandError> {
+    if !is_plain_identifier(provider_id) {
+        return Err(CommandError::new(
+            "backend.remote.provider_unknown",
+            format!("invalid provider id: {provider_id}"),
+        ));
+    }
+
+    Ok(format!("/v1/providers/{provider_id}/{action}"))
+}
+
+/// Builds the path for an action on one model.
+///
+/// The id comes from the frontend and goes into a URL path, so it is checked
+/// against the shape a registry id has rather than trusted, exactly as the
+/// backend kind is. The engine validates it again; this stops a crafted value
+/// from steering the request at a path that was never meant to be reachable.
+///
+/// # Errors
+///
+/// Returns `models.unknown` when the id is not a plain identifier.
+fn model_action_path(model_id: &str, action: &str) -> Result<String, CommandError> {
+    if !is_plain_identifier(model_id) {
+        return Err(CommandError::new(
+            "models.unknown",
+            format!("invalid model id: {model_id}"),
+        ));
+    }
+
+    Ok(format!("/v1/models/{model_id}/{action}"))
+}
+
+/// The longest identifier accepted. Real model and provider ids are far
+/// shorter than this.
+const MAX_IDENTIFIER: usize = 64;
+
+/// Reports whether a value is a plain identifier.
+///
+/// Registry ids are ASCII words joined by hyphens or underscores, such as
+/// `sd15-base`. Anything else, and in particular a slash, a dot, a percent
+/// escape, or a query separator, is not an id and is refused.
+fn is_plain_identifier(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= MAX_IDENTIFIER
+        && value.chars().all(|character| {
+            character.is_ascii_alphanumeric() || character == '-' || character == '_'
+        })
+}
+
+/// The longest storage path accepted.
+///
+/// Well past every platform's own limit, so a real path is never refused here,
+/// while a value long enough to be an attempt at something else is.
+const MAX_STORAGE_PATH: usize = 4096;
+
+/// Reports where downloaded data is kept, and how much room is left there.
+///
+/// # Errors
+///
+/// Returns the engine's reason code when the call fails.
+#[tauri::command]
+pub async fn storage_info<R: Runtime>(app: AppHandle<R>) -> Result<Value, CommandError> {
+    Ok(engine::call(&app, Method::Get, "/v1/storage", None).await?)
+}
+
+/// Checks a directory without adopting it.
+///
+/// The engine creates it if it is missing and proves it writable by writing a
+/// file and removing it again, then reports the free space on its volume, so
+/// the interface can warn before a four gigabyte download onto a volume with
+/// one gigabyte left.
+///
+/// # Errors
+///
+/// Returns `storage.path_empty`, `storage.path_not_absolute`, or
+/// `storage.path_too_long` for a path that is not worth sending, and the
+/// engine's reason code when the directory itself is refused.
+#[tauri::command]
+pub async fn storage_validate<R: Runtime>(
+    app: AppHandle<R>,
+    path: String,
+) -> Result<Value, CommandError> {
+    let checked = checked_storage_path(&path)?;
+    let body = json!({ "path": checked });
+    Ok(engine::call(&app, Method::Post, "/v1/storage/validate", Some(body)).await?)
+}
+
+/// Moves where downloaded data is kept, and remembers the choice.
+///
+/// Nothing on disk is moved. Weights already downloaded stay at the old
+/// location; the response names them so the interface can say so.
+///
+/// The engine is told first. Only a location it accepted is written to the
+/// preferences file, so a launch can never come up pointed at a directory that
+/// was refused.
+///
+/// # Errors
+///
+/// Returns a `storage.*` code for a path that is not worth sending, the
+/// engine's reason code when the directory is refused or a download is in
+/// flight, and `storage.not_remembered` when the location is in use for this
+/// session but could not be written to the preferences file.
+#[tauri::command]
+pub async fn storage_set_root<R: Runtime>(
+    app: AppHandle<R>,
+    path: String,
+) -> Result<Value, CommandError> {
+    let checked = checked_storage_path(&path)?;
+    let body = json!({ "path": checked });
+    let outcome = engine::call(&app, Method::Post, "/v1/storage", Some(body)).await?;
+
+    remember_root(&app, Some(root_of(&outcome).unwrap_or(checked)))?;
+    Ok(outcome)
+}
+
+/// Goes back to the engine's own per-user default location.
+///
+/// # Errors
+///
+/// Returns the engine's reason code when the default is refused or a download
+/// is in flight, and `storage.not_remembered` when the choice could not be
+/// cleared from the preferences file.
+#[tauri::command]
+pub async fn storage_reset_root<R: Runtime>(app: AppHandle<R>) -> Result<Value, CommandError> {
+    let outcome = engine::call(&app, Method::Post, "/v1/storage/default", None).await?;
+
+    remember_root(&app, None)?;
+    Ok(outcome)
+}
+
+/// Opens the system's own directory picker.
+///
+/// # Errors
+///
+/// Returns `storage.picker_failed` when the dialog could not be shown, or was
+/// closed in a way that lost its answer.
+#[tauri::command]
+pub async fn storage_pick_directory<R: Runtime>(
+    app: AppHandle<R>,
+) -> Result<Option<String>, CommandError> {
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+
+    // The callback form, not the blocking one: on macOS and Linux the dialog
+    // has to run on the main thread, and a command never does.
+    app.dialog().file().pick_folder(move |picked| {
+        let _ = sender.send(picked);
+    });
+
+    let picked = receiver.await.map_err(|error| {
+        CommandError::new("storage.picker_failed", format!("no answer: {error}"))
+    })?;
+
+    // A path the platform hands back as a content URI has no filesystem path,
+    // and cannot hold gigabytes of weights, so it is treated as no answer.
+    Ok(picked
+        .and_then(|file| file.into_path().ok())
+        .map(|path| path.display().to_string()))
+}
+
+/// Writes the chosen root to the preferences file.
+///
+/// # Errors
+///
+/// Returns `storage.not_remembered`, which says the location applies to this
+/// session but will not survive a restart.
+fn remember_root<R: Runtime>(app: &AppHandle<R>, root: Option<String>) -> Result<(), CommandError> {
+    preferences::set_data_root(app, root).map_err(|error| {
+        log::warn!("the storage location could not be remembered: {error}");
+        CommandError::new("storage.not_remembered", error.to_string())
+    })
+}
+
+/// Reads the root the engine reported adopting.
+///
+/// The engine normalises the path, and that normalised form is what must be
+/// remembered: it is the one the next launch will be started with.
+fn root_of(outcome: &Value) -> Option<String> {
+    outcome
+        .get("current")?
+        .get("root")?
+        .as_str()
+        .map(str::to_string)
+}
+
+/// Checks a storage path before it is sent to the engine.
+///
+/// The path is the user's own, and goes into a request body rather than a URL,
+/// so this is not about escaping. It refuses the values that cannot describe a
+/// directory at all, for the same reason a model id is checked before it is put
+/// into a path: the engine validates it again, and neither side trusts the
+/// other's check.
+///
+/// # Errors
+///
+/// Returns `storage.path_empty`, `storage.path_too_long`,
+/// `storage.path_invalid`, or `storage.path_not_absolute`.
+fn checked_storage_path(path: &str) -> Result<String, CommandError> {
+    let trimmed = path.trim();
+
+    if trimmed.is_empty() {
+        return Err(CommandError::new(
+            "storage.path_empty",
+            "the storage path is empty".to_string(),
+        ));
+    }
+
+    if trimmed.len() > MAX_STORAGE_PATH {
+        return Err(CommandError::new(
+            "storage.path_too_long",
+            format!("the storage path is {} bytes", trimmed.len()),
+        ));
+    }
+
+    // A control character cannot appear in a directory name on any supported
+    // platform, and a NUL in particular truncates the path at the first
+    // system call that takes it.
+    if trimmed.chars().any(char::is_control) {
+        return Err(CommandError::new(
+            "storage.path_invalid",
+            "the storage path contains a control character".to_string(),
+        ));
+    }
+
+    if !Path::new(trimmed).is_absolute() {
+        return Err(CommandError::new(
+            "storage.path_not_absolute",
+            format!("the storage path is relative: {trimmed}"),
+        ));
+    }
+
+    Ok(trimmed.to_string())
+}
+
 /// Returns which window background effect was applied during setup.
 #[tauri::command]
 pub fn vibrancy_state(manager: State<'_, VibrancyManager>) -> VibrancyState {
@@ -205,6 +564,16 @@ pub fn platform_info() -> PlatformInfo {
         // frontend must leave room for them instead of drawing its own.
         system_window_controls: cfg!(target_os = "macos"),
     }
+}
+
+/// Returns the application's own version, as declared in `Cargo.toml`.
+///
+/// The About panel shows this beside the engine version. Without it, a frozen
+/// sidecar reporting an old version reads as the application being out of
+/// date, and the real mismatch stays invisible.
+#[tauri::command]
+pub fn app_version() -> String {
+    env!("CARGO_PKG_VERSION").to_string()
 }
 
 /// Probes for a GPU the engine can use.
@@ -281,8 +650,21 @@ pub fn handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + 
         engine_select_backend,
         engine_generate,
         engine_models,
+        engine_download_model,
+        engine_cancel_download,
+        engine_providers,
+        engine_save_provider,
+        engine_remove_provider,
+        engine_activate_provider,
+        engine_test_provider,
+        storage_info,
+        storage_validate,
+        storage_set_root,
+        storage_reset_root,
+        storage_pick_directory,
         vibrancy_state,
         platform_info,
+        app_version,
         check_gpu,
         window_minimize,
         window_toggle_maximize,
@@ -376,6 +758,100 @@ mod tests {
         let report = probe_gpu();
         assert!(!report.code.is_empty());
         assert_eq!(report.available, report.code == "gpu.ok");
+    }
+
+    #[test]
+    fn builds_a_path_for_a_registry_id() {
+        assert_eq!(
+            model_action_path("sd15-base", "download").unwrap(),
+            "/v1/models/sd15-base/download"
+        );
+        assert_eq!(
+            model_action_path("rembg_u2net", "cancel").unwrap(),
+            "/v1/models/rembg_u2net/cancel"
+        );
+    }
+
+    #[test]
+    fn refuses_an_id_that_is_not_a_plain_identifier() {
+        for id in [
+            "",
+            "../backends/cuda/select",
+            "sd15 base",
+            "sd15/base",
+            "sd15%2Fbase",
+            "sd15?x=1",
+            &"a".repeat(MAX_IDENTIFIER + 1),
+        ] {
+            let error = model_action_path(id, "download").unwrap_err();
+            assert_eq!(error.code, "models.unknown");
+        }
+    }
+
+    /// An absolute directory on the platform the test is running on.
+    ///
+    /// Written with forward slashes on purpose: Windows accepts them, and a
+    /// backslash in a test literal is one escape away from asserting on a
+    /// string nobody meant to write.
+    const ABSOLUTE: &str = if cfg!(target_os = "windows") {
+        "D:/bitwright/models"
+    } else {
+        "/mnt/data/bitwright"
+    };
+
+    #[test]
+    fn accepts_an_absolute_directory() {
+        assert_eq!(checked_storage_path(ABSOLUTE).unwrap(), ABSOLUTE);
+    }
+
+    #[test]
+    fn trims_the_padding_around_a_pasted_path() {
+        let padded = format!("  {ABSOLUTE}  ");
+        assert_eq!(checked_storage_path(&padded).unwrap(), ABSOLUTE);
+    }
+
+    #[test]
+    fn refuses_a_path_that_cannot_name_a_directory() {
+        assert_eq!(
+            checked_storage_path("").unwrap_err().code,
+            "storage.path_empty"
+        );
+        assert_eq!(
+            checked_storage_path("   ").unwrap_err().code,
+            "storage.path_empty"
+        );
+        assert_eq!(
+            checked_storage_path("models/weights").unwrap_err().code,
+            "storage.path_not_absolute"
+        );
+        assert_eq!(
+            checked_storage_path(&"a".repeat(MAX_STORAGE_PATH + 1))
+                .unwrap_err()
+                .code,
+            "storage.path_too_long"
+        );
+    }
+
+    #[test]
+    fn refuses_a_path_carrying_a_control_character() {
+        // A NUL truncates the path at the first system call that takes it, so
+        // the directory that ends up written to is not the one that was shown.
+        let sneaky = format!("{ABSOLUTE}\u{0}/models");
+        assert_eq!(
+            checked_storage_path(&sneaky).unwrap_err().code,
+            "storage.path_invalid"
+        );
+    }
+
+    #[test]
+    fn reads_the_root_the_engine_adopted() {
+        let outcome = serde_json::json!({
+            "current": { "root": ABSOLUTE },
+            "previous": { "root": "/home/someone" },
+        });
+        assert_eq!(root_of(&outcome).as_deref(), Some(ABSOLUTE));
+        assert!(root_of(&serde_json::json!({ "current": {} })).is_none());
+        assert!(root_of(&serde_json::json!({})).is_none());
     }
 
     #[test]

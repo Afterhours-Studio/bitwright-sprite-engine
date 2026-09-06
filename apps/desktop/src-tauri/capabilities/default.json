@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Permissions granted to the main window. The frontend drives window controls and the sidecar through Rust commands, so no direct shell access is granted to the webview.",
+  "description": "Permissions granted to the main window. The frontend drives window controls, the sidecar, and the storage directory picker through Rust commands, so no direct shell access is granted to the webview. The dialog permission is limited to opening a picker, which cannot read a file on its own.",
   "windows": ["main"],
   "permissions": [
     "core:default",
@@ -11,6 +11,7 @@
     "core:window:allow-close",
     "core:window:allow-is-maximized",
     "core:event:default",
-    "window-state:default"
+    "window-state:default",
+    "dialog:allow-open"
   ]
 }

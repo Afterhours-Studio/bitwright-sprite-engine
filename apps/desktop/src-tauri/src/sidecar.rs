@@ -33,6 +33,8 @@ use tauri::{AppHandle, Emitter, Manager, Runtime};
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
 
+use crate::preferences;
+
 /// Base name of the frozen engine.
 const SIDECAR_NAME: &str = "bitwright-sidecar";
 
@@ -219,18 +221,45 @@ impl SidecarManager {
     }
 }
 
-/// Returns the path of the frozen engine executable.
+/// How the engine is going to be started.
+struct EngineProgram {
+    /// The executable to run.
+    program: PathBuf,
+    /// Arguments that come before the ones every launch passes.
+    args: Vec<String>,
+    /// `PYTHONPATH` to set, when running from source.
+    python_path: Option<PathBuf>,
+    /// Whether this is the frozen bundle rather than the source tree.
+    frozen: bool,
+}
+
+/// Returns the engine to run, preferring the source tree in a debug build.
 ///
-/// The engine is packaged in PyInstaller's onedir layout, which means the
-/// executable needs the `_internal` directory beside it. That rules out Tauri's
-/// `externalBin`, which copies a single file, so the whole directory ships as a
-/// resource and is located here instead.
+/// A debug build runs `python -m bitwright_engine` out of the engine's own
+/// virtual environment, and only falls back to the frozen bundle when that
+/// environment is not there. That is not a convenience: with the frozen bundle
+/// as the only option, every change to a Python file needs a full PyInstaller
+/// freeze before it can be seen, and until someone remembers to run it the
+/// application keeps running the previous build while the source says
+/// otherwise. That failure is silent and it has already cost real time here -
+/// an About box reporting a version that no longer existed, a missing Pillow,
+/// and a credential store that reported itself absent because the freeze
+/// predated the dependency. Running from source cannot go stale.
+///
+/// A release build always uses the frozen bundle, since there is no source tree
+/// and no interpreter on a user's machine.
 ///
 /// # Errors
 ///
-/// Returns [`SidecarError::SpawnFailed`] when the resource cannot be located,
-/// which means the installation is incomplete.
-fn sidecar_path<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, SidecarError> {
+/// Returns [`SidecarError::SpawnFailed`] when neither is available.
+fn engine_program<R: Runtime>(app: &AppHandle<R>) -> Result<EngineProgram, SidecarError> {
+    if cfg!(debug_assertions) {
+        if let Some(program) = source_program() {
+            return Ok(program);
+        }
+        log::warn!("no engine virtual environment found, falling back to the frozen bundle");
+    }
+
     let directory = format!("{SIDECAR_NAME}-{TARGET_TRIPLE}");
     let executable = if cfg!(target_os = "windows") {
         format!("{directory}.exe")
@@ -241,7 +270,7 @@ fn sidecar_path<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, SidecarError>
 
     if let Ok(path) = app.path().resolve(&relative, BaseDirectory::Resource) {
         if path.is_file() {
-            return Ok(path);
+            return Ok(frozen_program(path));
         }
     }
 
@@ -249,13 +278,54 @@ fn sidecar_path<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, SidecarError>
     // not have been populated yet, so the build output is used directly.
     let in_tree = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(&relative);
     if in_tree.is_file() {
-        log::debug!("using the in-tree sidecar at {}", in_tree.display());
-        return Ok(in_tree);
+        return Ok(frozen_program(in_tree));
     }
 
     Err(SidecarError::SpawnFailed(format!(
-        "no sidecar found at {relative}; run scripts/build-sidecar.py"
+        "no engine found: no virtual environment, and no bundle at {relative}.          Run scripts/setup-dev.ps1, or scripts/build-sidecar.py"
     )))
+}
+
+/// Describes a launch of the frozen bundle.
+fn frozen_program(program: PathBuf) -> EngineProgram {
+    EngineProgram {
+        program,
+        args: Vec::new(),
+        python_path: None,
+        frozen: true,
+    }
+}
+
+/// Describes a launch from the engine source tree, when one is available.
+///
+/// Both the interpreter and the package have to be there. A virtual environment
+/// with no engine in it would start Python and fail on the import, which is a
+/// worse failure than falling back to the bundle.
+fn source_program() -> Option<EngineProgram> {
+    let engine = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../../packages/engine")
+        .canonicalize()
+        .ok()?;
+
+    let interpreter = if cfg!(target_os = "windows") {
+        engine.join(".venv/Scripts/python.exe")
+    } else {
+        engine.join(".venv/bin/python")
+    };
+
+    if !interpreter.is_file() || !engine.join("bitwright_engine/__main__.py").is_file() {
+        return None;
+    }
+
+    Some(EngineProgram {
+        program: interpreter,
+        args: vec!["-m".into(), "bitwright_engine".into()],
+        // Set explicitly rather than relying on the package being installed
+        // into the environment: an editable install that has gone stale would
+        // otherwise import an older copy from site-packages.
+        python_path: Some(engine),
+        frozen: false,
+    })
 }
 
 /// Starts the sidecar and watches it for the lifetime of the application.
@@ -271,11 +341,17 @@ fn sidecar_path<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, SidecarError>
 /// Returns [`SidecarError::SpawnFailed`] when the bundled executable cannot be
 /// started at all, which usually means a broken installation.
 pub fn spawn<R: Runtime>(app: &AppHandle<R>) -> Result<(), SidecarError> {
-    let path = sidecar_path(app)?;
+    let engine = engine_program(app)?;
+    log::info!(
+        "engine: {} ({})",
+        engine.program.display(),
+        if engine.frozen { "frozen" } else { "source" }
+    );
 
     let command = app
         .shell()
-        .command(path)
+        .command(engine.program)
+        .args(engine.args)
         // The engine watches this process and exits with it. Without that a
         // crash here would leave Python holding the GPU, and the next launch
         // would fail to allocate for a reason the user cannot see.
@@ -284,6 +360,22 @@ pub fn spawn<R: Runtime>(app: &AppHandle<R>) -> Result<(), SidecarError> {
         .env("BITWRIGHT_PORT", "0")
         .env("BITWRIGHT_HOST", "127.0.0.1")
         .env("BITWRIGHT_LOG_LEVEL", "INFO");
+
+    let command = match engine.python_path {
+        Some(path) => command.env("PYTHONPATH", path.to_string_lossy().into_owned()),
+        None => command,
+    };
+
+    // The engine keeps no configuration of its own, so the data root the user
+    // chose is remembered here and handed back on every launch. Without it a
+    // model cache moved off a full system drive would silently return to it.
+    let command = match preferences::load(app).data_root {
+        Some(root) => {
+            log::info!("data root from preferences: {root}");
+            command.env("BITWRIGHT_DATA_ROOT", root)
+        }
+        None => command,
+    };
 
     let (mut events, child) = command
         .spawn()
