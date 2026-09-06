@@ -215,7 +215,7 @@ export const useProviderStore = create<ProviderState>((set, get) => ({
       set({
         results: {
           ...get().results,
-          [providerId]: { ok: false, code, detail: '', latencyMs: 0, modelCount: 0 },
+          [providerId]: { ok: false, code, detail: '', latencyMs: 0, modelCount: 0, models: [] },
         },
         error: code,
       });

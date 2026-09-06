@@ -99,6 +99,9 @@ FORBIDDEN = "backend.remote.forbidden"
 NOT_FOUND = "backend.remote.not_found"
 """The base URL is wrong: the endpoint has no model listing there."""
 
+REJECTED = "backend.remote.rejected"
+"""The provider refused the request itself, rather than the transport."""
+
 RATE_LIMITED = "backend.remote.rate_limited"
 """The provider is throttling this key."""
 
@@ -124,6 +127,7 @@ ALL_CODES: frozenset[str] = frozenset(
         INSECURE_URL,
         INVALID_HEADER,
         LIMIT_REACHED,
+        REJECTED,
         SECRET_READ_FAILED,
         SECRET_WRITE_FAILED,
         STORE_WRITE_FAILED,

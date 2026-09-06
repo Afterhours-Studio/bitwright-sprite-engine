@@ -45,6 +45,7 @@ import {
   engineRuntimeInstall,
   engineRuntimeRemove,
   engineRuntimeRepair,
+  engineTestDraftProvider,
   engineTestProvider,
   storageInfo,
   storagePickDirectory,
@@ -304,6 +305,16 @@ export function activateProvider(providerId: string): Promise<ProviderListRespon
  *
  * Resolves with the outcome whether or not the endpoint answered. A refused key
  * is the result, not an error.
+ */
+export function testDraftProvider(request: ProviderSaveRequest): Promise<ConnectionTestResult> {
+  return unwrap(engineTestDraftProvider(request));
+}
+
+/**
+ * Tests a provider that is already stored.
+ *
+ * @param providerId - Which provider.
+ * @returns What the endpoint answered.
  */
 export function testProvider(providerId: string): Promise<ConnectionTestResult> {
   return unwrap(engineTestProvider(providerId));

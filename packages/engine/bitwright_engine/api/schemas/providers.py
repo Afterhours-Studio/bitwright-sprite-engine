@@ -177,6 +177,7 @@ class ConnectionTestResponse(CamelModel):
             provider's own response body is never copied into it.
         latency_ms: Round trip time in milliseconds.
         model_count: How many models the endpoint listed.
+        models: Their identifiers, for the interface to offer.
     """
 
     ok: bool
@@ -184,3 +185,4 @@ class ConnectionTestResponse(CamelModel):
     detail: str
     latency_ms: int
     model_count: int
+    models: list[str] = Field(default_factory=list)

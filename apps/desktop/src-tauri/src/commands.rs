@@ -308,6 +308,22 @@ pub async fn engine_activate_provider<R: Runtime>(
     Ok(engine::call(&app, Method::Post, &path, None).await?)
 }
 
+/// Runs one connection test against a provider that is not saved yet.
+///
+/// The body carries the API key on its way in. It is passed through and never
+/// logged, and the engine does not store it.
+///
+/// # Errors
+///
+/// Returns the engine's reason code when the call fails.
+#[tauri::command]
+pub async fn engine_test_draft_provider<R: Runtime>(
+    app: AppHandle<R>,
+    request: Value,
+) -> Result<Value, CommandError> {
+    Ok(engine::call(&app, Method::Post, "/v1/providers/test", Some(request)).await?)
+}
+
 /// Runs one connection test against a stored provider.
 ///
 /// Answers whether or not the endpoint did: a refused key is the result, not a
@@ -864,6 +880,7 @@ pub fn handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + 
         engine_save_provider,
         engine_remove_provider,
         engine_activate_provider,
+        engine_test_draft_provider,
         engine_test_provider,
         engine_runtime_info,
         engine_runtime_install,

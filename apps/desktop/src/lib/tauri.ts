@@ -349,6 +349,19 @@ export function engineActivateProvider(
 }
 
 /**
+ * Runs one connection test against a provider that is not saved yet.
+ *
+ * The editor needs this: a model list can only come from the provider, and it
+ * will not answer without a credential, so the test has to work before there
+ * is anything stored.
+ */
+export function engineTestDraftProvider(
+  request: ProviderSaveRequest,
+): Promise<ShellResult<ConnectionTestResult>> {
+  return invoke<ConnectionTestResult>('engine_test_draft_provider', { request });
+}
+
+/**
  * Runs one connection test against a stored provider.
  *
  * Resolves rather than rejects when the endpoint refuses: a rejected key is the

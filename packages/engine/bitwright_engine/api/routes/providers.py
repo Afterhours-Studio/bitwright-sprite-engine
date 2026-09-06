@@ -287,6 +287,59 @@ def remove(provider_id: str, state: StateDep) -> ProviderListResponse:
     return _listing(state)
 
 
+@router.post("/test", response_model=ConnectionTestResponse)
+def test_draft(body: ProviderSaveBody) -> ConnectionTestResponse:
+    """Run one connection test against a provider that is not saved yet.
+
+    The editor needs this: a model list can only come from the provider, the
+    provider will not answer without a credential, and asking someone to save
+    a configuration before they can find out whether it works is asking them to
+    commit to a guess.
+
+    The key is taken from the body and never stored by this route.
+
+    Args:
+        body: The configuration being edited.
+
+    Returns:
+        The outcome, carrying a stable reason code either way.
+
+    Raises:
+        HTTPException: The configuration is not one that could be saved.
+    """
+    try:
+        config = build_provider(
+            provider_id=body.provider_id,
+            name=body.name,
+            kind=body.kind,
+            preset_id=body.preset_id,
+            base_url=body.base_url,
+            model=body.model,
+            auth_scheme=body.auth_scheme,
+            auth_header=body.auth_header,
+            extra_headers=body.extra_headers,
+            timeout_s=body.timeout_s,
+        )
+    except ProviderError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=error.code,
+        ) from error
+
+    # Read into a local and not held: this route stores nothing, and a draft's
+    # key exists only for the length of the request that carried it.
+    api_key = "" if body.api_key is None else body.api_key.get_secret_value()
+    result = probe(config, api_key)
+    return ConnectionTestResponse(
+        ok=result.ok,
+        code=result.code,
+        detail=result.detail,
+        latency_ms=result.latency_ms,
+        model_count=result.model_count,
+        models=list(result.models),
+    )
+
+
 @router.post("/{provider_id}/test", response_model=ConnectionTestResponse)
 def test_connection(provider_id: str, state: StateDep) -> ConnectionTestResponse:
     """Run one connection test against a stored provider.
@@ -336,4 +389,5 @@ def test_connection(provider_id: str, state: StateDep) -> ConnectionTestResponse
         detail=result.detail,
         latency_ms=result.latency_ms,
         model_count=result.model_count,
+        models=list(result.models),
     )

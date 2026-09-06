@@ -92,6 +92,8 @@ class ProbeResult:
         latency_ms: Round trip time in milliseconds. Zero when no request was
             completed.
         model_count: How many models the endpoint listed. Zero on failure.
+        models: Their identifiers, so the interface can offer them instead
+            of asking someone to type one from memory.
     """
 
     ok: bool
@@ -99,6 +101,7 @@ class ProbeResult:
     detail: str
     latency_ms: int = 0
     model_count: int = 0
+    models: tuple[str, ...] = ()
 
 
 def _scrub(text: str, api_key: str) -> str:
@@ -140,23 +143,44 @@ def _is_refused(error: BaseException) -> bool:
     return False
 
 
-def _count_models(payload: object) -> int | None:
-    """Count the entries in an OpenAI compatible model listing.
+def _read_models(payload: object) -> list[str] | None:
+    """Read the identifiers from an OpenAI compatible model listing.
+
+    The names are returned, not merely counted, because the interface has to
+    offer them: asking someone to type a model identifier from memory is asking
+    them to guess, and a provider's catalogue is the only place the right
+    spelling exists.
 
     Args:
         payload: The decoded response body.
 
     Returns:
-        The number of models, or ``None`` when the body is not a model listing.
-        An empty listing is a valid answer and returns zero: the endpoint spoke
-        the protocol, which is what the test asked.
+        The identifiers, or ``None`` when the body is not a model listing. An
+        empty listing is a valid answer and returns an empty list: the endpoint
+        spoke the protocol, which is what the test asked.
     """
+    entries: object
     if isinstance(payload, dict):
-        data = payload.get("data")
-        return len(data) if isinstance(data, list) else None
-    if isinstance(payload, list):
-        return len(payload)
-    return None
+        entries = payload.get("data")
+        if not isinstance(entries, list):
+            return None
+    elif isinstance(payload, list):
+        entries = payload
+    else:
+        return None
+
+    names: list[str] = []
+    for entry in entries:
+        if isinstance(entry, dict):
+            identifier = entry.get("id") or entry.get("name")
+            if isinstance(identifier, str) and identifier:
+                names.append(identifier)
+        elif isinstance(entry, str) and entry:
+            names.append(entry)
+
+    # Sorted, because a provider's own order is arbitrary and a searchable list
+    # is easier to scan when it is not.
+    return sorted(set(names))
 
 
 def _from_status(status: int) -> tuple[str, str]:
@@ -174,6 +198,10 @@ def _from_status(status: int) -> tuple[str, str]:
         return codes.FORBIDDEN, "HTTP 403, the key is not permitted to do this"
     if status == httpx.codes.NOT_FOUND:
         return codes.NOT_FOUND, "HTTP 404, there is no model listing at that base URL"
+    if status == httpx.codes.BAD_REQUEST:
+        # Not every provider answers 401 to a bad key. Google answers 400,
+        # so this cannot be reported as a transport problem.
+        return codes.REJECTED, "HTTP 400, the provider refused the request"
     if status == httpx.codes.TOO_MANY_REQUESTS:
         return codes.RATE_LIMITED, "HTTP 429, the provider is throttling this key"
     if status >= httpx.codes.INTERNAL_SERVER_ERROR:
@@ -259,8 +287,8 @@ def probe(
     except ValueError:
         payload = None
 
-    count = _count_models(payload)
-    if count is None:
+    models = _read_models(payload)
+    if models is None:
         logger.warning("connection test to %s answered no model listing", config.name)
         return ProbeResult(
             ok=False,
@@ -269,11 +297,12 @@ def probe(
             latency_ms=latency_ms,
         )
 
-    logger.info("connection test to %s succeeded, %d models listed", config.name, count)
+    logger.info("connection test to %s succeeded, %d models listed", config.name, len(models))
     return ProbeResult(
         ok=True,
         code=codes.REACHABLE,
-        detail=f"listed {count} models",
+        detail=f"listed {len(models)} models",
         latency_ms=latency_ms,
-        model_count=count,
+        model_count=len(models),
+        models=tuple(models),
     )

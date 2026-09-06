@@ -17,6 +17,8 @@ import { useCallback, useEffect, useRef, useState, type ReactElement } from 'rea
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/Button';
+import { ComboBox } from '@/components/ui/ComboBox';
+import { testDraftProvider } from '@/lib/api';
 import { Card } from '@/components/ui/Card';
 import { Field, StatusDot, Toggle } from '@/components/ui/Field';
 import { NumberField } from '@/components/ui/NumberField';
@@ -471,6 +473,29 @@ function ProviderEditor({ draft, presets, onChange, onClose }: ProviderEditorPro
   const save = useProviderStore((state) => state.save);
 
   const [revealed, setRevealed] = useState(false);
+  const [models, setModels] = useState<string[]>([]);
+  const [fetching, setFetching] = useState(false);
+
+  /**
+   * Asks the provider what it can do.
+   *
+   * The connection test already reads the model listing to decide whether the
+   * endpoint speaks the protocol, so it reports the names too rather than
+   * having a second call ask the same question.
+   */
+  const fetchModels = useCallback(async () => {
+    setFetching(true);
+    try {
+      const result = await testDraftProvider(toRequest(draft));
+      setModels(result.models);
+    } catch {
+      // The failure is already reported by the connection test; an empty list
+      // is the honest state here.
+      setModels([]);
+    } finally {
+      setFetching(false);
+    }
+  }, [draft]);
 
   const isNew = draft.providerId === '';
   const preset = presets.find((entry) => entry.presetId === draft.source);
@@ -540,16 +565,6 @@ function ProviderEditor({ draft, presets, onChange, onClose }: ProviderEditorPro
           }}
         />
 
-        <Field
-          label={t('providers.form.model')}
-          value={draft.model}
-          placeholder={t('providers.form.modelPlaceholder')}
-          hint={t('providers.form.modelHint')}
-          onChange={(event) => {
-            onChange({ ...draft, model: event.target.value });
-          }}
-        />
-
         <Select
           label={t('providers.form.auth')}
           value={draft.authScheme}
@@ -602,6 +617,38 @@ function ProviderEditor({ draft, presets, onChange, onClose }: ProviderEditorPro
             </div>
           </div>
         )}
+
+        {/* Below the key, because it cannot be filled in until there is one:
+            the list comes from the provider, and the provider will not answer
+            without a credential. */}
+        <div className="flex flex-col gap-2">
+          <ComboBox
+            label={t('providers.form.model')}
+            value={draft.model}
+            options={models}
+            placeholder={t('providers.form.modelPlaceholder')}
+            hint={
+              models.length > 0
+                ? t('providers.form.modelFetched', { count: models.length })
+                : t('providers.form.modelHint')
+            }
+            onValueChange={(value) => {
+              onChange({ ...draft, model: value });
+            }}
+          />
+          <div className="flex justify-end">
+            <Button
+              variant="secondary"
+              className="px-3 py-1 text-xs"
+              disabled={fetching || draft.baseUrl.trim() === ''}
+              onClick={() => {
+                void fetchModels();
+              }}
+            >
+              {fetching ? t('providers.form.fetching') : t('providers.form.fetchModels')}
+            </Button>
+          </div>
+        </div>
 
         <NumberField
           label={t('providers.form.timeout')}

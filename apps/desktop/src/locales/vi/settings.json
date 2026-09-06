@@ -105,7 +105,10 @@
       "authHeaderPlaceholder": "x-api-key",
       "timeout": "Thời gian chờ (giây)",
       "documentation": "Nơi lấy khoá",
-      "makeActive": "Dùng nhà cung cấp này để tạo ảnh"
+      "makeActive": "Dùng nhà cung cấp này để tạo ảnh",
+      "fetchModels": "Lấy danh sách model",
+      "fetching": "Đang lấy",
+      "modelFetched": "Provider này đưa ra {{count}} model. Gõ để lọc, hoặc nhập tên nó không liệt kê."
     },
     "row": {
       "active": "Đang dùng",

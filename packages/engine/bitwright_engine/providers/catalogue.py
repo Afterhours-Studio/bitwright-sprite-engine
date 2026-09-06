@@ -117,6 +117,18 @@ PRESETS: tuple[ProviderPreset, ...] = (
         documentation_url="https://platform.openai.com/api-keys",
     ),
     ProviderPreset(
+        preset_id="gemini",
+        name="Google Gemini",
+        # Google's own OpenAI compatibility layer, so the same client and the
+        # same connection test work here as everywhere else. The native Gemini
+        # API has a different shape entirely and would need its own backend.
+        base_url="https://generativelanguage.googleapis.com/v1beta/openai",
+        default_model="imagen-3.0-generate-002",
+        auth_scheme=AuthScheme.BEARER,
+        auth_header="",
+        documentation_url="https://aistudio.google.com/apikey",
+    ),
+    ProviderPreset(
         preset_id="openrouter",
         name="OpenRouter",
         base_url="https://openrouter.ai/api/v1",

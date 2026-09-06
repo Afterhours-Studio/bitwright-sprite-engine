@@ -61,11 +61,6 @@ const OPEN_DELAY_MS = 400;
  * the bottom of the window, so a label below one of its buttons would be off
  * screen rather than merely misplaced.
  */
-const SIDE: Record<TooltipSide, string> = {
-  top: 'bottom-[calc(100%+6px)] origin-bottom',
-  bottom: 'top-[calc(100%+6px)] origin-top',
-};
-
 /**
  * Whether a focus came from the keyboard.
  *
@@ -136,7 +131,8 @@ export function Tooltip({ label, side = 'bottom', children }: TooltipProps): Rea
    * is simply cut in half. Nudging it back is what every tooltip does and what
    * this one was missing.
    */
-  const [shift, setShift] = useState(0);
+  /** Where the label sits, in viewport coordinates. */
+  const [placed, setPlaced] = useState<{ left: number; top: number } | undefined>(undefined);
 
   /**
    * The side the label ends up on.
@@ -232,49 +228,53 @@ export function Tooltip({ label, side = 'bottom', children }: TooltipProps): Rea
   // would otherwise ratchet a little further every time.
   useEffect(() => {
     if (!showing) {
-      setShift(0);
       return;
     }
 
     const measure = (): void => {
       const node = label_.current;
-      if (node === null) {
+      const trigger = wrapper.current;
+      if (node === null || trigger === null) {
         return;
       }
-      node.style.marginInlineStart = '';
-      const box = node.getBoundingClientRect();
 
-      // Measured against the side asked for, then flipped only when that side
-      // does not fit and the other one does: flipping whenever the preferred
-      // side is tight would make a label jump about while the window resizes.
-      const height = box.height;
-      const trigger = wrapper.current?.getBoundingClientRect();
-      if (trigger !== undefined) {
-        const above = trigger.top - height - GAP_PX;
-        const below = window.innerHeight - (trigger.bottom + height + GAP_PX);
-        if (side === 'top' && above < EDGE_MARGIN_PX && below >= EDGE_MARGIN_PX) {
-          setPlacement('bottom');
-        } else if (side === 'bottom' && below < EDGE_MARGIN_PX && above >= EDGE_MARGIN_PX) {
-          setPlacement('top');
-        } else {
-          setPlacement(side);
-        }
-      }
-      const overflowStart = EDGE_MARGIN_PX - box.left;
-      const overflowEnd = box.right - (window.innerWidth - EDGE_MARGIN_PX);
-      if (overflowStart > 0) {
-        setShift(Math.round(overflowStart));
-      } else if (overflowEnd > 0) {
-        setShift(-Math.round(overflowEnd));
-      } else {
-        setShift(0);
-      }
+      const anchor = trigger.getBoundingClientRect();
+      const size = node.getBoundingClientRect();
+
+      // The side asked for, kept unless it does not fit and the other does.
+      // Flipping whenever the preferred side is merely tight would make a
+      // label jump about while a window is resized.
+      const above = anchor.top - size.height - GAP_PX;
+      const below = anchor.bottom + GAP_PX;
+      const fitsAbove = above >= EDGE_MARGIN_PX;
+      const fitsBelow = below + size.height <= window.innerHeight - EDGE_MARGIN_PX;
+      const next =
+        side === 'top'
+          ? fitsAbove || !fitsBelow
+            ? 'top'
+            : 'bottom'
+          : fitsBelow || !fitsAbove
+            ? 'bottom'
+            : 'top';
+
+      // Centred on the trigger, then clamped into the window. The clamp is
+      // what keeps a label on a control in the corner readable.
+      const centred = anchor.left + anchor.width / 2 - size.width / 2;
+      const left = Math.min(
+        Math.max(centred, EDGE_MARGIN_PX),
+        Math.max(window.innerWidth - size.width - EDGE_MARGIN_PX, EDGE_MARGIN_PX),
+      );
+
+      setPlacement(next);
+      setPlaced({ left: Math.round(left), top: Math.round(next === 'top' ? above : below) });
     };
 
     measure();
     window.addEventListener('resize', measure);
+    window.addEventListener('scroll', measure, true);
     return () => {
       window.removeEventListener('resize', measure);
+      window.removeEventListener('scroll', measure, true);
     };
   }, [showing, label, side]);
 
@@ -336,17 +336,20 @@ export function Tooltip({ label, side = 'bottom', children }: TooltipProps): Rea
         id={id}
         role="tooltip"
         aria-hidden={!showing}
-        // A margin rather than a transform: the transform is already carrying
-        // the centring and the open animation, and a second one would have to
-        // be composed by hand every time either changes.
-        style={shift === 0 ? undefined : { marginInlineStart: `${String(shift)}px` }}
+        // Placed in viewport coordinates rather than against the trigger.
+        // Positioning it inside the wrapper leaves it at the mercy of every
+        // ancestor between here and the window: the shell clips its content,
+        // so a label near an edge was cut off however far it was nudged
+        // sideways. Fixed coordinates cannot be clipped by an ancestor, and
+        // the clamp below is measured against the window itself.
+        style={placed}
         className={cn(
-          'pointer-events-none absolute start-1/2 z-50 -translate-x-1/2 whitespace-nowrap',
+          'pointer-events-none fixed z-50 whitespace-nowrap',
           'rounded-sm border border-line bg-surface-float px-2 py-1 shadow-md',
           'text-xs font-medium text-fg-primary',
           'transition-[opacity,transform] duration-150',
-          SIDE[placement],
           showing ? 'scale-100 opacity-100' : 'scale-95 opacity-0',
+          placement === 'top' ? 'origin-bottom' : 'origin-top',
         )}
       >
         {label}

@@ -471,6 +471,8 @@ export interface ConnectionTestResult {
   latencyMs: number;
   /** How many models the endpoint listed. */
   modelCount: number;
+  /** Their identifiers, so the editor can offer them rather than ask for one. */
+  models: string[];
 }
 
 /** Reserved preset identifier meaning "the user supplies the base URL". */

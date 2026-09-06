@@ -105,7 +105,10 @@
       "authHeaderPlaceholder": "x-api-key",
       "timeout": "Timeout (seconds)",
       "documentation": "Where to get a key",
-      "makeActive": "Use this provider for generation"
+      "makeActive": "Use this provider for generation",
+      "fetchModels": "Fetch Models",
+      "fetching": "Fetching",
+      "modelFetched": "{{count}} models offered by this provider. Type to filter, or enter one it did not list."
     },
     "row": {
       "active": "In use",
