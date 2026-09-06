@@ -25,6 +25,7 @@ import { ProvidersCard } from '@/features/settings/ProvidersCard';
 import { StorageCard } from '@/features/settings/StorageCard';
 import { useDismiss } from '@/hooks/useDismiss';
 import { useErrorMessage } from '@/hooks/useErrorMessage';
+import { BYTES_PER_MB, formatBytes, type ByteUnits } from '@/lib/format';
 import { LANGUAGES, setLanguage, type Language } from '@/lib/i18n';
 import { useEngineStore } from '@/stores/useEngineStore';
 import { THEMES, useShellStore, type Theme } from '@/stores/useShellStore';
@@ -136,8 +137,18 @@ interface ModelRowProps {
   model: ModelInfo;
 }
 
+/** Which confirmation the row's single popover is currently asking. */
+type Confirmation = 'licence' | 'stop' | 'discard';
+
+/** The words one confirmation puts in that popover. */
+interface ConfirmationText {
+  title: string;
+  body: string;
+  action: string;
+}
+
 /**
- * One model, with its state and its action.
+ * One model, with its state and its actions.
  *
  * Everything reads as a single left aligned block: the name, then the state
  * beside it, then the licence and the size, then whatever the user can do about
@@ -146,11 +157,27 @@ interface ModelRowProps {
  * the button belonging to it, and made the pair look like it belonged to some
  * other row. Nothing here is pushed to the far edge.
  *
- * Download opens a confirmation rather than starting the transfer. The weights
- * are gigabytes, and they arrive under a licence that is not this application's,
- * so MODELS.md requires the licence to be in front of the user before anything
- * is fetched. The confirmation is the shared Overlay, dismissed by the shared
- * hook, so it behaves like every other popover in the interface.
+ * The row has three working states, and each offers its own pair of actions:
+ *
+ * - Nothing downloaded: Download, behind the licence confirmation. The weights
+ *   are gigabytes and they arrive under a licence that is not this
+ *   application's, so MODELS.md requires the licence to be in front of the
+ *   user before anything is fetched.
+ * - Downloading: the bar, then Pause and Stop. Pause keeps the bytes and Stop
+ *   deletes them, and showing both is the point: they are two different
+ *   intentions that used to share one button.
+ * - Partially downloaded and not running: how far it got, as a percentage and
+ *   as byte figures, then Resume and Discard. Resume does not ask about the
+ *   licence again; the user accepted it for this model when they started.
+ *
+ * Nothing about the paused state is remembered here. The engine reports it
+ * from what is on disk, so closing the application and reopening it finds the
+ * same row, which is the entire reason resuming is worth having.
+ *
+ * Stop and Discard both throw gigabytes away, so both confirm. Pause destroys
+ * nothing and acts on the first press. All three confirmations share one
+ * Overlay, dismissed by the shared hook: a second popover written here would
+ * be a second popover to keep in step with every other one in the interface.
  */
 function ModelRow({ model }: ModelRowProps): ReactElement {
   const { t } = useTranslation('settings');
@@ -159,30 +186,87 @@ function ModelRow({ model }: ModelRowProps): ReactElement {
 
   const download = useEngineStore((state) => state.download);
   const cancel = useEngineStore((state) => state.cancel);
+  const pause = useEngineStore((state) => state.pause);
 
   const anchor = useRef<HTMLDivElement>(null);
-  const [confirming, setConfirming] = useState(false);
+  const [confirming, setConfirming] = useState<Confirmation | null>(null);
   const close = useCallback(() => {
-    setConfirming(false);
+    setConfirming(null);
   }, []);
-  useDismiss(confirming, anchor, close);
+  useDismiss(confirming !== null, anchor, close);
 
+  const accept = useCallback(() => {
+    const asking = confirming;
+    close();
+    if (asking === 'licence') {
+      void download(model.modelId);
+    } else if (asking !== null) {
+      // Stopping and discarding are one operation to the engine: drop the
+      // bytes. They are two confirmations because the sentence the user has to
+      // read is different when a transfer is still running.
+      void cancel(model.modelId);
+    }
+  }, [cancel, close, confirming, download, model.modelId]);
+
+  const units: ByteUnits = {
+    megabytes: tCommon('units.megabytes'),
+    gigabytes: tCommon('units.gigabytes'),
+  };
+
+  // Paused is derived, never stored: bytes on disk that no transfer is moving.
+  // Only the engine can see the cache, so only the engine decides it.
+  const paused = !model.cached && !model.downloading && model.resumable;
+  const pending = !model.cached && !model.downloading && !model.resumable;
+
+  // Not every host announces a length. Falling back to the registry's estimate
+  // keeps the bar and the byte figures sensible when one does not.
+  const total = model.totalBytes > 0 ? model.totalBytes : model.sizeMb * BYTES_PER_MB;
+  const measured = total > 0 ? model.downloadedBytes / total : 0;
   // The engine reports a fraction. It is clamped rather than trusted, because
   // a bar wider than its track escapes the row it belongs to.
-  const percent = Math.round(Math.min(Math.max(model.progress, 0), 1) * 100);
+  const fraction = model.progress > 0 ? model.progress : measured;
+  const percent = Math.round(Math.min(Math.max(fraction, 0), 1) * 100);
+  const transferred = t('models.transferred', {
+    done: formatBytes(model.downloadedBytes, units),
+    total: formatBytes(total, units),
+  });
+
   const failure = translateError(model.error);
 
-  let state = model.cached ? t('models.cached') : t('models.notCached');
-  if (model.downloading) {
+  let state = t('models.notCached');
+  if (model.cached) {
+    state = t('models.cached');
+  } else if (model.downloading) {
     state = t('models.downloading');
+  } else if (paused) {
+    state = t('models.paused');
   }
 
   const licence = model.commercialUse ? t('models.commercialYes') : t('models.commercialNo');
 
+  const confirmations: Record<Confirmation, ConfirmationText> = {
+    licence: {
+      title: t('models.confirmTitle'),
+      body: t('models.confirmBody'),
+      action: t('models.confirmAction'),
+    },
+    stop: {
+      title: t('models.stopTitle'),
+      body: t('models.stopBody'),
+      action: t('models.stopAction'),
+    },
+    discard: {
+      title: t('models.discardTitle'),
+      body: t('models.discardBody'),
+      action: t('models.discardAction'),
+    },
+  };
+  const asked = confirming === null ? null : confirmations[confirming];
+
   return (
     <li className="flex flex-col gap-3 rounded-md border border-line bg-surface-content-alt p-3">
       {/* Two columns, both anchored to the top. The model describes itself down
-          the left; its state and the control that acts on it stay together at
+          the left; its state and the controls that act on it stay together at
           the right edge. Anchoring to the top rather than centring is what
           removes the band of empty rows that used to sit between the name and
           the button acting on it. */}
@@ -207,88 +291,141 @@ function ModelRow({ model }: ModelRowProps): ReactElement {
         <div ref={anchor} className="relative flex shrink-0 flex-col items-end gap-2">
           <span className="text-xs text-fg-secondary">{state}</span>
 
-          {model.downloading && (
-            <Button
-              variant="ghost"
-              className="px-3 py-1 text-xs"
-              onClick={() => {
-                void cancel(model.modelId);
-              }}
-            >
-              {t('models.cancelDownload')}
-            </Button>
-          )}
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {model.downloading && (
+              <>
+                {/* Pause keeps every byte, so it acts on the first press. A
+                    confirmation in front of a control that destroys nothing is
+                    a press the user spends to change nothing. */}
+                <Button
+                  variant="secondary"
+                  className="px-3 py-1 text-xs"
+                  onClick={() => {
+                    void pause(model.modelId);
+                  }}
+                >
+                  {t('models.pauseDownload')}
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="px-3 py-1 text-xs"
+                  aria-haspopup="dialog"
+                  aria-expanded={confirming === 'stop'}
+                  onClick={() => {
+                    setConfirming((was) => (was === 'stop' ? null : 'stop'));
+                  }}
+                >
+                  {t('models.cancelDownload')}
+                </Button>
+              </>
+            )}
 
-          {!model.cached && !model.downloading && (
-            <Button
-              variant="secondary"
-              className="px-3 py-1 text-xs"
-              aria-haspopup="dialog"
-              aria-expanded={confirming}
-              onClick={() => {
-                setConfirming((was) => !was);
-              }}
-            >
-              {failure === null ? t('models.download') : tCommon('actions.retry')}
-            </Button>
-          )}
+            {paused && (
+              <>
+                {/* No licence confirmation. It was accepted for this model when
+                    the download started, and asking again for the same weights
+                    teaches the user to dismiss the question without reading. */}
+                <Button
+                  variant="secondary"
+                  className="px-3 py-1 text-xs"
+                  onClick={() => {
+                    void download(model.modelId);
+                  }}
+                >
+                  {t('models.resumeDownload')}
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="px-3 py-1 text-xs"
+                  aria-haspopup="dialog"
+                  aria-expanded={confirming === 'discard'}
+                  onClick={() => {
+                    setConfirming((was) => (was === 'discard' ? null : 'discard'));
+                  }}
+                >
+                  {t('models.discardDownload')}
+                </Button>
+              </>
+            )}
+
+            {pending && (
+              <Button
+                variant="secondary"
+                className="px-3 py-1 text-xs"
+                aria-haspopup="dialog"
+                aria-expanded={confirming === 'licence'}
+                onClick={() => {
+                  setConfirming((was) => (was === 'licence' ? null : 'licence'));
+                }}
+              >
+                {failure === null ? t('models.download') : tCommon('actions.retry')}
+              </Button>
+            )}
+          </div>
 
           {/* Hung from the right edge through the component's own `align`,
               because the anchor sits against the right edge of the card and a
               panel opening outwards would leave it. Passing a `right-0` class
               instead does not work: the default alignment already sets
-              `start-0`, the two land in different tailwind-merge groups so both
-              survive, and an absolutely positioned box with a left, a right and
-              a width is over-constrained - the left wins, and the panel hangs
-              288px past the edge of the screen. */}
-          <Overlay open={confirming} align="end" className="w-72 p-3">
-            <div
-              role="dialog"
-              aria-label={t('models.confirmTitle')}
-              className="flex flex-col gap-2 text-start"
-            >
-              <p className="text-sm font-medium text-fg-primary">{t('models.confirmTitle')}</p>
-              <p className="text-xs text-fg-secondary">{t('models.confirmBody')}</p>
-              <p className="text-xs text-fg-secondary">
-                {t('models.license')}
-                {': '}
-                {model.licenseId}
-                {' - '}
-                {licence}
-              </p>
-              <p className="text-xs text-fg-secondary">
-                {t('models.size')}
-                {': '}
-                {model.sizeMb} {tCommon('units.megabytes')}
-              </p>
-              <div className="flex flex-wrap justify-end gap-2 pt-1">
-                <Button variant="ghost" className="px-3 py-1 text-xs" onClick={close}>
-                  {tCommon('actions.cancel')}
-                </Button>
-                <Button
-                  variant="primary"
-                  className="px-3 py-1 text-xs"
-                  onClick={() => {
-                    close();
-                    void download(model.modelId);
-                  }}
-                >
-                  {t('models.confirmAction')}
-                </Button>
+              `start-0`, `cn` joins rather than merges so both survive, and an
+              absolutely positioned box with a left, a right and a width is
+              over-constrained - the left wins, and the panel hangs 288px past
+              the edge of the screen. */}
+          <Overlay open={asked !== null} align="end" className="w-72 p-3">
+            {asked !== null && (
+              <div
+                role="dialog"
+                aria-label={asked.title}
+                className="flex flex-col gap-2 text-start"
+              >
+                <p className="text-sm font-medium text-fg-primary">{asked.title}</p>
+                <p className="text-xs text-fg-secondary">{asked.body}</p>
+                {confirming === 'licence' ? (
+                  <>
+                    <p className="text-xs text-fg-secondary">
+                      {t('models.license')}
+                      {': '}
+                      {model.licenseId}
+                      {' - '}
+                      {licence}
+                    </p>
+                    <p className="text-xs text-fg-secondary">
+                      {t('models.size')}
+                      {': '}
+                      {model.sizeMb} {tCommon('units.megabytes')}
+                    </p>
+                  </>
+                ) : (
+                  // What is about to be deleted, in the figures the user reads
+                  // it in. "Gigabytes" in the abstract is not a quantity.
+                  model.downloadedBytes > 0 && (
+                    <p className="text-xs text-fg-secondary">{transferred}</p>
+                  )
+                )}
+                <div className="flex flex-wrap justify-end gap-2 pt-1">
+                  <Button variant="ghost" className="px-3 py-1 text-xs" onClick={close}>
+                    {tCommon('actions.cancel')}
+                  </Button>
+                  <Button variant="primary" className="px-3 py-1 text-xs" onClick={accept}>
+                    {asked.action}
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
           </Overlay>
         </div>
       </div>
 
       {/* The bar spans the whole row rather than sitting in the right column:
           progress is about the model, and a 160px bar squeezed under a button
-          reads as a decoration rather than as the state of a 4 GB transfer. */}
-      {model.downloading && (
+          reads as a decoration rather than as the state of a 4 GB transfer. It
+          stays visible while paused, because a paused download showing no bar
+          would look exactly like one that had never started. */}
+      {(model.downloading || paused) && (
         <div className="flex items-center gap-3">
           <div
             role="progressbar"
-            aria-label={t('models.downloading')}
+            aria-label={model.downloading ? t('models.downloading') : t('models.paused')}
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={percent}
@@ -304,6 +441,9 @@ function ModelRow({ model }: ModelRowProps): ReactElement {
           </div>
           <span className="shrink-0 text-xs text-fg-secondary">
             {t('models.progress', { percent })}
+            {/* A percentage alone is not the figure a person wants when the
+                file is four gigabytes. "2.9 GB of 4.0 GB" is. */}
+            {model.downloadedBytes > 0 && ` - ${transferred}`}
           </span>
         </div>
       )}

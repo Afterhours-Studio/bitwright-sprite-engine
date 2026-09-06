@@ -31,6 +31,7 @@ import {
   engineDownloadModel,
   engineGenerate,
   engineModels,
+  enginePauseDownload,
   engineProviders,
   engineRemoveProvider,
   engineSaveProvider,
@@ -107,18 +108,35 @@ export async function listModels(): Promise<ModelInfo[]> {
 }
 
 /**
- * Starts downloading a model's weights.
+ * Starts, or continues, downloading a model's weights.
  *
  * Resolves once the engine has accepted the transfer, not once it has
  * finished, so the caller has to follow the progress by re-reading the list.
+ * A model whose `resumable` flag is set continues from the bytes already on
+ * disk; this is also the call the Resume control makes.
  */
 export function downloadModel(modelId: string): Promise<ModelInfo> {
   return unwrap(engineDownloadModel(modelId));
 }
 
-/** Cancels a download that is in progress. */
+/**
+ * Stops a download and deletes what it had transferred.
+ *
+ * Destructive: the bytes are gone and downloading again starts from the
+ * beginning. Also what discards a paused download.
+ */
 export function cancelDownload(modelId: string): Promise<ModelInfo> {
   return unwrap(engineCancelDownload(modelId));
+}
+
+/**
+ * Stops a download and keeps what it had transferred.
+ *
+ * Destroys nothing: {@link downloadModel} continues from where this stopped,
+ * including after the application has been closed and reopened.
+ */
+export function pauseDownload(modelId: string): Promise<ModelInfo> {
+  return unwrap(enginePauseDownload(modelId));
 }
 
 /** Reports where downloaded data is kept, and how much room is left there. */

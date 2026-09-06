@@ -81,6 +81,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         availability.device or availability.detail,
     )
     yield
+
+    # A transfer that is still running when the process goes away loses its
+    # socket as the loop tears down, and what is left on disk is whatever the
+    # operating system happened to have flushed. Asking each worker to pause
+    # and waiting for it to close its file is what leaves bytes the next
+    # launch can continue from, which is the case the user actually hits:
+    # they start a four gigabyte download and then close the application.
+    paused = app.state.engine.downloader.pause_all()
+    if paused:
+        logger.info("paused %d download(s) on shutdown: %s", len(paused), ", ".join(paused))
+
     logger.info("engine shutting down")
 
 

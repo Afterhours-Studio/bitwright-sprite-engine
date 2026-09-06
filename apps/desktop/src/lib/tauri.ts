@@ -187,18 +187,26 @@ export function engineModels(): Promise<ShellResult<{ models: ModelInfo[] }>> {
 }
 
 /**
- * Starts downloading a model's weights.
+ * Starts, or continues, downloading a model's weights.
  *
  * The engine answers as soon as it has accepted the transfer, not when the
- * transfer finishes, and reports the model's new state.
+ * transfer finishes, and reports the model's new state. A model with a paused
+ * download on disk is continued from where it stopped; there is no separate
+ * resume call, because whether bytes are already here is a fact about the
+ * cache rather than something the caller decides.
  */
 export function engineDownloadModel(modelId: string): Promise<ShellResult<ModelInfo>> {
   return invoke<ModelInfo>('engine_download_model', { modelId });
 }
 
-/** Cancels a download that is in progress. */
+/** Stops a download and deletes the bytes it had. */
 export function engineCancelDownload(modelId: string): Promise<ShellResult<ModelInfo>> {
   return invoke<ModelInfo>('engine_cancel_download', { modelId });
+}
+
+/** Stops a download and keeps the bytes it had, so it can be continued. */
+export function enginePauseDownload(modelId: string): Promise<ShellResult<ModelInfo>> {
+  return invoke<ModelInfo>('engine_pause_download', { modelId });
 }
 
 /** Reports where downloaded data is kept, and how much room is left there. */

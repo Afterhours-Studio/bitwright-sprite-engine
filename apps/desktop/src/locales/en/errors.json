@@ -61,9 +61,10 @@
     "unknown": "That model is not in the registry.",
     "already_downloading": "That model is already downloading.",
     "download_rejected": "The model host refused the download. The file may have moved.",
-    "download_unreachable": "The model host could not be reached. Check your connection.",
-    "download_incomplete": "The download ended before the whole file arrived, so it was discarded.",
-    "download_write_failed": "The download could not be saved. Check the free space on this disk."
+    "download_unreachable": "The model host could not be reached. Check your connection. What had already arrived was kept, so the download can be resumed.",
+    "download_incomplete": "The download ended before the whole file arrived. What had already arrived was kept, so the download can be resumed.",
+    "download_write_failed": "The download could not be saved. Check the free space on this disk.",
+    "download_range_refused": "The file on the model host is no longer the one this download started. What had arrived was removed; download it again to start from the beginning."
   },
   "storage": {
     "invalid_path": "That folder cannot be used for downloads.",

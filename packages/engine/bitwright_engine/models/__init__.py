@@ -21,6 +21,7 @@ from bitwright_engine.models.downloader import (
     DownloadError,
     DownloadsDisabledError,
     ModelDownloader,
+    ResumeRecord,
 )
 from bitwright_engine.models.registry import REGISTRY, ModelEntry, ModelKind, get, list_models
 
@@ -32,6 +33,7 @@ __all__ = [
     "ModelDownloader",
     "ModelEntry",
     "ModelKind",
+    "ResumeRecord",
     "get",
     "list_models",
 ]

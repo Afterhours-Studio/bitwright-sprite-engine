@@ -37,8 +37,18 @@ from bitwright_engine.api.server import bind_socket, create_app
 from bitwright_engine.backends import BackendKind
 from bitwright_engine.config import Settings
 from bitwright_engine.models import ModelDownloader
+from bitwright_engine.models.downloader import CHUNK_SIZE
 from bitwright_engine.version import __version__
-from tests.test_models import MODEL_ID, WAIT_S, WEIGHTS, Handler, partials, serve
+from tests.test_models import (
+    MODEL_ID,
+    WAIT_S,
+    WEIGHTS,
+    Handler,
+    body,
+    partials,
+    serve,
+    stage_partial,
+)
 
 DOWNLOAD_TOKEN = "download-test-token"
 """Token the download tests build their own application with."""
@@ -296,6 +306,60 @@ def test_cancelling_answers_202_and_leaves_no_partial_file(settings: Settings) -
 def test_cancelling_an_unknown_model_answers_404(settings: Settings) -> None:
     with download_app(settings, serve()) as (client, _downloader):
         response = client.post("/v1/models/does-not-exist/cancel")
+        assert response.status_code == 404
+        assert response.json()["detail"] == "models.unknown"
+
+
+def test_pausing_answers_202_and_reports_the_bytes_it_kept(settings: Settings) -> None:
+    reached = threading.Event()
+    gate = threading.Event()
+
+    def hold(index: int) -> None:
+        if index == 1:
+            reached.set()
+            gate.wait(WAIT_S)
+
+    with download_app(settings, serve(chunks=6, on_chunk=hold)) as (client, downloader):
+        try:
+            assert client.post(f"/v1/models/{MODEL_ID}/download").status_code == 202
+            assert reached.wait(WAIT_S) is True
+            assert client.post(f"/v1/models/{MODEL_ID}/pause").status_code == 202
+        finally:
+            gate.set()
+
+        assert downloader.wait(MODEL_ID, timeout=WAIT_S) is True
+        entry = find_model(client, MODEL_ID)
+        assert entry["cached"] is False
+        assert entry["downloading"] is False
+        # Pausing is not a failure, and the bytes it kept are what the row
+        # renders as "2.9 GB of 4.0 GB" with no transfer running.
+        assert entry["error"] == ""
+        assert entry["resumable"] is True
+        assert isinstance(entry["downloadedBytes"], int)
+        assert entry["downloadedBytes"] > 0
+        assert partials(downloader) != []
+
+
+def test_downloading_again_resumes_a_paused_model(settings: Settings) -> None:
+    seen: list[httpx.Request] = []
+
+    with download_app(settings, serve(chunks=3, seen=seen)) as (client, downloader):
+        stage_partial(downloader, held=CHUNK_SIZE, total=3 * CHUNK_SIZE)
+        assert find_model(client, MODEL_ID)["resumable"] is True
+
+        assert client.post(f"/v1/models/{MODEL_ID}/download").status_code == 202
+        assert downloader.wait(MODEL_ID, timeout=WAIT_S) is True
+
+        # The same route resumes; there is no second one to get wrong.
+        assert seen[0].headers["range"] == f"bytes={CHUNK_SIZE}-"
+        entry = find_model(client, MODEL_ID)
+        assert entry["cached"] is True
+        assert (downloader.path_for(MODEL_ID) / WEIGHTS).read_bytes() == body(3)
+
+
+def test_pausing_an_unknown_model_answers_404(settings: Settings) -> None:
+    with download_app(settings, serve()) as (client, _downloader):
+        response = client.post("/v1/models/does-not-exist/pause")
         assert response.status_code == 404
         assert response.json()["detail"] == "models.unknown"
 

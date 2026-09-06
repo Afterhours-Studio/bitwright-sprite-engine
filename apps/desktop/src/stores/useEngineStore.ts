@@ -36,6 +36,7 @@ import {
   downloadModel,
   listBackends,
   listModels,
+  pauseDownload,
   selectBackend,
 } from '@/lib/api';
 import type { SidecarStatus } from '@/lib/tauri';
@@ -68,10 +69,17 @@ interface EngineState {
   refresh: () => Promise<void>;
   /** Switches the active backend and reloads the list. */
   select: (kind: BackendKind) => Promise<void>;
-  /** Starts downloading a model's weights, and follows the transfer. */
+  /**
+   * Starts, or continues, downloading a model's weights.
+   *
+   * A model the engine reports as `resumable` is continued from the bytes
+   * already on disk, so this is what the Resume control calls too.
+   */
   download: (modelId: string) => Promise<void>;
-  /** Cancels a download that is in progress. */
+  /** Stops a download and deletes the bytes it had. Destructive. */
   cancel: (modelId: string) => Promise<void>;
+  /** Stops a download and keeps the bytes it had, so it can be continued. */
+  pause: (modelId: string) => Promise<void>;
   /** Clears the last error. */
   clearError: () => void;
 }
@@ -212,6 +220,20 @@ export const useEngineStore = create<EngineState>((set, get) => {
         // The response body is not part of the contract for this route, so the
         // list is re-read instead of trusted, which also stops the poll.
         await cancelDownload(modelId);
+        await readModels();
+      } catch (error) {
+        const code = error instanceof ApiError ? error.code : 'unknown';
+        set({ models: patchModel(modelId, { error: code }), error: code });
+      }
+    },
+
+    pause: async (modelId) => {
+      try {
+        // Same shape as cancelling, and for the same reason: the worker stops
+        // between chunks, so the state that matters - how many bytes were
+        // kept, and that they can be continued - is only settled once the
+        // engine has been read again.
+        await pauseDownload(modelId);
         await readModels();
       } catch (error) {
         const code = error instanceof ApiError ? error.code : 'unknown';

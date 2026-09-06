@@ -215,12 +215,13 @@ export function GenerateScreen(): ReactElement {
   return (
     <div className="flex h-full gap-4 p-4 pb-16">
       <section className="flex min-w-0 flex-1 flex-col gap-4">
-        {/* The canvas area is two regions, not one. A square sprite centred in
-            a wide content area leaves a column of dead space at each side at
-            every window size; the rail is what goes in it. `min-h-0` is what
-            lets the pair shrink instead of pushing the prompt card off the
-            bottom, since a flex item's automatic minimum is its content. */}
-        <div className="flex min-h-0 flex-1 gap-4">
+        {/* One container, split into two columns. A square sprite centred in a
+            wide content area leaves a column of dead space at each side at
+            every window size, and this is what goes in it - inside the same
+            frame, not in a panel of its own beside it. `min-h-0` is what lets
+            the pair shrink instead of pushing the prompt card off the bottom,
+            since a flex item's automatic minimum is its content. */}
+        <div className="flex min-h-0 flex-1 gap-3 rounded-lg border border-line-subtle bg-surface-content p-1 shadow-sm lg:pe-3">
           <SpriteCanvas
             image={images[selected]}
             showPixelGrid={showPixelGrid}

@@ -61,9 +61,10 @@
     "unknown": "Model đó không có trong danh sách.",
     "already_downloading": "Model đó đang được tải.",
     "download_rejected": "Máy chủ model từ chối lượt tải. Có thể tệp đã được chuyển đi nơi khác.",
-    "download_unreachable": "Không kết nối được tới máy chủ model. Hãy kiểm tra kết nối mạng.",
-    "download_incomplete": "Lượt tải kết thúc khi tệp chưa về đủ nên đã bị bỏ đi.",
-    "download_write_failed": "Không lưu được tệp tải về. Hãy kiểm tra dung lượng trống của ổ đĩa."
+    "download_unreachable": "Không kết nối được tới máy chủ model. Hãy kiểm tra kết nối mạng. Phần đã tải về vẫn được giữ lại nên bạn có thể tải tiếp.",
+    "download_incomplete": "Lượt tải kết thúc khi tệp chưa về đủ. Phần đã tải về vẫn được giữ lại nên bạn có thể tải tiếp.",
+    "download_write_failed": "Không lưu được tệp tải về. Hãy kiểm tra dung lượng trống của ổ đĩa.",
+    "download_range_refused": "Tệp trên máy chủ model không còn là tệp mà lượt tải này bắt đầu. Phần đã tải về đã bị xoá; hãy tải lại từ đầu."
   },
   "storage": {
     "invalid_path": "Không dùng được thư mục đó để lưu tệp tải về.",

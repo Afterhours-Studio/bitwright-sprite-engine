@@ -57,7 +57,14 @@ export interface BackendListResponse {
   backends: BackendInfo[];
 }
 
-/** One registry entry, as reported by `GET /v1/models`. */
+/**
+ * One registry entry, as reported by `GET /v1/models`.
+ *
+ * A model that is neither `cached` nor `downloading` but reports `resumable`
+ * is paused: bytes are on disk and downloading again continues from them. The
+ * engine derives that from the cache directory rather than remembering it, so
+ * it survives the application being closed and reopened.
+ */
 export interface ModelInfo {
   modelId: string;
   name: string;
@@ -69,8 +76,20 @@ export interface ModelInfo {
   cached: boolean;
   /** True while the engine is fetching these weights. */
   downloading: boolean;
-  /** How much of the download is done, from 0 to 1. Zero when idle. */
+  /**
+   * How much of the download is done, from 0 to 1. Reported for a paused
+   * download as well as a running one, so the row can draw its bar either way.
+   */
   progress: number;
+  /** Bytes of this download already on disk, running or paused. */
+  downloadedBytes: number;
+  /**
+   * Full size of the download in bytes, or 0 when the host has not announced
+   * one. `sizeMb` is only an estimate and is not substituted for it.
+   */
+  totalBytes: number;
+  /** Whether a paused download can be continued rather than started again. */
+  resumable: boolean;
   /** Stable reason code for the last failed download, empty otherwise. */
   error: string;
 }

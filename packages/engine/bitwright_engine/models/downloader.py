@@ -26,6 +26,29 @@ A transfer runs on its own daemon thread so that the event loop stays free
 while gigabytes move. Bytes are written to a partial file that lives outside
 the model directory, and only the final rename publishes the model, so an
 interrupted download can never be mistaken for a cached one.
+
+A partial file is kept whenever keeping it is worth something. Four gigabytes
+that arrived before the connection dropped are four gigabytes nobody should
+have to fetch twice, so a recoverable failure - a dropped socket, a body that
+ended early, the process being shut down, or an explicit pause - leaves the
+partial and a ``.resume`` record beside it, and the next attempt continues from
+that offset. Everything else discards both: an explicit stop, a rejection from
+the host, a range the host refuses, and a failure to write, where the disk is
+the thing that broke.
+
+Continuing is only ever done when the host agrees the bytes belong together.
+The record stores the URL and the validator the host gave for the file, and the
+next request carries ``Range`` together with ``If-Range``; a 200 rather than a
+206 means the file changed, and whatever is on disk is thrown away. Splicing
+the head of one file onto the tail of another produces a file that passes every
+length check and is silently wrong, which is the failure this guards against.
+
+There is no stored "paused" flag. A model is paused exactly when a partial with
+a usable record is on disk and no worker is running for it, which is a fact
+about the filesystem rather than a fact somebody has to remember to write down.
+A flag would have to be cleared on every exit path, including the ones taken by
+a process that is being killed, and a flag that survives the file it describes
+is worse than no flag at all.
 """
 
 from __future__ import annotations
@@ -65,19 +88,18 @@ file never makes :meth:`ModelDownloader.status` report a model as cached.
 """
 
 PARTIAL_SUFFIX = ".part"
-"""Suffix of the file bytes are written into before publication."""
+"""Extension given to a download that is still in flight."""
 
 RESUME_SUFFIX = ".resume"
-"""Suffix of the file recording what a partial was fetched from.
+"""Extension of the record that says what a partial file is part of.
 
-Resuming without checking is how two different files get spliced into one
-that passes every length check and is silently wrong. This records the URL
-and the validator the host gave, so a resumed request can ask the host to
-confirm the bytes still belong together and start over when they do not.
+Written beside the partial and removed with it, never independently. A partial
+with no record cannot be proved to belong to the file being fetched, so it is
+discarded and the download starts again; a record with no partial is litter.
 """
 
 CHUNK_SIZE = 1 << 20
-"""Bytes read at a time, and therefore how often cancellation is noticed."""
+"""Bytes read at a time, and therefore how often a stop is noticed."""
 
 BYTES_PER_MB = 1 << 20
 """Divisor used to turn the registry's megabyte estimate into bytes."""
@@ -87,6 +109,30 @@ ESTIMATED_PROGRESS_CEILING = 0.99
 
 A download whose size is guessed must never claim to be finished, because the
 interface would show a completed bar for a model that is still arriving.
+"""
+
+RANGE_NOT_SATISFIABLE = 416
+"""Status meaning the offset asked for is past the end of the file.
+
+Answered when a partial has grown longer than the file the host now serves.
+Asking again would put the same impossible question for ever, so the partial is
+thrown away instead of retried.
+"""
+
+PARTIAL_CONTENT = 206
+"""Status confirming the host is continuing from the offset that was asked for.
+
+Anything else, a plain 200 in particular, means the host is sending the file
+from its beginning, and whatever is already on disk must not be appended to.
+"""
+
+SHUTDOWN_GRACE_S = 5.0
+"""How long a shutdown waits for each transfer to put its bytes down.
+
+Long enough for a worker to notice between chunks and close its file, short
+enough that the sidecar still exits promptly. Waiting is what makes the bytes
+on disk resumable, rather than a file of unknown length left by a process that
+was killed part way through a write.
 """
 
 REQUEST_TIMEOUT = httpx.Timeout(connect=30.0, read=60.0, write=60.0, pool=30.0)
@@ -155,17 +201,68 @@ class DownloadWriteFailedError(DownloadError):
     code = "models.download_write_failed"
 
 
+class DownloadRangeRefusedError(DownloadError):
+    """Raised when the host refuses to continue from the offset on disk.
+
+    A 416 says the bytes already here reach past the end of the file the host
+    is serving, which no number of retries will change. The partial is
+    discarded with the failure, so downloading again starts cleanly.
+    """
+
+    code = "models.download_range_refused"
+
+
 class _CancelledError(Exception):
-    """Unwinds a transfer that the user asked to stop.
+    """Unwinds a transfer that the user asked to stop and throw away.
 
     Private, and never reported as a failure: a cancellation is an expected
     outcome, so it clears the error code rather than setting one.
     """
 
 
+class _PausedError(Exception):
+    """Unwinds a transfer that the user asked to stop but keep.
+
+    Private, and never reported as a failure. It is the unwind that must not
+    reach the discard path: the bytes already written are the whole point of
+    pausing rather than stopping.
+    """
+
+
+@dataclass(frozen=True, slots=True)
+class ResumeRecord:
+    """What a partial file on disk is part of.
+
+    Written beside the partial while bytes are arriving, so that a process
+    which never gets to run any cleanup still leaves enough behind for the next
+    one to continue safely.
+
+    Attributes:
+        url: The URL the bytes came from. A partial whose record names a
+            different URL belongs to a different file and is discarded before
+            the request goes out.
+        validator: The ``ETag`` or ``Last-Modified`` the host gave for that
+            file, replayed as ``If-Range``. Empty is not written: without a
+            validator the host cannot be asked to prove the file is unchanged,
+            so there is nothing safe to continue from.
+        total: Full length of the file in bytes, or 0 when the host never
+            announced one. Lets a paused model report how far it got without a
+            worker having to be running.
+    """
+
+    url: str
+    validator: str
+    total: int
+
+
 @dataclass(frozen=True, slots=True)
 class CacheStatus:
     """Whether a model is present locally, and what its download is doing.
+
+    A model that is neither cached nor downloading may still have bytes on
+    disk. That is the paused state, and it is derived rather than stored: it is
+    ``resumable`` being true, which means a partial file and a usable record
+    are both present and no worker is running.
 
     Attributes:
         model_id: Registry identifier.
@@ -173,10 +270,18 @@ class CacheStatus:
         path: Where the model lives, or would live.
         size_mb: Approximate download size, from the registry.
         downloading: True while a transfer for this model is in flight.
-        progress: Fraction between 0.0 and 1.0, best effort. 0.0 when no
-            transfer is running.
+        progress: Fraction between 0.0 and 1.0, best effort. Reported for a
+            paused model too, so a restarted application can draw the bar.
+        downloaded_bytes: Bytes on disk for this model's transfer. Taken from
+            the running worker while one is running, and from the partial file
+            otherwise. 0 when nothing has arrived.
+        total_bytes: Full length of the download in bytes when it is known, and
+            0 when it is not. The registry's ``size_mb`` is an estimate and is
+            deliberately not substituted here.
+        resumable: True when a paused or interrupted transfer can be continued
+            rather than started again.
         error: Reason code of the last failure, or an empty string. Cleared
-            when a transfer starts, and left empty by a cancellation.
+            when a transfer starts, and left empty by a pause or a stop.
     """
 
     model_id: str
@@ -185,6 +290,9 @@ class CacheStatus:
     size_mb: int
     downloading: bool = False
     progress: float = 0.0
+    downloaded_bytes: int = 0
+    total_bytes: int = 0
+    resumable: bool = False
     error: str = ""
 
 
@@ -195,18 +303,26 @@ class _DownloadState:
     Every field is read and written under the downloader's lock.
 
     Attributes:
-        cancel: Set to ask the worker to stop. Replaced on each start, so that
-            a cancellation cannot carry over into the next attempt.
+        cancel: Set to ask the worker to stop and discard. Replaced on each
+            start, so that a stop cannot carry over into the next attempt.
+        pause: Set to ask the worker to stop and keep what it has. Replaced on
+            each start for the same reason.
         thread: The worker, or None when nothing has run yet.
         downloading: True between claiming the slot and the worker finishing.
         progress: Fraction between 0.0 and 1.0.
+        received: Bytes on disk for this transfer, including any that were
+            already there when it resumed.
+        total: Full length in bytes when the host announced one, else 0.
         error: Reason code of the last failure, or an empty string.
     """
 
     cancel: threading.Event = field(default_factory=threading.Event)
+    pause: threading.Event = field(default_factory=threading.Event)
     thread: threading.Thread | None = None
     downloading: bool = False
     progress: float = 0.0
+    received: int = 0
+    total: int = 0
     error: str = ""
 
 
@@ -255,109 +371,13 @@ def _default_client() -> httpx.Client:
     return httpx.Client(timeout=REQUEST_TIMEOUT, follow_redirects=True)
 
 
-def _resume_path(partial: Path) -> Path:
-    """Return the file recording where a partial came from.
-
-    Args:
-        partial: The partial file.
-
-    Returns:
-        Its companion record.
-    """
-    return partial.with_name(partial.name + RESUME_SUFFIX)
-
-
-def _read_resume(partial: Path) -> dict[str, str]:
-    """Return what was recorded about a partial, or nothing.
-
-    A record that is missing, unreadable or not an object means the partial
-    cannot be vouched for, which is reported as nothing to resume from rather
-    than as an error: starting over always works.
-
-    Args:
-        partial: The partial file.
-
-    Returns:
-        The recorded fields, or an empty mapping.
-    """
-    try:
-        loaded = json.loads(_resume_path(partial).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return {}
-    if not isinstance(loaded, dict):
-        return {}
-    return {str(key): str(value) for key, value in loaded.items()}
-
-
-def _write_resume(partial: Path, url: str, response: httpx.Response) -> None:
-    """Record what a partial is, so a later attempt can continue it.
-
-    The validator is whatever the host offers to identify this version of the
-    file: an entity tag if there is one, otherwise its modification time. With
-    neither, nothing is recorded and a later attempt starts over, which is the
-    right answer - a host that will not say whether its file changed cannot be
-    resumed from safely.
-
-    Args:
-        partial: The partial file being written.
-        url: Where it is being fetched from.
-        response: The response now being read.
-    """
-    validator = response.headers.get("etag", "") or response.headers.get("last-modified", "")
-    try:
-        _resume_path(partial).write_text(
-            json.dumps({"url": url, "validator": validator}),
-            encoding="utf-8",
-        )
-    except OSError:
-        # Losing the record costs a restart on the next attempt, not the
-        # download in progress, so it is not worth failing here.
-        logger.warning("cannot record resume data beside %s", partial)
-
-
-def _resumable_bytes(partial: Path, url: str) -> int:
-    """Return how many bytes on disk may be continued.
-
-    Args:
-        partial: The partial file.
-        url: The URL about to be fetched.
-
-    Returns:
-        The size of the partial when it can be continued, and zero otherwise.
-    """
-    try:
-        size = partial.stat().st_size
-    except OSError:
-        return 0
-    if size == 0:
-        return 0
-
-    recorded = _read_resume(partial)
-    if recorded.get("url") != url:
-        # Bytes from a different file, or from before the registry named a
-        # different one. Continuing onto them would produce a file that is the
-        # right length and the wrong contents.
-        logger.info("discarding a partial fetched from a different URL: %s", partial)
-        _discard(partial)
-        return 0
-    return size
-
-
-def _discard(partial: Path) -> None:
-    """Remove a partial file and its record together.
-
-    Args:
-        partial: The partial file to remove.
-    """
-    partial.unlink(missing_ok=True)
-    _resume_path(partial).unlink(missing_ok=True)
-
-
 def _declared_length(response: httpx.Response) -> int | None:
     """Return the body length the host announced, when it can be trusted.
 
     A compressed body is measured before decoding, so its ``Content-Length``
-    does not describe the file that will be written and is ignored.
+    does not describe the file that will be written and is ignored. On a
+    partial response this describes the remainder being sent, not the whole
+    file, which is why callers add the offset they resumed from.
 
     Args:
         response: The streaming response whose headers are being read.
@@ -378,6 +398,26 @@ def _declared_length(response: httpx.Response) -> int | None:
         return None
 
     return declared if declared > 0 else None
+
+
+def _validator(response: httpx.Response) -> str:
+    """Return the token that proves a later request is fetching the same file.
+
+    ``ETag`` is preferred because it identifies the exact representation.
+    ``Last-Modified`` is the fallback that most static hosts do send, and is
+    what ``If-Range`` was specified to accept when there is no entity tag.
+
+    Args:
+        response: The response the file is arriving in.
+
+    Returns:
+        The validator, or an empty string when the host offered neither. An
+        empty validator means the transfer must not be recorded as resumable.
+    """
+    etag = str(response.headers.get("etag", "")).strip()
+    if etag != "":
+        return etag
+    return str(response.headers.get("last-modified", "")).strip()
 
 
 class ModelDownloader:
@@ -450,6 +490,11 @@ class ModelDownloader:
     def status(self, model_id: str) -> CacheStatus:
         """Report whether a model is cached, and what its download is doing.
 
+        Called with no worker running as often as with one, which is the case
+        that matters after a restart: the bytes already on disk and the record
+        beside them are read from the filesystem, so a paused download can be
+        described by a process that has never downloaded anything.
+
         Args:
             model_id: Registry identifier.
 
@@ -466,24 +511,53 @@ class ModelDownloader:
         with self._lock:
             state = self._downloads.get(model_id)
             downloading = state.downloading if state is not None else False
-            progress = state.progress if state is not None and state.downloading else 0.0
             error = state.error if state is not None else ""
+            live_received = state.received if state is not None and downloading else 0
+            live_total = state.total if state is not None and downloading else 0
+            live_progress = state.progress if state is not None and downloading else 0.0
+
+        if downloading:
+            return CacheStatus(
+                model_id=entry.model_id,
+                cached=cached,
+                path=path,
+                size_mb=entry.size_mb,
+                downloading=True,
+                progress=live_progress,
+                downloaded_bytes=live_received,
+                total_bytes=live_total,
+                error=error,
+            )
+
+        held, record = self._on_disk(entry)
+        # Resumable means the next request can carry a validated Range. Bytes
+        # with no record, or a record naming another URL, cannot be proved to
+        # belong to this file and are treated as absent rather than continued.
+        resumable = held > 0 and record is not None and record.url == download_url(entry)
+        total = record.total if record is not None and resumable else 0
+        progress = min(held / total, 1.0) if resumable and total > 0 else 0.0
 
         return CacheStatus(
             model_id=entry.model_id,
             cached=cached,
             path=path,
             size_mb=entry.size_mb,
-            downloading=downloading,
+            downloading=False,
             progress=progress,
+            downloaded_bytes=held if resumable else 0,
+            total_bytes=total,
+            resumable=resumable,
             error=error,
         )
 
     def start(self, model_id: str) -> bool:
-        """Begin downloading a model in the background.
+        """Begin or continue downloading a model in the background.
 
         Returns as soon as the worker is running, so that the caller can answer
-        the request while gigabytes are still moving.
+        the request while gigabytes are still moving. A model with a resumable
+        partial on disk is continued from that offset rather than started
+        again; there is no separate call for it, because whether bytes are
+        already here is a fact about the disk and not about the request.
 
         Args:
             model_id: Registry identifier.
@@ -510,8 +584,11 @@ class ModelDownloader:
                 raise AlreadyDownloadingError(f"already downloading: {entry.model_id}")
 
             state.cancel = threading.Event()
+            state.pause = threading.Event()
             state.downloading = True
             state.progress = 0.0
+            state.received = 0
+            state.total = 0
             state.error = ""
             worker = threading.Thread(
                 target=self._work,
@@ -527,11 +604,43 @@ class ModelDownloader:
         return True
 
     def cancel(self, model_id: str) -> None:
-        """Ask a running download to stop.
+        """Ask a running download to stop, and throw away what it has.
 
-        Cancellation is cooperative: the worker notices between chunks and then
-        removes its partial file, so nothing half written survives. Cancelling
-        a model that is not downloading does nothing.
+        Stopping is cooperative: the worker notices between chunks and then
+        removes its partial file and the record beside it, so nothing half
+        written survives. Stopping a model that is not downloading still clears
+        any partial left by an earlier attempt, which is what the interface's
+        Discard does to a paused model.
+
+        Args:
+            model_id: Registry identifier.
+
+        Raises:
+            KeyError: The identifier is not registered.
+        """
+        entry = get(model_id)
+        with self._lock:
+            state = self._downloads.get(model_id)
+            running = state is not None and state.downloading
+            if state is not None:
+                state.cancel.set()
+
+        if running:
+            logger.info("stopping the download of %s", entry.model_id)
+            return
+
+        # Nothing is running, so no worker will reach the discard path. The
+        # bytes on disk are this call's responsibility.
+        self._discard(self._partial_path(entry))
+        logger.info("discarded the partial download of %s", entry.model_id)
+
+    def pause(self, model_id: str) -> None:
+        """Ask a running download to stop, and keep what it has.
+
+        The worker notices between chunks, closes the file it was writing, and
+        leaves it beside its record so the next start continues from there.
+        Pausing a model that is not downloading does nothing: it is already in
+        the state pausing produces.
 
         Args:
             model_id: Registry identifier.
@@ -544,9 +653,31 @@ class ModelDownloader:
             state = self._downloads.get(model_id)
             if state is None or not state.downloading:
                 return
-            state.cancel.set()
+            state.pause.set()
 
-        logger.info("cancelling the download of %s", entry.model_id)
+        logger.info("pausing the download of %s", entry.model_id)
+
+    def pause_all(self, timeout: float = SHUTDOWN_GRACE_S) -> tuple[str, ...]:
+        """Pause every running transfer and wait for the bytes to be flushed.
+
+        Called when the sidecar is shutting down. Racing the teardown loses the
+        transfer: the socket dies as the process goes away, and without this
+        the file left behind is whatever the operating system happened to have
+        written. Asking each worker to stop and waiting for it to close its
+        file is what makes the next launch able to continue.
+
+        Args:
+            timeout: Seconds to wait for each worker.
+
+        Returns:
+            The identifiers that were paused, sorted.
+        """
+        paused = self.active()
+        for model_id in paused:
+            self.pause(model_id)
+        for model_id in paused:
+            self.wait(model_id, timeout=timeout)
+        return paused
 
     def wait(self, model_id: str, timeout: float | None = None) -> bool:
         """Block until a model's transfer has finished.
@@ -635,6 +766,105 @@ class ModelDownloader:
         name = f"{entry.kind.value}-{entry.model_id}{PARTIAL_SUFFIX}"
         return self.cache_dir / PARTIAL_DIRNAME / name
 
+    def _resume_path(self, partial: Path) -> Path:
+        """Return the record that describes a partial file.
+
+        Args:
+            partial: The partial file it belongs to.
+
+        Returns:
+            The record's path, beside the partial.
+        """
+        return partial.with_name(partial.name + RESUME_SUFFIX)
+
+    def _read_resume(self, partial: Path) -> ResumeRecord | None:
+        """Read the record beside a partial file.
+
+        Args:
+            partial: The partial file whose record is wanted.
+
+        Returns:
+            The record, or None when there is none or it cannot be read. A
+            record that is corrupt is treated as absent rather than as an
+            error: the worst that follows is a download starting again.
+        """
+        try:
+            raw = json.loads(self._resume_path(partial).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+
+        if not isinstance(raw, dict):
+            return None
+
+        url = raw.get("url")
+        validator = raw.get("validator")
+        total = raw.get("total")
+        if not isinstance(url, str) or not isinstance(validator, str) or not isinstance(total, int):
+            return None
+        if url == "" or validator == "":
+            return None
+
+        return ResumeRecord(url=url, validator=validator, total=max(total, 0))
+
+    def _write_resume(self, partial: Path, record: ResumeRecord) -> None:
+        """Write the record that lets a partial file be continued.
+
+        Written once, as soon as the host's headers are known, rather than as
+        the transfer ends: the process may not get to run anything at the end,
+        and that is precisely the case resuming exists for.
+
+        Args:
+            partial: The partial file being written.
+            record: What that file is part of.
+
+        Raises:
+            DownloadWriteFailedError: The record could not be written. It
+                shares a disk with the download, so a failure here is the same
+                failure the download is about to hit.
+        """
+        payload = {"url": record.url, "validator": record.validator, "total": record.total}
+        try:
+            self._resume_path(partial).write_text(json.dumps(payload), encoding="utf-8")
+        except OSError as error:
+            raise DownloadWriteFailedError(f"cannot write {self._resume_path(partial)}") from error
+
+    def _discard(self, partial: Path) -> None:
+        """Remove a partial file and its record together.
+
+        The two are always removed as a pair. A record left behind would claim
+        bytes that are not there, and bytes left behind with no record cannot
+        be continued and would only be discarded later anyway.
+
+        Args:
+            partial: The partial file to remove.
+        """
+        for path in (partial, self._resume_path(partial)):
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                # Removing leftovers is best effort. The next attempt reads the
+                # pair again and starts over if it cannot use them, so failing
+                # to delete must not turn into a download failure.
+                logger.warning("could not remove %s", path)
+
+    def _on_disk(self, entry: ModelEntry) -> tuple[int, ResumeRecord | None]:
+        """Report what a model's interrupted transfer left behind.
+
+        Args:
+            entry: The registry entry being inspected.
+
+        Returns:
+            The size of the partial file, 0 when there is none, and the record
+            beside it when there is one.
+        """
+        partial = self._partial_path(entry)
+        try:
+            held = partial.stat().st_size
+        except OSError:
+            return 0, None
+
+        return held, self._read_resume(partial)
+
     def _work(self, entry: ModelEntry, state: _DownloadState) -> None:
         """Run one transfer and record how it ended.
 
@@ -647,7 +877,9 @@ class ModelDownloader:
             self._transfer(entry, state)
             logger.info("downloaded %s", entry.model_id)
         except _CancelledError:
-            logger.info("download of %s cancelled, partial file removed", entry.model_id)
+            logger.info("download of %s stopped, partial file removed", entry.model_id)
+        except _PausedError:
+            logger.info("download of %s paused, partial file kept", entry.model_id)
         except DownloadError as error:
             code = error.code
             logger.warning("download of %s failed: %s (%s)", entry.model_id, error.code, error)
@@ -660,17 +892,25 @@ class ModelDownloader:
         with self._lock:
             state.downloading = False
             state.progress = 0.0
+            state.received = 0
+            state.total = 0
             state.error = code
 
     def _transfer(self, entry: ModelEntry, state: _DownloadState) -> None:
-        """Fetch a model into the cache, leaving nothing behind on failure.
+        """Fetch a model into the cache, keeping only what is worth keeping.
+
+        The unwind is the whole design of this method. A pause, a dropped
+        connection and a body that ended early all leave the partial and its
+        record in place, because those bytes are correct as far as they go and
+        the next attempt continues from them. A stop, a rejection, a refused
+        range and a failure to write all remove both.
 
         Args:
             entry: The registry entry being downloaded.
             state: The bookkeeping slot claimed for it.
 
         Raises:
-            DownloadWriteFailedError: The partial file could not be prepared.
+            DownloadWriteFailedError: The partial directory could not be made.
         """
         partial = self._partial_path(entry)
         try:
@@ -678,23 +918,49 @@ class ModelDownloader:
         except OSError as error:
             raise DownloadWriteFailedError(f"cannot prepare {partial}") from error
 
-        # A partial left by a process that was killed mid transfer is kept and
-        # resumed, not discarded. Four gigabytes is half an hour of someone's
-        # connection, and closing the application should not cost it.
         try:
             self._stream(entry, state, partial)
+        except (_PausedError, DownloadUnreachableError, DownloadIncompleteError):
+            # Recoverable. Keep the bytes, unless none arrived at all, in which
+            # case an empty file and a record for it are just litter.
+            self._discard_if_empty(partial)
+            raise
+        except BaseException:
+            self._discard(partial)
+            raise
+
+        try:
             self._publish(partial, self.path_for(entry.model_id), weights_filename(entry))
-        finally:
-            # Covers every unhappy path within this process, cancellation
-            # included. A published download has already been renamed away, so
-            # this removes nothing. A partial only survives a kill, which is
-            # the case resuming exists for: a failure this code saw is a
-            # failure it can describe, and starting clean from it is safer than
-            # resuming onto bytes whose provenance is unclear.
-            _discard(partial)
+        except BaseException:
+            # The file is complete but has nowhere to go, which means the cache
+            # is unwritable. Keeping it would leave bytes no later attempt can
+            # publish either.
+            self._discard(partial)
+            raise
+
+        # Published by rename, so only the record is left to clear.
+        self._discard(partial)
+
+    def _discard_if_empty(self, partial: Path) -> None:
+        """Remove a partial that has nothing in it, and keep one that has.
+
+        Args:
+            partial: The partial file to consider.
+        """
+        try:
+            held = partial.stat().st_size
+        except OSError:
+            held = 0
+
+        if held == 0:
+            self._discard(partial)
 
     def _stream(self, entry: ModelEntry, state: _DownloadState, partial: Path) -> None:
         """Write the response body to the partial file, tracking progress.
+
+        Continues from the bytes already on disk when the record beside them
+        proves they belong to this URL and the host confirms the file has not
+        changed since. Anything less certain starts from zero.
 
         Args:
             entry: The registry entry being downloaded.
@@ -703,69 +969,81 @@ class ModelDownloader:
 
         Raises:
             DownloadRejectedError: The host answered with an error status.
+            DownloadRangeRefusedError: The host refused the offset asked for.
             DownloadUnreachableError: The host could not be reached.
             DownloadIncompleteError: The body ended early, or was empty.
             DownloadWriteFailedError: The partial file could not be written.
         """
         url = download_url(entry)
-        resumed = _resumable_bytes(partial, url)
-        logger.info(
-            "downloading %s from %s%s",
-            entry.model_id,
-            url,
-            f", resuming at {resumed} bytes" if resumed > 0 else "",
-        )
+        offset, record = self._resume_from(entry, partial, url)
 
         # Identity encoding keeps Content-Length describing the bytes that are
         # written, which is what makes the completeness check meaningful.
         headers = {"accept-encoding": "identity"}
-        if resumed > 0:
-            headers["range"] = f"bytes={resumed}-"
-            # The host decides whether resuming is safe. If the file it holds
-            # is no longer the one these bytes came from, it answers with the
-            # whole file instead of the range, and the branch below starts over
-            # rather than splicing two files together.
-            validator = _read_resume(partial).get("validator", "")
-            if validator != "":
-                headers["if-range"] = validator
+        if offset > 0 and record is not None:
+            headers["range"] = f"bytes={offset}-"
+            headers["if-range"] = record.validator
+            logger.info("resuming %s from byte %d of %s", entry.model_id, offset, url)
+        else:
+            offset = 0
+            logger.info("downloading %s from %s", entry.model_id, url)
 
         try:
             with (
                 self._client_factory() as client,
                 client.stream("GET", url, headers=headers) as response,
             ):
-                # A range past the end of the file. The partial is longer than
-                # what the host holds, so it cannot be part of it.
-                if response.status_code == httpx.codes.REQUESTED_RANGE_NOT_SATISFIABLE:
-                    _discard(partial)
-                    raise DownloadIncompleteError(f"{url} rejected the range; the partial is stale")
-
+                if response.status_code == RANGE_NOT_SATISFIABLE:
+                    raise DownloadRangeRefusedError(f"{url} refused a range from byte {offset}")
                 if response.is_error:
                     raise DownloadRejectedError(f"{url} returned HTTP {response.status_code}")
 
-                # Only a 206 is a continuation. A 200 to a ranged request means
-                # the host chose to send everything, so the bytes on disk are
-                # discarded rather than appended to.
-                continuing = resumed > 0 and response.status_code == httpx.codes.PARTIAL_CONTENT
-                start = resumed if continuing else 0
-                mode = "ab" if continuing else "wb"
+                # A host that answers 200 to a conditional range is sending the
+                # whole file because it is no longer the file on disk. Appending
+                # would splice two representations into one plausible, wrong
+                # file, so the offset is dropped and the write starts over.
+                resuming = offset > 0 and response.status_code == PARTIAL_CONTENT
+                if offset > 0 and not resuming:
+                    logger.info("%s changed on the host, restarting %s", url, entry.model_id)
+                start = offset if resuming else 0
 
                 declared = _declared_length(response)
-                remaining = declared if declared is not None else entry.size_mb * BYTES_PER_MB
-                total = start + remaining
-                received = start
+                total = start + declared if declared is not None else entry.size_mb * BYTES_PER_MB
+                validator = _validator(response)
+                if validator != "":
+                    self._write_resume(
+                        partial,
+                        ResumeRecord(
+                            url=url,
+                            validator=validator,
+                            total=start + declared if declared is not None else 0,
+                        ),
+                    )
+                else:
+                    # Nothing to prove the file with later, so make sure no
+                    # stale record survives to claim these bytes are resumable.
+                    self._resume_path(partial).unlink(missing_ok=True)
 
-                _write_resume(partial, url, response)
-                with partial.open(mode) as handle:
+                received = start
+                self._record(state, received, total, exact=declared is not None)
+
+                with partial.open("ab" if resuming else "wb") as handle:
                     for chunk in response.iter_bytes(CHUNK_SIZE):
                         if state.cancel.is_set():
                             raise _CancelledError(entry.model_id)
+                        if state.pause.is_set():
+                            raise _PausedError(entry.model_id)
                         handle.write(chunk)
                         received += len(chunk)
                         self._record(state, received, total, exact=declared is not None)
+                    # Paused or not, the bytes counted have to be the bytes a
+                    # later Range request will ask to continue after.
+                    handle.flush()
 
-                if declared is not None and received != total:
-                    raise DownloadIncompleteError(f"{url} sent {received - start} of {declared}")
+                if declared is not None and received != start + declared:
+                    raise DownloadIncompleteError(
+                        f"{url} sent {received - start} of {declared} bytes"
+                    )
                 if received == 0:
                     raise DownloadIncompleteError(f"{url} sent an empty body")
         except httpx.HTTPError as error:
@@ -773,12 +1051,48 @@ class ModelDownloader:
         except OSError as error:
             raise DownloadWriteFailedError(f"cannot write {partial}") from error
 
+    def _resume_from(
+        self, entry: ModelEntry, partial: Path, url: str
+    ) -> tuple[int, ResumeRecord | None]:
+        """Return the byte to continue from, discarding what cannot be used.
+
+        Args:
+            entry: The registry entry being downloaded.
+            partial: The partial file being considered.
+            url: The URL about to be requested.
+
+        Returns:
+            The offset to ask the host to continue from with the record that
+            justifies it, or ``(0, None)`` to start again. Bytes that cannot be
+            continued are removed here rather than left to confuse the next
+            attempt.
+        """
+        held, record = self._on_disk(entry)
+        if held == 0:
+            # A record with no bytes claims a transfer that is not there.
+            self._discard(partial)
+            return 0, None
+
+        if record is None:
+            logger.info("discarding %d unrecorded bytes for %s", held, entry.model_id)
+            self._discard(partial)
+            return 0, None
+
+        if record.url != url:
+            # The registry moved the entry, or its revision was repinned. These
+            # bytes belong to a file nobody is asking for any more.
+            logger.info("discarding bytes for %s left from %s", entry.model_id, record.url)
+            self._discard(partial)
+            return 0, None
+
+        return held, record
+
     def _record(self, state: _DownloadState, received: int, total: int, *, exact: bool) -> None:
         """Store how far a transfer has got.
 
         Args:
             state: The bookkeeping slot being updated.
-            received: Bytes written so far.
+            received: Bytes written so far, counting any it resumed from.
             total: Expected total, either announced or estimated.
             exact: Whether ``total`` came from the host rather than from the
                 registry's size estimate.
@@ -788,6 +1102,8 @@ class ModelDownloader:
 
         ceiling = 1.0 if exact else ESTIMATED_PROGRESS_CEILING
         with self._lock:
+            state.received = received
+            state.total = total if exact else 0
             state.progress = min(received / total, ceiling)
 
     def _publish(self, partial: Path, destination: Path, filename: str) -> None:

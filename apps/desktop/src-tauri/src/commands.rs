@@ -213,7 +213,10 @@ pub async fn engine_download_model<R: Runtime>(
     Ok(engine::call(&app, Method::Post, &path, None).await?)
 }
 
-/// Cancels a download that is in progress.
+/// Stops a download and deletes the bytes it had transferred.
+///
+/// Destructive, and deliberately distinct from pausing: what has arrived is
+/// removed, so downloading again starts from the beginning.
 ///
 /// # Errors
 ///
@@ -225,6 +228,24 @@ pub async fn engine_cancel_download<R: Runtime>(
     model_id: String,
 ) -> Result<Value, CommandError> {
     let path = model_action_path(&model_id, "cancel")?;
+    Ok(engine::call(&app, Method::Post, &path, None).await?)
+}
+
+/// Stops a download and keeps the bytes it had transferred.
+///
+/// Destroys nothing. `engine_download_model` continues from where this
+/// stopped, including after the application has been closed and reopened.
+///
+/// # Errors
+///
+/// Returns `models.unknown` when the id is not a plain identifier, and the
+/// engine's reason code when the call fails.
+#[tauri::command]
+pub async fn engine_pause_download<R: Runtime>(
+    app: AppHandle<R>,
+    model_id: String,
+) -> Result<Value, CommandError> {
+    let path = model_action_path(&model_id, "pause")?;
     Ok(engine::call(&app, Method::Post, &path, None).await?)
 }
 
@@ -652,6 +673,7 @@ pub fn handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + 
         engine_models,
         engine_download_model,
         engine_cancel_download,
+        engine_pause_download,
         engine_providers,
         engine_save_provider,
         engine_remove_provider,
@@ -769,6 +791,10 @@ mod tests {
         assert_eq!(
             model_action_path("rembg_u2net", "cancel").unwrap(),
             "/v1/models/rembg_u2net/cancel"
+        );
+        assert_eq!(
+            model_action_path("sdxl-base", "pause").unwrap(),
+            "/v1/models/sdxl-base/pause"
         );
     }
 

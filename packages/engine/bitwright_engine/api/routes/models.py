@@ -62,6 +62,9 @@ def _to_info(entry: ModelEntry, cache: CacheStatus) -> ModelInfo:
         cached=cache.cached,
         downloading=cache.downloading,
         progress=cache.progress,
+        downloaded_bytes=cache.downloaded_bytes,
+        total_bytes=cache.total_bytes,
+        resumable=cache.resumable,
         error=cache.error,
     )
 
@@ -111,12 +114,20 @@ def list_all(state: StateDep) -> ModelListResponse:
     status_code=status.HTTP_202_ACCEPTED,
 )
 def start_download(model_id: str, state: StateDep, response: Response) -> ModelInfo:
-    """Start downloading one model in the background.
+    """Start or continue downloading one model in the background.
 
     Answers immediately with the model's current entry. A model that is already
     on this machine answers 200 and nothing is fetched, which keeps a repeated
     click cheap. A transfer that is already running answers 409 rather than
     starting a second one.
+
+    This is also the route that resumes. A model with a validated partial on
+    disk is continued from that offset, and one without is fetched from the
+    start. There is no separate resume route because there is no separate
+    request to make: the caller is asking for the weights either way, and
+    whether some of them are already here is a fact about the cache. A second
+    route would have to answer the same question and would let the caller ask
+    for the wrong one.
 
     Args:
         model_id: Registry identifier.
@@ -158,11 +169,12 @@ def start_download(model_id: str, state: StateDep, response: Response) -> ModelI
     status_code=status.HTTP_202_ACCEPTED,
 )
 def cancel_download(model_id: str, state: StateDep) -> ModelInfo:
-    """Ask a running download to stop.
+    """Stop a download and throw away the bytes it had.
 
-    The worker stops between chunks and removes its partial file, so nothing
-    half written is left in the cache. Cancelling a model that is not
-    downloading is accepted and does nothing.
+    The worker stops between chunks and removes its partial file and the record
+    beside it, so nothing half written is left in the cache. Called on a model
+    that is not downloading, this discards a partial left by an earlier
+    attempt, which is what the interface's Discard does to a paused model.
 
     Args:
         model_id: Registry identifier.
@@ -177,6 +189,42 @@ def cancel_download(model_id: str, state: StateDep) -> ModelInfo:
     """
     try:
         state.downloader.cancel(model_id)
+    except KeyError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=UNKNOWN_MODEL,
+        ) from error
+
+    return _current(model_id, state)
+
+
+@router.post(
+    "/{model_id}/pause",
+    response_model=ModelInfo,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def pause_download(model_id: str, state: StateDep) -> ModelInfo:
+    """Stop a download and keep the bytes it had.
+
+    The difference from cancelling is the only thing this route exists for: the
+    partial file and its record stay on disk, so a later download of the same
+    model continues from where this one stopped rather than fetching gigabytes
+    again. Pausing a model that is not downloading is accepted and does
+    nothing, since that is already the state pausing produces.
+
+    Args:
+        model_id: Registry identifier.
+        state: The engine state.
+
+    Returns:
+        The model's entry, which may still report the transfer as running
+        until the worker notices.
+
+    Raises:
+        HTTPException: The identifier is not registered.
+    """
+    try:
+        state.downloader.pause(model_id)
     except KeyError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

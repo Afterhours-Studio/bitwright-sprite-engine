@@ -102,12 +102,11 @@ export function SpriteCanvas({
   const gridVisible = showPixelGrid && image !== undefined && scale >= MIN_GRID_CELL;
 
   return (
-    // The card is a frame around the well rather than a container with a
-    // margin: 4px, so the height it costs does not come out of the sprite. The
-    // stage's vertical room is what decides whether the pixel grid can be drawn
-    // at all, and at the default window it clears the threshold by about a
-    // dozen pixels.
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col rounded-lg border border-line-subtle bg-surface-content p-1 shadow-sm">
+    // A column inside the canvas container, not a card of its own. The frame
+    // and the background belong to the container that holds both columns, so
+    // the sprite and the tools beside it read as one view rather than as two
+    // panels that happen to be adjacent.
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div
         className={cn(
           // The inset is 12px rather than 24. Every pixel of it comes off the

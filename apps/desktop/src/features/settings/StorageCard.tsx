@@ -21,36 +21,10 @@ import { Card } from '@/components/ui/Card';
 import { Overlay } from '@/components/ui/Overlay';
 import { useDismiss } from '@/hooks/useDismiss';
 import { useErrorMessage } from '@/hooks/useErrorMessage';
+import { BYTES_PER_MB, formatBytes, type ByteUnits } from '@/lib/format';
 import { useEngineStore } from '@/stores/useEngineStore';
 import { useStorageStore } from '@/stores/useStorageStore';
 import type { StorageInfo } from '@/types/engine';
-
-const BYTES_PER_MB = 1024 * 1024;
-const BYTES_PER_GB = 1024 * BYTES_PER_MB;
-
-/** The unit words, translated once and passed down rather than looked up twice. */
-interface Units {
-  megabytes: string;
-  gigabytes: string;
-}
-
-/**
- * Renders a size the way a disk reports it.
- *
- * Gigabytes once a value reaches one, megabytes below that. A model is
- * measured in gigabytes, so a figure in megabytes with ten digits is a number
- * the reader has to count rather than read.
- *
- * @param bytes - The size to render.
- * @param units - Translated unit words.
- * @returns The size with its unit.
- */
-function formatSize(bytes: number, units: Units): string {
-  if (bytes >= BYTES_PER_GB) {
-    return `${(bytes / BYTES_PER_GB).toFixed(1)} ${units.gigabytes}`;
-  }
-  return `${Math.round(bytes / BYTES_PER_MB)} ${units.megabytes}`;
-}
 
 /**
  * The storage location: where downloaded weights are kept.
@@ -103,7 +77,7 @@ export function StorageCard(): ReactElement {
   // "the engine is still starting" every time the screen opens during startup.
   const engineReady = useEngineStore((state) => state.sidecar.ready);
 
-  const units: Units = {
+  const units: ByteUnits = {
     megabytes: tCommon('units.megabytes'),
     gigabytes: tCommon('units.gigabytes'),
   };
@@ -137,12 +111,12 @@ export function StorageCard(): ReactElement {
             <dd className="text-fg-primary">
               {info === null || info.freeBytes === null
                 ? unknownSpace
-                : formatSize(info.freeBytes, units)}
+                : formatBytes(info.freeBytes, units)}
             </dd>
 
             <dt>{t('storage.used')}</dt>
             <dd className="text-fg-primary">
-              {info === null ? '-' : formatSize(info.usedBytes, units)}
+              {info === null ? '-' : formatBytes(info.usedBytes, units)}
             </dd>
 
             <dt>{t('storage.existing')}</dt>
@@ -220,7 +194,7 @@ interface ProposalProps {
   /** The checked location awaiting confirmation. */
   candidate: StorageInfo;
   /** Translated unit words. */
-  units: Units;
+  units: ByteUnits;
   /** Size of the largest model in the registry, in bytes. Zero when unknown. */
   largestModelBytes: number;
   /** Whether a request is in flight, which disables the confirmation. */
@@ -262,13 +236,13 @@ function Proposal({
       <p className="text-xs text-fg-secondary">
         {t('storage.free')}
         {': '}
-        {free === null ? t('storage.unknownSpace') : formatSize(free, units)}
+        {free === null ? t('storage.unknownSpace') : formatBytes(free, units)}
       </p>
       <p className="text-xs text-fg-secondary">{t('storage.confirmBody')}</p>
 
       {tooSmall && (
         <p className="text-xs text-fg-secondary">
-          {t('storage.lowSpace', { needed: formatSize(largestModelBytes, units) })}
+          {t('storage.lowSpace', { needed: formatBytes(largestModelBytes, units) })}
         </p>
       )}
 

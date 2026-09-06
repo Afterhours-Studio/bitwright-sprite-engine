@@ -62,7 +62,10 @@ export function PreviewRail({ images, selected, onSelect }: PreviewRailProps): R
   const image = images[selected];
 
   return (
-    <aside className="hidden w-40 shrink-0 flex-col gap-4 lg:flex xl:w-[200px]">
+    // The second column of the canvas container. It carries a leading hairline
+    // rather than a border of its own, because a boxed panel here would put a
+    // second frame inside the frame the container already draws.
+    <aside className="hidden w-40 shrink-0 flex-col gap-3 border-s border-line-subtle ps-3 lg:flex xl:w-[200px]">
       <RailCell title={t('canvas.actualSize')}>
         {image === undefined ? (
           <p className="px-2 py-6 text-center text-xs text-fg-secondary">{t('canvas.railEmpty')}</p>
@@ -140,8 +143,8 @@ interface RailCellProps {
  */
 function RailCell({ title, children }: RailCellProps): ReactElement {
   return (
-    <section className="flex min-h-0 flex-col gap-2 rounded-lg border border-line-subtle bg-surface-content p-2 shadow-sm">
-      <h2 className="px-1 text-xs font-medium text-fg-secondary">{title}</h2>
+    <section className="flex min-h-0 flex-col gap-2">
+      <h2 className="text-xs font-medium text-fg-secondary">{title}</h2>
       {children}
     </section>
   );
