@@ -215,6 +215,7 @@ export function GenerateScreen(): ReactElement {
             image={images[selected]}
             showPixelGrid={showPixelGrid}
             showCheckerboard={showCheckerboard}
+            requested={{ width: request.width, height: request.height }}
           />
           <PreviewRail images={images} selected={selected} onSelect={setChosen} />
         </div>

@@ -23,6 +23,7 @@ from pydantic import Field
 from bitwright_engine.api.schemas.common import CamelModel
 from bitwright_engine.backends import GenerationRequest
 from bitwright_engine.pipeline import PostProcessOptions
+from bitwright_engine.styles import ArtStyle, compose
 
 
 class PostProcessBody(CamelModel):
@@ -69,6 +70,7 @@ class GenerateBody(CamelModel):
         guidance_scale: Classifier free guidance strength.
         seed: Seed for reproducible output. ``None`` picks a random seed.
         batch_size: Number of images to produce.
+        style: Art style, which contributes terms to both prompts.
         model_id: Registry identifier of the model to use.
         lora_id: Registry identifier of a LoRA adapter, or ``None``.
         postprocess: Post-processing options.
@@ -82,6 +84,7 @@ class GenerateBody(CamelModel):
     guidance_scale: float = Field(default=7.0, ge=0.0, le=30.0)
     seed: int | None = Field(default=None, ge=0, le=2**31 - 1)
     batch_size: int = Field(default=1, ge=1, le=16)
+    style: ArtStyle = ArtStyle.PIXEL
     model_id: str = "sd15-base"
     lora_id: str | None = None
     postprocess: PostProcessBody = Field(default_factory=PostProcessBody)
@@ -92,9 +95,13 @@ class GenerateBody(CamelModel):
         Returns:
             The equivalent :class:`GenerationRequest`.
         """
+        # The style's terms are folded in here rather than in the backends,
+        # so every backend sees one already composed pair of prompts and
+        # cannot disagree with another about what a style means.
+        prompt, negative_prompt = compose(self.prompt, self.negative_prompt, self.style)
         return GenerationRequest(
-            prompt=self.prompt,
-            negative_prompt=self.negative_prompt,
+            prompt=prompt,
+            negative_prompt=negative_prompt,
             width=self.width,
             height=self.height,
             steps=self.steps,

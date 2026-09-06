@@ -245,6 +245,12 @@ export interface PostProcessOptions {
 }
 
 /** A generation request. */
+/** The art styles the engine offers, in the order they are listed. */
+export const ART_STYLES = ['pixel', 'hd2d', 'modern2d', 'classic', 'isometric'] as const;
+
+/** One of {@link ART_STYLES}. */
+export type ArtStyle = (typeof ART_STYLES)[number];
+
 export interface GenerateRequest {
   prompt: string;
   negativePrompt: string;
@@ -254,6 +260,8 @@ export interface GenerateRequest {
   guidanceScale: number;
   seed: number | null;
   batchSize: number;
+  /** Art style, which adds terms to both prompts in the engine. */
+  style: ArtStyle;
   modelId: string;
   loraId: string | null;
   postprocess: PostProcessOptions;

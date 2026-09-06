@@ -22,7 +22,15 @@
     "model": "Model",
     "lora": "Bộ điều chỉnh phong cách",
     "loraNone": "Không dùng",
-    "presetCustom": "Tuỳ chỉnh"
+    "presetCustom": "Tuỳ chỉnh",
+    "style": "Phong cách",
+    "styles": {
+      "pixel": "Pixel art",
+      "hd2d": "HD-2D",
+      "modern2d": "2D hiện đại",
+      "classic": "Retro 16-bit",
+      "isometric": "Góc nghiêng"
+    }
   },
   "postprocess": {
     "title": "Hậu xử lý",

@@ -29,6 +29,14 @@ export interface SpriteCanvasProps {
   showPixelGrid: boolean;
   /** Whether transparent pixels read as a checker pattern. */
   showCheckerboard: boolean;
+  /**
+   * The size the parameters currently ask for.
+   *
+   * The stage takes its shape from this rather than from the sprite, so the
+   * canvas states the size that was asked for before anything exists to show,
+   * and keeps stating it while a request is edited.
+   */
+  requested: { width: number; height: number };
 }
 
 /**
@@ -92,6 +100,7 @@ export function SpriteCanvas({
   image,
   showPixelGrid,
   showCheckerboard,
+  requested,
 }: SpriteCanvasProps): ReactElement {
   const { t } = useTranslation('generation');
   const { ref, width, height } = useElementSize();
@@ -106,7 +115,7 @@ export function SpriteCanvas({
     // and the background belong to the container that holds both columns, so
     // the sprite and the tools beside it read as one view rather than as two
     // panels that happen to be adjacent.
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+    <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center">
       <div
         className={cn(
           // The inset is 12px rather than 24. Every pixel of it comes off the
@@ -115,9 +124,15 @@ export function SpriteCanvas({
           // padding on each side is what takes it below the threshold where the
           // pixel grid can be drawn at all. The well's own edge is what holds
           // the sprite off the card; it does not need a wide margin as well.
-          'flex min-h-64 flex-1 items-center justify-center rounded-md p-3',
+          'flex max-h-full max-w-full items-center justify-center rounded-md p-3',
           showCheckerboard ? 'sprite-checkerboard' : 'bg-surface-well',
         )}
+        // The stage takes the shape of the sprite that was asked for, and is
+        // capped by the room available, so a 64x64 request is a square before
+        // anything has been generated. Filling whatever space is free is what
+        // presented a square sprite in a landscape frame and made the canvas
+        // disagree with the size named in the parameters.
+        style={{ aspectRatio: `${String(requested.width)} / ${String(requested.height)}` }}
       >
         {/* Measured rather than the padded box above it, so the number the
             scale is worked out from is the room a sprite can actually occupy.

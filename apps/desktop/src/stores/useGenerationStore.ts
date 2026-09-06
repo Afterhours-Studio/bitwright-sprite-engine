@@ -38,6 +38,7 @@ export const DEFAULT_REQUEST: GenerateRequest = {
   guidanceScale: 7,
   seed: null,
   batchSize: 1,
+  style: 'pixel',
   modelId: 'sd15-base',
   loraId: null,
   postprocess: {

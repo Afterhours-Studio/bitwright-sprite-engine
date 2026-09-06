@@ -21,6 +21,7 @@ import { NumberField } from '@/components/ui/NumberField';
 import { Select } from '@/components/ui/Select';
 import { useCapabilities } from '@/hooks/useCapabilities';
 import { useEngineStore } from '@/stores/useEngineStore';
+import { ART_STYLES, type ArtStyle } from '@/types/engine';
 import { useGenerationStore } from '@/stores/useGenerationStore';
 
 /**
@@ -84,6 +85,22 @@ export function ParameterPanel(): ReactElement {
       <div className="flex flex-col gap-5 overflow-auto p-4">
         <section className="flex flex-col gap-3">
           <h2 className="text-sm font-semibold text-fg-primary">{t('parameters.title')}</h2>
+
+          {/* First, because it decides what the rest of the parameters are
+              shaping. A style is a set of terms the engine adds to both
+              prompts, so someone who wants HD-2D does not have to know the
+              vocabulary a diffusion model responds to. */}
+          <Select
+            label={t('parameters.style')}
+            value={request.style}
+            options={ART_STYLES.map((style) => ({
+              value: style,
+              label: t(`parameters.styles.${style}`),
+            }))}
+            onValueChange={(value) => {
+              patch({ style: value as ArtStyle });
+            }}
+          />
 
           {/* A dropdown rather than a row of pills. The pills spent a whole
               row of a narrow column on four values, and a size that is not one

@@ -22,7 +22,15 @@
     "model": "Model",
     "lora": "Style Adapter",
     "loraNone": "None",
-    "presetCustom": "Custom"
+    "presetCustom": "Custom",
+    "style": "Style",
+    "styles": {
+      "pixel": "Pixel Art",
+      "hd2d": "HD-2D",
+      "modern2d": "Modern 2D",
+      "classic": "Retro 16-bit",
+      "isometric": "Isometric"
+    }
   },
   "postprocess": {
     "title": "Post-processing",
