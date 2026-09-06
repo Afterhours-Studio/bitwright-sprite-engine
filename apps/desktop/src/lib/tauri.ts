@@ -38,6 +38,7 @@ import type {
   ProviderSaveRequest,
   RuntimeInfo,
   RuntimeRequest,
+  SpriteListResponse,
   StorageChange,
   StorageInfo,
 } from '@/types/engine';
@@ -205,6 +206,16 @@ export function engineDownloadModel(modelId: string): Promise<ShellResult<ModelI
 /** Stops a download and deletes the bytes it had. */
 export function engineCancelDownload(modelId: string): Promise<ShellResult<ModelInfo>> {
   return invoke<ModelInfo>('engine_cancel_download', { modelId });
+}
+
+/** Lists the sprites already on disk, newest first. */
+export function engineSprites(): Promise<ShellResult<SpriteListResponse>> {
+  return invoke<SpriteListResponse>('engine_sprites');
+}
+
+/** Deletes one sprite from disk. */
+export function engineRemoveSprite(name: string): Promise<ShellResult<null>> {
+  return invoke<null>('engine_remove_sprite', { name });
 }
 
 /** Corrects one sprite that already exists. */

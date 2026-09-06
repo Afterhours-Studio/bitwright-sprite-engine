@@ -348,6 +348,59 @@ fn provider_action_path(provider_id: &str, action: &str) -> Result<String, Comma
     Ok(format!("/v1/providers/{provider_id}/{action}"))
 }
 
+/// Lists the sprites already on disk, newest first.
+///
+/// # Errors
+///
+/// Returns the engine's reason code when the call fails.
+#[tauri::command]
+pub async fn engine_sprites<R: Runtime>(app: AppHandle<R>) -> Result<Value, CommandError> {
+    Ok(engine::call(&app, Method::Get, "/v1/sprites", None).await?)
+}
+
+/// Deletes one sprite from disk.
+///
+/// # Errors
+///
+/// Returns `sprites.unknown` when the name is not a plain file name, and the
+/// engine's reason code when the call fails.
+#[tauri::command]
+pub async fn engine_remove_sprite<R: Runtime>(
+    app: AppHandle<R>,
+    name: String,
+) -> Result<Value, CommandError> {
+    // A sprite is named by its file, which is generated rather than typed, so
+    // it is checked the same way an identifier is before it reaches a URL.
+    if !is_sprite_name(&name) {
+        return Err(CommandError::new(
+            "sprites.unknown",
+            format!("invalid sprite name: {name}"),
+        ));
+    }
+
+    Ok(engine::call(
+        &app,
+        Method::Post,
+        &format!("/v1/sprites/{name}/remove"),
+        None,
+    )
+    .await?)
+}
+
+/// Reports whether a value is a sprite file name.
+///
+/// The generated names are digits, hyphens and the `.png` suffix. Anything
+/// else, and in particular a separator or a dot segment, is not one.
+fn is_sprite_name(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= MAX_IDENTIFIER
+        && value.ends_with(".png")
+        && value
+            .trim_end_matches(".png")
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || character == '-')
+}
+
 /// Corrects one sprite that already exists.
 ///
 /// # Errors
@@ -803,6 +856,8 @@ pub fn handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + 
         engine_download_model,
         engine_cancel_download,
         engine_conform,
+        engine_sprites,
+        engine_remove_sprite,
         engine_remove_model,
         engine_pause_download,
         engine_providers,

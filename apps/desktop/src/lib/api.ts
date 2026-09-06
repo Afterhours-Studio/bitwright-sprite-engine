@@ -31,6 +31,8 @@ import {
   engineConform,
   engineDownloadModel,
   engineRemoveModel,
+  engineRemoveSprite,
+  engineSprites,
   engineGenerate,
   engineModels,
   enginePauseDownload,
@@ -64,6 +66,7 @@ import type {
   ProviderSaveRequest,
   RuntimeInfo,
   RuntimeRequest,
+  SpriteListResponse,
   StorageChange,
   StorageInfo,
 } from '@/types/engine';
@@ -151,6 +154,23 @@ export function conformSprite(
   request: ConformOptions & { image: string },
 ): Promise<ConformResponse> {
   return unwrap(engineConform(request));
+}
+
+/**
+ * Lists the sprites on disk, newest first.
+ *
+ * The gallery is a view of a directory rather than a list held in memory:
+ * anything else means a sprite exists in two places that disagree the moment
+ * one changes, and it means closing the window loses the record of work that
+ * is still sitting on disk.
+ */
+export function listSprites(): Promise<SpriteListResponse> {
+  return unwrap(engineSprites());
+}
+
+/** Deletes one sprite from disk. */
+export function removeSprite(name: string): Promise<null> {
+  return unwrap(engineRemoveSprite(name));
 }
 
 /** Deletes a model's weights, reclaiming the space they occupy. */

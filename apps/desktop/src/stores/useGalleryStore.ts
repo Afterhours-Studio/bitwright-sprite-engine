@@ -24,6 +24,8 @@
 
 import { create } from 'zustand';
 
+import { listSprites, removeSprite } from '@/lib/api';
+
 import type { SpriteImage } from '@/types/engine';
 
 /** One sprite in the gallery. */
@@ -47,6 +49,10 @@ interface GalleryState {
   items: GalleryItem[];
   filter: GalleryFilter;
 
+  /** True while the directory is being read. */
+  loading: boolean;
+  /** Reads the sprites directory, replacing what is shown. */
+  load: () => Promise<void>;
   /** Adds the sprites from one run, newest first. */
   add: (images: SpriteImage[], prompt: string) => void;
   /** Marks or unmarks an item. */
@@ -77,6 +83,37 @@ function nextId(): string {
 export const useGalleryStore = create<GalleryState>((set, get) => ({
   items: [],
   filter: 'all',
+  loading: false,
+
+  load: async () => {
+    set({ loading: true });
+    try {
+      const listed = await listSprites();
+      // Replaced rather than merged. The directory is the record; a list this
+      // store had built during the session would only differ from it by being
+      // out of date, and keeping both means showing a sprite that was deleted
+      // or missing one that was written.
+      set({
+        items: listed.sprites.map((sprite) => ({
+          id: sprite.name,
+          image: {
+            data: sprite.data,
+            width: sprite.width,
+            height: sprite.height,
+            path: sprite.path,
+          },
+          prompt: '',
+          createdAt: sprite.modifiedAt * 1000,
+          favourite: false,
+        })),
+      });
+    } catch {
+      // A gallery that cannot be read is empty rather than broken: the sprites
+      // are on disk either way, and the next read will find them.
+    } finally {
+      set({ loading: false });
+    }
+  },
 
   add: (images, prompt) => {
     const created = images.map((image) => ({
@@ -98,6 +135,9 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
   },
 
   remove: (id) => {
+    // The item's id is its file name, so removing it from the list and leaving
+    // the file would show it again on the next read.
+    void removeSprite(id).catch(() => undefined);
     set({ items: get().items.filter((item) => item.id !== id) });
   },
 

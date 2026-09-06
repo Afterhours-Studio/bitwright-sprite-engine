@@ -42,6 +42,7 @@ import {
 } from '@/lib/api';
 import type { SidecarStatus } from '@/lib/tauri';
 import { useDownloadStore } from '@/stores/useDownloadStore';
+import { useGalleryStore } from '@/stores/useGalleryStore';
 import type { BackendInfo, BackendKind, Capability, ModelInfo } from '@/types/engine';
 
 /**
@@ -211,6 +212,9 @@ export const useEngineStore = create<EngineState>((set, get) => {
       set({ sidecar, error: sidecar.error === '' ? get().error : sidecar.error });
       if (sidecar.ready) {
         void get().refresh();
+        // The gallery is a view of a directory, and this is the first moment
+        // that directory can be read.
+        void useGalleryStore.getState().load();
       }
     },
 

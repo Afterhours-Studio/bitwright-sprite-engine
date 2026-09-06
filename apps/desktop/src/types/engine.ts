@@ -324,6 +324,25 @@ export interface GenerateRequest {
 }
 
 /** One generated sprite. */
+/** One sprite already written to disk. */
+export interface SavedSprite {
+  /** File name, which is also its identifier. */
+  name: string;
+  /** Full path, for showing where it lives. */
+  path: string;
+  width: number;
+  height: number;
+  /** PNG bytes, base64 encoded, with no data URL prefix. */
+  data: string;
+  /** When it was written, as a Unix timestamp. */
+  modifiedAt: number;
+}
+
+/** Every sprite on disk, newest first. */
+export interface SpriteListResponse {
+  sprites: SavedSprite[];
+}
+
 export interface SpriteImage {
   /** Where the sprite was written, or an empty string when it could not be. */
   path: string;
