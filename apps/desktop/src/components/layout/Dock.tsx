@@ -149,6 +149,12 @@ const DOCK_RAIL = cn(
   // plus the border matches the dock's 8px chip inside 1px of padding, which
   // is what puts all three bars on the same line rather than merely near it.
   '[&_button]:h-10 [&_button]:rounded-lg',
+  // An icon on its own gets a square: chip padding is sized for a 32px chip,
+  // so at 40 it left the button wider than it was tall, which is a squat
+  // rectangle rather than a button with an icon in it. A rail carrying a label
+  // is untouched, since a square would crop the words.
+  '[&_button[data-variant=chip]]:w-10 [&_button[data-variant=chip]]:justify-center',
+  '[&_button[data-variant=chip]]:px-0',
 );
 
 export interface DockProps {
@@ -827,6 +833,10 @@ export function DockPopover({
           return !was;
         });
       }}
+      // Named on the element so a container can size it. A rail holding an
+      // icon needs it square, and a rail holding a label must not be, and only
+      // the trigger knows which it is.
+      data-variant={variant}
       className={cn(
         CHIP,
         'relative',
