@@ -210,6 +210,8 @@ export interface RuntimeInfo {
   probeDetail: string;
   /** Packages the installed tree lacks against the manifest this build ships. */
   missingPackages: string[];
+  /** How many packages the installed variant pins. */
+  totalPackages: number;
   /** What adding them would download. */
   missingBytes: number;
   /** True when a runtime is installed and the engine has not picked it up yet. */

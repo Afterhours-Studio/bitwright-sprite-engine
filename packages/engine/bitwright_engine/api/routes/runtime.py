@@ -127,7 +127,16 @@ def _describe(state: EngineState, gpu: str) -> RuntimeInfo:
     suggestion = recommended(gpu)
 
     absent = installer.missing()
+    pinned = next(
+        (
+            len(variant.wheels)
+            for variant in variants
+            if record is not None and variant.accelerator == record.accelerator
+        ),
+        0,
+    )
     return RuntimeInfo(
+        total_packages=pinned,
         missing_packages=[wheel.name for wheel in absent],
         missing_bytes=sum(wheel.size_bytes for wheel in absent),
         supported=bool(variants),

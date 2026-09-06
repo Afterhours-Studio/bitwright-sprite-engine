@@ -144,11 +144,35 @@ export function RuntimeCard(): ReactElement {
 
   return (
     <Card title={t('runtime.title')} description={t('runtime.description')}>
-      {info !== null && info.missingPackages.length > 0 && !info.installing && (
-        <p className="mb-3 text-xs text-fg-secondary">
-          {t('runtime.repairHint', { names: info.missingPackages.join(', ') })}{' '}
-          {formatSize(info.missingBytes, units)}
-        </p>
+      {/* What is on disk against what is pinned. A count of what is missing
+          means nothing without the total it is missing from, and naming the
+          packages is what turns "something is wrong" into a decision. */}
+      {info !== null && info.installed && info.totalPackages > 0 && (
+        <div className="mb-3 flex flex-col gap-1">
+          <p className="flex flex-wrap items-baseline gap-x-2 text-xs">
+            <span className="text-fg-secondary">{t('runtime.packages')}</span>
+            <span className="font-medium text-fg-primary">
+              {t('runtime.packagesPresent', {
+                count: info.totalPackages - info.missingPackages.length,
+              })}
+            </span>
+            {info.missingPackages.length > 0 && (
+              <span className="text-fg-secondary">
+                {t('runtime.packagesMissing', { count: info.missingPackages.length })}
+              </span>
+            )}
+          </p>
+          {info.missingPackages.length === 0 ? (
+            <p className="text-xs text-fg-secondary">{t('runtime.packagesComplete')}</p>
+          ) : (
+            !info.installing && (
+              <p className="text-xs text-fg-secondary">
+                {t('runtime.repairHint', { names: info.missingPackages.join(', ') })}{' '}
+                {formatSize(info.missingBytes, units)}
+              </p>
+            )
+          )}
+        </div>
       )}
       <div className="flex flex-col gap-3">
         <Summary info={info} units={units} unknownSpace={unknownSpace} />

@@ -116,6 +116,8 @@ class RuntimeInfo(CamelModel):
             manifest it was installed from and incomplete for the current
             one, which is a repair rather than a reinstall.
         missing_bytes: What adding them would download.
+        total_packages: How many packages the installed variant pins, so the
+            count of missing ones can be read against something.
         installing: True while an install is running.
         phase: ``download``, ``extract``, ``publish``, or an empty string.
         progress: Fraction between 0.0 and 1.0. Zero when nothing is running.
@@ -150,6 +152,7 @@ class RuntimeInfo(CamelModel):
 
     missing_packages: list[str] = Field(default_factory=list)
     missing_bytes: int = 0
+    total_packages: int = 0
     installing: bool
     phase: str
     progress: float

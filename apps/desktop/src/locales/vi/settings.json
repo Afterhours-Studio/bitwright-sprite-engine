@@ -59,13 +59,16 @@
     "nvidiaNotice": "Bản này còn kèm theo các thư viện CUDA của NVIDIA, vốn theo thoả thuận giấy phép riêng của NVIDIA chứ không phải giấy phép nguồn mở. Hãy đọc trước khi tiếp tục.",
     "licenseLink": "Giấy phép PyTorch",
     "nvidiaLink": "Giấy phép NVIDIA CUDA",
-    "packages": "Các gói",
+    "packages": "Gói",
     "lowSpace": "Ổ đĩa đó còn ít chỗ hơn mức cần thiết là {{needed}}.",
     "removeTitle": "Gỡ runtime GPU?",
     "removeBody": "Thao tác này xoá {{size}} khỏi {{path}}. Việc tạo ảnh trên máy sẽ ngừng hoạt động cho tới khi bạn cài lại.",
     "removeConfirm": "Xoá Đi",
     "repair": "Cài gói còn thiếu",
-    "repairHint": "Bộ chạy đang thiếu {{names}}. Chỉ tải những gói đó, không tải lại toàn bộ."
+    "repairHint": "Bộ chạy đang thiếu {{names}}. Chỉ tải những gói đó, không tải lại toàn bộ.",
+    "packagesPresent": "Đã cài {{count}}",
+    "packagesMissing": "Thiếu {{count}}",
+    "packagesComplete": "Đã cài đủ mọi gói được ghim."
   },
   "providers": {
     "title": "Nhà cung cấp AI",

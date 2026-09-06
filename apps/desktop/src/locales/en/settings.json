@@ -14,7 +14,7 @@
     "capabilities": "Supports"
   },
   "runtime": {
-    "title": "GPU runtime",
+    "title": "GPU Runtime",
     "description": "Local generation needs PyTorch, which is too large to ship inside the application. It is installed into the download folder chosen below, and nowhere else on this system.",
     "state": "State",
     "notInstalled": "Not installed",
@@ -65,10 +65,13 @@
     "removeBody": "This deletes {{size}} from {{path}}. Local generation stops working until it is installed again.",
     "removeConfirm": "Delete It",
     "repair": "Install Missing Packages",
-    "repairHint": "The runtime is missing {{names}}. Only those are downloaded, not the whole runtime."
+    "repairHint": "The runtime is missing {{names}}. Only those are downloaded, not the whole runtime.",
+    "packagesPresent": "{{count}} installed",
+    "packagesMissing": "{{count}} missing",
+    "packagesComplete": "Every pinned package is installed."
   },
   "providers": {
-    "title": "AI providers",
+    "title": "AI Providers",
     "description": "The remote engine sends its requests to one of these. Add as many as you need and choose which one is in use. Requests go straight to the provider you configured and are not routed through Afterhours Studio.",
     "compatibility": "A custom endpoint has to speak the OpenAI compatible API: GET {baseUrl}/models for the model list, and POST {baseUrl}/images/generations to generate. Any aggregator or router that imitates that shape works here.",
     "empty": "No provider is configured yet. Add one to use the remote engine.",
@@ -143,7 +146,7 @@
     "timeout": "Timeout (seconds)"
   },
   "models": {
-    "title": "Models",
+    "title": "Model Weights",
     "description": "Model weights are not part of this application and are not covered by its licence. Each one is downloaded on first use, under its own terms.",
     "license": "Licence",
     "size": "Download Size",
@@ -179,7 +182,7 @@
     "removeAction": "Remove"
   },
   "storage": {
-    "title": "Storage location",
+    "title": "Storage Location",
     "description": "Model weights are several gigabytes each. Keep them on a volume with room, which need not be the one this application is installed on.",
     "current": "Location",
     "free": "Free space",
