@@ -16,6 +16,66 @@ Both leading zeros are accurate today. Nothing has been released, and no
 user-facing capability is finished: the backends return placeholder images and
 model downloading is not implemented.
 
+## [0.0.3] - 2026-02-12
+
+A rebuild of the surface system, after the previous one turned out to be sound
+in its reasoning and wrong in its result: every light-mode surface was grey, so
+every piece of text in the application sat on grey.
+
+### Added
+
+- A role-based surface model: `--surface-canvas`, `--surface-content`,
+  `--surface-content-alt`, `--surface-input`, `--surface-well`,
+  `--surface-float`, `--surface-disabled`, `--surface-anchor`. Roles hold in
+  both modes; heights did not.
+- `--fg-placeholder`, `--fg-on-anchor`, `--input-border`, and
+  `--input-border-focus`.
+- `@separation` declarations in `tokens.css`, naming each adjacent pair, the
+  mechanism that separates them in light mode, and the token that carries it.
+  The check parses these rather than guessing.
+- Styled scrollbars. The platform scrollbar ignores the theme and is the first
+  thing that gives away a web view.
+- [ADR 0009](docs/architecture/decisions/0009-asymmetric-surface-model.md), which
+  supersedes ADR 0005.
+
+### Changed
+
+- **Light and dark now separate surfaces by different mechanisms.** In light
+  mode the canvas is grey, content surfaces are white, and they are separated by
+  border and shadow; only the canvas-to-content boundary uses lightness. In dark
+  mode content surfaces step by at least 0.050 L and shadow is not a separation
+  mechanism at all. This is what GitHub Primer, Atlassian, and Material 3 do,
+  and the reason is physical: a shadow reads on a light ground and vanishes on a
+  dark one.
+- Pure white is now used for `--surface-content`, `--surface-input`, and
+  `--surface-float`. The canvas is still never white or black, which is what the
+  old rule was really protecting.
+- Grey now means disabled, and only disabled. A disabled control is finally
+  distinguishable from an enabled one, which it was not before.
+- **The contrast check no longer takes a list of expected pairings.** It
+  discovers every foreground and surface from `tokens.css` and measures the
+  whole matrix. A failing pair must be declared unused or exempt, so adding a
+  token forces a decision instead of silently adding an unmeasured one.
+- Navigation moved from a vertical rail into a horizontal pill row in the title
+  bar, the status bar became a floating pill, and the window gained a bezel, to
+  match the reference design.
+- `--surface-1`, `--surface-2`, and `--surface-sunken` are gone, with no alias.
+
+### Fixed
+
+- Placeholder text was unreadable in both modes and had never been measured:
+  `--fg-placeholder` did not exist in the old check's list at all. It is now
+  held to a full 4.5:1 on `--surface-input` and can never be waived.
+- The check's own declaration parser was reading token names out of comment
+  prose. A scope note containing "4.5:1 on `--surface-input`: a placeholder is
+  read" made the parser swallow the real declaration that followed, so
+  `--surface-input` and `--fg-primary` looked undeclared in light mode.
+- Body text on the accent had never been measured. It is 1.38:1 in dark mode,
+  which is why the accent has a foreground token of its own.
+- The `models/` ignore rule and the Tailwind restart trap are both now written
+  down in the design system's Common mistakes, having each cost a debugging
+  session.
+
 ## [0.0.2] - 2026-02-10
 
 Hardening pass over the scaffold, with the whole application run on a real
@@ -112,5 +172,6 @@ diffusion backends returning placeholder images.
 - The engine refuses to bind any address that is not loopback, as a raise rather
   than an assertion, so the check survives `python -O`.
 
+[0.0.3]: https://github.com/Afterhours-Studio/bitwright-sprite-engine/releases/tag/v0.0.3
 [0.0.2]: https://github.com/Afterhours-Studio/bitwright-sprite-engine/releases/tag/v0.0.2
 [0.0.1]: https://github.com/Afterhours-Studio/bitwright-sprite-engine/releases/tag/v0.0.1
