@@ -1,0 +1,42 @@
+[package]
+name = "bitwright"
+version = "0.0.2"
+description = "Cross-platform sprite generation engine for pixel art games"
+authors = ["Afterhours Studio"]
+license = "AGPL-3.0-only"
+repository = "https://github.com/Afterhours-Studio/bitwright-sprite-engine"
+homepage = "https://github.com/Afterhours-Studio/bitwright-sprite-engine"
+edition = "2021"
+rust-version = "1.77"
+publish = false
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# Sprites arrive from the sidecar as data URLs, so the asset protocol is not
+# enabled and the webview needs no filesystem reach.
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["sync", "time", "macros"] }
+# Loopback only, so no TLS backend is compiled in.
+reqwest = { version = "0.12", default-features = false, features = ["json"] }
+log = "0.4"
+window-vibrancy = "0.5"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-window-state = "2"
+
+[features]
+# Enabled by tauri-cli for production builds.
+custom-protocol = ["tauri/custom-protocol"]
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true
