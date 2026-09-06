@@ -92,8 +92,12 @@ class ProbeResult:
         latency_ms: Round trip time in milliseconds. Zero when no request was
             completed.
         model_count: How many models the endpoint listed. Zero on failure.
-        models: Their identifiers, so the interface can offer them instead
-            of asking someone to type one from memory.
+        models: The identifiers that draw, which is what this application
+            asks for. Falls back to everything the provider listed when
+            none of them look like image models, because a provider may
+            name them in a way this cannot recognise.
+        all_models: Everything the provider listed, for the interface to
+            offer when the filtered list is not what was wanted.
     """
 
     ok: bool
@@ -102,6 +106,7 @@ class ProbeResult:
     latency_ms: int = 0
     model_count: int = 0
     models: tuple[str, ...] = ()
+    all_models: tuple[str, ...] = ()
 
 
 def _scrub(text: str, api_key: str) -> str:
@@ -181,6 +186,47 @@ def _read_models(payload: object) -> list[str] | None:
     # Sorted, because a provider's own order is arbitrary and a searchable list
     # is easier to scan when it is not.
     return sorted(set(names))
+
+
+IMAGE_MARKERS: tuple[str, ...] = (
+    "image",
+    "imagen",
+    "dall-e",
+    "dalle",
+    "flux",
+    "stable-diffusion",
+    "sdxl",
+    "sd3",
+    "kandinsky",
+    "playground",
+    "pixart",
+    "photon",
+    "recraft",
+    "ideogram",
+    "seedream",
+    "qwen-image",
+)
+"""Substrings that name a model as one that draws.
+
+Matched on the identifier because an OpenAI compatible listing carries nothing
+else: there is no modality field to read. A provider that lists fifty five
+models offers perhaps three that draw, and the rest are text, audio and
+research models that fail the moment they are asked for a picture.
+"""
+
+
+def image_models(names: list[str]) -> list[str]:
+    """Keep the models that draw.
+
+    Args:
+        names: Every identifier the provider listed.
+
+    Returns:
+        The ones that appear to draw. Empty when none match, which the caller
+        reads as "this provider names them some other way" rather than as
+        "this provider draws nothing".
+    """
+    return [name for name in names if any(mark in name.lower() for mark in IMAGE_MARKERS)]
 
 
 def _from_status(status: int) -> tuple[str, str]:
@@ -304,5 +350,6 @@ def probe(
         detail=f"listed {len(models)} models",
         latency_ms=latency_ms,
         model_count=len(models),
-        models=tuple(models),
+        models=tuple(image_models(models) or models),
+        all_models=tuple(models),
     )

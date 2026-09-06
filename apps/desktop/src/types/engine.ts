@@ -471,8 +471,10 @@ export interface ConnectionTestResult {
   latencyMs: number;
   /** How many models the endpoint listed. */
   modelCount: number;
-  /** Their identifiers, so the editor can offer them rather than ask for one. */
+  /** The identifiers that draw, which is what this application asks for. */
   models: string[];
+  /** Everything the provider listed, drawing or not. */
+  allModels: string[];
 }
 
 /** Reserved preset identifier meaning "the user supplies the base URL". */

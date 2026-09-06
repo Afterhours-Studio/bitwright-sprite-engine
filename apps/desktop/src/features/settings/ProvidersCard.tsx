@@ -474,6 +474,11 @@ function ProviderEditor({ draft, presets, onChange, onClose }: ProviderEditorPro
 
   const [revealed, setRevealed] = useState(false);
   const [models, setModels] = useState<string[]>([]);
+  const [allModels, setAllModels] = useState<string[]>([]);
+  // Only the models that draw are offered. A provider can list dozens that
+  // cannot, and asking a text model for a picture fails in a way that reads
+  // as a broken key. Everything it listed stays one press away.
+  const [showAll, setShowAll] = useState(false);
   const [fetching, setFetching] = useState(false);
 
   /**
@@ -488,10 +493,13 @@ function ProviderEditor({ draft, presets, onChange, onClose }: ProviderEditorPro
     try {
       const result = await testDraftProvider(toRequest(draft));
       setModels(result.models);
+      setAllModels(result.allModels);
+      setShowAll(false);
     } catch {
       // The failure is already reported by the connection test; an empty list
       // is the honest state here.
       setModels([]);
+      setAllModels([]);
     } finally {
       setFetching(false);
     }
@@ -635,7 +643,7 @@ function ProviderEditor({ draft, presets, onChange, onClose }: ProviderEditorPro
               className="flex-1"
               label={t('providers.form.model')}
               value={draft.model}
-              options={models}
+              options={showAll ? allModels : models}
               placeholder={t('providers.form.modelPlaceholder')}
               emptyHint={t('providers.form.modelEmpty')}
               noMatchHint={t('providers.form.modelNoMatch')}
@@ -654,11 +662,30 @@ function ProviderEditor({ draft, presets, onChange, onClose }: ProviderEditorPro
               {fetching ? t('providers.form.fetching') : t('providers.form.fetchModels')}
             </Button>
           </div>
-          <p className="text-xs text-fg-secondary">
-            {models.length > 0
-              ? t('providers.form.modelFetched', { count: models.length })
-              : t('providers.form.modelHint')}
-          </p>
+          {models.length === 0 ? (
+            <p className="text-xs text-fg-secondary">{t('providers.form.modelHint')}</p>
+          ) : (
+            <p className="flex flex-wrap items-baseline gap-x-2 text-xs text-fg-secondary">
+              <span>
+                {t('providers.form.modelFetched', {
+                  count: showAll ? allModels.length : models.length,
+                })}
+              </span>
+              {allModels.length > models.length && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAll((was) => !was);
+                  }}
+                  className="text-fg-primary underline underline-offset-2"
+                >
+                  {showAll
+                    ? t('providers.form.showDrawing', { count: models.length })
+                    : t('providers.form.showAll', { count: allModels.length })}
+                </button>
+              )}
+            </p>
+          )}
         </div>
 
         <NumberField

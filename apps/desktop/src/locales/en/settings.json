@@ -93,7 +93,7 @@
       "modelHint": "The identifier this provider knows the model by.",
       "apiKey": "API key",
       "apiKeyPlaceholder": "Paste your key",
-      "apiKeyKept": "Leave this blank to keep the key already stored.",
+      "apiKeyKept": "Already stored. Leave this blank to keep it, or paste a new one.",
       "apiKeyStored": "A key is stored, ending {{hint}}",
       "reveal": "Show the key",
       "hide": "Hide the key",
@@ -108,9 +108,11 @@
       "makeActive": "Use this provider for generation",
       "fetchModels": "Fetch Models",
       "fetching": "Fetching",
-      "modelFetched": "{{count}} models offered by this provider. Type to filter, or enter one it did not list.",
+      "modelFetched": "{{count}} models offered. Type to filter, or enter one it did not list.",
       "modelEmpty": "Fetch the list to choose from what this provider offers.",
-      "modelNoMatch": "No model matches that. Clear the field to see them all."
+      "modelNoMatch": "No model matches that. Clear the field to see them all.",
+      "showAll": "Show all {{count}}",
+      "showDrawing": "Show the {{count}} that draw"
     },
     "row": {
       "active": "In use",

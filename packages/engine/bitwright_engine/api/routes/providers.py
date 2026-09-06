@@ -288,7 +288,7 @@ def remove(provider_id: str, state: StateDep) -> ProviderListResponse:
 
 
 @router.post("/test", response_model=ConnectionTestResponse)
-def test_draft(body: ProviderSaveBody) -> ConnectionTestResponse:
+def test_draft(body: ProviderSaveBody, state: StateDep) -> ConnectionTestResponse:
     """Run one connection test against a provider that is not saved yet.
 
     The editor needs this: a model list can only come from the provider, the
@@ -300,6 +300,7 @@ def test_draft(body: ProviderSaveBody) -> ConnectionTestResponse:
 
     Args:
         body: The configuration being edited.
+        state: The engine state, for the key a saved provider already has.
 
     Returns:
         The outcome, carrying a stable reason code either way.
@@ -328,7 +329,19 @@ def test_draft(body: ProviderSaveBody) -> ConnectionTestResponse:
 
     # Read into a local and not held: this route stores nothing, and a draft's
     # key exists only for the length of the request that carried it.
-    api_key = "" if body.api_key is None else body.api_key.get_secret_value()
+    #
+    # An absent key means "the one already stored", the same as it does when
+    # saving. Without that, editing a saved provider and asking it for its
+    # model list failed unless the key was pasted again - which is not a
+    # security measure, it is a password prompt for something the application
+    # already has.
+    if body.api_key is not None:
+        api_key = body.api_key.get_secret_value()
+    elif body.provider_id:
+        api_key = state.providers.api_key(body.provider_id)
+    else:
+        api_key = ""
+
     result = probe(config, api_key)
     return ConnectionTestResponse(
         ok=result.ok,
@@ -337,6 +350,7 @@ def test_draft(body: ProviderSaveBody) -> ConnectionTestResponse:
         latency_ms=result.latency_ms,
         model_count=result.model_count,
         models=list(result.models),
+        all_models=list(result.all_models),
     )
 
 
@@ -390,4 +404,5 @@ def test_connection(provider_id: str, state: StateDep) -> ConnectionTestResponse
         latency_ms=result.latency_ms,
         model_count=result.model_count,
         models=list(result.models),
+        all_models=list(result.all_models),
     )

@@ -85,6 +85,14 @@
     margin: 0;
   }
 
+  /* Windows draws its own reveal button inside a password field, so a field
+     with one of ours had two eyes side by side. The platform's cannot be
+     styled and does not follow the theme, so ours is the one that stays. */
+  input[type='password']::-ms-reveal,
+  input[type='password']::-ms-clear {
+    display: none;
+  }
+
   /* The platform scrollbar is a grey slab that ignores the theme entirely, and
      it is the first thing that gives away a web view.
 
