@@ -21,7 +21,8 @@
     "batch": "Số ảnh mỗi lần",
     "model": "Model",
     "lora": "Bộ điều chỉnh phong cách",
-    "loraNone": "Không dùng"
+    "loraNone": "Không dùng",
+    "presetCustom": "Tuỳ chỉnh"
   },
   "postprocess": {
     "title": "Hậu xử lý",
@@ -85,5 +86,32 @@
     "resetWarning": "Thao tác này xoá phần mô tả, toàn bộ tham số và kết quả của lần tạo gần nhất.",
     "resetConfirm": "Đặt lại tất cả",
     "resetCancel": "Huỷ"
+  },
+  "binaries": {
+    "title": "Thành phần",
+    "machine": "Máy",
+    "os": {
+      "windows": "Windows",
+      "macos": "macOS",
+      "linux": "Linux"
+    },
+    "engine": "Engine",
+    "stopped": "Chưa chạy",
+    "gpu": "GPU",
+    "none": "Không tìm thấy",
+    "runtime": "Bộ chạy GPU",
+    "notInstalled": "Chưa cài",
+    "restart": "Khởi động lại để dùng",
+    "runtimeHint": "Cài trong Cài đặt để tạo sprite bằng GPU này.",
+    "backend": {
+      "cuda": "Engine NVIDIA",
+      "mps": "Engine Apple",
+      "remote": "API từ xa"
+    },
+    "unavailable": "Không khả dụng",
+    "models": "Trọng số model",
+    "modelCount": "Đã tải {{cached}} trên {{total}}",
+    "modelsHint": "Hãy tải ít nhất một model trong Cài đặt.",
+    "empty": "Đang kiểm tra máy này."
   }
 }

@@ -15,6 +15,32 @@ Versions are `major.minor.develop`:
 The leading zero is accurate today: nothing has been released, and the
 backends still return placeholder images rather than generating anything.
 
+## [0.1.1] - 2026-09-06
+
+### Added
+
+- A Binaries report in the dock, naming what this machine can run and what is
+  missing from it. Every fact in it already existed in a store and none of it
+  was on screen, so an application with a working GPU in front of it reported
+  nothing at all, and the missing piece could only be found in a log.
+- The GPU runtime can be installed from Settings, into the data folder already
+  chosen for weights.
+
+### Changed
+
+- Size presets are a dropdown. The pills spent a row of a narrow column on four
+  values, and a size that was not one of them showed nothing selected, which
+  reads as broken rather than as custom.
+
+### Fixed
+
+- Downloads survive a restart. The partial file was deleted on every exit from
+  the worker, and the sidecar being torn down surfaces as a dropped connection,
+  so the one case resume exists for was the one that discarded the bytes.
+- Model URLs point at files that exist; all four answered 404.
+- The icon rail is square, the rails match the radius of the card above them,
+  and a tooltip near the window edge is nudged back inside instead of clipped.
+
 ## [0.1.0] - 2026-09-06
 
 The minor moves because two user-facing capabilities are finished rather than

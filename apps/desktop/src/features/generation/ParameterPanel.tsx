@@ -18,7 +18,6 @@ import { useTranslation } from 'react-i18next';
 
 import { Toggle } from '@/components/ui/Field';
 import { NumberField } from '@/components/ui/NumberField';
-import { Pill } from '@/components/ui/Pill';
 import { Select } from '@/components/ui/Select';
 import { useCapabilities } from '@/hooks/useCapabilities';
 import { useEngineStore } from '@/stores/useEngineStore';
@@ -33,6 +32,9 @@ import { useGenerationStore } from '@/stores/useGenerationStore';
  * copy of the two fields below. The presets moved here with it, so that the
  * size is set in exactly one place and setting it is still one press.
  */
+/** The value standing for a size that is not one of the presets. */
+const CUSTOM_SIZE = 'custom';
+
 const SIZE_PRESETS: readonly { readonly width: number; readonly height: number }[] = [
   { width: 16, height: 16 },
   { width: 32, height: 32 },
@@ -67,29 +69,46 @@ export function ParameterPanel(): ReactElement {
   const baseModels = models.filter((model) => model.kind === 'base');
   const loraModels = models.filter((model) => model.kind === 'lora');
 
+  // The size the dropdown shows. A size typed into the fields that is not
+  // one of the presets is a real state and says so, rather than leaving the
+  // control looking as though nothing is selected.
+  const presetValue =
+    SIZE_PRESETS.find(
+      (preset) => preset.width === request.width && preset.height === request.height,
+    ) === undefined
+      ? CUSTOM_SIZE
+      : `${String(request.width)}x${String(request.height)}`;
+
   return (
     <aside className="flex w-80 shrink-0 flex-col overflow-hidden rounded-lg border border-line-subtle bg-surface-content shadow-sm">
       <div className="flex flex-col gap-5 overflow-auto p-4">
         <section className="flex flex-col gap-3">
           <h2 className="text-sm font-semibold text-fg-primary">{t('parameters.title')}</h2>
 
-          <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-fg-secondary">{t('parameters.presets')}</span>
-            <div className="flex flex-wrap gap-2">
-              {SIZE_PRESETS.map((preset) => (
-                <Pill
-                  key={`${String(preset.width)}x${String(preset.height)}`}
-                  tone="anchor"
-                  active={request.width === preset.width && request.height === preset.height}
-                  onClick={() => {
-                    patch({ width: preset.width, height: preset.height });
-                  }}
-                >
-                  {t('parameters.dimensions', { width: preset.width, height: preset.height })}
-                </Pill>
-              ))}
-            </div>
-          </div>
+          {/* A dropdown rather than a row of pills. The pills spent a whole
+              row of a narrow column on four values, and a size that is not one
+              of them had no representation at all - the row simply showed
+              nothing selected, which reads as broken rather than as custom. */}
+          <Select
+            label={t('parameters.presets')}
+            value={presetValue}
+            options={[
+              ...SIZE_PRESETS.map((preset) => ({
+                value: `${String(preset.width)}x${String(preset.height)}`,
+                label: t('parameters.dimensions', { width: preset.width, height: preset.height }),
+              })),
+              { value: CUSTOM_SIZE, label: t('parameters.presetCustom') },
+            ]}
+            onValueChange={(value) => {
+              if (value === CUSTOM_SIZE) {
+                return;
+              }
+              const [width, height] = value.split('x').map(Number);
+              if (width !== undefined && height !== undefined) {
+                patch({ width, height });
+              }
+            }}
+          />
 
           <div className="grid grid-cols-2 gap-3">
             <NumberField

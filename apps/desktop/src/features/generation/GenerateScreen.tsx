@@ -30,6 +30,7 @@ import { TextAreaField, Toggle } from '@/components/ui/Field';
 import { NumberField } from '@/components/ui/NumberField';
 import { Pill } from '@/components/ui/Pill';
 import { ParameterPanel } from '@/features/generation/ParameterPanel';
+import { SystemStatusFace, SystemStatusPanel } from '@/components/layout/SystemStatus';
 import { PreviewRail } from '@/features/generation/PreviewRail';
 import { SpriteCanvas } from '@/features/generation/SpriteCanvas';
 import { useCapabilities } from '@/hooks/useCapabilities';
@@ -91,7 +92,6 @@ export function GenerateScreen(): ReactElement {
   const run = useGenerationStore((state) => state.run);
   const running = useGenerationStore((state) => state.running);
   const images = useGenerationStore((state) => state.images);
-  const durationMs = useGenerationStore((state) => state.durationMs);
   const error = useGenerationStore((state) => state.error);
 
   const tool = useEditorStore((state) => state.tool);
@@ -129,17 +129,6 @@ export function GenerateScreen(): ReactElement {
   // duration was on the face too until it was measured: the rail came out at
   // 192px, which does not fit beside the dock in a 960px window - the smallest
   // the window is allowed to be - once a Vietnamese label expands a chip.
-  //
-  // Read from the sprites that came out rather than from the parameters that
-  // are entered now. The two stop agreeing the moment the user changes a field
-  // after a run, and post-processing can resize the output anyway, so the
-  // request is the wrong place to ask what the last run produced.
-  const produced = images[selected];
-  const runFace = running
-    ? t('actions.generating')
-    : produced === undefined
-      ? t('dock.runNone')
-      : t('result.count', { count: images.length });
 
   // The count belongs in the name, not only in the badge. A badge reading "3"
   // is a shape with a number in it to anything that cannot see it.
@@ -272,38 +261,20 @@ export function GenerateScreen(): ReactElement {
           />
         }
         leadingRail={
-          /* States what the last run produced, and opens the detail. The
-             figures come from the run, so pressing it can only ever show more
-             of what the face already says.
-             Aligned to the start, not centred: it sits at the window's leading
-             edge, and a 224px panel centred on it would hang half of itself
-             off the screen. */
+          /* What this machine can run. Every fact in here already existed in a
+             store and none of it was on screen, so an application with a
+             working GPU in front of it reported nothing at all, and the
+             missing piece was only discoverable from a log.
+             Aligned to the start: it sits at the window's leading edge, and a
+             centred panel would hang half of itself off the screen. */
           <DockPopover
             variant="pill"
-            label={t('dock.lastRun')}
+            label={t('binaries.title')}
             align="start"
-            width="w-56"
-            panel={() =>
-              produced === undefined ? (
-                <p className="text-sm text-fg-secondary">{t('dock.runNone')}</p>
-              ) : (
-                <dl className="flex flex-col gap-2">
-                  <RunRow
-                    label={t('parameters.size')}
-                    value={t('parameters.dimensions', {
-                      width: produced.width,
-                      height: produced.height,
-                    })}
-                  />
-                  <RunRow
-                    label={t('dock.runDuration')}
-                    value={`${String(durationMs)} ${tCommon('units.milliseconds')}`}
-                  />
-                </dl>
-              )
-            }
+            width="w-72"
+            panel={() => <SystemStatusPanel />}
           >
-            <span className="tabular-nums">{runFace}</span>
+            <SystemStatusFace />
           </DockPopover>
         }
         trailingRail={
@@ -463,16 +434,6 @@ export interface RunRowProps {
   label: string;
   /** The figure. */
   value: string;
-}
-
-/** One line of the run detail: what it is, and what it was. */
-function RunRow({ label, value }: RunRowProps): ReactElement {
-  return (
-    <div className="flex items-baseline justify-between gap-3">
-      <dt className="text-xs text-fg-secondary">{label}</dt>
-      <dd className="text-sm tabular-nums text-fg-primary">{value}</dd>
-    </div>
-  );
 }
 
 /** The notification bell. */

@@ -1,6 +1,6 @@
 [package]
 name = "bitwright"
-version = "0.1.0"
+version = "0.1.1"
 description = "Cross-platform sprite generation engine for pixel art games"
 authors = ["Afterhours Studio"]
 license = "AGPL-3.0-only"

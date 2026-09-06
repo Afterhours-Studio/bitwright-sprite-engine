@@ -21,7 +21,8 @@
     "batch": "Batch Size",
     "model": "Model",
     "lora": "Style Adapter",
-    "loraNone": "None"
+    "loraNone": "None",
+    "presetCustom": "Custom"
   },
   "postprocess": {
     "title": "Post-processing",
@@ -85,5 +86,32 @@
     "resetWarning": "This clears the prompt, every parameter, and the results of the last run.",
     "resetConfirm": "Reset everything",
     "resetCancel": "Cancel"
+  },
+  "binaries": {
+    "title": "Binaries",
+    "machine": "Machine",
+    "os": {
+      "windows": "Windows",
+      "macos": "macOS",
+      "linux": "Linux"
+    },
+    "engine": "Engine",
+    "stopped": "Not running",
+    "gpu": "GPU",
+    "none": "None found",
+    "runtime": "GPU runtime",
+    "notInstalled": "Not installed",
+    "restart": "Restart to use",
+    "runtimeHint": "Install it in Settings to generate on this GPU.",
+    "backend": {
+      "cuda": "NVIDIA engine",
+      "mps": "Apple engine",
+      "remote": "Remote API"
+    },
+    "unavailable": "Unavailable",
+    "models": "Model weights",
+    "modelCount": "{{cached}} of {{total}} downloaded",
+    "modelsHint": "Download at least one model in Settings.",
+    "empty": "Still checking this machine."
   }
 }

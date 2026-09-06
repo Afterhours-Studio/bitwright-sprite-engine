@@ -1,6 +1,6 @@
 {
   "name": "@bitwright/desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Cross-platform sprite generation engine for pixel art games",
   "license": "AGPL-3.0-only",
