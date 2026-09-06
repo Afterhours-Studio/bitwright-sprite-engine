@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/Button';
 import { ComboBox } from '@/components/ui/ComboBox';
+import { IconButton } from '@/components/ui/IconButton';
 import { testDraftProvider } from '@/lib/api';
 import { Card } from '@/components/ui/Card';
 import { Field, StatusDot, Toggle } from '@/components/ui/Field';
@@ -602,31 +603,32 @@ function ProviderEditor({ draft, presets, onChange, onClose }: ProviderEditorPro
               onChange={(event) => {
                 onChange({ ...draft, apiKey: event.target.value });
               }}
+              trailing={
+                <IconButton
+                  label={revealed ? t('providers.form.hide') : t('providers.form.reveal')}
+                  aria-pressed={revealed}
+                  onClick={() => {
+                    setRevealed((was) => !was);
+                  }}
+                >
+                  <EyeIcon open={revealed} />
+                </IconButton>
+              }
             />
-            <div className="flex justify-end">
-              <Button
-                variant="ghost"
-                className="px-3 py-1 text-xs"
-                aria-pressed={revealed}
-                onClick={() => {
-                  setRevealed((was) => !was);
-                }}
-              >
-                {revealed ? t('providers.form.hide') : t('providers.form.reveal')}
-              </Button>
-            </div>
           </div>
         )}
 
         {/* Below the key, because it cannot be filled in until there is one:
             the list comes from the provider, and the provider will not answer
             without a credential. */}
-        <div className="flex flex-col gap-2">
+        <div className="flex items-end gap-2">
           <ComboBox
+            className="flex-1"
             label={t('providers.form.model')}
             value={draft.model}
             options={models}
             placeholder={t('providers.form.modelPlaceholder')}
+            emptyHint={t('providers.form.modelEmpty')}
             hint={
               models.length > 0
                 ? t('providers.form.modelFetched', { count: models.length })
@@ -636,18 +638,19 @@ function ProviderEditor({ draft, presets, onChange, onClose }: ProviderEditorPro
               onChange({ ...draft, model: value });
             }}
           />
-          <div className="flex justify-end">
-            <Button
-              variant="secondary"
-              className="px-3 py-1 text-xs"
-              disabled={fetching || draft.baseUrl.trim() === ''}
-              onClick={() => {
-                void fetchModels();
-              }}
-            >
-              {fetching ? t('providers.form.fetching') : t('providers.form.fetchModels')}
-            </Button>
-          </div>
+          {/* On the field's own line: it fills the list that field offers, so
+              putting it on a line of its own read as an unrelated step. The
+              hint sits below both, which is what keeps them aligned. */}
+          <Button
+            variant="secondary"
+            className="mb-[1.125rem] shrink-0 px-3 py-2 text-xs"
+            disabled={fetching || draft.baseUrl.trim() === ''}
+            onClick={() => {
+              void fetchModels();
+            }}
+          >
+            {fetching ? t('providers.form.fetching') : t('providers.form.fetchModels')}
+          </Button>
         </div>
 
         <NumberField
@@ -688,5 +691,28 @@ function ProviderEditor({ draft, presets, onChange, onClose }: ProviderEditorPro
         </div>
       </div>
     </Card>
+  );
+}
+
+/**
+ * The reveal control's icon.
+ *
+ * @param props.open - Whether the key is currently shown.
+ * @returns An eye, struck through when the key is hidden.
+ */
+function EyeIcon({ open }: { open: boolean }): ReactElement {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" className="h-4 w-4" fill="none">
+      <path
+        d="M1.5 8s2.4-4 6.5-4 6.5 4 6.5 4-2.4 4-6.5 4-6.5-4-6.5-4z"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+      />
+      <circle cx="8" cy="8" r="1.8" stroke="currentColor" strokeWidth="1.3" />
+      {!open && (
+        <path d="M3 13L13 3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      )}
+    </svg>
   );
 }

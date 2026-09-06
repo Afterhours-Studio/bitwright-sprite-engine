@@ -40,17 +40,34 @@ export interface FieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
   label: string;
   /** Explanation shown under the control, such as why it is disabled. */
   hint?: string;
+  /**
+   * A control that belongs to this input, drawn inside its trailing edge.
+   *
+   * For the things that act on the field's own content - revealing a password,
+   * clearing a search. Under the field they read as a separate step; inside it
+   * they read as part of the control, which is what they are.
+   */
+  trailing?: ReactNode;
 }
 
 /** A labelled text or number input. */
-export function Field({ label, hint, className, ...rest }: FieldProps): ReactElement {
+export function Field({ label, hint, className, trailing, ...rest }: FieldProps): ReactElement {
   const id = useId();
   return (
     <div className={cn('flex flex-col gap-1', className)}>
       <label htmlFor={id} className="text-xs font-medium text-fg-secondary">
         {label}
       </label>
-      <input id={id} className={INPUT_CONTROL} {...rest} />
+      {trailing === undefined ? (
+        <input id={id} className={INPUT_CONTROL} {...rest} />
+      ) : (
+        <div className="relative">
+          {/* Padded on the trailing edge by the control's width, so text
+              scrolls under the label rather than behind the button. */}
+          <input id={id} className={cn(INPUT_CONTROL, 'pe-10')} {...rest} />
+          <span className="absolute inset-y-0 end-1 flex items-center">{trailing}</span>
+        </div>
+      )}
       {hint !== undefined && <p className="text-xs text-fg-secondary">{hint}</p>}
     </div>
   );

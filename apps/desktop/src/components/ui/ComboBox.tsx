@@ -44,10 +44,14 @@ export interface ComboBoxProps {
   placeholder?: string;
   /** Explanation shown under the control. */
   hint?: string;
+  /** Shown in place of the list when nothing has been fetched yet. */
+  emptyHint: string;
   /** Whether the control can be changed. */
   disabled?: boolean;
   /** Called with the new value, whether typed or chosen. */
   onValueChange: (value: string) => void;
+  /** Extra classes for layout only, never colour. */
+  className?: string;
 }
 
 /**
@@ -62,8 +66,10 @@ export function ComboBox({
   options,
   placeholder,
   hint,
+  emptyHint,
   disabled = false,
   onValueChange,
+  className,
 }: ComboBoxProps): ReactElement {
   const id = useId();
   const listId = `${id}-list`;
@@ -83,7 +89,7 @@ export function ComboBox({
   const shown = needle === '' ? options : matches;
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className={cn('flex flex-col gap-1', className)}>
       <label
         htmlFor={id}
         className={cn('text-xs font-medium', disabled ? 'text-fg-muted' : 'text-fg-secondary')}
@@ -109,7 +115,14 @@ export function ComboBox({
             setOpen(true);
           }}
           onFocus={() => {
-            setOpen(options.length > 0);
+            setOpen(true);
+          }}
+          onClick={() => {
+            // Opening on a press as well as on focus. A control that looks
+            // like a dropdown and does nothing when pressed is a control that
+            // reads as broken, and a second press on an already focused field
+            // would otherwise do nothing at all.
+            setOpen(true);
           }}
           onKeyDown={(event) => {
             if (event.key === 'Escape' && open) {
@@ -117,8 +130,31 @@ export function ComboBox({
               setOpen(false);
             }
           }}
-          className={cn(INPUT_CONTROL, disabled && 'cursor-not-allowed')}
+          className={cn(INPUT_CONTROL, 'pe-9', disabled && 'cursor-not-allowed')}
         />
+
+        {/* The arrow is what says this is a list and not a text field. It
+            takes no pointer events, so pressing it presses the input beneath
+            and opens the list, which is what a reader expects of it. */}
+        <span className="pointer-events-none absolute inset-y-0 end-3 flex items-center">
+          <svg
+            viewBox="0 0 12 12"
+            aria-hidden="true"
+            className={cn(
+              'h-3 w-3 text-fg-secondary transition-transform duration-150',
+              open && 'rotate-180',
+            )}
+            fill="none"
+          >
+            <path
+              d="M2.5 4.5L6 8l3.5-3.5"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </span>
 
         <Overlay open={open && shown.length > 0} className="max-h-64 overflow-auto">
           <ul id={listId} role="listbox" aria-label={label}>
@@ -144,6 +180,10 @@ export function ComboBox({
               </li>
             ))}
           </ul>
+        </Overlay>
+
+        <Overlay open={open && options.length === 0} className="p-2">
+          <p className="text-xs text-fg-secondary">{emptyHint}</p>
         </Overlay>
       </div>
 
