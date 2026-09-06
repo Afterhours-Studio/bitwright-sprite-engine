@@ -195,17 +195,24 @@ interface Timer {
 let counter = 0;
 
 /**
- * Returns an id no live notification is using.
+ * Returns an id no notification is using.
  *
- * A counter rather than a timestamp: two notifications raised in the same
- * millisecond, which a failing loop does constantly, would collide and React
- * would reuse one element for both.
+ * The counter alone was not enough once the history outlived the window: it
+ * restarts at zero on every launch while the history it is added to still
+ * holds toast-1 from the last one, so React saw two children with one key and
+ * reused a single element for both.
+ *
+ * The launch time makes the run unique and the counter makes the notification
+ * unique within it, which is what a timestamp alone cannot do - a failing loop
+ * raises several inside one millisecond.
  *
  * @returns A fresh identifier.
  */
+const RUN = Date.now().toString(36);
+
 function nextId(): string {
   counter += 1;
-  return `toast-${String(counter)}`;
+  return `toast-${RUN}-${String(counter)}`;
 }
 
 /**

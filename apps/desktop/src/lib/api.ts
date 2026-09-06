@@ -306,8 +306,10 @@ export function activateProvider(providerId: string): Promise<ProviderListRespon
  * Resolves with the outcome whether or not the endpoint answered. A refused key
  * is the result, not an error.
  */
-export function testDraftProvider(request: ProviderSaveRequest): Promise<ConnectionTestResult> {
-  return unwrap(engineTestDraftProvider(request));
+export async function testDraftProvider(
+  request: ProviderSaveRequest,
+): Promise<ConnectionTestResult> {
+  return withModelLists(await unwrap(engineTestDraftProvider(request)));
 }
 
 /**
@@ -316,8 +318,29 @@ export function testDraftProvider(request: ProviderSaveRequest): Promise<Connect
  * @param providerId - Which provider.
  * @returns What the endpoint answered.
  */
-export function testProvider(providerId: string): Promise<ConnectionTestResult> {
-  return unwrap(engineTestProvider(providerId));
+export async function testProvider(providerId: string): Promise<ConnectionTestResult> {
+  return withModelLists(await unwrap(engineTestProvider(providerId)));
+}
+
+/**
+ * Fills in the lists a connection test may not have carried.
+ *
+ * The sidecar is a separate process on its own release cycle, so a field this
+ * build expects can simply be absent from the answer of an engine that has not
+ * been restarted yet. A missing array is not a type error there, it is an
+ * interface that crashes on `.length`, so it is filled in here at the boundary
+ * rather than guarded at every use.
+ *
+ * @param result - What the engine answered.
+ * @returns The same result, with both lists present.
+ */
+function withModelLists(result: ConnectionTestResult): ConnectionTestResult {
+  // Typed as possibly absent, because that is what crossing a process
+  // boundary means: the declaration describes what this build asks for, not
+  // what an older engine actually sent.
+  const wire = result as { models?: string[]; allModels?: string[] };
+  const models = wire.models ?? [];
+  return { ...result, models, allModels: wire.allModels ?? models };
 }
 
 /** Generates sprites. */
