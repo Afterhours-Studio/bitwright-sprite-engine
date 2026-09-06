@@ -32,6 +32,12 @@ export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>
  * The circular affordance is the reference language for anything that is an
  * action rather than a choice: window controls, the theme switch, add buttons.
  * A pill is a choice; a circle is an action.
+ *
+ * `label` is the accessible name and nothing else. It is deliberately not also
+ * written to `title`: that attribute is drawn by the operating system, in its
+ * own font and colours and after its own delay, none of which follow the
+ * theme. A caller that wants a visible label on hover wraps the button in
+ * `Tooltip`, which is drawn by the application.
  */
 export function IconButton({
   label,
@@ -45,7 +51,6 @@ export function IconButton({
     <button
       type="button"
       aria-label={label}
-      title={label}
       disabled={disabled}
       className={cn(
         'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full',

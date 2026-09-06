@@ -16,7 +16,38 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { windowClose, windowIsMaximized, windowMinimize, windowToggleMaximize } from '@/lib/tauri';
+import {
+  windowClose,
+  windowIsMaximized,
+  windowMinimize,
+  windowToggleMaximize,
+  type ShellResult,
+} from '@/lib/tauri';
+import { useToastStore } from '@/stores/useToastStore';
+
+/**
+ * Reports a window command that did not go through.
+ *
+ * A failed press used to be dropped on the floor, so a window that refused to
+ * minimise looked like a button that did nothing.
+ *
+ * `shell.unavailable` is the one failure that is not reported. It means the
+ * page is not inside a Tauri window at all, which is the documented no-op
+ * below rather than a command the user asked for and did not get; raising it
+ * would put a warning on screen for every press in a plain browser and in
+ * every test that renders the title bar.
+ *
+ * @param result - What the command returned.
+ */
+function report(result: ShellResult<unknown>): void {
+  if (result.ok || result.error.code === 'shell.unavailable') {
+    return;
+  }
+  useToastStore.getState().notify({
+    severity: 'warning',
+    messageKey: 'errors:window.command_failed',
+  });
+}
 
 /** Window actions, and whether the window is currently maximized. */
 export interface WindowControls {
@@ -50,18 +81,20 @@ export function useWindowControls(): WindowControls {
   }, []);
 
   const minimize = useCallback(async () => {
-    await windowMinimize();
+    report(await windowMinimize());
   }, []);
 
   const toggleMaximize = useCallback(async () => {
     const result = await windowToggleMaximize();
     if (result.ok) {
       setMaximized(result.value);
+      return;
     }
+    report(result);
   }, []);
 
   const close = useCallback(async () => {
-    await windowClose();
+    report(await windowClose());
   }, []);
 
   return { maximized, minimize, toggleMaximize, close };

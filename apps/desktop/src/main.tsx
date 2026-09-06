@@ -19,12 +19,12 @@ import { createRoot } from 'react-dom/client';
 
 import { App } from '@/App';
 import '@/lib/i18n';
-import { applyRootAttributes, storedTheme } from '@/stores/useShellStore';
+import { applyRootAttributes, resolveTheme, storedTheme } from '@/stores/useShellStore';
 import '@/styles/global.css';
 
 // The theme is written before the first render, so the window never flashes in
 // the wrong palette while React mounts.
-applyRootAttributes({ theme: storedTheme(), vibrancy: false });
+applyRootAttributes({ theme: resolveTheme(storedTheme()), vibrancy: false });
 
 const container = document.getElementById('root');
 if (container === null) {

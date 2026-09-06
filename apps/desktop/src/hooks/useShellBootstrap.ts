@@ -17,6 +17,7 @@
 import { useEffect } from 'react';
 
 import {
+  appVersion,
   checkGpu,
   platformInfo,
   sidecarStatus,
@@ -27,7 +28,13 @@ import {
   type SidecarStatus,
 } from '@/lib/tauri';
 import { useEngineStore } from '@/stores/useEngineStore';
-import { applyRootAttributes, useShellStore } from '@/stores/useShellStore';
+import { useToastStore } from '@/stores/useToastStore';
+import {
+  applyRootAttributes,
+  resolveTheme,
+  useShellStore,
+  watchSystemTheme,
+} from '@/stores/useShellStore';
 
 /**
  * Asks the shell for everything the interface needs at startup, and subscribes
@@ -41,13 +48,23 @@ export function useShellBootstrap(): void {
   const setPlatform = useShellStore((state) => state.setPlatform);
   const setVibrancy = useShellStore((state) => state.setVibrancy);
   const setGpu = useShellStore((state) => state.setGpu);
+  const setAppVersion = useShellStore((state) => state.setAppVersion);
   const theme = useShellStore((state) => state.theme);
   const setSidecar = useEngineStore((state) => state.setSidecar);
 
   // The stored theme is applied before anything renders, so the first paint is
-  // already in the right palette.
+  // already in the right palette. While the choice is `system`, the media query
+  // stays attached, so an appearance change on a schedule reaches the window
+  // without a restart; the listener is detached the moment the choice is not
+  // `system` any more, since nothing should follow the system after that.
   useEffect(() => {
-    applyRootAttributes({ theme });
+    applyRootAttributes({ theme: resolveTheme(theme) });
+    if (theme !== 'system') {
+      return;
+    }
+    return watchSystemTheme((resolved) => {
+      applyRootAttributes({ theme: resolved });
+    });
   }, [theme]);
 
   useEffect(() => {
@@ -57,11 +74,12 @@ export function useShellBootstrap(): void {
     const controller = new AbortController();
 
     void (async () => {
-      const [platform, vibrancy, sidecar, gpu] = await Promise.all([
+      const [platform, vibrancy, sidecar, gpu, version] = await Promise.all([
         platformInfo(),
         vibrancyState(),
         sidecarStatus(),
         checkGpu(),
+        appVersion(),
       ]);
 
       if (controller.signal.aborted) {
@@ -77,16 +95,32 @@ export function useShellBootstrap(): void {
       }
       if (sidecar.ok) {
         setSidecar(sidecar.value);
+      } else if (sidecar.error.code !== 'shell.unavailable') {
+        // The only one of the five worth raising. The other four degrade into
+        // a default the interface can carry, while an engine that never
+        // answered leaves nothing on the screen to explain why generation does
+        // not work. `shell.unavailable` is skipped because it only means the
+        // page is not in a Tauri window, which is not a fault to report.
+        useToastStore.getState().notify({
+          severity: 'warning',
+          messageKey: 'errors:network.unreachable',
+        });
       }
       if (gpu.ok) {
         setGpu(gpu.value);
+      }
+      // Read separately from the engine version. A frozen sidecar reporting an
+      // old number looked like the application being stale, and showing only
+      // one of the two is what kept that mismatch invisible.
+      if (version.ok) {
+        setAppVersion(version.value);
       }
     })();
 
     return () => {
       controller.abort();
     };
-  }, [setGpu, setPlatform, setSidecar, setVibrancy]);
+  }, [setAppVersion, setGpu, setPlatform, setSidecar, setVibrancy]);
 
   useEffect(() => {
     const unsubscribers: Promise<() => void>[] = [

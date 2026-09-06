@@ -31,8 +31,14 @@ import type { GpuReport, PlatformInfo, VibrancyState } from '@/lib/tauri';
 /** The screens the application has. */
 export type Screen = 'generate' | 'gallery' | 'settings';
 
-/** The available themes. Dark is the default. */
-export type Theme = 'dark' | 'light';
+/** What the user chose. Dark is the default. */
+export type Theme = 'dark' | 'light' | 'system';
+
+/** What is actually painted. `system` resolves to one of these. */
+export type ResolvedTheme = 'dark' | 'light';
+
+/** The choices offered, in the order they are listed. */
+export const THEMES: Theme[] = ['system', 'dark', 'light'];
 
 const THEME_KEY = 'bitwright.theme';
 
@@ -47,6 +53,8 @@ interface ShellState {
   vibrancy: VibrancyState;
   /** The startup GPU probe, or null before it has finished. */
   gpu: GpuReport | null;
+  /** The application's own version, or empty before the shell has answered. */
+  appVersion: string;
 
   /** Opens a screen. */
   setScreen: (screen: Screen) => void;
@@ -60,6 +68,8 @@ interface ShellState {
   setVibrancy: (vibrancy: VibrancyState) => void;
   /** Records the startup GPU probe. */
   setGpu: (gpu: GpuReport) => void;
+  /** Records the application version reported by the shell. */
+  setAppVersion: (version: string) => void;
 }
 
 /**
@@ -69,10 +79,51 @@ interface ShellState {
  */
 export function storedTheme(): Theme {
   try {
-    return window.localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark';
+    const stored = window.localStorage.getItem(THEME_KEY);
+    return stored === 'light' || stored === 'system' ? stored : 'dark';
   } catch {
     return 'dark';
   }
+}
+
+/**
+ * Resolves a choice to the theme that is actually painted.
+ *
+ * @param theme - What the user chose.
+ * @returns The theme to write onto the root element.
+ */
+export function resolveTheme(theme: Theme): ResolvedTheme {
+  if (theme !== 'system') {
+    return theme;
+  }
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return 'dark';
+  }
+  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+}
+
+/**
+ * Follows the system preference for as long as the choice is `system`.
+ *
+ * The query has to stay attached rather than being read once at startup:
+ * Windows and macOS both switch appearance on a schedule, and an application
+ * that read the preference at launch stays wrong until it is restarted.
+ *
+ * @param onChange - Called with the newly resolved theme.
+ * @returns A function that detaches the listener.
+ */
+export function watchSystemTheme(onChange: (theme: ResolvedTheme) => void): () => void {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return () => undefined;
+  }
+  const query = window.matchMedia('(prefers-color-scheme: light)');
+  const listener = (event: MediaQueryListEvent): void => {
+    onChange(event.matches ? 'light' : 'dark');
+  };
+  query.addEventListener('change', listener);
+  return () => {
+    query.removeEventListener('change', listener);
+  };
 }
 
 /**
@@ -84,7 +135,7 @@ export function storedTheme(): Theme {
  * @param attributes - Attributes to apply.
  */
 export function applyRootAttributes(attributes: {
-  theme?: Theme;
+  theme?: ResolvedTheme;
   platform?: PlatformInfo['os'];
   vibrancy?: boolean;
 }): void {
@@ -112,6 +163,7 @@ export const useShellStore = create<ShellState>((set, get) => ({
   // the wallpaper.
   vibrancy: { applied: false, effect: '', reason: '' },
   gpu: null,
+  appVersion: '',
 
   setScreen: (screen) => {
     set({ screen });
@@ -119,7 +171,7 @@ export const useShellStore = create<ShellState>((set, get) => ({
 
   setTheme: (theme) => {
     set({ theme });
-    applyRootAttributes({ theme });
+    applyRootAttributes({ theme: resolveTheme(theme) });
     try {
       window.localStorage.setItem(THEME_KEY, theme);
     } catch {
@@ -128,7 +180,10 @@ export const useShellStore = create<ShellState>((set, get) => ({
   },
 
   toggleTheme: () => {
-    get().setTheme(get().theme === 'dark' ? 'light' : 'dark');
+    // Toggling from `system` commits to the opposite of what is on screen,
+    // which is what pressing a light/dark switch is asking for. Leaving it on
+    // `system` and flipping nothing would read as a broken button.
+    get().setTheme(resolveTheme(get().theme) === 'dark' ? 'light' : 'dark');
   },
 
   setPlatform: (platform) => {
@@ -143,5 +198,9 @@ export const useShellStore = create<ShellState>((set, get) => ({
 
   setGpu: (gpu) => {
     set({ gpu });
+  },
+
+  setAppVersion: (version) => {
+    set({ appVersion: version });
   },
 }));

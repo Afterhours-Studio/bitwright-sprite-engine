@@ -22,8 +22,12 @@ import { cn } from '@/lib/cn';
  * dark. In light mode the field is the same white as the card it sits on, so
  * its border is what separates the two, which is why it uses the stronger
  * input border rather than the subtle one.
+ *
+ * Exported because `NumberField` is the same control with a stepper drawn on
+ * top of it, and the two sit in the same column. Copying the classes over
+ * there would make them identical today and similar later.
  */
-const CONTROL = cn(
+export const INPUT_CONTROL = cn(
   'w-full rounded-sm border border-line-input bg-surface-input px-3 py-2',
   'text-sm text-fg-primary transition-colors',
   'placeholder:text-fg-placeholder',
@@ -46,7 +50,7 @@ export function Field({ label, hint, className, ...rest }: FieldProps): ReactEle
       <label htmlFor={id} className="text-xs font-medium text-fg-secondary">
         {label}
       </label>
-      <input id={id} className={CONTROL} {...rest} />
+      <input id={id} className={INPUT_CONTROL} {...rest} />
       {hint !== undefined && <p className="text-xs text-fg-secondary">{hint}</p>}
     </div>
   );
@@ -87,7 +91,7 @@ export function TextAreaField({
         onChange={(event) => {
           onValueChange(event.target.value);
         }}
-        className={cn(CONTROL, 'resize-none')}
+        className={cn(INPUT_CONTROL, 'resize-none')}
       />
     </div>
   );
@@ -148,62 +152,6 @@ export function Toggle({
           />
         </button>
       </div>
-      {hint !== undefined && <p className="text-xs text-fg-secondary">{hint}</p>}
-    </div>
-  );
-}
-
-export interface SelectFieldProps {
-  /** Label text. Always a translated string. */
-  label: string;
-  /** Current value. */
-  value: string;
-  /** Options, already translated where they are user facing. */
-  options: { value: string; label: string }[];
-  /** Whether the control can be changed. */
-  disabled?: boolean;
-  /** Explanation shown under the control, such as why it is disabled. */
-  hint?: string;
-  /** Called with the new value. */
-  onValueChange: (value: string) => void;
-  /** Extra classes for layout only, never colour. */
-  className?: string;
-}
-
-/** A labelled dropdown. */
-export function SelectField({
-  label,
-  value,
-  options,
-  disabled = false,
-  hint,
-  onValueChange,
-  className,
-}: SelectFieldProps): ReactElement {
-  const id = useId();
-  return (
-    <div className={cn('flex flex-col gap-1', className)}>
-      <label
-        htmlFor={id}
-        className={cn('text-xs font-medium', disabled ? 'text-fg-muted' : 'text-fg-secondary')}
-      >
-        {label}
-      </label>
-      <select
-        id={id}
-        value={value}
-        disabled={disabled}
-        onChange={(event) => {
-          onValueChange(event.target.value);
-        }}
-        className={CONTROL}
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
       {hint !== undefined && <p className="text-xs text-fg-secondary">{hint}</p>}
     </div>
   );
