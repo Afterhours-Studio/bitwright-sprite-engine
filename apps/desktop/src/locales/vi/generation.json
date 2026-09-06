@@ -41,7 +41,8 @@
     "directions": "Số hướng",
     "directionCount_other": "{{count}} hướng",
     "directionCount_one": "{{count}} hướng",
-    "loraNotDownloaded": "{{name}} (chưa tải)"
+    "loraNotDownloaded": "{{name}} (chưa tải)",
+    "modelRemote": "Provider từ xa quyết định cái này. Hãy chọn model của nó trong Cài đặt."
   },
   "postprocess": {
     "title": "Hậu xử lý",

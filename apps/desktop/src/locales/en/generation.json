@@ -41,7 +41,8 @@
     "directions": "Directions",
     "directionCount_one": "{{count}} direction",
     "directionCount_other": "{{count}} directions",
-    "loraNotDownloaded": "{{name}} (not downloaded)"
+    "loraNotDownloaded": "{{name}} (not downloaded)",
+    "modelRemote": "The remote provider decides this. Choose its model in Settings."
   },
   "postprocess": {
     "title": "Post-processing",

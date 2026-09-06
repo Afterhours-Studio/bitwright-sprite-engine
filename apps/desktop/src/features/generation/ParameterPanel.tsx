@@ -14,13 +14,14 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 import type { ReactElement } from 'react';
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Toggle } from '@/components/ui/Field';
 import { NumberField } from '@/components/ui/NumberField';
 import { Select } from '@/components/ui/Select';
 import { useCapabilities } from '@/hooks/useCapabilities';
-import { useEngineStore } from '@/stores/useEngineStore';
+import { selectedBackend, useEngineStore } from '@/stores/useEngineStore';
 import {
   ART_STYLES,
   CAMERA_ANGLES,
@@ -67,10 +68,31 @@ export function ParameterPanel(): ReactElement {
   const patch = useGenerationStore((state) => state.patch);
   const patchPostprocess = useGenerationStore((state) => state.patchPostprocess);
   const models = useEngineStore((state) => state.models);
+  const backends = useEngineStore((state) => state.backends);
   const { supports } = useCapabilities();
 
   const canBatch = supports('batch');
   const canLora = supports('lora_hotswap');
+
+  // A remote provider brings its own model, chosen in Settings against that
+  // provider's own catalogue. The registry here lists weights for the local
+  // engines, and sending one of those names to a remote API asks it for a
+  // model it has never heard of.
+  const local = selectedBackend(backends)?.kind !== 'remote';
+
+  // A value the selected engine cannot use is worse than a disabled control:
+  // the control greys out, the value stays in the request, and generation
+  // fails on something the user can no longer see. The request outlives the
+  // window now, so this happens on the ordinary path of choosing an adapter,
+  // switching engine, and coming back tomorrow.
+  useEffect(() => {
+    if (!canLora && request.loraId !== null) {
+      patch({ loraId: null });
+    }
+    if (!canBatch && request.batchSize !== 1) {
+      patch({ batchSize: 1 });
+    }
+  }, [canBatch, canLora, patch, request.batchSize, request.loraId]);
   const unsupported = t('capability.unsupported');
 
   const baseModels = models.filter((model) => model.kind === 'base');
@@ -245,7 +267,14 @@ export function ParameterPanel(): ReactElement {
           <Select
             label={t('parameters.model')}
             value={request.modelId}
-            options={baseModels.map((model) => ({ value: model.modelId, label: model.name }))}
+            disabled={!local}
+            {...(local ? {} : { hint: t('parameters.modelRemote') })}
+            options={baseModels.map((model) => ({
+              value: model.modelId,
+              label: model.cached
+                ? model.name
+                : t('parameters.loraNotDownloaded', { name: model.name }),
+            }))}
             onValueChange={(value) => {
               patch({ modelId: value });
             }}
