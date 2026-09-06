@@ -37,9 +37,8 @@ from bitwright_engine.api.server import bind_socket, create_app
 from bitwright_engine.backends import BackendKind
 from bitwright_engine.config import Settings
 from bitwright_engine.models import ModelDownloader
-from bitwright_engine.models.downloader import WEIGHTS_FILENAME
 from bitwright_engine.version import __version__
-from tests.test_models import MODEL_ID, WAIT_S, Handler, partials, serve
+from tests.test_models import MODEL_ID, WAIT_S, WEIGHTS, Handler, partials, serve
 
 DOWNLOAD_TOKEN = "download-test-token"
 """Token the download tests build their own application with."""
@@ -245,7 +244,7 @@ def test_downloading_a_cached_model_answers_200(settings: Settings) -> None:
     with download_app(settings, refuse) as (client, downloader):
         path = downloader.path_for(MODEL_ID)
         path.mkdir(parents=True)
-        (path / WEIGHTS_FILENAME).write_bytes(b"already here")
+        (path / WEIGHTS).write_bytes(b"already here")
 
         response = client.post(f"/v1/models/{MODEL_ID}/download")
         assert response.status_code == 200

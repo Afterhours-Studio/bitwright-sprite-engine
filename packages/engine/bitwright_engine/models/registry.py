@@ -44,8 +44,14 @@ class ModelEntry:
         model_id: Stable identifier used by requests and by settings.
         name: Display name.
         kind: Role in the pipeline.
-        repo: Host repository the weights come from.
+        repo: Host repository the weights come from. Empty when the entry
+            carries an absolute ``url`` instead.
         revision: Pinned revision, so that a download is reproducible.
+        filename: The weights file to fetch from that repository. Named per
+            entry because there is no convention: a repository holds several
+            files and none of them is called the same thing twice.
+        url: An absolute URL, for a model that is not on the model host at all.
+            When set, ``repo``, ``revision`` and ``filename`` are unused.
         license_id: SPDX identifier, or the licence name when the licence has
             no SPDX identifier, as is the case for the RAIL family.
         license_url: Where to read the full licence text.
@@ -59,10 +65,12 @@ class ModelEntry:
     kind: ModelKind
     repo: str
     revision: str
+    filename: str
     license_id: str
     license_url: str
     commercial_use: bool
     size_mb: int
+    url: str = ""
 
 
 REGISTRY: dict[str, ModelEntry] = {
@@ -70,12 +78,15 @@ REGISTRY: dict[str, ModelEntry] = {
         model_id="sd15-base",
         name="Stable Diffusion 1.5",
         kind=ModelKind.BASE,
-        repo="runwayml/stable-diffusion-v1-5",
+        # The original `runwayml` repository was withdrawn; this is where the
+        # same weights live now, and the old path answers 404.
+        repo="stable-diffusion-v1-5/stable-diffusion-v1-5",
         revision="main",
+        filename="v1-5-pruned-emaonly.safetensors",
         license_id="CreativeML Open RAIL-M",
         license_url="https://huggingface.co/spaces/CompVis/stable-diffusion-license",
         commercial_use=True,
-        size_mb=4200,
+        size_mb=4068,
     ),
     "sdxl-base": ModelEntry(
         model_id="sdxl-base",
@@ -83,10 +94,11 @@ REGISTRY: dict[str, ModelEntry] = {
         kind=ModelKind.BASE,
         repo="stabilityai/stable-diffusion-xl-base-1.0",
         revision="main",
+        filename="sd_xl_base_1.0.safetensors",
         license_id="CreativeML Open RAIL++-M",
         license_url="https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/blob/main/LICENSE.md",
         commercial_use=True,
-        size_mb=6900,
+        size_mb=6617,
     ),
     "pixel-art-lora": ModelEntry(
         model_id="pixel-art-lora",
@@ -94,21 +106,26 @@ REGISTRY: dict[str, ModelEntry] = {
         kind=ModelKind.LORA,
         repo="nerijs/pixel-art-xl",
         revision="main",
+        filename="pixel-art-xl.safetensors",
         license_id="CreativeML Open RAIL-M",
         license_url="https://huggingface.co/spaces/CompVis/stable-diffusion-license",
         commercial_use=True,
-        size_mb=170,
+        size_mb=163,
     ),
     "rembg-u2net": ModelEntry(
         model_id="rembg-u2net",
         name="U2-Net Background Removal",
         kind=ModelKind.SEGMENTATION,
-        repo="danielgatis/rembg",
-        revision="main",
+        # Published as a release asset rather than on the model host, so this
+        # entry carries the whole URL.
+        repo="",
+        revision="",
+        filename="",
         license_id="Apache-2.0",
         license_url="https://www.apache.org/licenses/LICENSE-2.0",
         commercial_use=True,
-        size_mb=176,
+        size_mb=168,
+        url="https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2net.onnx",
     ),
 }
 

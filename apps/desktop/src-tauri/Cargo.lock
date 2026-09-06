@@ -143,7 +143,7 @@ dependencies = [
 
 [[package]]
 name = "bitwright"
-version = "0.0.3"
+version = "0.1.0"
 dependencies = [
  "log",
  "reqwest 0.12.28",

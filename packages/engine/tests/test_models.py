@@ -43,14 +43,16 @@ from bitwright_engine.models import (
 from bitwright_engine.models.downloader import (
     CHUNK_SIZE,
     PARTIAL_SUFFIX,
-    WEIGHTS_FILENAME,
     AlreadyDownloadingError,
     download_url,
+    weights_filename,
 )
 
 Handler = Callable[[httpx.Request], httpx.Response]
 
 MODEL_ID = "rembg-u2net"
+WEIGHTS = weights_filename(get(MODEL_ID))
+"""The file that entry publishes, which is per entry rather than fixed."""
 """A small registry entry, used for every download test."""
 
 CHUNK = b"x" * CHUNK_SIZE
@@ -181,7 +183,7 @@ def test_a_successful_download_marks_the_model_cached(settings: Settings) -> Non
     assert status.downloading is False
     assert status.progress == 0.0
     assert status.error == ""
-    assert (status.path / WEIGHTS_FILENAME).stat().st_size == 3 * CHUNK_SIZE
+    assert (status.path / WEIGHTS).stat().st_size == 3 * CHUNK_SIZE
     assert partials(downloader) == []
 
 
@@ -342,7 +344,7 @@ def test_starting_a_cached_model_downloads_nothing(settings: Settings) -> None:
     downloader = build(settings, refuse)
     path = downloader.path_for(MODEL_ID)
     path.mkdir(parents=True)
-    (path / WEIGHTS_FILENAME).write_bytes(b"already here")
+    (path / WEIGHTS).write_bytes(b"already here")
 
     assert downloader.start(MODEL_ID) is False
     assert downloader.status(MODEL_ID).cached is True
@@ -389,7 +391,7 @@ def test_ensure_downloads_a_missing_model(settings: Settings) -> None:
     path = downloader.ensure(MODEL_ID)
 
     assert path == downloader.path_for(MODEL_ID)
-    assert (path / WEIGHTS_FILENAME).stat().st_size == CHUNK_SIZE
+    assert (path / WEIGHTS).stat().st_size == CHUNK_SIZE
 
 
 def test_ensure_reports_the_reason_a_download_failed(settings: Settings) -> None:

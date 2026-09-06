@@ -293,7 +293,11 @@ export function Toast({ toast }: ToastProps): ReactElement {
               resume(toast.id);
             }}
             className={cn(
-              'flex w-[336px] items-start gap-3 rounded-md p-3',
+              // Wide enough that a headline naming a model fits on one line.
+              // At 336px the text column was 236px, and "Could not download
+              // Stable Diffusion 1.5" needs about 270. Capped against the
+              // viewport so a narrow window cannot push it off the edge.
+              'flex w-[400px] max-w-[calc(100vw-3rem)] items-start gap-3 rounded-md p-3',
               'border border-line bg-surface-float shadow-md',
             )}
           >
@@ -301,7 +305,12 @@ export function Toast({ toast }: ToastProps): ReactElement {
 
             <div className="min-w-0 flex-1">
               {title !== null && (
-                <p className="text-sm font-medium leading-snug text-fg-primary">{title}</p>
+                // `pretty` rather than the default, so a headline that does
+                // have to wrap breaks into even lines instead of leaving one
+                // word stranded on the second.
+                <p className="text-sm font-medium leading-snug text-fg-primary [text-wrap:pretty]">
+                  {title}
+                </p>
               )}
               <p
                 className={cn(

@@ -46,12 +46,14 @@ logger = get_logger(__name__)
 MODEL_HOST = "https://huggingface.co"
 """Host that serves every repository named in the registry."""
 
-WEIGHTS_FILENAME = "model.safetensors"
 """Name the weights take inside the model directory.
 
-The registry pins a repository and a revision but not a file list, so one
-consolidated weights file per entry is fetched. A model that needs several
-files should record them in the registry rather than have this module guess.
+Taken from the registry entry rather than fixed here. Guessing one name for
+every repository is what made every download fail: no repository holds a file
+called `model.safetensors`, so the host answered 404 and the interface reported
+that the file had moved. One consolidated file per entry is still the
+assumption; a model that needs several should record them in the registry
+rather than have this module guess.
 """
 
 PARTIAL_DIRNAME = ".partial"
@@ -201,8 +203,11 @@ class _DownloadState:
 def download_url(entry: ModelEntry) -> str:
     """Return the URL a model's weights are fetched from.
 
-    The revision is pinned by the registry rather than resolved at download
-    time, so that two machines fetching the same entry get the same bytes.
+    An entry carrying an absolute URL is taken as it stands, which is how a
+    model published somewhere other than the model host is reached. Otherwise
+    the repository, the revision and the file name are joined: the revision is
+    pinned by the registry rather than resolved at download time, so that two
+    machines fetching the same entry get the same bytes.
 
     Args:
         entry: The registry entry to download.
@@ -210,7 +215,24 @@ def download_url(entry: ModelEntry) -> str:
     Returns:
         An absolute URL for that entry's weights file.
     """
-    return f"{MODEL_HOST}/{entry.repo}/resolve/{entry.revision}/{WEIGHTS_FILENAME}"
+    if entry.url != "":
+        return entry.url
+    return f"{MODEL_HOST}/{entry.repo}/resolve/{entry.revision}/{entry.filename}"
+
+
+def weights_filename(entry: ModelEntry) -> str:
+    """Return the name the weights take inside the model directory.
+
+    Args:
+        entry: The registry entry being downloaded.
+
+    Returns:
+        The entry's file name, or the last segment of its URL when it carries
+        one instead.
+    """
+    if entry.filename != "":
+        return entry.filename
+    return download_url(entry).rsplit("/", 1)[-1]
 
 
 def _default_client() -> httpx.Client:
@@ -553,7 +575,7 @@ class ModelDownloader:
 
         try:
             self._stream(entry, state, partial)
-            self._publish(partial, self.path_for(entry.model_id))
+            self._publish(partial, self.path_for(entry.model_id), weights_filename(entry))
         finally:
             # Covers every unhappy path, cancellation included. A published
             # download has already been renamed away, so this removes nothing.
@@ -626,7 +648,7 @@ class ModelDownloader:
         with self._lock:
             state.progress = min(received / total, ceiling)
 
-    def _publish(self, partial: Path, destination: Path) -> None:
+    def _publish(self, partial: Path, destination: Path, filename: str) -> None:
         """Move a finished download into its model directory.
 
         The directory is created empty and the file renamed into it, so the
@@ -635,12 +657,13 @@ class ModelDownloader:
         Args:
             partial: The completed partial file.
             destination: The model directory to publish into.
+            filename: The name the weights take inside that directory.
 
         Raises:
             DownloadWriteFailedError: The move could not be completed.
         """
         try:
             destination.mkdir(parents=True, exist_ok=True)
-            partial.replace(destination / WEIGHTS_FILENAME)
+            partial.replace(destination / filename)
         except OSError as error:
             raise DownloadWriteFailedError(f"cannot publish into {destination}") from error
