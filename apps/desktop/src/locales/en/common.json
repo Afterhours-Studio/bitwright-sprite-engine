@@ -1,0 +1,63 @@
+{
+  "app": {
+    "name": "Bitwright",
+    "tagline": "Sprite Engine"
+  },
+  "nav": {
+    "generate": "Generate",
+    "gallery": "Gallery",
+    "settings": "Settings"
+  },
+  "window": {
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore",
+    "close": "Close"
+  },
+  "status": {
+    "backend": "Engine",
+    "ready": "Ready",
+    "starting": "Starting engine",
+    "offline": "Engine offline",
+    "idle": "Idle",
+    "working": "Generating",
+    "progress": "{{done}} of {{total}}"
+  },
+  "theme": {
+    "label": "Theme",
+    "dark": "Dark",
+    "light": "Light",
+    "toggle": "Switch theme"
+  },
+  "language": {
+    "label": "Language",
+    "en": "English",
+    "vi": "Vietnamese"
+  },
+  "actions": {
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "close": "Close",
+    "save": "Save",
+    "copy": "Copy"
+  },
+  "units": {
+    "pixels": "px",
+    "milliseconds": "ms",
+    "megabytes": "MB"
+  },
+  "empty": {
+    "title": "Nothing here yet",
+    "description": "Generated sprites appear here once a run finishes."
+  },
+  "gallery": {
+    "title": "Gallery",
+    "subtitle": "Everything generated in this session",
+    "filterAll": "All",
+    "filterFavourites": "Favourites",
+    "favourite": "Add to favourites",
+    "unfavourite": "Remove from favourites",
+    "remove": "Remove",
+    "clear": "Clear gallery"
+  }
+}

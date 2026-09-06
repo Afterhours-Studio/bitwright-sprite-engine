@@ -1,0 +1,63 @@
+{
+  "app": {
+    "name": "Bitwright",
+    "tagline": "Sprite Engine"
+  },
+  "nav": {
+    "generate": "Tạo sprite",
+    "gallery": "Thư viện",
+    "settings": "Cài đặt"
+  },
+  "window": {
+    "minimize": "Thu nhỏ",
+    "maximize": "Phóng to",
+    "restore": "Khôi phục",
+    "close": "Đóng"
+  },
+  "status": {
+    "backend": "Engine",
+    "ready": "Sẵn sàng",
+    "starting": "Đang khởi động engine",
+    "offline": "Engine ngoại tuyến",
+    "idle": "Đang rảnh",
+    "working": "Đang tạo",
+    "progress": "{{done}} trên {{total}}"
+  },
+  "theme": {
+    "label": "Giao diện",
+    "dark": "Tối",
+    "light": "Sáng",
+    "toggle": "Đổi giao diện"
+  },
+  "language": {
+    "label": "Ngôn ngữ",
+    "en": "Tiếng Anh",
+    "vi": "Tiếng Việt"
+  },
+  "actions": {
+    "retry": "Thử lại",
+    "cancel": "Huỷ",
+    "close": "Đóng",
+    "save": "Lưu",
+    "copy": "Sao chép"
+  },
+  "units": {
+    "pixels": "px",
+    "milliseconds": "ms",
+    "megabytes": "MB"
+  },
+  "empty": {
+    "title": "Chưa có gì ở đây",
+    "description": "Sprite đã tạo sẽ xuất hiện ở đây sau khi chạy xong."
+  },
+  "gallery": {
+    "title": "Thư viện",
+    "subtitle": "Mọi sprite đã tạo trong phiên này",
+    "filterAll": "Tất cả",
+    "filterFavourites": "Yêu thích",
+    "favourite": "Thêm vào yêu thích",
+    "unfavourite": "Bỏ khỏi yêu thích",
+    "remove": "Xoá",
+    "clear": "Xoá thư viện"
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "title": "Tạo sprite",
+  "subtitle": "Mô tả sprite bạn muốn",
+  "prompt": {
+    "label": "Mô tả",
+    "placeholder": "Hiệp sĩ mặc giáp bạc, nhìn ngang",
+    "negativeLabel": "Mô tả loại trừ",
+    "negativePlaceholder": "mờ, chữ, hình chìm"
+  },
+  "parameters": {
+    "title": "Tham số",
+    "size": "Kích thước",
+    "width": "Chiều rộng",
+    "height": "Chiều cao",
+    "steps": "Số bước",
+    "guidance": "Độ bám mô tả",
+    "seed": "Seed",
+    "seedRandom": "Ngẫu nhiên",
+    "batch": "Số ảnh mỗi lần",
+    "model": "Model",
+    "lora": "Bộ điều chỉnh phong cách",
+    "loraNone": "Không dùng"
+  },
+  "postprocess": {
+    "title": "Hậu xử lý",
+    "removeBackground": "Xoá nền",
+    "paletteSize": "Số màu",
+    "dither": "Tán màu",
+    "pixelGrid": "Lưới pixel"
+  },
+  "actions": {
+    "generate": "Tạo",
+    "generating": "Đang tạo",
+    "stop": "Dừng",
+    "reset": "Đặt lại"
+  },
+  "canvas": {
+    "empty": "Sprite của bạn sẽ hiện ở đây",
+    "hint": "Ô bàn cờ thể hiện vùng trong suốt"
+  },
+  "capability": {
+    "unsupported": "Engine đang chọn không hỗ trợ",
+    "batch": "Tạo nhiều ảnh một lượt",
+    "loraHotswap": "Bộ điều chỉnh phong cách",
+    "controlnet": "Điều khiển tư thế",
+    "ipAdapter": "Ảnh tham chiếu"
+  },
+  "result": {
+    "seed": "Seed {{seed}}",
+    "duration": "Mất {{ms}} ms",
+    "count_one": "{{count}} sprite",
+    "count_other": "{{count}} sprite"
+  }
+}

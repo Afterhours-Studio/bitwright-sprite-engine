@@ -1,0 +1,50 @@
+{
+  "title": "Settings",
+  "subtitle": "Choose how sprites are generated",
+  "engine": {
+    "title": "Engine",
+    "description": "Generation runs on a local GPU, or through a remote inference API. Pick whichever suits the machine you are on.",
+    "cuda": "Local GPU (NVIDIA)",
+    "mps": "Local GPU (Apple)",
+    "remote": "Remote API",
+    "select": "Use this engine",
+    "selected": "In use",
+    "unavailable": "Unavailable",
+    "device": "Device",
+    "capabilities": "Supports"
+  },
+  "remote": {
+    "title": "Remote API",
+    "description": "Requests go to the endpoint you configure here. They are not routed through Afterhours Studio.",
+    "endpoint": "Endpoint",
+    "endpointPlaceholder": "https://api.example.com",
+    "apiKey": "API key",
+    "apiKeyPlaceholder": "Paste your key",
+    "timeout": "Timeout (seconds)"
+  },
+  "models": {
+    "title": "Models",
+    "description": "Model weights are not part of this application and are not covered by its licence. Each one is downloaded on first use, under its own terms.",
+    "license": "Licence",
+    "size": "Download size",
+    "cached": "Downloaded",
+    "notCached": "Not downloaded",
+    "commercialYes": "Commercial use permitted",
+    "commercialNo": "No commercial use"
+  },
+  "appearance": {
+    "title": "Appearance",
+    "description": "Theme and language apply immediately.",
+    "vibrancy": "Window blur",
+    "vibrancyOn": "Active",
+    "vibrancyOff": "Not available on this system"
+  },
+  "about": {
+    "title": "About",
+    "version": "Version",
+    "engineVersion": "Engine version",
+    "license": "Licensed under AGPL-3.0-only",
+    "copyright": "Copyright (C) 2026 Afterhours Studio",
+    "repository": "Source code"
+  }
+}

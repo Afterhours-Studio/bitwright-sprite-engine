@@ -1,0 +1,54 @@
+{
+  "title": "Something went wrong",
+  "unknown": "An unexpected error occurred.",
+  "network": {
+    "unreachable": "The engine is not responding. It may still be starting."
+  },
+  "sidecar": {
+    "spawn_failed": "The engine could not be started. The installation may be incomplete.",
+    "startup_timeout": "The engine did not finish starting in time.",
+    "exited": "The engine stopped unexpectedly.",
+    "not_ready": "The engine is still starting. Try again in a moment."
+  },
+  "backend": {
+    "error": "Generation failed.",
+    "unavailable": "The selected engine cannot run on this machine.",
+    "unsupported_capability": "The selected engine does not support this option.",
+    "none_available": "No engine is available. Configure a remote API in Settings.",
+    "unknown_kind": "That engine does not exist.",
+    "cuda": {
+      "torch_missing": "PyTorch is not installed, so the NVIDIA engine cannot run.",
+      "driver_missing": "No CUDA driver was found. Install the NVIDIA driver and restart.",
+      "no_device": "The CUDA driver reported no usable GPU."
+    },
+    "mps": {
+      "not_macos": "The Apple engine only runs on macOS.",
+      "torch_missing": "PyTorch is not installed, so the Apple engine cannot run.",
+      "torch_without_mps": "This build of PyTorch was compiled without Metal support.",
+      "device_unavailable": "The Metal device is not available on this machine."
+    },
+    "remote": {
+      "endpoint_missing": "Set an endpoint in Settings before using the remote API.",
+      "api_key_missing": "Set an API key in Settings before using the remote API.",
+      "request_failed": "The remote API rejected the request or could not be reached."
+    }
+  },
+  "models": {
+    "download_failed": "The model could not be downloaded.",
+    "downloads_disabled": "Downloads are turned off, and this model is not on this machine."
+  },
+  "gpu": {
+    "ok": "A usable GPU was found.",
+    "no_device": "A GPU driver is installed, but no device was reported.",
+    "driver_error": "The GPU driver returned an error.",
+    "driver_missing": "No GPU driver was found. Generation will have to use a remote API."
+  },
+  "window": {
+    "command_failed": "The window did not respond to that action."
+  },
+  "vibrancy": {
+    "apply_failed": "The window blur effect could not be applied.",
+    "windows10_opt_in": "Window blur is off by default on Windows 10, because it slows down dragging.",
+    "unsupported_platform": "Window blur is not available on this system."
+  }
+}

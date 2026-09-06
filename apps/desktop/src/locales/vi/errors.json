@@ -1,0 +1,54 @@
+{
+  "title": "Đã xảy ra lỗi",
+  "unknown": "Đã xảy ra lỗi ngoài dự kiến.",
+  "network": {
+    "unreachable": "Engine không phản hồi. Có thể nó vẫn đang khởi động."
+  },
+  "sidecar": {
+    "spawn_failed": "Không khởi động được engine. Bản cài đặt có thể bị thiếu tệp.",
+    "startup_timeout": "Engine không khởi động xong trong thời gian cho phép.",
+    "exited": "Engine đã dừng ngoài dự kiến.",
+    "not_ready": "Engine vẫn đang khởi động. Thử lại sau giây lát."
+  },
+  "backend": {
+    "error": "Tạo sprite thất bại.",
+    "unavailable": "Engine đang chọn không chạy được trên máy này.",
+    "unsupported_capability": "Engine đang chọn không hỗ trợ tuỳ chọn này.",
+    "none_available": "Không có engine nào khả dụng. Hãy cấu hình API từ xa trong Cài đặt.",
+    "unknown_kind": "Engine đó không tồn tại.",
+    "cuda": {
+      "torch_missing": "Chưa cài PyTorch nên engine NVIDIA không chạy được.",
+      "driver_missing": "Không tìm thấy driver CUDA. Hãy cài driver NVIDIA rồi khởi động lại.",
+      "no_device": "Driver CUDA báo không có GPU dùng được."
+    },
+    "mps": {
+      "not_macos": "Engine Apple chỉ chạy trên macOS.",
+      "torch_missing": "Chưa cài PyTorch nên engine Apple không chạy được.",
+      "torch_without_mps": "Bản PyTorch này được biên dịch không kèm hỗ trợ Metal.",
+      "device_unavailable": "Thiết bị Metal không khả dụng trên máy này."
+    },
+    "remote": {
+      "endpoint_missing": "Hãy đặt endpoint trong Cài đặt trước khi dùng API từ xa.",
+      "api_key_missing": "Hãy đặt khoá API trong Cài đặt trước khi dùng API từ xa.",
+      "request_failed": "API từ xa từ chối yêu cầu hoặc không kết nối được."
+    }
+  },
+  "models": {
+    "download_failed": "Không tải được model.",
+    "downloads_disabled": "Tính năng tải đang tắt, và model này chưa có trên máy."
+  },
+  "gpu": {
+    "ok": "Đã tìm thấy GPU dùng được.",
+    "no_device": "Có driver GPU nhưng không thiết bị nào được báo về.",
+    "driver_error": "Driver GPU trả về lỗi.",
+    "driver_missing": "Không tìm thấy driver GPU. Việc tạo ảnh sẽ phải dùng API từ xa."
+  },
+  "window": {
+    "command_failed": "Cửa sổ không phản hồi thao tác đó."
+  },
+  "vibrancy": {
+    "apply_failed": "Không áp dụng được hiệu ứng làm mờ nền.",
+    "windows10_opt_in": "Hiệu ứng làm mờ nền mặc định tắt trên Windows 10 vì làm chậm khi kéo cửa sổ.",
+    "unsupported_platform": "Hệ thống này không hỗ trợ làm mờ nền."
+  }
+}

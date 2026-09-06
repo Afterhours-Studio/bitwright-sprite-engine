@@ -1,0 +1,50 @@
+{
+  "title": "Cài đặt",
+  "subtitle": "Chọn cách sprite được tạo ra",
+  "engine": {
+    "title": "Engine",
+    "description": "Việc tạo ảnh chạy trên GPU tại máy, hoặc qua API từ xa. Chọn cách phù hợp với máy bạn đang dùng.",
+    "cuda": "GPU tại máy (NVIDIA)",
+    "mps": "GPU tại máy (Apple)",
+    "remote": "API từ xa",
+    "select": "Dùng engine này",
+    "selected": "Đang dùng",
+    "unavailable": "Không khả dụng",
+    "device": "Thiết bị",
+    "capabilities": "Hỗ trợ"
+  },
+  "remote": {
+    "title": "API từ xa",
+    "description": "Yêu cầu được gửi tới endpoint bạn cấu hình ở đây. Chúng không đi qua hạ tầng của Afterhours Studio.",
+    "endpoint": "Endpoint",
+    "endpointPlaceholder": "https://api.example.com",
+    "apiKey": "Khoá API",
+    "apiKeyPlaceholder": "Dán khoá của bạn",
+    "timeout": "Thời gian chờ (giây)"
+  },
+  "models": {
+    "title": "Model",
+    "description": "Trọng số model không thuộc ứng dụng này và không nằm dưới giấy phép của ứng dụng. Mỗi model được tải về khi dùng lần đầu, theo giấy phép riêng của nó.",
+    "license": "Giấy phép",
+    "size": "Dung lượng tải",
+    "cached": "Đã tải",
+    "notCached": "Chưa tải",
+    "commercialYes": "Cho phép dùng thương mại",
+    "commercialNo": "Không cho dùng thương mại"
+  },
+  "appearance": {
+    "title": "Hiển thị",
+    "description": "Giao diện và ngôn ngữ có hiệu lực ngay.",
+    "vibrancy": "Làm mờ nền cửa sổ",
+    "vibrancyOn": "Đang bật",
+    "vibrancyOff": "Không khả dụng trên hệ thống này"
+  },
+  "about": {
+    "title": "Giới thiệu",
+    "version": "Phiên bản",
+    "engineVersion": "Phiên bản engine",
+    "license": "Cấp phép theo AGPL-3.0-only",
+    "copyright": "Copyright (C) 2026 Afterhours Studio",
+    "repository": "Mã nguồn"
+  }
+}

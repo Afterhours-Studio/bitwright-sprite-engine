@@ -1,0 +1,54 @@
+{
+  "title": "Generate",
+  "subtitle": "Describe the sprite you want",
+  "prompt": {
+    "label": "Prompt",
+    "placeholder": "A knight in silver armour, side view",
+    "negativeLabel": "Negative prompt",
+    "negativePlaceholder": "blurry, text, watermark"
+  },
+  "parameters": {
+    "title": "Parameters",
+    "size": "Size",
+    "width": "Width",
+    "height": "Height",
+    "steps": "Steps",
+    "guidance": "Guidance",
+    "seed": "Seed",
+    "seedRandom": "Random",
+    "batch": "Batch size",
+    "model": "Model",
+    "lora": "Style adapter",
+    "loraNone": "None"
+  },
+  "postprocess": {
+    "title": "Post-processing",
+    "removeBackground": "Remove background",
+    "paletteSize": "Palette size",
+    "dither": "Dither",
+    "pixelGrid": "Pixel grid"
+  },
+  "actions": {
+    "generate": "Generate",
+    "generating": "Generating",
+    "stop": "Stop",
+    "reset": "Reset"
+  },
+  "canvas": {
+    "empty": "Your sprite will appear here",
+    "hint": "The checkerboard shows transparent pixels"
+  },
+  "capability": {
+    "unsupported": "Not supported by the selected engine",
+    "batch": "Batch generation",
+    "loraHotswap": "Style adapters",
+    "controlnet": "Pose control",
+    "ipAdapter": "Reference image"
+  },
+  "result": {
+    "seed": "Seed {{seed}}",
+    "duration": "Took {{ms}} ms",
+    "count_one": "{{count}} sprite",
+    "count_other": "{{count}} sprites"
+  }
+}
