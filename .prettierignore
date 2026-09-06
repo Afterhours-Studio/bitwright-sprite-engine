@@ -1,0 +1,8 @@
+node_modules
+dist
+apps/desktop/dist
+apps/desktop/src-tauri/target
+apps/desktop/src-tauri/gen
+packages/engine/.venv
+package-lock.json
+LICENSE

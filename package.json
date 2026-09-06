@@ -1,0 +1,46 @@
+{
+  "name": "bitwright-sprite-engine",
+  "version": "0.0.2",
+  "private": true,
+  "description": "Cross-platform sprite generation engine for pixel art games",
+  "license": "AGPL-3.0-only",
+  "author": "Afterhours Studio",
+  "contributors": [
+    {
+      "name": "h1dr0n",
+      "url": "https://github.com/h1dr0nn"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Afterhours-Studio/bitwright-sprite-engine.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Afterhours-Studio/bitwright-sprite-engine/issues"
+  },
+  "homepage": "https://github.com/Afterhours-Studio/bitwright-sprite-engine",
+  "type": "module",
+  "workspaces": [
+    "apps/desktop"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @bitwright/desktop",
+    "build": "npm run build --workspace @bitwright/desktop",
+    "lint": "npm run lint --workspace @bitwright/desktop",
+    "typecheck": "npm run typecheck --workspace @bitwright/desktop",
+    "test": "npm run test --workspace @bitwright/desktop",
+    "check:contrast": "tsx scripts/check-contrast.ts",
+    "format": "prettier --write \"apps/desktop/src/**/*.{ts,tsx,css}\" \"apps/desktop/*.{ts,js}\" \"scripts/*.ts\"",
+    "format:check": "prettier --check \"apps/desktop/src/**/*.{ts,tsx,css}\" \"apps/desktop/*.{ts,js}\" \"scripts/*.ts\""
+  },
+  "devDependencies": {
+    "@types/culori": "^2.1.1",
+    "culori": "^4.0.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "prettier": "^3.4.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
