@@ -29,10 +29,23 @@ from bitwright_engine.api.schemas.generation import (
     PostProcessBody,
     SpriteImage,
 )
+from bitwright_engine.api.schemas.providers import (
+    ConnectionTestResponse,
+    ProviderInfo,
+    ProviderListResponse,
+    ProviderPresetInfo,
+    ProviderSaveBody,
+)
+from bitwright_engine.api.schemas.storage import (
+    StorageChangeResponse,
+    StorageInfo,
+    StorageRootBody,
+)
 
 __all__ = [
     "BackendInfo",
     "BackendListResponse",
+    "ConnectionTestResponse",
     "ErrorResponse",
     "GenerateBody",
     "GenerateResponse",
@@ -40,5 +53,12 @@ __all__ = [
     "ModelInfo",
     "ModelListResponse",
     "PostProcessBody",
+    "ProviderInfo",
+    "ProviderListResponse",
+    "ProviderPresetInfo",
+    "ProviderSaveBody",
     "SpriteImage",
+    "StorageChangeResponse",
+    "StorageInfo",
+    "StorageRootBody",
 ]

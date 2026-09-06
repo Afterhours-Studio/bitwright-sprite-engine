@@ -66,6 +66,18 @@ HIDDEN_IMPORTS = (
     "uvicorn.lifespan.on",
 )
 
+# Packages that have to be taken whole rather than by following imports.
+# Pillow loads its codecs as C extensions by name, and a build has already
+# shipped with an empty PIL directory and a green exit code, which is how the
+# smoke test below came to exist.
+#
+# keyring is here for the same reason in a different disguise: it discovers its
+# platform backends through entry point metadata, not through imports, so
+# following imports finds the package and none of the backends that make it
+# work. Without this the frozen sidecar decides no credential store exists and
+# silently falls back to writing API keys into a file.
+COLLECT_ALL = ("PIL", "keyring")
+
 
 def host_triple() -> str:
     """Return the Rust target triple of this machine.
@@ -107,6 +119,37 @@ def executable_name(triple: str) -> str:
     return f"{NAME}-{triple}{suffix}"
 
 
+def find_pyinstaller() -> str:
+    """Return the PyInstaller to freeze with, preferring the engine's own venv.
+
+    The freezer bundles whatever its *own* interpreter can import, so the
+    interpreter decides what ends up shipped. Taking it from PATH means the
+    artifact depends on which shell the build happened to run in: a build from
+    outside the venv silently produced a bundle with no Pillow in it, and only
+    the smoke test caught it. The venv holds the pinned dependencies, so it is
+    the environment the release is built from whenever it exists.
+
+    Returns:
+        Path of the PyInstaller executable to run.
+
+    Raises:
+        RuntimeError: PyInstaller is in neither the venv nor PATH.
+    """
+    windows = platform.system() == "Windows"
+    venv = ENGINE / ".venv" / ("Scripts" if windows else "bin")
+    candidate = venv / ("pyinstaller.exe" if windows else "pyinstaller")
+    if candidate.is_file():
+        return str(candidate)
+
+    found = shutil.which("pyinstaller")
+    if found is None:
+        raise RuntimeError(
+            "pyinstaller is not installed. Run: pip install -e 'packages/engine[dev]'"
+        )
+    print(f"Warning: no engine venv found, freezing with {found}")
+    return found
+
+
 def build(triple: str) -> Path:
     """Freeze the engine for one target triple.
 
@@ -119,10 +162,7 @@ def build(triple: str) -> Path:
     Raises:
         RuntimeError: PyInstaller is not installed, or the build failed.
     """
-    if shutil.which("pyinstaller") is None:
-        raise RuntimeError(
-            "pyinstaller is not installed. Run: pip install -e 'packages/engine[dev]'"
-        )
+    pyinstaller = find_pyinstaller()
 
     bundle_name = f"{NAME}-{triple}"
     target_dir = OUTPUT / bundle_name
@@ -135,7 +175,7 @@ def build(triple: str) -> Path:
     OUTPUT.mkdir(parents=True, exist_ok=True)
 
     command = [
-        "pyinstaller",
+        pyinstaller,
         "--onedir",
         "--clean",
         "--noconfirm",
@@ -150,6 +190,8 @@ def build(triple: str) -> Path:
     ]
     for module in HIDDEN_IMPORTS:
         command += ["--hidden-import", module]
+    for package in COLLECT_ALL:
+        command += ["--collect-all", package]
     command.append(str(ENTRY))
 
     print(f"Freezing {ENTRY.name} for {triple} in onedir mode")
@@ -161,7 +203,40 @@ def build(triple: str) -> Path:
     if not executable.is_file():
         raise RuntimeError(f"expected {executable} to exist after the build")
 
+    smoke_test(executable)
     return target_dir
+
+
+def smoke_test(executable: Path) -> None:
+    """Start the frozen executable and require it to reach its argument parser.
+
+    PyInstaller reports success for a bundle that cannot import its own
+    dependencies, because nothing is executed during the build. A missing
+    package therefore surfaces at the user's first launch as a sidecar that
+    exits immediately. ``--help`` is the cheapest run that still imports every
+    module the server imports, so it is enough to catch that whole class of
+    failure here rather than in the application.
+
+    Args:
+        executable: The frozen executable to run.
+
+    Raises:
+        RuntimeError: The executable did not start cleanly.
+    """
+    result = subprocess.run(  # noqa: S603
+        [str(executable), "--help"],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    if result.returncode != 0:
+        output = (result.stderr or result.stdout).strip()
+        raise RuntimeError(
+            f"the frozen sidecar failed to start "
+            f"(exit {result.returncode}).\n{output}"
+        )
+    print("Smoke test passed: the frozen sidecar imports and starts")
 
 
 def directory_size_mb(directory: Path) -> float:

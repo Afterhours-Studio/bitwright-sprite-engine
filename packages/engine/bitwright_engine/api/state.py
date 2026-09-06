@@ -26,12 +26,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated
 
+import httpx
 from fastapi import Depends, Request
 
 from bitwright_engine.backends import Backend, BackendKind, build_backend, select_backend
 from bitwright_engine.config import Settings, get_settings
 from bitwright_engine.models import ModelDownloader
 from bitwright_engine.pipeline import SpriteGenerator
+from bitwright_engine.providers import ProviderStore, get_provider_store
 
 
 @dataclass(slots=True)
@@ -42,11 +44,19 @@ class EngineState:
         settings: Process configuration.
         generator: The pipeline serving generation requests.
         downloader: Resolves models in the local cache.
+        providers: Configured remote inference providers and their
+            credentials.
+        probe_client: HTTP client the connection test borrows, or ``None`` to
+            let it open its own. Only tests set it, and they set it to a client
+            with a mounted transport, which is what keeps the suite off the
+            network.
     """
 
     settings: Settings
     generator: SpriteGenerator
     downloader: ModelDownloader
+    providers: ProviderStore
+    probe_client: httpx.Client | None = None
 
     @classmethod
     def create(cls, settings: Settings | None = None) -> EngineState:
@@ -74,6 +84,7 @@ class EngineState:
             settings=resolved,
             generator=SpriteGenerator(backend),
             downloader=ModelDownloader(resolved),
+            providers=get_provider_store(),
         )
 
     def select(self, kind: BackendKind) -> None:

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bitwright-engine"
-version = "0.0.3"
+version = "0.1.0"
 description = "Cross-platform sprite generation engine for pixel art games"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -30,6 +30,13 @@ dependencies = [
     "httpx>=0.27",
     "pillow>=11.0",
     "psutil>=6.1",
+    # API keys belong in the operating system credential store, not in a JSON
+    # file beside the preferences. keyring is the portable way to reach
+    # Windows Credential Manager, the macOS Keychain, and a Linux Secret
+    # Service, and it is pure Python with no compiled extension. MIT licensed,
+    # as are its jaraco.* and more-itertools dependencies; the Windows backend
+    # rides on pywin32-ctypes, BSD-3-Clause. All compatible with AGPL-3.0-only.
+    "keyring>=25.5",
 ]
 
 [project.optional-dependencies]

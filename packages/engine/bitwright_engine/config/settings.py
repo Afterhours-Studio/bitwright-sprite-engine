@@ -17,8 +17,10 @@
 """Sidecar configuration.
 
 Every setting can be overridden with an environment variable prefixed
-``BITWRIGHT_``. The Tauri shell passes the chosen port and the model cache
-directory that way when it spawns the sidecar.
+``BITWRIGHT_``. The Tauri shell passes the chosen port and the data root that
+way when it spawns the sidecar. The sidecar is spawned fresh on every launch
+and reads no configuration file of its own, so the shell is the only place a
+choice can be remembered.
 """
 
 from __future__ import annotations
@@ -27,10 +29,31 @@ import os
 import sys
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from bitwright_engine.config.storage import MODELS_DIRNAME
+
 APP_ID = "studio.afterhours.bitwright"
+
+
+def default_data_root() -> Path:
+    """Return the per-user directory that holds downloaded data.
+
+    This is the root the user is allowed to move. Everything the application
+    downloads lives under it, so moving it moves the gigabytes rather than
+    scattering them.
+
+    Returns:
+        The per-user data directory for this platform.
+    """
+    if sys.platform == "win32":
+        root = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+    elif sys.platform == "darwin":
+        root = Path.home() / "Library" / "Application Support"
+    else:
+        root = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
+    return root / APP_ID
 
 
 def default_cache_dir() -> Path:
@@ -39,13 +62,7 @@ def default_cache_dir() -> Path:
     Returns:
         The directory that holds downloaded model weights.
     """
-    if sys.platform == "win32":
-        root = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
-    elif sys.platform == "darwin":
-        root = Path.home() / "Library" / "Application Support"
-    else:
-        root = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
-    return root / APP_ID / "models"
+    return default_data_root() / MODELS_DIRNAME
 
 
 class Settings(BaseSettings):
@@ -62,7 +79,11 @@ class Settings(BaseSettings):
         remote_endpoint: Base URL of the remote inference API.
         remote_api_key: Bearer token for the remote endpoint.
         remote_timeout_s: Request timeout for the remote endpoint, in seconds.
-        cache_dir: Directory that holds downloaded model weights.
+        data_root: Directory that holds everything this application downloads.
+            The one setting the user moves when their system drive is full.
+        cache_dir: Directory that holds downloaded model weights. Derived from
+            ``data_root`` unless it is set explicitly, which keeps the older
+            ``BITWRIGHT_CACHE_DIR`` override working.
         allow_downloads: When False, a missing model is an error rather than a
             download.
     """
@@ -83,8 +104,37 @@ class Settings(BaseSettings):
     remote_api_key: str = ""
     remote_timeout_s: float = 120.0
 
+    data_root: Path = Field(default_factory=default_data_root)
     cache_dir: Path = Field(default_factory=default_cache_dir)
     allow_downloads: bool = True
+
+    @model_validator(mode="after")
+    def _derive_cache_dir(self) -> Settings:
+        """Keep the cache directory under the data root unless it was set.
+
+        Moving the data root has to move the weights with it, or the setting
+        would appear to do nothing. An explicit ``cache_dir`` still wins, so
+        the documented environment override keeps working.
+
+        Returns:
+            This settings instance.
+        """
+        if "cache_dir" not in self.model_fields_set:
+            self.cache_dir = self.data_root / MODELS_DIRNAME
+        return self
+
+    def use_data_root(self, root: Path) -> None:
+        """Point this process at another data root.
+
+        Only the process is repointed. Nothing on disk is moved: weights that
+        were already downloaded stay where they are, and the caller is expected
+        to tell the user so.
+
+        Args:
+            root: The validated directory to use from now on.
+        """
+        self.data_root = root
+        self.cache_dir = root / MODELS_DIRNAME
 
 
 _settings: Settings | None = None

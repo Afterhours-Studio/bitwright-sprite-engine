@@ -56,7 +56,7 @@ class BackendListResponse(CamelModel):
 
 
 class ModelInfo(CamelModel):
-    """One registry entry, with its local cache state.
+    """One registry entry, with its local cache and download state.
 
     Attributes:
         model_id: Registry identifier.
@@ -67,6 +67,11 @@ class ModelInfo(CamelModel):
         commercial_use: Whether the licence permits commercial use.
         size_mb: Approximate download size in megabytes.
         cached: Whether the weights are already on this machine.
+        downloading: Whether a download for this model is in flight.
+        progress: How far that download has got, from 0.0 to 1.0. Best effort,
+            and 0.0 whenever nothing is downloading.
+        error: Stable reason code of the last download failure, or an empty
+            string. The frontend looks it up in the ``errors`` namespace.
     """
 
     model_id: str
@@ -77,6 +82,9 @@ class ModelInfo(CamelModel):
     commercial_use: bool
     size_mb: int
     cached: bool
+    downloading: bool = False
+    progress: float = 0.0
+    error: str = ""
 
 
 class ModelListResponse(CamelModel):
