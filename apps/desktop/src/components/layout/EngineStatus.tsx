@@ -71,7 +71,7 @@ export function EngineStatus(): ReactElement {
           // came out a few pixels short, which reads as a misaligned row
           // rather than as a smaller control. The horizontal padding grew with
           // it, because px-3 on a 36px pill leaves the label looking wedged in.
-          'inline-flex h-9 items-center gap-2 rounded-pill px-4',
+          'inline-flex h-9 items-center gap-2 rounded-lg px-4',
           'border border-line-subtle text-xs font-medium transition-colors',
           open ? 'bg-surface-content-alt' : 'bg-surface-content shadow-sm',
           'text-fg-secondary hover:text-fg-primary',

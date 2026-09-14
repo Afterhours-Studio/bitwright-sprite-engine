@@ -206,8 +206,13 @@ export function TitleBar(): ReactElement {
             </IconButton>
           </Tooltip>
 
+          {/* A gap, because these are not the same kind of control: the one
+              before acts on the application and the three after act on the
+              window. An evenly spaced run put the theme toggle one slot from
+              close, which is a misfire waiting to happen. */}
           {!systemControls && (
             <>
+              <span aria-hidden="true" className="w-2" />
               <Tooltip label={t('window.minimize')}>
                 <IconButton label={t('window.minimize')} onClick={() => void minimize()}>
                   <svg viewBox="0 0 10 10" className="h-2.5 w-2.5" aria-hidden="true">

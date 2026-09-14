@@ -64,7 +64,7 @@ import { cn } from '@/lib/cn';
  * the icon, where it cannot move the chip at all.
  */
 const CHIP = cn(
-  'group inline-flex h-8 shrink-0 items-center rounded-pill border text-sm font-medium',
+  'group inline-flex h-8 shrink-0 items-center rounded-md border text-sm font-medium',
   'transition-[background-color,border-color,color,padding,gap] duration-150',
 );
 
@@ -119,15 +119,19 @@ const CHIP_CHOSEN = 'border-transparent bg-accent text-accent-fg';
  * rail that styled itself would drift from the dock the first time either
  * changed.
  *
- * Their corners differ deliberately. The dock is a pill because it is a strip
- * of pill shaped chips. A rail sits directly beneath a corner of the card
- * above it, close enough that the two curves are read as a pair, so it takes
- * that card's radius instead: a full pill under a 14px corner reads as two
- * things that were meant to match and do not.
+ * All of it is the chrome the title bar already uses: the same surface, the
+ * same subtle border, the same small shadow, and the same even padding as the
+ * tab bar up there. The two rows frame the same window, and a footer built
+ * from heavier parts than the header reads as a different application stuck
+ * to the bottom of this one.
+ *
+ * The corners follow the rails rather than the chips. A rail sits directly
+ * beneath a corner of the card above it, close enough that the two curves are
+ * read as a pair, so the whole row takes that card's radius.
  */
 const DOCK_BAR = cn(
-  'pointer-events-auto flex items-center gap-1 rounded-pill',
-  'border border-line bg-surface-float px-2 py-1 text-fg-primary shadow-lg',
+  'pointer-events-auto flex items-center gap-1 rounded-lg',
+  'border border-line-subtle bg-surface-content p-1 text-fg-primary shadow-sm',
 );
 
 /**
@@ -144,7 +148,7 @@ const DOCK_BAR = cn(
  */
 const DOCK_RAIL = cn(
   'pointer-events-auto flex items-center rounded-lg',
-  'border border-line bg-surface-float text-fg-primary shadow-lg',
+  'border border-line-subtle bg-surface-content text-fg-primary shadow-sm',
   // The control fills the rail, so the pair is one shape and one height. 40
   // plus the border matches the dock's 8px chip inside 1px of padding, which
   // is what puts all three bars on the same line rather than merely near it.
@@ -929,7 +933,7 @@ export function DockAction({ children, disabled = false, onClick }: DockActionPr
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'inline-flex h-8 shrink-0 items-center justify-center rounded-pill px-4',
+        'inline-flex h-8 shrink-0 items-center justify-center rounded-md px-4',
         'text-sm font-semibold transition-colors',
         disabled
           ? 'cursor-not-allowed bg-surface-disabled text-fg-muted'

@@ -53,7 +53,10 @@ export function IconButton({
       aria-label={label}
       disabled={disabled}
       className={cn(
-        'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
+        // The same corner the dock's rails use. A round button in the title
+        // bar over a rounded-rectangle one in the footer made the two rows
+        // read as parts of different applications.
+        'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
         'transition-colors',
         disabled && 'cursor-not-allowed bg-surface-disabled text-fg-muted',
         !disabled &&

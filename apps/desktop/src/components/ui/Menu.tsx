@@ -90,7 +90,8 @@ export function Menu({
           setOpenGroup(null);
         }}
         className={cn(
-          'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
+          // Matches IconButton, which matches the dock's rails.
+          'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
           'text-fg-secondary transition-colors hover:text-fg-primary',
           open ? 'bg-surface-content-alt' : 'bg-surface-content shadow-sm',
         )}

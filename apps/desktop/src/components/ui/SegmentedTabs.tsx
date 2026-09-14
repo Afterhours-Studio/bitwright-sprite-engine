@@ -96,7 +96,7 @@ export function SegmentedTabs({
       role="tablist"
       aria-label={label}
       className={cn(
-        'relative inline-flex items-center gap-1 rounded-pill p-1',
+        'relative inline-flex items-center gap-1 rounded-lg p-1',
         'border border-line-subtle bg-surface-content shadow-sm',
         className,
       )}
@@ -104,7 +104,10 @@ export function SegmentedTabs({
       <span
         aria-hidden="true"
         className={cn(
-          'absolute top-1 bottom-1 rounded-pill bg-accent',
+          // One step in from the track's own radius, which is what the 4px of
+          // padding leaves: 14 minus 4 is 10. Concentric, rather than a pill
+          // sitting inside a rounded rectangle.
+          'absolute top-1 bottom-1 rounded-md bg-accent',
           // Not animated until the first measurement, so it does not slide in
           // from the left edge on mount.
           indicator.ready && 'transition-[left,width] duration-200 ease-out',
@@ -129,7 +132,7 @@ export function SegmentedTabs({
             onValueChange(segment.value);
           }}
           className={cn(
-            'relative z-10 rounded-pill px-4 py-1.5 text-sm font-medium transition-colors',
+            'relative z-10 rounded-md px-4 py-1.5 text-sm font-medium transition-colors',
             segment.value === value ? 'text-accent-fg' : 'text-fg-secondary hover:text-fg-primary',
           )}
         >

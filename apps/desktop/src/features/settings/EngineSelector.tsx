@@ -71,7 +71,7 @@ export function EngineSelector(): ReactElement {
                   they are unavailable, so nothing on the card could be
                   pressed. */}
               {backend.selected ? (
-                <span className="shrink-0 rounded-pill bg-accent px-3 py-1 text-xs font-medium text-accent-fg">
+                <span className="shrink-0 rounded-md bg-accent px-3 py-1 text-xs font-medium text-accent-fg">
                   {t('engine.selected')}
                 </span>
               ) : (

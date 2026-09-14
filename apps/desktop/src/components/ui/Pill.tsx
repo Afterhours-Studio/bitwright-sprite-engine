@@ -65,7 +65,7 @@ export function Pill({
       aria-pressed={active}
       disabled={disabled}
       className={cn(
-        'inline-flex items-center gap-2 rounded-pill px-4 py-2',
+        'inline-flex items-center gap-2 rounded-md px-4 py-2',
         'text-left text-sm font-medium transition-colors',
         disabled && 'cursor-not-allowed bg-surface-disabled text-fg-muted',
         !disabled && active && ACTIVE[tone],
