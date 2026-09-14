@@ -34,6 +34,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from bitwright_engine.api.schemas import StorageChangeResponse, StorageInfo, StorageRootBody
 from bitwright_engine.api.state import EngineState, StateDep
+from bitwright_engine.config import get_settings
 from bitwright_engine.config.settings import default_data_root
 from bitwright_engine.config.storage import StorageError, StorageLocation, describe, validate_root
 from bitwright_engine.utils.logging import get_logger
@@ -63,6 +64,7 @@ def _to_info(location: StorageLocation) -> StorageInfo:
     return StorageInfo(
         root=str(location.root),
         models_dir=str(location.models_dir),
+        sprites_dir=str(get_settings().sprites_dir),
         default_root=str(default_data_root()),
         is_default=location.is_default,
         free_bytes=location.free_bytes,

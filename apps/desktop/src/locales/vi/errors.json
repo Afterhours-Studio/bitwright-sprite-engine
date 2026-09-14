@@ -121,5 +121,11 @@
   },
   "conform": {
     "bad_image": "Không đọc được ảnh đó."
+  },
+  "shell": {
+    "not_a_directory": "Thư mục đó chưa tồn tại. Nó được tạo khi có thứ đầu tiên được ghi vào.",
+    "open_failed": "Hệ thống từ chối mở thứ đó.",
+    "url_not_allowed": "Ứng dụng này không mở liên kết đó.",
+    "no_storage_info": "Chưa đọc được vị trí lưu trữ. Hãy mở Cài đặt một lần rồi thử lại."
   }
 }

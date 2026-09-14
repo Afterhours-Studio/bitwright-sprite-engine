@@ -31,6 +31,7 @@ class StorageInfo(CamelModel):
     Attributes:
         root: The directory that holds everything the application downloads.
         models_dir: Where weights live inside that root.
+        sprites_dir: Where generated sprites are written.
         default_root: The per-user default, so the interface can offer to go
             back to it.
         is_default: Whether ``root`` is that default.
@@ -44,6 +45,7 @@ class StorageInfo(CamelModel):
 
     root: str
     models_dir: str
+    sprites_dir: str
     default_root: str
     is_default: bool
     free_bytes: int | None

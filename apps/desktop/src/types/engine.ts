@@ -105,6 +105,8 @@ export interface StorageInfo {
   root: string;
   /** Where weights live inside that root. */
   modelsDir: string;
+  /** Where generated sprites are written. */
+  spritesDir: string;
   /** The per-user default, so the interface can offer to go back to it. */
   defaultRoot: string;
   /** Whether `root` is that default. */

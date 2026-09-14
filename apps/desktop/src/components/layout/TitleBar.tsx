@@ -23,6 +23,11 @@ import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { useWindowControls } from '@/hooks/useWindowControls';
 import { useCommandPaletteStore } from '@/stores/useCommandPaletteStore';
+import { useEditorStore } from '@/stores/useEditorStore';
+import { useStorageStore } from '@/stores/useStorageStore';
+import { useToastStore } from '@/stores/useToastStore';
+import { ApiError } from '@/lib/api';
+import { appVersion, openDirectory, openExternal } from '@/lib/tauri';
 import { useShellStore, type Screen } from '@/stores/useShellStore';
 
 const SCREENS: readonly Screen[] = ['generate', 'gallery', 'settings'];
@@ -60,6 +65,12 @@ const SCREENS: readonly Screen[] = ['generate', 'gallery', 'settings'];
  *   Linux   Nothing is drawn for us either, and placement varies by desktop
  *           environment. The right is the common default.
  */
+/** The project's home, and the only host the shell will open besides the licence. */
+const REPOSITORY_URL = 'https://github.com/Afterhours-Studio/bitwright-sprite-engine';
+
+/** The licence this application is distributed under. */
+const LICENCE_URL = 'https://www.gnu.org/licenses/agpl-3.0.html';
+
 export function TitleBar(): ReactElement {
   const { t } = useTranslation();
   const platform = useShellStore((state) => state.platform);
@@ -69,35 +80,157 @@ export function TitleBar(): ReactElement {
   const toggleTheme = useShellStore((state) => state.toggleTheme);
   const { maximized, minimize, toggleMaximize, close } = useWindowControls();
 
+  const showPixelGrid = useEditorStore((state) => state.showPixelGrid);
+  const setShowPixelGrid = useEditorStore((state) => state.setShowPixelGrid);
+  const showCheckerboard = useEditorStore((state) => state.showCheckerboard);
+  const setShowCheckerboard = useEditorStore((state) => state.setShowCheckerboard);
+  const storage = useStorageStore((state) => state.info);
+  const refreshStorage = useStorageStore((state) => state.refresh);
+  const notify = useToastStore((state) => state.notify);
+
   const systemControls = platform?.systemWindowControls ?? false;
 
   const groups: MenuGroup[] = [
     {
       id: 'file',
       label: t('menu.file'),
-      items: [{ id: 'quit', label: t('menu.quit'), accelerator: 'Alt+F4' }],
+      items: [
+        { id: 'new', label: t('menu.new'), accelerator: 'Ctrl+N' },
+        { id: 'gallery', label: t('menu.gallery'), accelerator: 'Ctrl+G' },
+        { id: 'sprites-folder', label: t('menu.spritesFolder') },
+        { id: 'models-folder', label: t('menu.modelsFolder') },
+        { id: 'quit', label: t('menu.quit'), accelerator: 'Alt+F4' },
+      ],
     },
     {
       id: 'edit',
       label: t('menu.edit'),
-      items: [
-        { id: 'undo', label: t('menu.undo'), accelerator: 'Ctrl+Z', disabled: true },
-        { id: 'redo', label: t('menu.redo'), accelerator: 'Ctrl+Y', disabled: true },
-      ],
+      items: [{ id: 'settings', label: t('menu.settings'), accelerator: 'Ctrl+,' }],
     },
     {
       id: 'view',
       label: t('menu.view'),
-      items: [{ id: 'theme', label: t('theme.toggle'), accelerator: 'Ctrl+Shift+L' }],
+      items: [
+        { id: 'palette', label: t('menu.commandPalette'), accelerator: 'Ctrl+K' },
+        { id: 'pixel-grid', label: t('menu.pixelGrid'), checked: showPixelGrid },
+        { id: 'checkerboard', label: t('menu.checkerboard'), checked: showCheckerboard },
+        { id: 'theme', label: t('theme.toggle'), accelerator: 'Ctrl+Shift+L' },
+      ],
+    },
+    {
+      id: 'help',
+      label: t('menu.help'),
+      items: [
+        { id: 'docs', label: t('menu.documentation') },
+        { id: 'issue', label: t('menu.reportIssue') },
+        { id: 'licence', label: t('menu.licence') },
+        { id: 'about', label: t('menu.about') },
+      ],
     },
   ];
 
-  const onMenuSelect = (groupId: string, itemId: string): void => {
-    if (groupId === 'view' && itemId === 'theme') {
-      toggleTheme();
+  /**
+   * Opens one of the application's own directories.
+   *
+   * The storage report is what knows where they are, and it is loaded when the
+   * settings screen is first opened rather than at startup, so it may not be
+   * there yet when someone reaches for this on a fresh launch.
+   */
+  const openFolder = async (which: 'sprites' | 'models'): Promise<void> => {
+    const info = storage ?? (await refreshStorage().then(() => useStorageStore.getState().info));
+    if (info === null) {
+      notify({ severity: 'warning', messageKey: 'errors:shell.no_storage_info' });
+      return;
     }
-    if (groupId === 'file' && itemId === 'quit') {
-      void close();
+
+    try {
+      await openDirectory(which === 'sprites' ? info.spritesDir : info.modelsDir);
+    } catch (error) {
+      notify({
+        severity: 'warning',
+        messageKey: `errors:${error instanceof ApiError ? error.code : 'unknown'}`,
+      });
+    }
+  };
+
+  /** Opens a project link, reporting a refusal rather than failing silently. */
+  const openLink = async (url: string): Promise<void> => {
+    try {
+      await openExternal(url);
+    } catch (error) {
+      notify({
+        severity: 'warning',
+        messageKey: `errors:${error instanceof ApiError ? error.code : 'unknown'}`,
+      });
+    }
+  };
+
+  const onMenuSelect = (groupId: string, itemId: string): void => {
+    if (groupId === 'file') {
+      if (itemId === 'new') {
+        setScreen('generate');
+      }
+      if (itemId === 'gallery') {
+        setScreen('gallery');
+      }
+      if (itemId === 'sprites-folder') {
+        void openFolder('sprites');
+      }
+      if (itemId === 'models-folder') {
+        void openFolder('models');
+      }
+      if (itemId === 'quit') {
+        void close();
+      }
+    }
+
+    if (groupId === 'edit' && itemId === 'settings') {
+      setScreen('settings');
+    }
+
+    if (groupId === 'view') {
+      if (itemId === 'palette') {
+        useCommandPaletteStore.getState().setOpen(true);
+      }
+      if (itemId === 'pixel-grid') {
+        setShowPixelGrid(!showPixelGrid);
+      }
+      if (itemId === 'checkerboard') {
+        setShowCheckerboard(!showCheckerboard);
+      }
+      if (itemId === 'theme') {
+        toggleTheme();
+      }
+    }
+
+    if (groupId === 'help') {
+      if (itemId === 'docs') {
+        void openLink(REPOSITORY_URL);
+      }
+      if (itemId === 'issue') {
+        void openLink(`${REPOSITORY_URL}/issues`);
+      }
+      if (itemId === 'licence') {
+        void openLink(LICENCE_URL);
+      }
+      if (itemId === 'about') {
+        // The shell's version rather than the engine's: this is the
+        // application the user installed, and the engine reports its own in
+        // the binaries rail.
+        void appVersion().then(
+          (result) => {
+            notify({
+              severity: 'info',
+              titleKey: 'common:app.name',
+              messageKey: 'common:menu.aboutBody',
+              values: { version: result.ok ? result.value : '' },
+            });
+          },
+          () => {
+            notify({ severity: 'warning', messageKey: 'errors:unknown' });
+          },
+        );
+      }
     }
   };
 

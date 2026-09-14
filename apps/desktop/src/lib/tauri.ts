@@ -410,3 +410,13 @@ export function windowIsMaximized(): Promise<ShellResult<boolean>> {
 export function windowClose(): Promise<ShellResult<null>> {
   return invoke<null>('window_close');
 }
+
+/** Opens one of the application's directories in the system file manager. */
+export function openDirectory(path: string): Promise<ShellResult<null>> {
+  return invoke<null>('open_directory', { path });
+}
+
+/** Opens an external link in the user's browser. */
+export function openExternal(url: string): Promise<ShellResult<null>> {
+  return invoke<null>('open_external', { url });
+}

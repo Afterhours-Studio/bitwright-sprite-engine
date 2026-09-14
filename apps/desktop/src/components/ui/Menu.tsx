@@ -29,6 +29,14 @@ export interface MenuItem {
   accelerator?: string;
   /** Whether the command can be used. */
   disabled?: boolean;
+  /**
+   * Whether the thing this item governs is currently on.
+   *
+   * Present only on items that toggle something. A menu that can turn the
+   * pixel grid on and off but will not say which it is now makes the reader
+   * open the menu to find out and close it again none the wiser.
+   */
+  checked?: boolean;
 }
 
 /** A named group of commands, shown as a submenu. */
@@ -138,7 +146,11 @@ export function Menu({
 
               <div
                 className={cn(
-                  'absolute start-[calc(100%+4px)] top-0 z-50 w-52',
+                  // Sized to the longest label rather than fixed: a command
+                  // whose name is cut off is a command the reader has to
+                  // guess at, and these are the only words explaining what
+                  // the item does.
+                  'absolute start-[calc(100%+4px)] top-0 z-50 w-max min-w-52 max-w-80',
                   'rounded-md border border-line bg-surface-float p-1 shadow-md',
                   'origin-top-left transition-[opacity,transform] duration-150',
                   openGroup === group.id
@@ -152,7 +164,8 @@ export function Menu({
                     <li key={item.id}>
                       <button
                         type="button"
-                        role="menuitem"
+                        role={item.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
+                        {...(item.checked === undefined ? {} : { 'aria-checked': item.checked })}
                         disabled={item.disabled ?? false}
                         onClick={() => {
                           onSelect(group.id, item.id);
@@ -166,9 +179,29 @@ export function Menu({
                             : 'text-fg-secondary hover:bg-surface-content-alt hover:text-fg-primary',
                         )}
                       >
-                        <span>{item.label}</span>
+                        <span className="flex items-center gap-2">
+                          {item.checked !== undefined && (
+                            // A fixed width whether or not the tick is drawn,
+                            // so the labels in a group stay on one left edge
+                            // instead of shifting as things are toggled.
+                            <span aria-hidden="true" className="w-3 shrink-0">
+                              {item.checked && (
+                                <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none">
+                                  <path
+                                    d="M2.5 6.5L5 9l4.5-5.5"
+                                    stroke="currentColor"
+                                    strokeWidth="1.6"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                              )}
+                            </span>
+                          )}
+                          <span>{item.label}</span>
+                        </span>
                         {item.accelerator !== undefined && (
-                          <span className="text-xs text-fg-muted">{item.accelerator}</span>
+                          <span className="shrink-0 text-xs text-fg-muted">{item.accelerator}</span>
                         )}
                       </button>
                     </li>

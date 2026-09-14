@@ -28,6 +28,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use tauri::{AppHandle, Runtime, State, Window};
 use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_opener::OpenerExt;
 
 use crate::engine::{self, EngineError, Method};
 use crate::preferences;
@@ -861,6 +862,60 @@ fn window_error(error: tauri::Error) -> CommandError {
     CommandError::new("window.command_failed", error.to_string())
 }
 
+/// Hosts an external link is allowed to reach.
+///
+/// An allowlist rather than a scheme check. A command that opens whatever URL
+/// the interface hands it is a command that opens whatever anything able to
+/// reach the interface hands it, and the only links this application needs are
+/// its own project and its licence.
+const ALLOWED_HOSTS: [&str; 2] = ["github.com", "www.gnu.org"];
+
+/// Opens one of the application's directories in the system file manager.
+///
+/// Directories only. A file passed to the system opener is launched through
+/// its association, which turns "show me where my sprites are" into "run
+/// this", so anything that is not a directory is refused.
+///
+/// # Errors
+///
+/// Returns `shell.not_a_directory` when the path is not an existing directory,
+/// and `shell.open_failed` when the platform refuses to open it.
+#[tauri::command]
+pub fn open_directory<R: Runtime>(app: AppHandle<R>, path: String) -> Result<(), CommandError> {
+    let target = Path::new(&path);
+    if !target.is_dir() {
+        return Err(CommandError::new("shell.not_a_directory", path));
+    }
+
+    app.opener()
+        .open_path(path, None::<&str>)
+        .map_err(|error| CommandError::new("shell.open_failed", error.to_string()))
+}
+
+/// Opens an external link in the user's browser.
+///
+/// # Errors
+///
+/// Returns `shell.url_not_allowed` when the link is not https on an allowed
+/// host, and `shell.open_failed` when the platform refuses to open it.
+#[tauri::command]
+pub fn open_external<R: Runtime>(app: AppHandle<R>, url: String) -> Result<(), CommandError> {
+    let parsed = url::Url::parse(&url)
+        .map_err(|error| CommandError::new("shell.url_not_allowed", error.to_string()))?;
+
+    let allowed = parsed.scheme() == "https"
+        && parsed
+            .host_str()
+            .is_some_and(|host| ALLOWED_HOSTS.contains(&host));
+    if !allowed {
+        return Err(CommandError::new("shell.url_not_allowed", url));
+    }
+
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|error| CommandError::new("shell.open_failed", error.to_string()))
+}
+
 /// Registers every command with the builder.
 pub fn handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
@@ -900,6 +955,8 @@ pub fn handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + 
         window_toggle_maximize,
         window_is_maximized,
         window_close,
+        open_directory,
+        open_external,
     ]
 }
 

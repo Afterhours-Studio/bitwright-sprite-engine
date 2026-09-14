@@ -71,7 +71,10 @@ export function EngineStatus(): ReactElement {
           // came out a few pixels short, which reads as a misaligned row
           // rather than as a smaller control. The horizontal padding grew with
           // it, because px-3 on a 36px pill leaves the label looking wedged in.
-          'inline-flex h-9 items-center gap-2 rounded-lg px-4',
+          // Three, not four. A pill needs the wider inset because its caps
+          // eat into it; a rounded rectangle has square sides, so the same
+          // number reads as a gap someone forgot to close.
+          'inline-flex h-9 items-center gap-2 rounded-lg px-3',
           'border border-line-subtle text-xs font-medium transition-colors',
           open ? 'bg-surface-content-alt' : 'bg-surface-content shadow-sm',
           'text-fg-secondary hover:text-fg-primary',

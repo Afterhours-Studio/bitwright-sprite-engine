@@ -121,5 +121,11 @@
   },
   "conform": {
     "bad_image": "That image could not be read."
+  },
+  "shell": {
+    "not_a_directory": "That folder does not exist yet. It is created the first time something is written there.",
+    "open_failed": "The system refused to open that.",
+    "url_not_allowed": "That link is not one this application opens.",
+    "no_storage_info": "The storage locations have not been read yet. Open Settings once, then try again."
   }
 }

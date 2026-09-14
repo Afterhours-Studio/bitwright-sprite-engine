@@ -18,6 +18,8 @@ tauri-build = { version = "2", features = [] }
 # enabled and the webview needs no filesystem reach.
 tauri = { version = "2", features = [] }
 tauri-plugin-shell = "2"
+tauri-plugin-opener = "2"
+url = "2"
 tauri-plugin-log = "2"
 # The directory picker has to be the system's own dialog. Weights are
 # gigabytes, so the user has to be able to point them at a real volume, and a
