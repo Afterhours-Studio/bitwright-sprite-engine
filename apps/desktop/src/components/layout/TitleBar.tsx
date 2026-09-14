@@ -163,7 +163,11 @@ export function TitleBar(): ReactElement {
         <div data-tauri-drag-region className="flex items-baseline gap-2 ps-1">
           <span
             data-tauri-drag-region
-            className="text-base font-semibold uppercase leading-none tracking-wide text-fg-primary"
+            // Sized so the capitals stand as tall as the buttons beside them.
+            // At text-base the wordmark cleared about eleven pixels against a
+            // thirty-six pixel button, which read as a caption sitting next to
+            // the controls rather than as the application's name.
+            className="text-3xl font-semibold uppercase leading-none tracking-wide text-fg-primary"
           >
             {t('app.name')}
           </span>
