@@ -33,7 +33,8 @@ from bitwright_engine.backends import (
     required_capabilities,
     select_backend,
 )
-from bitwright_engine.pipeline.postprocess import PostProcessOptions, SpriteSheet, apply, pack_grid
+from bitwright_engine.pipeline.conform import ConformOptions, conform
+from bitwright_engine.pipeline.postprocess import PostProcessOptions, SpriteSheet, pack_grid
 from bitwright_engine.utils.images import from_png_bytes, to_png_bytes
 from bitwright_engine.utils.logging import get_logger
 
@@ -98,9 +99,26 @@ class SpriteGenerator:
         started = time.monotonic()
 
         result = self.backend.generate(request)
-        sprites = [
-            to_png_bytes(apply(from_png_bytes(image.data), options)) for image in result.images
-        ]
+
+        # Conform, not the old post-process. A diffusion model draws something
+        # that looks like pixel art from across the room: cell boundaries that
+        # drift, anti-aliased edges, and hundreds of nearly identical greys.
+        # The old path snapped to a grid it assumed - a fixed cell size at
+        # phase zero - and measurement showed that grid carries exactly the
+        # edge energy chance would put on it, which is to say it lands nowhere.
+        # Conform measures the grid the model actually drew, votes for the most
+        # common colour in each cell, and reduces the palette perceptually.
+        #
+        # It runs on the render at the size it was drawn, which is why the
+        # backends no longer bring it down: the cell structure conform reads is
+        # the first thing an average would destroy.
+        settings = _conform_options(request, options)
+        sprites: list[bytes] = []
+        for image in result.images:
+            conformed = conform(from_png_bytes(image.data), settings)
+            for warning in conformed.warnings:
+                logger.info("conform: %s", warning)
+            sprites.append(to_png_bytes(conformed.image))
 
         logger.info(
             "generated %d sprite(s) in %d ms on %s",
@@ -137,3 +155,34 @@ class SpriteGenerator:
         return pack_grid(
             [from_png_bytes(data) for data in sprites], columns=columns, padding=padding
         )
+
+
+def _conform_options(
+    request: GenerationRequest,
+    postprocess: PostProcessOptions,
+) -> ConformOptions:
+    """Translate a generation request into what conform needs.
+
+    The requested sprite size is passed as the cell count rather than left for
+    conform to find. The caller asked for 64 by 64 and is going to get 64 by
+    64; what conform still has to measure is the cell size and phase the model
+    drew at, which is the part nobody can know in advance.
+
+    Args:
+        request: The generation parameters.
+        postprocess: The correction options the caller sent.
+
+    Returns:
+        The conform settings for this request.
+    """
+    return ConformOptions(
+        width=request.width,
+        height=request.height,
+        remove_background=postprocess.remove_background,
+        background_tolerance=postprocess.background_tolerance,
+        palette_size=postprocess.palette_size,
+        # The old options carried dither as a flag, because the old
+        # quantizer had one dither and no name for it. Conform offers several,
+        # so the flag picks the one it used to mean.
+        dither="floyd_steinberg" if postprocess.dither else "none",
+    )

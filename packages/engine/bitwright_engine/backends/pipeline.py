@@ -249,9 +249,12 @@ def run_pipeline(
         generator=generator,
     )
 
+    # Returned at the size it was drawn. Bringing it down is conform's work:
+    # it measures the grid the model actually laid down and takes the most
+    # common colour in each cell, where this function could only ever blur and
+    # average onto a grid nobody measured. Averaging here first would destroy
+    # the very evidence conform reads.
     image: Image.Image = result.images[0]
-    if (image.width, image.height) != (width, height):
-        image = reduce_to(image, width, height)
     return image
 
 

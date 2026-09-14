@@ -57,7 +57,6 @@ from bitwright_engine.backends.base import (
     GenerationRequest,
     GenerationResult,
 )
-from bitwright_engine.backends.pipeline import reduce_to
 from bitwright_engine.config import Settings, get_settings
 from bitwright_engine.providers import codes
 from bitwright_engine.providers.catalogue import AuthScheme, ProviderKind
@@ -311,9 +310,9 @@ class RemoteBackend(BaseBackend):
 
         images = [
             GeneratedImage(
-                data=to_png_bytes(reduce_to(image, request.width, request.height)),
-                width=request.width,
-                height=request.height,
+                data=to_png_bytes(image),
+                width=image.width,
+                height=image.height,
                 seed=base_seed + index,
             )
             for index, image in enumerate(decoded)

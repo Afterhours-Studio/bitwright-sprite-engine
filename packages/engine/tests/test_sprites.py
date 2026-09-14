@@ -116,9 +116,7 @@ def test_a_second_session_on_the_same_sprite_gets_its_own_file(
     assert (directory / "sprite-edit.png").read_bytes() == png(BLUE)
 
 
-def test_editing_a_sprite_that_is_not_there_is_refused(
-    client: TestClient, directory: Path
-) -> None:
+def test_editing_a_sprite_that_is_not_there_is_refused(client: TestClient, directory: Path) -> None:
     response = client.post("/v1/sprites/missing.png/edit", json={"image": encoded(RED)})
 
     assert response.status_code == 404
