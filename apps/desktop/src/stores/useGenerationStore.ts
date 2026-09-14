@@ -83,6 +83,16 @@ interface GenerationState {
   conform: (index: number, options: ConformOptions) => Promise<void>;
   /** Replaces one sprite with a painted version of itself, and files it. */
   paint: (index: number, data: string) => void;
+  /**
+   * Puts an existing sprite on the stage.
+   *
+   * Everything the editor offers is behind "there is a sprite on the stage",
+   * and until now the only way to put one there was to generate it. That left
+   * a directory full of finished sprites that could be looked at and deleted
+   * but not opened, which is the wrong way round: the ones worth editing are
+   * precisely the ones already made.
+   */
+  open: (image: SpriteImage) => void;
   /** The sprites from the last successful run. */
   images: SpriteImage[];
   /** How long the last run took, in milliseconds. */
@@ -239,6 +249,19 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     } finally {
       set({ conforming: false });
     }
+  },
+
+  open: (image) => {
+    // A run of one, replacing whatever was on the stage. The palette and the
+    // conform readout belong to the sprite that was there, not to this one.
+    set({
+      images: [image],
+      palette: [],
+      detected: null,
+      conformWarnings: [],
+      error: null,
+      durationMs: 0,
+    });
   },
 
   paint: (index, data) => {

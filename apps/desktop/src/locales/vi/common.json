@@ -62,7 +62,8 @@
     "favourite": "Yêu thích",
     "unfavourite": "Đã thích",
     "remove": "Xoá",
-    "clear": "Xoá thư viện"
+    "clear": "Xoá thư viện",
+    "edit": "Sửa"
   },
   "menu": {
     "label": "Menu",

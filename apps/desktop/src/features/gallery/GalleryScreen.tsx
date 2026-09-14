@@ -17,6 +17,8 @@ import type { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/Button';
+import { useGenerationStore } from '@/stores/useGenerationStore';
+import { useShellStore } from '@/stores/useShellStore';
 import { Pill } from '@/components/ui/Pill';
 import { toDataUrl } from '@/lib/api';
 import { useGalleryStore, visibleItems, type GalleryFilter } from '@/stores/useGalleryStore';
@@ -28,6 +30,8 @@ export function GalleryScreen(): ReactElement {
   const { t } = useTranslation();
 
   const items = useGalleryStore((state) => state.items);
+  const openSprite = useGenerationStore((state) => state.open);
+  const setScreen = useShellStore((state) => state.setScreen);
   const filter = useGalleryStore((state) => state.filter);
   const setFilter = useGalleryStore((state) => state.setFilter);
   const toggleFavourite = useGalleryStore((state) => state.toggleFavourite);
@@ -90,6 +94,16 @@ export function GalleryScreen(): ReactElement {
                 {item.prompt}
               </p>
               <div className="flex items-center justify-between gap-2">
+                <Button
+                  variant="ghost"
+                  className="px-2 py-1 text-xs"
+                  onClick={() => {
+                    openSprite(item.image);
+                    setScreen('generate');
+                  }}
+                >
+                  {t('gallery.edit')}
+                </Button>
                 <Button
                   variant="ghost"
                   className="px-2 py-1 text-xs"

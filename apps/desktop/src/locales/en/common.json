@@ -62,7 +62,8 @@
     "favourite": "Favourite",
     "unfavourite": "Favourited",
     "remove": "Remove",
-    "clear": "Clear gallery"
+    "clear": "Clear gallery",
+    "edit": "Edit"
   },
   "menu": {
     "label": "Menu",
