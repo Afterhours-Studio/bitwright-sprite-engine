@@ -84,7 +84,9 @@
     "reportIssue": "Báo lỗi",
     "licence": "Giấy phép",
     "about": "Giới thiệu",
-    "aboutBody": "Phiên bản {{version}}. Phần mềm tự do theo GNU AGPL v3."
+    "aboutBody": "Phiên bản {{version}}. Phần mềm tự do theo GNU AGPL v3.",
+    "undo": "Hoàn tác",
+    "redo": "Làm lại"
   },
   "palette": {
     "label": "Bảng lệnh",

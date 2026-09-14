@@ -37,18 +37,24 @@ Regenerating an entry, from a machine of the target platform::
         --index-url https://download.pytorch.org/whl/cu126 \\
         --extra-index-url https://pypi.org/simple "torch==2.14.0+cu126"
 
-``--platform`` does not change how environment markers are evaluated, so a set
-must be resolved on the operating system it is for. That is why there is no
-Linux entry: PyTorch's Linux CUDA build pulls a separate tree of NVIDIA wheels
-behind ``platform_system == "Linux"`` markers, and a set resolved for it from
-Windows silently comes back without them. Guessing those pins would be worse
-than declining, so Linux reports ``runtime.unsupported_platform`` until the set
-is generated on Linux.
+``--platform`` selects wheel tags and nothing else: pip evaluates environment
+markers against the interpreter it is running on, so a set for another
+operating system has to come either from that operating system or from a
+resolver that can be told which platform to resolve for. The Linux entries were
+produced with the second, ``uv pip compile --python-platform
+x86_64-unknown-linux-gnu --python-version 3.14``, and the difference is not
+cosmetic: PyTorch's Linux CUDA build pulls a separate tree of NVIDIA wheels
+behind ``platform_system == "Linux"`` markers, which a resolution run from
+Windows silently comes back without.
 
-CUDA 12.6 is the version targeted on Windows. CUDA's minor version
-compatibility means a 12.6 build runs on any 525 or newer driver, which is the
-widest reach of the 12.x line, and it covers every architecture from Turing
-through Blackwell, the RTX 3060 that prompted this work included.
+Only 64-bit x86 glibc Linux is pinned. Any other Linux reports
+``runtime.unsupported_platform``, which is the honest answer rather than a
+guess: nobody has generated and checked a set for it.
+
+CUDA 12.6 is the version targeted on Windows and Linux alike. CUDA's minor
+version compatibility means a 12.6 build runs on any 525 or newer driver, which
+is the widest reach of the 12.x line, and it covers every architecture from
+Turing through Blackwell, the RTX 3060 that prompted this work included.
 """
 
 from __future__ import annotations
@@ -174,10 +180,17 @@ def python_tag() -> str:
 def platform_tag() -> str:
     """Return the platform the wheels have to match.
 
+    Linux needs no branch of its own: :func:`sysconfig.get_platform` already
+    answers ``linux-x86_64`` there, which normalises to the key the manifest
+    uses. It does not distinguish glibc from musl, and it does not have to: the
+    sidecar is frozen against glibc, so a musl system cannot run the process
+    that would ask this question.
+
     Returns:
-        One of ``win_amd64``, ``macosx_arm64``, ``macosx_x86_64``, or the
-        normalised output of :func:`sysconfig.get_platform` for anything else,
-        which will simply not be in the manifest.
+        One of ``win_amd64``, ``macosx_arm64``, ``macosx_x86_64``,
+        ``linux_x86_64``, or the normalised output of
+        :func:`sysconfig.get_platform` for anything else, which will simply not
+        be in the manifest.
     """
     raw = sysconfig.get_platform()
     if raw.startswith("win-amd64") or (raw == "win32" and sys.maxsize > 2**32):
@@ -212,6 +225,12 @@ def _pypi(path: str) -> str:
 
 # The wheels every variant shares. torch's own dependency set is small and
 # identical across the targets below, so it is written once.
+#
+# Where a distribution ships a compiled extension it is pinned once per target
+# instead, because such a wheel loads only on the operating system and
+# interpreter ABI it was built for. Handing a Linux install a ``win_amd64``
+# wheel is not a slow path, it is a ``.pyd`` that nothing on that machine can
+# open, and the failure lands at the first import rather than at the download.
 _NUMPY_WINDOWS = Wheel(
     name="numpy",
     version="2.5.3",
@@ -233,6 +252,18 @@ _NUMPY_MACOS = Wheel(
     sha256="adc1ada2662f8a5f960b8a10d9986897e7499ef07e06d4cfe7197f8cce923c07",
     size_bytes=5449793,
     unpacked_bytes=20000000,
+    license_id="BSD-3-Clause",
+)
+
+_NUMPY_LINUX = Wheel(
+    name="numpy",
+    version="2.5.3",
+    url=_pypi(
+        "45/8f/9beacf79ca7c650688ad0baa80931adb988fe6e6e5d5903c23cc3dbd70eb/numpy-2.5.3-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl"
+    ),
+    sha256="b0521d0f4aebb6e06189451025fa17a913287b13c03d5fe05c017333b654ea5b",
+    size_bytes=16711928,
+    unpacked_bytes=56364671,
     license_id="BSD-3-Clause",
 )
 
@@ -332,7 +363,7 @@ _JINJA2 = Wheel(
     license_id="BSD-3-Clause",
 )
 
-_MARKUPSAFE_WIN = Wheel(
+_MARKUPSAFE_WINDOWS = Wheel(
     name="markupsafe",
     version="3.0.3",
     url=_pypi(
@@ -344,7 +375,7 @@ _MARKUPSAFE_WIN = Wheel(
     license_id="BSD-3-Clause",
 )
 
-_MARKUPSAFE_MACOS_ARM64 = Wheel(
+_MARKUPSAFE_MACOS = Wheel(
     name="markupsafe",
     version="3.0.3",
     url=_pypi(
@@ -356,12 +387,39 @@ _MARKUPSAFE_MACOS_ARM64 = Wheel(
     license_id="BSD-3-Clause",
 )
 
+_MARKUPSAFE_LINUX = Wheel(
+    name="markupsafe",
+    version="3.0.3",
+    url=_pypi(
+        "41/3c/a36c2450754618e62008bf7435ccb0f88053e07592e6028a34776213d877/markupsafe-3.0.3-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
+    ),
+    sha256="457a69a9577064c05a97c41f4e65148652db078a3a509039e64d3467b9e7ef97",
+    size_bytes=23005,
+    unpacked_bytes=67284,
+    license_id="BSD-3-Clause",
+)
+
 _TORCH_LICENSE = "Apache-2.0 AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND MIT"
 """The expression torch declares, with its LLVM exception folded into Apache-2.0.
 
 It is not the plain BSD-3-Clause the project's own notes assumed. None of the
 parts is copyleft, so none of it reaches this program's licence, but the record
 should say what the metadata says.
+"""
+
+_NVIDIA_LICENSE = "LicenseRef-NVIDIA-Proprietary"
+"""NVIDIA's own end user licence agreement, which is not an open source one.
+
+The CUDA redistributables spell this differently in every wheel that carries
+them - ``NVIDIA Proprietary Software``, ``LicenseRef-NVIDIA-Proprietary``,
+``LicenseRef-NVIDIA-SOFTWARE-LICENSE``, and in two cases nothing at all - and
+not one of those is an SPDX identifier. They are recorded under a single
+``LicenseRef`` rather than reproduced, because the terms the user is agreeing to
+are the ones at :data:`CUDA_LICENSE_URL` and the confirmation links there.
+
+On Windows these libraries ride inside the torch wheel. On Linux they arrive as
+the separate ``nvidia-*`` wheels below, which changes where they come from and
+not what they are.
 """
 
 
@@ -377,7 +435,7 @@ should say what the metadata says.
 # wheel at build time. The torch entries above are measured, because those are
 # the gigabytes that decide whether an install fits at all.
 
-_PYYAML = Wheel(
+_PYYAML_WINDOWS = Wheel(
     name="PyYAML",
     version="6.0.3",
     url=_pypi(
@@ -386,6 +444,30 @@ _PYYAML = Wheel(
     sha256="4a2e8cebe2ff6ab7d1050ecd59c25d4c8bd7e6f400f5f82b96557ac0abafd0ac",
     size_bytes=156429,
     unpacked_bytes=469287,
+    license_id="UNKNOWN",
+)
+
+_PYYAML_MACOS = Wheel(
+    name="PyYAML",
+    version="6.0.3",
+    url=_pypi(
+        "bd/9c/4d95bb87eb2063d20db7b60faa3840c1b18025517ae857371c4dd55a6b3a/pyyaml-6.0.3-cp314-cp314-macosx_11_0_arm64.whl"
+    ),
+    sha256="34d5fcd24b8445fadc33f9cf348c1047101756fd760b4dacb5c3e99755703310",
+    size_bytes=173809,
+    unpacked_bytes=521427,
+    license_id="UNKNOWN",
+)
+
+_PYYAML_LINUX = Wheel(
+    name="PyYAML",
+    version="6.0.3",
+    url=_pypi(
+        "88/f9/16491d7ed2a919954993e48aa941b200f38040928474c9e85ea9e64222c3/pyyaml-6.0.3-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
+    ),
+    sha256="c458b6d084f9b935061bc36216e8a69a7e293a2f1e68bf956dcd9e6cbcd143f5",
+    size_bytes=794175,
+    unpacked_bytes=2382525,
     license_id="UNKNOWN",
 )
 
@@ -449,7 +531,7 @@ _CERTIFI = Wheel(
     license_id="UNKNOWN",
 )
 
-_CHARSET_NORMALIZER = Wheel(
+_CHARSET_NORMALIZER_WINDOWS = Wheel(
     name="charset-normalizer",
     version="3.5.1",
     url=_pypi(
@@ -458,6 +540,30 @@ _CHARSET_NORMALIZER = Wheel(
     sha256="c658c50ac0c98cd755a2dd50b7977d3bca7df401dcc47fbdfa87db53ef7d4e8b",
     size_bytes=204175,
     unpacked_bytes=612525,
+    license_id="UNKNOWN",
+)
+
+_CHARSET_NORMALIZER_MACOS = Wheel(
+    name="charset-normalizer",
+    version="3.5.1",
+    url=_pypi(
+        "e9/40/095ce62fa078483cccc1fa2b36e6bc9580b85422a20ee9f925341c50e44f/charset_normalizer-3.5.1-cp314-cp314-macosx_10_15_universal2.whl"
+    ),
+    sha256="c428c6c31eb5f4277d7f8eccaf767fbd548ddd5ce3c8b4f4cbbfab3d96b5904c",
+    size_bytes=341823,
+    unpacked_bytes=1025469,
+    license_id="UNKNOWN",
+)
+
+_CHARSET_NORMALIZER_LINUX = Wheel(
+    name="charset-normalizer",
+    version="3.5.1",
+    url=_pypi(
+        "e0/91/39c3af510b0aa32bbda03374259200f28430febfd1bf5e511fe765282ce5/charset_normalizer-3.5.1-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
+    ),
+    sha256="15f024313246a4ed976c60f440bb8d257815513a681d212ff74fd46f7d715a90",
+    size_bytes=251240,
+    unpacked_bytes=753720,
     license_id="UNKNOWN",
 )
 
@@ -509,7 +615,7 @@ _H11 = Wheel(
     license_id="UNKNOWN",
 )
 
-_HF_XET = Wheel(
+_HF_XET_WINDOWS = Wheel(
     name="hf-xet",
     version="1.6.0",
     url=_pypi(
@@ -518,6 +624,30 @@ _HF_XET = Wheel(
     sha256="fb4fadde1b2b70bf4c0c14a6dccbe7194b1c28947fefd5bbe3fed9d940676c3b",
     size_bytes=4033128,
     unpacked_bytes=12099384,
+    license_id="Apache-2.0",
+)
+
+_HF_XET_MACOS = Wheel(
+    name="hf-xet",
+    version="1.6.0",
+    url=_pypi(
+        "4b/69/55b8dcf636142ae660fec1869fcac14c4da2e8412e14d6eee1523be77e9f/hf_xet-1.6.0-cp38-abi3-macosx_11_0_arm64.whl"
+    ),
+    sha256="f0906082d9932ae0c0057fa194041c22b4e2cdb46b2592ef3b91f020d62a081a",
+    size_bytes=3876287,
+    unpacked_bytes=11628861,
+    license_id="Apache-2.0",
+)
+
+_HF_XET_LINUX = Wheel(
+    name="hf-xet",
+    version="1.6.0",
+    url=_pypi(
+        "67/4e/a28359bf1c1ecf11eba22123168c138698f7cb576ac678f5a2e16cd5da08/hf_xet-1.6.0-cp38-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl"
+    ),
+    sha256="d62671bb130879cef0ee4c9ebe47a14af6c66ec53e6d84dc15936e5ffdfac82f",
+    size_bytes=4464663,
+    unpacked_bytes=13393989,
     license_id="Apache-2.0",
 )
 
@@ -617,7 +747,7 @@ _PACKAGING = Wheel(
     license_id="Apache-2.0 OR BSD-2-Clause",
 )
 
-_PILLOW = Wheel(
+_PILLOW_WINDOWS = Wheel(
     name="pillow",
     version="12.3.0",
     url=_pypi(
@@ -629,7 +759,31 @@ _PILLOW = Wheel(
     license_id="MIT-CMU",
 )
 
-_PSUTIL = Wheel(
+_PILLOW_MACOS = Wheel(
+    name="pillow",
+    version="12.3.0",
+    url=_pypi(
+        "c7/da/32c752228ae345f489e3a42499d817b6c3996da7e8a3bc7a04fc806b243b/pillow-12.3.0-cp314-cp314-macosx_11_0_arm64.whl"
+    ),
+    sha256="e158cb00350dc278f3b91551101aa7d12415a66ebf2c91d8d5ac14e56ddd3ad0",
+    size_bytes=4780131,
+    unpacked_bytes=14340393,
+    license_id="MIT-CMU",
+)
+
+_PILLOW_LINUX = Wheel(
+    name="pillow",
+    version="12.3.0",
+    url=_pypi(
+        "5c/44/c85361f65dbe00eea8576ee467c768d25129989efb76e94f205e9ca9bb46/pillow-12.3.0-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl"
+    ),
+    sha256="251bf95b67017e27b13d82f5b326234ca62d70f9cf4c2b9032de2358a3b12c7b",
+    size_bytes=6936962,
+    unpacked_bytes=20810886,
+    license_id="MIT-CMU",
+)
+
+_PSUTIL_WINDOWS = Wheel(
     name="psutil",
     version="7.2.2",
     url=_pypi(
@@ -641,7 +795,31 @@ _PSUTIL = Wheel(
     license_id="UNKNOWN",
 )
 
-_REGEX = Wheel(
+_PSUTIL_MACOS = Wheel(
+    name="psutil",
+    version="7.2.2",
+    url=_pypi(
+        "80/c4/f5af4c1ca8c1eeb2e92ccca14ce8effdeec651d5ab6053c589b074eda6e1/psutil-7.2.2-cp36-abi3-macosx_11_0_arm64.whl"
+    ),
+    sha256="1a7b04c10f32cc88ab39cbf606e117fd74721c831c98a27dc04578deb0c16979",
+    size_bytes=129859,
+    unpacked_bytes=389577,
+    license_id="UNKNOWN",
+)
+
+_PSUTIL_LINUX = Wheel(
+    name="psutil",
+    version="7.2.2",
+    url=_pypi(
+        "b5/70/5d8df3b09e25bce090399cf48e452d25c935ab72dad19406c77f4e828045/psutil-7.2.2-cp36-abi3-manylinux2010_x86_64.manylinux_2_12_x86_64.manylinux_2_28_x86_64.whl"
+    ),
+    sha256="076a2d2f923fd4821644f5ba89f059523da90dc9014e85f8e45a5774ca5bc6f9",
+    size_bytes=155560,
+    unpacked_bytes=466680,
+    license_id="UNKNOWN",
+)
+
+_REGEX_WINDOWS = Wheel(
     name="regex",
     version="2026.9.3",
     url=_pypi(
@@ -650,6 +828,30 @@ _REGEX = Wheel(
     sha256="445623b1337e971ccc571d3642aeb3f2fec77e60b6ee193dd7688168471d1846",
     size_bytes=280812,
     unpacked_bytes=842436,
+    license_id="Apache-2.0 AND CNRI-Python",
+)
+
+_REGEX_MACOS = Wheel(
+    name="regex",
+    version="2026.9.3",
+    url=_pypi(
+        "27/8f/64b8bbd0316baaede047dbdbf2bcc96f10a4eeddec2e9cbf289e855e636f/regex-2026.9.3-cp314-cp314-macosx_11_0_arm64.whl"
+    ),
+    sha256="647983d2609be6155c748249e770ab7e75e15e386cbf15469569f3eaf165bbb7",
+    size_bytes=292008,
+    unpacked_bytes=876024,
+    license_id="Apache-2.0 AND CNRI-Python",
+)
+
+_REGEX_LINUX = Wheel(
+    name="regex",
+    version="2026.9.3",
+    url=_pypi(
+        "89/e3/f6bcb26472873b9308df329f507d9c6cb526e3f9aed847498f153f2b7539/regex-2026.9.3-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
+    ),
+    sha256="6f64c66b3b13758b4f8f56f17972cd0ce5d0033d19d7332ed32e2dbdbce94dec",
+    size_bytes=801375,
+    unpacked_bytes=2404125,
     license_id="Apache-2.0 AND CNRI-Python",
 )
 
@@ -677,7 +879,7 @@ _RICH = Wheel(
     license_id="UNKNOWN",
 )
 
-_SAFETENSORS = Wheel(
+_SAFETENSORS_WINDOWS = Wheel(
     name="safetensors",
     version="0.8.0",
     url=_pypi(
@@ -686,6 +888,30 @@ _SAFETENSORS = Wheel(
     sha256="096ec1a98435df7beb08853bb5aa9081a84f23d0adc67ed1a0a10550f608373f",
     size_bytes=355540,
     unpacked_bytes=1066620,
+    license_id="UNKNOWN",
+)
+
+_SAFETENSORS_MACOS = Wheel(
+    name="safetensors",
+    version="0.8.0",
+    url=_pypi(
+        "f5/b1/fa7c600e7dceae12e9606c7578cbc9ff1e1ed55844883ee5c92205e86226/safetensors-0.8.0-cp310-abi3-macosx_11_0_arm64.whl"
+    ),
+    sha256="c80201d22cbf405b80647a60ada77bba06c8fba2da2743ba1e89cdcc39a81f25",
+    size_bytes=484562,
+    unpacked_bytes=1453686,
+    license_id="UNKNOWN",
+)
+
+_SAFETENSORS_LINUX = Wheel(
+    name="safetensors",
+    version="0.8.0",
+    url=_pypi(
+        "28/50/f203ff3a3ddfe19308efc83c5a3a29ed02bf786732ec35e68bf9162f3365/safetensors-0.8.0-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
+    ),
+    sha256="fd6f3f93c9a0a7cc2788ee63fb763353d4bd2e89b0751bc78fcf7dda00bea774",
+    size_bytes=516040,
+    unpacked_bytes=1548120,
     license_id="UNKNOWN",
 )
 
@@ -701,7 +927,7 @@ _SHELLINGHAM = Wheel(
     license_id="UNKNOWN",
 )
 
-_TOKENIZERS = Wheel(
+_TOKENIZERS_WINDOWS = Wheel(
     name="tokenizers",
     version="0.23.2",
     url=_pypi(
@@ -710,6 +936,30 @@ _TOKENIZERS = Wheel(
     sha256="2e96f5699d5249c9c64aa8412e044f727aae3a4098cf830f9901ec1afc361cde",
     size_bytes=2863236,
     unpacked_bytes=8589708,
+    license_id="UNKNOWN",
+)
+
+_TOKENIZERS_MACOS = Wheel(
+    name="tokenizers",
+    version="0.23.2",
+    url=_pypi(
+        "67/49/22da045a91732384d3a3771816bf188dc5a1f702c32e635afa7c679c0bef/tokenizers-0.23.2-cp310-abi3-macosx_11_0_arm64.whl"
+    ),
+    sha256="986670e43691469dcee610ea0f846f91a8f84e91fc6f7a48d4c064414c0ec2bf",
+    size_bytes=3101593,
+    unpacked_bytes=9304779,
+    license_id="UNKNOWN",
+)
+
+_TOKENIZERS_LINUX = Wheel(
+    name="tokenizers",
+    version="0.23.2",
+    url=_pypi(
+        "2c/ca/ca6b93c7820df123b2662a9469e8facc826ccc94e98fdd0d615f6431e73a/tokenizers-0.23.2-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
+    ),
+    sha256="41c2f84d172449b4dadb9cdc508e3e364076613c35b16e76ecfe47a60d1e3305",
+    size_bytes=3386843,
+    unpacked_bytes=10160529,
     license_id="UNKNOWN",
 )
 
@@ -785,48 +1035,79 @@ _PEFT = Wheel(
     license_id="Apache-2.0",
 )
 
-_DIFFUSION_SET: tuple[Wheel, ...] = (
-    # Fusing a style adapter goes through peft. Without it diffusers refuses
-    # the call outright, which is how choosing an adapter came to fail at
-    # generation time with a message about a backend nobody had heard of.
-    _PEFT,
-    _PYYAML,
-    _PYGMENTS,
-    _ACCELERATE,
-    _ANNOTATED_DOC,
-    _ANYIO,
-    _CERTIFI,
-    _CHARSET_NORMALIZER,
-    _CLICK,
-    _COLORAMA,
-    _DIFFUSERS,
-    _H11,
-    _HF_XET,
-    _HTTPCORE,
-    _HTTPX,
-    _HUGGINGFACE_HUB,
-    _IDNA,
-    _IMPORTLIB_METADATA,
-    _MARKDOWN_IT_PY,
-    _MDURL,
-    _PACKAGING,
-    _PILLOW,
-    _PSUTIL,
-    _REGEX,
-    _REQUESTS,
-    _RICH,
-    _SAFETENSORS,
-    _SHELLINGHAM,
-    _TOKENIZERS,
-    _TQDM,
-    _TRANSFORMERS,
-    _TYPER,
-    _URLLIB3,
-    _ZIPP,
-)
+
+def _diffusion_set(
+    *,
+    pyyaml: Wheel,
+    charset_normalizer: Wheel,
+    hf_xet: Wheel,
+    pillow: Wheel,
+    psutil: Wheel,
+    regex: Wheel,
+    safetensors: Wheel,
+    tokenizers: Wheel,
+) -> tuple[Wheel, ...]:
+    """Return everything diffusers needs on top of torch, for one target.
+
+    Most of the set is pure Python and the same file serves every machine. The
+    eight taken as arguments carry compiled extensions, so each target needs the
+    wheel built for it.
+
+    Args:
+        pyyaml: The compiled PyYAML wheel for this target.
+        charset_normalizer: The compiled charset-normalizer wheel.
+        hf_xet: The compiled hf-xet wheel.
+        pillow: The compiled Pillow wheel.
+        psutil: The compiled psutil wheel.
+        regex: The compiled regex wheel.
+        safetensors: The compiled safetensors wheel.
+        tokenizers: The compiled tokenizers wheel.
+
+    Returns:
+        The wheels, in the order pip resolved them.
+    """
+    return (
+        # Fusing a style adapter goes through peft. Without it diffusers refuses
+        # the call outright, which is how choosing an adapter came to fail at
+        # generation time with a message about a backend nobody had heard of.
+        _PEFT,
+        pyyaml,
+        _PYGMENTS,
+        _ACCELERATE,
+        _ANNOTATED_DOC,
+        _ANYIO,
+        _CERTIFI,
+        charset_normalizer,
+        _CLICK,
+        _COLORAMA,
+        _DIFFUSERS,
+        _H11,
+        hf_xet,
+        _HTTPCORE,
+        _HTTPX,
+        _HUGGINGFACE_HUB,
+        _IDNA,
+        _IMPORTLIB_METADATA,
+        _MARKDOWN_IT_PY,
+        _MDURL,
+        _PACKAGING,
+        pillow,
+        psutil,
+        regex,
+        _REQUESTS,
+        _RICH,
+        safetensors,
+        _SHELLINGHAM,
+        tokenizers,
+        _TQDM,
+        _TRANSFORMERS,
+        _TYPER,
+        _URLLIB3,
+        _ZIPP,
+    )
 
 
-def _common(markupsafe: Wheel, numpy: Wheel) -> tuple[Wheel, ...]:
+def _common(markupsafe: Wheel, numpy: Wheel, diffusion: tuple[Wheel, ...]) -> tuple[Wheel, ...]:
     """Return the dependency wheels every variant shares.
 
     NumPy is not a torch dependency, and torch runs without it. It is here
@@ -838,13 +1119,14 @@ def _common(markupsafe: Wheel, numpy: Wheel) -> tuple[Wheel, ...]:
     Args:
         markupsafe: The compiled MarkupSafe wheel for this target.
         numpy: The compiled NumPy wheel for this target.
+        diffusion: This target's set from :func:`_diffusion_set`.
 
     Returns:
         The dependencies, in the order pip resolved them.
     """
     return (
         numpy,
-        *_DIFFUSION_SET,
+        *diffusion,
         _FSSPEC,
         _NETWORKX,
         _SETUPTOOLS,
@@ -855,6 +1137,323 @@ def _common(markupsafe: Wheel, numpy: Wheel) -> tuple[Wheel, ...]:
         _JINJA2,
         markupsafe,
     )
+
+
+_WINDOWS_DEPENDENCIES = _common(
+    _MARKUPSAFE_WINDOWS,
+    _NUMPY_WINDOWS,
+    _diffusion_set(
+        pyyaml=_PYYAML_WINDOWS,
+        charset_normalizer=_CHARSET_NORMALIZER_WINDOWS,
+        hf_xet=_HF_XET_WINDOWS,
+        pillow=_PILLOW_WINDOWS,
+        psutil=_PSUTIL_WINDOWS,
+        regex=_REGEX_WINDOWS,
+        safetensors=_SAFETENSORS_WINDOWS,
+        tokenizers=_TOKENIZERS_WINDOWS,
+    ),
+)
+"""Everything but torch itself, for 64-bit Windows."""
+
+_MACOS_ARM64_DEPENDENCIES = _common(
+    _MARKUPSAFE_MACOS,
+    _NUMPY_MACOS,
+    _diffusion_set(
+        pyyaml=_PYYAML_MACOS,
+        charset_normalizer=_CHARSET_NORMALIZER_MACOS,
+        hf_xet=_HF_XET_MACOS,
+        pillow=_PILLOW_MACOS,
+        psutil=_PSUTIL_MACOS,
+        regex=_REGEX_MACOS,
+        safetensors=_SAFETENSORS_MACOS,
+        tokenizers=_TOKENIZERS_MACOS,
+    ),
+)
+"""Everything but torch itself, for Apple silicon."""
+
+_LINUX_X86_64_DEPENDENCIES = _common(
+    _MARKUPSAFE_LINUX,
+    _NUMPY_LINUX,
+    _diffusion_set(
+        pyyaml=_PYYAML_LINUX,
+        charset_normalizer=_CHARSET_NORMALIZER_LINUX,
+        hf_xet=_HF_XET_LINUX,
+        pillow=_PILLOW_LINUX,
+        psutil=_PSUTIL_LINUX,
+        regex=_REGEX_LINUX,
+        safetensors=_SAFETENSORS_LINUX,
+        tokenizers=_TOKENIZERS_LINUX,
+    ),
+)
+"""Everything but torch itself, for 64-bit x86 glibc Linux."""
+
+
+# The NVIDIA tree, which only Linux carries.
+#
+# The Windows CUDA wheel embeds cuBLAS, cuDNN and the rest inside itself. The
+# Linux one does not: it declares them as separate requirements behind
+# ``platform_system == "Linux"`` markers, so they are pinned here one by one.
+# Nothing in this block is fetched on any other target, and none of it is open
+# source - see :data:`_NVIDIA_LICENSE`.
+#
+# ``unpacked_bytes`` is read from each wheel's zip directory rather than
+# estimated. Together these come to close to five gigabytes unpacked, which is
+# the number that decides whether an install fits at all.
+
+_CUDA_BINDINGS = Wheel(
+    name="cuda-bindings",
+    version="12.9.7",
+    url=_pypi(
+        "ec/cd/3289c810a4d45e5364a3387a74b4c9b6f6f57ee96ae0e5b537cc61dec242/cuda_bindings-12.9.7-cp314-cp314-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl"
+    ),
+    sha256="3c47ec1a7a441d91aab32339951df7a1be53451121a12c094bba51467717a35a",
+    size_bytes=7504419,
+    unpacked_bytes=36111557,
+    license_id=_NVIDIA_LICENSE,
+)
+
+_CUDA_PATHFINDER = Wheel(
+    name="cuda-pathfinder",
+    version="1.8.1",
+    url=_pypi(
+        "9d/e6/22df83f82f9bc26cb1c42265cf14d34d4908dba2a0f261bd7b28244acb00/cuda_pathfinder-1.8.1-py3-none-any.whl"
+    ),
+    sha256="ae0137ff9e56ea97499bcbf54f5f2778ec25f3266715ac86da192a795af982a8",
+    size_bytes=62552,
+    unpacked_bytes=187822,
+    license_id="Apache-2.0",
+)
+
+_CUDA_TOOLKIT = Wheel(
+    name="cuda-toolkit",
+    version="12.6.3",
+    url=_pypi(
+        "ad/88/2dbc37975fffb874418b14380418a1b99cb36f2101fd1d08c54e06ee8c95/cuda_toolkit-12.6.3-py2.py3-none-any.whl"
+    ),
+    sha256="79d8605baeb6c2f695761e0efb54bc62dbc3c9e32eb0742df7669c07befaa8f7",
+    size_bytes=2288,
+    unpacked_bytes=8912,
+    license_id=_NVIDIA_LICENSE,
+)
+
+_NVIDIA_CUBLAS_CU12 = Wheel(
+    name="nvidia-cublas-cu12",
+    version="12.6.4.1",
+    url=_pypi(
+        "af/eb/ff4b8c503fa1f1796679dce648854d58751982426e4e4b37d6fce49d259c/nvidia_cublas_cu12-12.6.4.1-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl"
+    ),
+    sha256="08ed2686e9875d01b58e3cb379c6896df8e76c75e0d4a7f7dace3d7b6d9ef8eb",
+    size_bytes=393138322,
+    unpacked_bytes=600763634,
+    license_id=_NVIDIA_LICENSE,
+)
+
+_NVIDIA_CUDA_CUPTI_CU12 = Wheel(
+    name="nvidia-cuda-cupti-cu12",
+    version="12.6.80",
+    url=_pypi(
+        "49/60/7b6497946d74bcf1de852a21824d63baad12cd417db4195fc1bfe59db953/nvidia_cuda_cupti_cu12-12.6.80-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl"
+    ),
+    sha256="6768bad6cab4f19e8292125e5f1ac8aa7d1718704012a0e3272a6f61c4bce132",
+    size_bytes=8917980,
+    unpacked_bytes=34855781,
+    license_id=_NVIDIA_LICENSE,
+)
+
+_NVIDIA_CUDA_NVRTC_CU12 = Wheel(
+    name="nvidia-cuda-nvrtc-cu12",
+    version="12.6.85",
+    url=_pypi(
+        "f5/31/ffb400c5ae99daf09687aa6c42831c5d824f71c4851363ed2a4a1ac52bab/nvidia_cuda_nvrtc_cu12-12.6.85-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl"
+    ),
+    sha256="800927308ccc5dd6246d3f61f7fcef2ed7ec4e59e199090d360d3293f78bd5a2",
+    size_bytes=23649944,
+    unpacked_bytes=64147690,
+    license_id=_NVIDIA_LICENSE,
+)
+
+_NVIDIA_CUDA_RUNTIME_CU12 = Wheel(
+    name="nvidia-cuda-runtime-cu12",
+    version="12.6.77",
+    url=_pypi(
+        "e1/23/e717c5ac26d26cf39a27fbc076240fad2e3b817e5889d671b67f4f9f49c5/nvidia_cuda_runtime_cu12-12.6.77-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl"
+    ),
+    sha256="ba3b56a4f896141e25e19ab287cd71e52a6a0f4b29d0d31609f60e3b4d5219b7",
+    size_bytes=897690,
+    unpacked_bytes=4666930,
+    license_id=_NVIDIA_LICENSE,
+)
+
+_NVIDIA_CUDNN_CU12 = Wheel(
+    name="nvidia-cudnn-cu12",
+    version="9.10.2.21",
+    url=_pypi(
+        "ba/51/e123d997aa098c61d029f76663dedbfb9bc8dcf8c60cbd6adbe42f76d049/nvidia_cudnn_cu12-9.10.2.21-py3-none-manylinux_2_27_x86_64.whl"
+    ),
+    sha256="949452be657fa16687d0930933f032835951ef0892b37d2d53824d1a84dc97a8",
+    size_bytes=706758467,
+    unpacked_bytes=1053624755,
+    license_id=_NVIDIA_LICENSE,
+)
+
+_NVIDIA_CUFFT_CU12 = Wheel(
+    name="nvidia-cufft-cu12",
+    version="11.3.0.4",
+    url=_pypi(
+        "8f/16/73727675941ab8e6ffd86ca3a4b7b47065edcca7a997920b831f8147c99d/nvidia_cufft_cu12-11.3.0.4-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl"
+    ),
+    sha256="ccba62eb9cef5559abd5e0d54ceed2d9934030f51163df018532142a8ec533e5",
+    size_bytes=200221632,
+    unpacked_bytes=281139021,
+    license_id=_NVIDIA_LICENSE,
+)
+
+_NVIDIA_CUFILE_CU12 = Wheel(
+    name="nvidia-cufile-cu12",
+    version="1.11.1.6",
+    url=_pypi(
+        "b2/66/cc9876340ac68ae71b15c743ddb13f8b30d5244af344ec8322b449e35426/nvidia_cufile_cu12-1.11.1.6-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl"
+    ),
+    sha256="cc23469d1c7e52ce6c1d55253273d32c565dd22068647f3aa59b3c6b005bf159",
+    size_bytes=1142103,
+    unpacked_bytes=3179200,
+    license_id=_NVIDIA_LICENSE,
+)
+
+_NVIDIA_CURAND_CU12 = Wheel(
+    name="nvidia-curand-cu12",
+    version="10.3.7.77",
+    url=_pypi(
+        "73/1b/44a01c4e70933637c93e6e1a8063d1e998b50213a6b65ac5a9169c47e98e/nvidia_curand_cu12-10.3.7.77-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl"
+    ),
+    sha256="a42cd1344297f70b9e39a1e4f467a4e1c10f1da54ff7a85c12197f6c652c8bdf",
+    size_bytes=56279010,
+    unpacked_bytes=98640598,
+    license_id=_NVIDIA_LICENSE,
+)
+
+_NVIDIA_CUSOLVER_CU12 = Wheel(
+    name="nvidia-cusolver-cu12",
+    version="11.7.1.2",
+    url=_pypi(
+        "f0/6e/c2cf12c9ff8b872e92b4a5740701e51ff17689c4d726fca91875b07f655d/nvidia_cusolver_cu12-11.7.1.2-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl"
+    ),
+    sha256="e9e49843a7707e42022babb9bcfa33c29857a93b88020c4e4434656a655b698c",
+    size_bytes=158229790,
+    unpacked_bytes=243636553,
+    license_id=_NVIDIA_LICENSE,
+)
+
+_NVIDIA_CUSPARSE_CU12 = Wheel(
+    name="nvidia-cusparse-cu12",
+    version="12.5.4.2",
+    url=_pypi(
+        "06/1e/b8b7c2f4099a37b96af5c9bb158632ea9e5d9d27d7391d7eb8fc45236674/nvidia_cusparse_cu12-12.5.4.2-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl"
+    ),
+    sha256="7556d9eca156e18184b94947ade0fba5bb47d69cec46bf8660fd2c71a4b48b73",
+    size_bytes=216561367,
+    unpacked_bytes=293978233,
+    license_id=_NVIDIA_LICENSE,
+)
+
+_NVIDIA_CUSPARSELT_CU12 = Wheel(
+    name="nvidia-cusparselt-cu12",
+    version="0.7.1",
+    url=_pypi(
+        "56/79/12978b96bd44274fe38b5dde5cfb660b1d114f70a65ef962bcbbed99b549/nvidia_cusparselt_cu12-0.7.1-py3-none-manylinux2014_x86_64.whl"
+    ),
+    sha256="f1bb701d6b930d5a7cea44c19ceb973311500847f81b634d802b7b539dc55623",
+    size_bytes=287193691,
+    unpacked_bytes=452024081,
+    license_id=_NVIDIA_LICENSE,
+)
+
+_NVIDIA_NCCL_CU12 = Wheel(
+    name="nvidia-nccl-cu12",
+    version="2.29.3",
+    url=_pypi(
+        "31/5a/cac7d231f322b66caa16fd4b136ebc8e4b18b2805811c2d58dc47210cdea/nvidia_nccl_cu12-2.29.3-py3-none-manylinux_2_18_x86_64.whl"
+    ),
+    sha256="35ad42e7d5d722a83c36a3a478e281c20a5646383deaf1b9ed1a9ab7d61bed53",
+    size_bytes=289760316,
+    unpacked_bytes=394915332,
+    license_id=_NVIDIA_LICENSE,
+)
+
+_NVIDIA_NVJITLINK_CU12 = Wheel(
+    name="nvidia-nvjitlink-cu12",
+    version="12.9.86",
+    url=_pypi(
+        "46/0c/c75bbfb967457a0b7670b8ad267bfc4fffdf341c074e0a80db06c24ccfd4/nvidia_nvjitlink_cu12-12.9.86-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl"
+    ),
+    sha256="e3f1171dbdc83c5932a45f0f4c99180a70de9bd2718c1ab77d14104f6d7147f9",
+    size_bytes=39748338,
+    unpacked_bytes=96014630,
+    license_id=_NVIDIA_LICENSE,
+)
+
+_NVIDIA_NVSHMEM_CU12 = Wheel(
+    name="nvidia-nvshmem-cu12",
+    version="3.4.5",
+    url=_pypi(
+        "b5/09/6ea3ea725f82e1e76684f0708bbedd871fc96da89945adeba65c3835a64c/nvidia_nvshmem_cu12-3.4.5-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl"
+    ),
+    sha256="042f2500f24c021db8a06c5eec2539027d57460e1c1a762055a6554f72c369bd",
+    size_bytes=139103095,
+    unpacked_bytes=204181279,
+    license_id=_NVIDIA_LICENSE,
+)
+
+_NVIDIA_NVTX_CU12 = Wheel(
+    name="nvidia-nvtx-cu12",
+    version="12.6.77",
+    url=_pypi(
+        "56/9a/fff8376f8e3d084cd1530e1ef7b879bb7d6d265620c95c1b322725c694f4/nvidia_nvtx_cu12-12.6.77-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl"
+    ),
+    sha256="b90bed3df379fa79afbd21be8e04a0314336b8ae16768b58f2d34cb1d04cd7d2",
+    size_bytes=89276,
+    unpacked_bytes=369610,
+    license_id=_NVIDIA_LICENSE,
+)
+
+_TRITON = Wheel(
+    name="triton",
+    version="3.8.0",
+    url=_pypi(
+        "93/d9/08c75f3459f19ad00425b564058e40efa4bcd79b816064cf27499303ea42/triton-3.8.0-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl"
+    ),
+    sha256="387dae4cb0089a7b6ba1a428ae0782b65c4c58f57d94617cb22ca8593d8ccbca",
+    size_bytes=247972313,
+    unpacked_bytes=936110323,
+    license_id="MIT",
+)
+
+_CUDA_LINUX_SET: tuple[Wheel, ...] = (
+    _CUDA_BINDINGS,
+    _CUDA_PATHFINDER,
+    _CUDA_TOOLKIT,
+    _NVIDIA_CUBLAS_CU12,
+    _NVIDIA_CUDA_CUPTI_CU12,
+    _NVIDIA_CUDA_NVRTC_CU12,
+    _NVIDIA_CUDA_RUNTIME_CU12,
+    _NVIDIA_CUDNN_CU12,
+    _NVIDIA_CUFFT_CU12,
+    _NVIDIA_CUFILE_CU12,
+    _NVIDIA_CURAND_CU12,
+    _NVIDIA_CUSOLVER_CU12,
+    _NVIDIA_CUSPARSE_CU12,
+    _NVIDIA_CUSPARSELT_CU12,
+    _NVIDIA_NCCL_CU12,
+    _NVIDIA_NVJITLINK_CU12,
+    _NVIDIA_NVSHMEM_CU12,
+    _NVIDIA_NVTX_CU12,
+    _TRITON,
+)
+"""The CUDA libraries and the compiler that torch needs on Linux.
+
+Pinned to the versions the ``+cu126`` build declares, rather than to the newest
+release of each, so that the set matches the torch above it.
+"""
 
 
 MANIFEST: dict[str, tuple[Variant, ...]] = {
@@ -877,7 +1476,7 @@ MANIFEST: dict[str, tuple[Variant, ...]] = {
                     unpacked_bytes=4191940016,
                     license_id=_TORCH_LICENSE,
                 ),
-                *_common(_MARKUPSAFE_WIN, _NUMPY_WINDOWS),
+                *_WINDOWS_DEPENDENCIES,
             ),
         ),
         Variant(
@@ -898,7 +1497,7 @@ MANIFEST: dict[str, tuple[Variant, ...]] = {
                     unpacked_bytes=475950288,
                     license_id=_TORCH_LICENSE,
                 ),
-                *_common(_MARKUPSAFE_WIN, _NUMPY_WINDOWS),
+                *_WINDOWS_DEPENDENCIES,
             ),
         ),
     ),
@@ -921,7 +1520,54 @@ MANIFEST: dict[str, tuple[Variant, ...]] = {
                     unpacked_bytes=524099129,
                     license_id=_TORCH_LICENSE,
                 ),
-                *_common(_MARKUPSAFE_MACOS_ARM64, _NUMPY_MACOS),
+                *_MACOS_ARM64_DEPENDENCIES,
+            ),
+        ),
+    ),
+    "linux_x86_64-cp314": (
+        Variant(
+            accelerator="cuda",
+            torch_version="2.14.0",
+            cuda_version="12.6",
+            # The libraries are NVIDIA's either way. Linux simply takes delivery
+            # of them as their own wheels rather than inside torch's.
+            bundles_nvidia=True,
+            wheels=(
+                Wheel(
+                    name="torch",
+                    version="2.14.0+cu126",
+                    url=(
+                        "https://download.pytorch.org/whl/cu126/"
+                        "torch-2.14.0%2Bcu126-cp314-cp314-manylinux_2_28_x86_64.whl"
+                    ),
+                    sha256="b15e1e62ab842d099ae9b19312374f62579668171efed8b676108b60fa75e5b0",
+                    size_bytes=869180118,
+                    unpacked_bytes=1719333573,
+                    license_id=_TORCH_LICENSE,
+                ),
+                *_CUDA_LINUX_SET,
+                *_LINUX_X86_64_DEPENDENCIES,
+            ),
+        ),
+        Variant(
+            accelerator="cpu",
+            torch_version="2.14.0",
+            cuda_version="",
+            bundles_nvidia=False,
+            wheels=(
+                Wheel(
+                    name="torch",
+                    version="2.14.0+cpu",
+                    url=(
+                        "https://download.pytorch.org/whl/cpu/"
+                        "torch-2.14.0%2Bcpu-cp314-cp314-manylinux_2_28_x86_64.whl"
+                    ),
+                    sha256="f152f41dc5dc462afe0de780e451ebb47ea8b4451f8f919f9537aa8e2cbe1d7e",
+                    size_bytes=196260719,
+                    unpacked_bytes=715547861,
+                    license_id=_TORCH_LICENSE,
+                ),
+                *_LINUX_X86_64_DEPENDENCIES,
             ),
         ),
     ),

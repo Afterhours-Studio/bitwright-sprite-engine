@@ -35,6 +35,16 @@ dependencies = [
     "httpx>=0.27",
     "pillow>=11.0",
     "psutil>=6.1",
+    # Conform measures a grid with a DFT bin and reduces a palette with a
+    # weighted k-means, both over every pixel of a 512 by 512 render. Pillow
+    # has no cross-channel arithmetic above eight bits, so doing either on it
+    # alone would mean a pure Python inner loop and an Oklab conversion that
+    # rounds twice. A base dependency rather than an extra, because conform has
+    # to work on a machine that generates through a remote provider and has
+    # therefore installed no GPU runtime at all. BSD-3-Clause. Like pillow and
+    # psutil it is also a wheel in runtime/manifest.py; activation appends, so
+    # the copy shipped here is the one that stays in force.
+    "numpy>=2.0",
     # API keys belong in the operating system credential store, not in a JSON
     # file beside the preferences. keyring is the portable way to reach
     # Windows Credential Manager, the macOS Keychain, and a Linux Secret
@@ -127,12 +137,21 @@ files = ["bitwright_engine", "tests"]
 module = ["torch.*", "diffusers.*", "transformers.*"]
 ignore_missing_imports = true
 
-# Pillow references numpy in type positions. Nothing here imports it, and it
-# arrives only with the cuda and mps extras, so it is treated as optional.
+# numpy is checked against, not checked. Its own stubs are written in the 3.12
+# `type` statement, which mypy cannot parse while it is targeting 3.11, and a
+# parse error in a followed file stops the whole run rather than being reported
+# against numpy. `follow_imports_for_stubs` is what makes the skip above apply
+# to a .pyi as well as to a .py, which is the documented switch for exactly
+# this. Raising `python_version` would make the error go away and would stop
+# verifying that this engine still runs on the 3.11 `requires-python` promises.
+#
+# The cost is that array types here are names rather than checks; see the
+# aliases in `utils/color.py`, which say so.
 [[tool.mypy.overrides]]
-module = ["numpy.*"]
+module = ["numpy", "numpy.*"]
 ignore_missing_imports = true
 follow_imports = "skip"
+follow_imports_for_stubs = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

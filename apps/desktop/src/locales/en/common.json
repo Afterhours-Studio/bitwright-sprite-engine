@@ -84,7 +84,9 @@
     "reportIssue": "Report an Issue",
     "licence": "Licence",
     "about": "About",
-    "aboutBody": "Version {{version}}. Free software under the GNU AGPL v3."
+    "aboutBody": "Version {{version}}. Free software under the GNU AGPL v3.",
+    "undo": "Undo",
+    "redo": "Redo"
   },
   "palette": {
     "label": "Command palette",

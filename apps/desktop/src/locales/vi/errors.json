@@ -120,7 +120,11 @@
     "unsupported_platform": "Hệ thống này không hỗ trợ làm mờ nền."
   },
   "conform": {
-    "bad_image": "Không đọc được ảnh đó."
+    "bad_image": "Không đọc được ảnh đó.",
+    "already_at_size": "Sprite đã ở đúng cỡ hoặc nhỏ hơn cỡ yêu cầu, nên các ô được giữ nguyên và chỉ màu sắc cùng đường viền được chỉnh.",
+    "background_uncertain": "Bước xoá nền hoặc gần như không tìm thấy gì, hoặc xoá gần hết ảnh, đó là dấu hiệu của một nền ảnh chụp. Hãy kiểm tra lại rìa sprite.",
+    "grid_anisotropic": "Các ô thu được cao hơn chiều rộng, thường là do ảnh từng bị thay đổi kích thước lệch một chiều.",
+    "grid_not_found": "Không tìm thấy lưới pixel nào trong ảnh này, nên các ô được đặt theo cỡ đã yêu cầu chứ không phải theo đo đạc. Kết quả là một lần đổi cỡ chứ không phải một lần chỉnh."
   },
   "shell": {
     "not_a_directory": "Thư mục đó chưa tồn tại. Nó được tạo khi có thứ đầu tiên được ghi vào.",

@@ -15,6 +15,26 @@ Versions are `major.minor.develop`:
 The leading zero is accurate today: nothing has been released, and the
 backends still return placeholder images rather than generating anything.
 
+## [Unreleased]
+
+### Added
+
+- The drawing tools draw. Pencil, eraser, fill, selection and the four shapes
+  all act on the sprite's own pixel grid, with the brush size and shape the
+  dock already offered; a stroke lands on whole sprite pixels at any zoom, and
+  the eraser writes transparency rather than a colour.
+- Undo and redo, with the stroke as the unit and a history bounded by both
+  steps and bytes. The Edit menu items that had been present and disabled since
+  the shell was built now work, and so do Ctrl+Z and Ctrl+Y.
+- A painted sprite is written back to the sprites directory as an edit beside
+  the sprite it came from, so the gallery lists it and closing the window does
+  not lose it. The generated sprite is never written over: it is the only
+  record of what the model produced.
+- `POST /v1/sprites/{name}/edit` in the engine, which writes that edit. The
+  name is resolved against the sprites directory and refused if it lands
+  anywhere else, and the file that is written is derived from the resolved
+  path rather than taken from the caller.
+
 ## [0.1.1] - 2026-09-06
 
 ### Added

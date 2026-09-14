@@ -46,7 +46,14 @@ from bitwright_engine.api.security import generate_token, reject_browser_origin,
 from bitwright_engine.api.state import EngineState
 from bitwright_engine.backends import BackendError
 from bitwright_engine.config import Settings, get_settings
-from bitwright_engine.runtime import activate
+from bitwright_engine.runtime import (
+    RuntimeInstaller,
+    activate,
+    compute_check,
+    probe,
+    target_key,
+    variants_for,
+)
 from bitwright_engine.utils.logging import configure_logging, get_logger
 from bitwright_engine.utils.watchdog import exit_now, install_parent_death_signal, watch_parent
 from bitwright_engine.version import __version__
@@ -246,11 +253,66 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "this process exits too, so that no orphan keeps holding GPU memory."
         ),
     )
+    parser.add_argument(
+        "--report-runtime",
+        action="store_true",
+        help=(
+            "Activate the installed GPU runtime, report as JSON whether torch "
+            "loads from it and computes, and exit without serving. Used by the "
+            "build to check the frozen bundle against a real install."
+        ),
+    )
     return parser.parse_args(argv)
+
+
+def report_runtime(settings: Settings) -> None:
+    """Print what this process can make of the installed runtime, as JSON.
+
+    This takes the same path the server takes at startup: activate, then import.
+    That is the point of it. A frozen bundle's import path holds only its own
+    archive, so the only torch it can reach is one that activation put there,
+    and ``torchLocation`` in the output says where the module actually came
+    from rather than asking anyone to assume.
+
+    Args:
+        settings: Configuration to read the data root from.
+    """
+    installer = RuntimeInstaller(settings)
+    record = installer.record()
+    site = activate(settings)
+    found = probe()
+    compute = compute_check()
+
+    report = {
+        "target": target_key(),
+        "supported": bool(variants_for()),
+        "frozen": bool(getattr(sys, "frozen", False)),
+        "installDir": str(installer.root),
+        "installed": record is not None,
+        "installedAccelerator": "" if record is None else record.accelerator,
+        "installedTarget": "" if record is None else record.target,
+        "activatedPath": "" if site is None else str(site),
+        "torchImportable": found.importable,
+        "torchVersion": found.version,
+        "torchLocation": found.location,
+        "probeDetail": found.detail,
+        "cudaAvailable": found.cuda_available,
+        "mpsAvailable": found.mps_available,
+        "device": found.device,
+        "computeOk": compute.ok,
+        "computeDevice": compute.device,
+        "computeDetail": compute.detail,
+        "computeMessage": compute.message,
+    }
+    sys.stdout.write(json.dumps(report) + "\n")
+    sys.stdout.flush()
 
 
 def main(argv: list[str] | None = None) -> None:
     """Run the sidecar until it is asked to stop.
+
+    With ``--report-runtime`` it prints one JSON line about the installed GPU
+    runtime and returns instead, binding no socket.
 
     Args:
         argv: Command line arguments. Defaults to the process arguments.
@@ -258,6 +320,10 @@ def main(argv: list[str] | None = None) -> None:
     arguments = parse_args(argv)
     settings = get_settings()
     configure_logging(settings.log_level)
+
+    if arguments.report_runtime:
+        report_runtime(settings)
+        return
 
     # Before anything selects a backend, and therefore before anything tries to
     # import torch. A frozen bundle's import path holds only its own archive, so

@@ -69,6 +69,21 @@ Element.prototype.scrollIntoView = function scrollIntoView(): void {
   return;
 };
 
+/**
+ * jsdom ships no 2D context, and says so by logging a not-implemented error
+ * through the virtual console on every call rather than by answering. The
+ * application already treats a null context as "there is no canvas here" -
+ * the grid overlay, the editing surface and the PNG codec all check for it -
+ * so the stub gives them that answer directly, and a test run that exercises
+ * a few hundred strokes does not bury its own output in stack traces.
+ *
+ * Anything that needs a real context needs a real browser, and belongs in an
+ * end-to-end test rather than here.
+ */
+HTMLCanvasElement.prototype.getContext = function getContext(): null {
+  return null;
+};
+
 afterEach(() => {
   cleanup();
 });

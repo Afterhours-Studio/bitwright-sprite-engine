@@ -214,6 +214,7 @@ export function GenerateScreen(): ReactElement {
         <div className="flex min-h-0 flex-1 gap-3 rounded-lg border border-line-subtle bg-surface-content p-1 shadow-sm lg:pe-3">
           <SpriteCanvas
             image={images[selected]}
+            index={selected}
             showPixelGrid={showPixelGrid}
             showCheckerboard={showCheckerboard}
             requested={{ width: request.width, height: request.height }}
@@ -361,10 +362,9 @@ export function GenerateScreen(): ReactElement {
             purpose panel: a size control is meaningless without knowing which
             tool it sizes.
 
-            Nothing consumes these yet, because there is no painting surface.
-            That is the standing the tool selector beside it has had since it
-            was built, and it is honest for the same reason - choosing says
-            what a stroke would do, and no stroke is being claimed. */}
+            Both are read the moment a stroke begins and held for its whole
+            length, so changing either mid-drag cannot alter a stroke that is
+            already being made. */}
         <DockEntry label={t('dock.brush')} icon={<BrushIcon />}>
           {() => (
             <div className="flex flex-col gap-3">

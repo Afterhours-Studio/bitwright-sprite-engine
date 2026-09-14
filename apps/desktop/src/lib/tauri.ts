@@ -38,6 +38,7 @@ import type {
   ProviderSaveRequest,
   RuntimeInfo,
   RuntimeRequest,
+  SavedSprite,
   SpriteListResponse,
   StorageChange,
   StorageInfo,
@@ -216,6 +217,20 @@ export function engineSprites(): Promise<ShellResult<SpriteListResponse>> {
 /** Deletes one sprite from disk. */
 export function engineRemoveSprite(name: string): Promise<ShellResult<null>> {
   return invoke<null>('engine_remove_sprite', { name });
+}
+
+/**
+ * Writes a painted sprite beside the one it was painted from.
+ *
+ * `name` identifies the sprite that was painted on, not the file to write:
+ * the engine derives the edited copy's name from a file it already owns, so
+ * nothing the webview sends decides where the bytes land.
+ */
+export function engineSaveSpriteEdit(
+  name: string,
+  image: string,
+): Promise<ShellResult<SavedSprite>> {
+  return invoke<SavedSprite>('engine_save_sprite_edit', { name, image });
 }
 
 /** Corrects one sprite that already exists. */

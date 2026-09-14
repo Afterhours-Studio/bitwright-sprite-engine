@@ -120,7 +120,11 @@
     "unsupported_platform": "Window blur is not available on this system."
   },
   "conform": {
-    "bad_image": "That image could not be read."
+    "bad_image": "That image could not be read.",
+    "already_at_size": "The sprite was already at or below the size asked for, so its cells were left where they were and only the colours and the edge were corrected.",
+    "background_uncertain": "The background fill either found almost nothing or cleared almost everything, which is what a photographic background looks like to it. Check the edge of the sprite.",
+    "grid_anisotropic": "The cells came out taller than they are wide, which usually means the image was resized on one axis at some point.",
+    "grid_not_found": "No pixel grid was found in this image, so the cells were placed from the requested size rather than measured. The result is a resize rather than a correction."
   },
   "shell": {
     "not_a_directory": "That folder does not exist yet. It is created the first time something is written there.",

@@ -13,21 +13,30 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-import { useCallback, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { MIN_GRID_CELL, PixelGridOverlay } from '@/features/generation/PixelGridOverlay';
+import { SpriteSurface } from '@/features/generation/SpriteSurface';
 
 /** The gap between the well's edge and the sprite, in pixels. */
 const WELL_INSET = 12;
 import { useElementSize } from '@/hooks/useElementSize';
-import { toDataUrl } from '@/lib/api';
 import { cn } from '@/lib/cn';
+import { useCanvasStore } from '@/stores/useCanvasStore';
 import type { SpriteImage } from '@/types/engine';
 
 export interface SpriteCanvasProps {
   /** The sprite being looked at, or `undefined` before the first run. */
   image: SpriteImage | undefined;
+  /**
+   * Which sprite of the batch it is.
+   *
+   * Passed through to the editing surface, which identifies the buffer it is
+   * drawing on by it: a stroke has to be able to tell that the sprite under it
+   * was replaced from that the sprite beside it was chosen.
+   */
+  index: number;
   /** Whether a line is drawn at every sprite pixel boundary. */
   showPixelGrid: boolean;
   /** Whether transparent pixels read as a checker pattern. */
@@ -64,6 +73,7 @@ export interface SpriteCanvasProps {
  */
 export function SpriteCanvas({
   image,
+  index,
   showPixelGrid,
   showCheckerboard,
   requested,
@@ -71,6 +81,17 @@ export function SpriteCanvas({
   const { t } = useTranslation('generation');
   const { ref, width, height } = useElementSize();
   const [available, setAvailable] = useState(0);
+  const release = useCanvasStore((state) => state.release);
+
+  // Reset clears the run, and a buffer nobody can see is one undo would act
+  // on invisibly. Dropped here rather than when the surface unmounts, because
+  // that also happens on a trip to another screen, and coming back to find the
+  // history gone would be the application forgetting work that is still there.
+  useEffect(() => {
+    if (image === undefined) {
+      release();
+    }
+  }, [image, release]);
 
   // The room the column sits in, read from the node as it is attached. The
   // column is about to become the answer, so measuring the column itself
@@ -176,14 +197,7 @@ export function SpriteCanvas({
                   An absolutely positioned sibling paints after in-flow content
                   regardless of source order, so a static image here was drawn
                   underneath the pattern and the sprite simply never appeared. */}
-              <img
-                src={toDataUrl(image.data)}
-                width={image.width}
-                height={image.height}
-                alt={t('title')}
-                className="relative block h-full w-full"
-                style={{ imageRendering: 'pixelated' }}
-              />
+              <SpriteSurface image={image} index={index} width={drawnWidth} height={drawnHeight} />
               {gridVisible && (
                 <PixelGridOverlay
                   columns={cells.width}

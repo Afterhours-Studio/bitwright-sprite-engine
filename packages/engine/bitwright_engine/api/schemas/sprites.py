@@ -18,6 +18,8 @@
 
 from __future__ import annotations
 
+from pydantic import Field
+
 from bitwright_engine.api.schemas.common import CamelModel
 
 
@@ -49,3 +51,18 @@ class SpriteListResponse(CamelModel):
     """
 
     sprites: list[SavedSprite]
+
+
+class SpriteEditBody(CamelModel):
+    """A painted sprite, to be written beside the one it was painted from.
+
+    The file to write is not named here. It is derived from the sprite in the
+    path, which the route has already resolved against the sprites directory,
+    so a caller cannot choose where the bytes land.
+
+    Attributes:
+        image: The painted sprite, base64 encoded PNG, without a data URL
+            prefix.
+    """
+
+    image: str = Field(min_length=1)

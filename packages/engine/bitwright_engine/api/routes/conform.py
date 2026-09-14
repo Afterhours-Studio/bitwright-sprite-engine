@@ -22,36 +22,32 @@ are far more colours than a palette. This route applies the corrections to a
 sprite that has already been generated, so the same image can be adjusted
 repeatedly without paying for generation again.
 
-Every step is one the engine already performs during generation. What is new
-is being able to ask for them afterwards, one at a time, and see the result.
+It is a route of its own rather than an option on generation, because coupling
+it to ``POST /v1/generate`` would mean re-running the model to change a
+palette.
 """
 
 from __future__ import annotations
 
 import base64
 import io
-from typing import cast
+import time
 
 from fastapi import APIRouter, HTTPException, status
 from PIL import Image
 
-from bitwright_engine.api.schemas.conform import ConformBody, ConformResponse
-from bitwright_engine.pipeline.postprocess.background import remove_background
-from bitwright_engine.pipeline.postprocess.quantize import quantize, snap_to_grid
+from bitwright_engine.api.schemas.conform import (
+    ConformBody,
+    ConformResponse,
+    DetectedGrid,
+)
+from bitwright_engine.pipeline.conform import conform as run_conform
 from bitwright_engine.utils.images import to_png_bytes
 
 router = APIRouter(prefix="/v1/conform", tags=["conform"])
 
 BAD_IMAGE = "conform.bad_image"
 """Reason code for a payload that is not a readable image."""
-
-PALETTE_LIMIT = 256
-"""Most colours a palette is reported for.
-
-Above this the image has not been reduced to a palette, so listing its
-colours would be listing a gradient rather than a palette a person could
-paint with.
-"""
 
 
 @router.post("", response_model=ConformResponse)
@@ -62,7 +58,8 @@ def conform(body: ConformBody) -> ConformResponse:
         body: The image and which corrections to apply.
 
     Returns:
-        The corrected sprite, and the palette it ended up with.
+        The corrected sprite, the palette it ended up with, and the grid the
+        render turned out to be drawn on.
 
     Raises:
         HTTPException: The payload could not be read as an image.
@@ -76,37 +73,16 @@ def conform(body: ConformBody) -> ConformResponse:
             detail=BAD_IMAGE,
         ) from error
 
-    if body.remove_background:
-        image = remove_background(image, body.background_tolerance)
-
-    # Snapping before quantising, because snapping averages within a cell and
-    # would otherwise reintroduce colours the palette had just removed.
-    if body.snap_to > 1:
-        image = snap_to_grid(image, body.snap_to)
-
-    if body.palette_size is not None:
-        image = quantize(image, body.palette_size, dither=body.dither)
-
-    # The palette is reported so the interface can offer it for painting, which
-    # is the point of correcting the colours in the first place.
-    # `getcolors` rather than walking the pixels: it is implemented in C and
-    # answers None above its limit, which is the signal that this image has
-    # more colours than a palette rather than a fact worth reporting.
-    counted = cast(
-        "list[tuple[int, tuple[int, int, int, int]]] | None",
-        image.getcolors(maxcolors=PALETTE_LIMIT),
-    )
-    # Most used first, so the interface can offer the colours that carry the
-    # sprite before the ones that appear a handful of times.
-    palette = [
-        f"#{pixel[0]:02x}{pixel[1]:02x}{pixel[2]:02x}"
-        for _, pixel in sorted(counted or [], key=lambda entry: entry[0], reverse=True)
-        if pixel[3] > 0
-    ]
+    started = time.monotonic()
+    result = run_conform(image, body.to_options())
+    elapsed = time.monotonic() - started
 
     return ConformResponse(
-        image=base64.b64encode(to_png_bytes(image)).decode("ascii"),
-        width=image.width,
-        height=image.height,
-        palette=palette[:256],
+        image=base64.b64encode(to_png_bytes(result.image)).decode("ascii"),
+        width=result.image.width,
+        height=result.image.height,
+        palette=result.palette,
+        detected=DetectedGrid.of(result.grid),
+        duration_ms=int(elapsed * 1000),
+        warnings=result.warnings,
     )

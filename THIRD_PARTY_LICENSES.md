@@ -115,3 +115,33 @@ The CUDA build additionally carries NVIDIA's redistributable CUDA runtime, which
 is covered by the NVIDIA CUDA EULA (https://docs.nvidia.com/cuda/eula/index.html)
 and not by an open source licence. Those terms are shown to the user before any
 download begins. Nothing under them is redistributed by this project.
+
+On Windows those libraries sit inside the torch wheel. On Linux they arrive as
+wheels of their own, which changes where they come from and not what they are:
+
+| Package                  | License                       | Project                                        |
+| ------------------------ | ----------------------------- | ---------------------------------------------- |
+| cuda-bindings            | LicenseRef-NVIDIA-Proprietary | https://github.com/NVIDIA/cuda-python          |
+| cuda-pathfinder          | Apache-2.0                    | https://github.com/NVIDIA/cuda-python          |
+| cuda-toolkit             | LicenseRef-NVIDIA-Proprietary | https://developer.nvidia.com/cuda-toolkit      |
+| nvidia-cublas-cu12       | LicenseRef-NVIDIA-Proprietary | https://developer.nvidia.com/cublas            |
+| nvidia-cuda-cupti-cu12   | LicenseRef-NVIDIA-Proprietary | https://developer.nvidia.com/cuda-toolkit      |
+| nvidia-cuda-nvrtc-cu12   | LicenseRef-NVIDIA-Proprietary | https://developer.nvidia.com/cuda-toolkit      |
+| nvidia-cuda-runtime-cu12 | LicenseRef-NVIDIA-Proprietary | https://developer.nvidia.com/cuda-toolkit      |
+| nvidia-cudnn-cu12        | LicenseRef-NVIDIA-Proprietary | https://developer.nvidia.com/cudnn             |
+| nvidia-cufft-cu12        | LicenseRef-NVIDIA-Proprietary | https://developer.nvidia.com/cufft             |
+| nvidia-cufile-cu12       | LicenseRef-NVIDIA-Proprietary | https://developer.nvidia.com/gpudirect-storage |
+| nvidia-curand-cu12       | LicenseRef-NVIDIA-Proprietary | https://developer.nvidia.com/curand            |
+| nvidia-cusolver-cu12     | LicenseRef-NVIDIA-Proprietary | https://developer.nvidia.com/cusolver          |
+| nvidia-cusparse-cu12     | LicenseRef-NVIDIA-Proprietary | https://developer.nvidia.com/cusparse          |
+| nvidia-cusparselt-cu12   | LicenseRef-NVIDIA-Proprietary | https://docs.nvidia.com/cuda/cusparselt/       |
+| nvidia-nccl-cu12         | LicenseRef-NVIDIA-Proprietary | https://github.com/NVIDIA/nccl                 |
+| nvidia-nvjitlink-cu12    | LicenseRef-NVIDIA-Proprietary | https://developer.nvidia.com/cuda-toolkit      |
+| nvidia-nvshmem-cu12      | LicenseRef-NVIDIA-Proprietary | https://developer.nvidia.com/nvshmem           |
+| nvidia-nvtx-cu12         | LicenseRef-NVIDIA-Proprietary | https://developer.nvidia.com/cuda-toolkit      |
+| triton                   | MIT                           | https://github.com/triton-lang/triton          |
+
+These wheels spell that licence several different ways and two of them declare
+nothing at all, so the table records the one `LicenseRef` they are all governed
+by rather than reproducing the variations. None of it is redistributed by this
+project.

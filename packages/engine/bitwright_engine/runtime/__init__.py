@@ -16,7 +16,14 @@
 
 """The GPU runtime: PyTorch, installed into the user's own data folder."""
 
-from bitwright_engine.runtime.activation import TorchProbe, activate, activated_path, probe
+from bitwright_engine.runtime.activation import (
+    ComputeCheck,
+    TorchProbe,
+    activate,
+    activated_path,
+    compute_check,
+    probe,
+)
 from bitwright_engine.runtime.installer import (
     RUNTIME_DIRNAME,
     InstalledRecord,
@@ -41,6 +48,7 @@ __all__ = [
     "MANIFEST",
     "RUNTIME_DIRNAME",
     "TORCH_LICENSE_URL",
+    "ComputeCheck",
     "InstallState",
     "InstalledRecord",
     "RuntimeInstallError",
@@ -50,6 +58,7 @@ __all__ = [
     "Wheel",
     "activate",
     "activated_path",
+    "compute_check",
     "find_variant",
     "probe",
     "recommended",

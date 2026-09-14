@@ -34,6 +34,12 @@ the next launch**. Doing it live would mean importing torch into a process that
 has already answered requests without it, and Python has no way to unimport the
 partly initialised module left behind if that fails. The interface says a
 restart is needed rather than pretending otherwise.
+
+:func:`probe` reports what torch says about itself, which is what the settings
+screen shows. :func:`compute_check` goes one step further and runs an operation
+on a device. It is not part of startup; it is there so that the shipped binary
+can be asked, from outside, whether the runtime it found actually works - see
+``scripts/build-sidecar.py``.
 """
 
 from __future__ import annotations
@@ -67,6 +73,11 @@ class TorchProbe:
         device: Name of the first device, or an empty string.
         detail: Stable reason code when torch is present but unusable, or an
             empty string.
+        location: Directory the imported ``torch`` package was loaded from, or
+            an empty string. This is what tells an installed runtime apart from
+            a torch that happened to be importable for some other reason, which
+            matters when the question being asked is whether the shipped bundle
+            can reach the runtime the user installed.
     """
 
     importable: bool = False
@@ -75,6 +86,27 @@ class TorchProbe:
     mps_available: bool = False
     device: str = ""
     detail: str = ""
+    location: str = ""
+
+
+def _torch_is_absent(error: ImportError) -> bool:
+    """Tell "there is no torch here" apart from "torch would not load".
+
+    Both arrive as :class:`ImportError`, and the difference is the whole
+    difference between a user who has not installed the runtime and a user whose
+    runtime is broken. On Windows a failed DLL load is an ``ImportError`` too,
+    and a module torch needs that the frozen bundle lacks is a
+    ``ModuleNotFoundError`` naming *that* module rather than torch. Reporting
+    either of those as "not installed" sends the user to install what they
+    already have.
+
+    Args:
+        error: The exception raised by ``import torch``.
+
+    Returns:
+        True only when torch itself is the module that could not be found.
+    """
+    return isinstance(error, ModuleNotFoundError) and error.name == "torch"
 
 
 def activated_path() -> Path | None:
@@ -146,11 +178,13 @@ def probe() -> TorchProbe:
     """
     try:
         import torch
-    except ImportError:
-        return TorchProbe(detail="backend.cuda.torch_missing")
-    # A torch that is present but unloadable, such as one built for another ABI
-    # or missing a native library, raises something other than ImportError. The
-    # settings screen has to say so rather than claim torch is absent.
+    except ImportError as error:
+        if _torch_is_absent(error):
+            return TorchProbe(detail="backend.cuda.torch_missing")
+        logger.exception("the installed runtime could not be imported")
+        return TorchProbe(detail="runtime.import_failed")
+    # A torch that is present but unloadable in some other way, such as one
+    # built for another ABI, raises something that is not an ImportError at all.
     except Exception:
         logger.exception("the installed runtime could not be imported")
         return TorchProbe(detail="runtime.import_failed")
@@ -174,4 +208,87 @@ def probe() -> TorchProbe:
         cuda_available=cuda,
         mps_available=mps,
         device=device,
+        location=_package_dir(torch),
     )
+
+
+def _package_dir(module: object) -> str:
+    """Return the directory a module was imported from.
+
+    Args:
+        module: The imported module.
+
+    Returns:
+        The absolute directory, or an empty string when the module has no file,
+        which is what a namespace package or a stubbed test double looks like.
+    """
+    path = getattr(module, "__file__", None)
+    if not isinstance(path, str) or not path:
+        return ""
+    return str(Path(path).resolve().parent)
+
+
+@dataclass(frozen=True, slots=True)
+class ComputeCheck:
+    """Whether torch can actually compute on a device, not merely describe one.
+
+    :func:`probe` answers what torch *reports*. That is the right answer for the
+    settings screen and it is not proof: a CUDA build with a mismatched driver
+    reports a device and then fails on the first allocation. This runs the
+    smallest operation that touches the device.
+
+    Attributes:
+        ok: True when the operation ran and gave the expected answer.
+        device: Device the operation ran on, such as ``cuda`` or ``cpu``.
+        detail: Stable reason code when it did not run, or an empty string.
+        message: What the underlying failure said, or an empty string. Kept
+            apart from ``detail`` so that the code stays something callers can
+            branch on while the text stays something a person can read.
+    """
+
+    ok: bool = False
+    device: str = ""
+    detail: str = ""
+    message: str = ""
+
+
+def compute_check() -> ComputeCheck:
+    """Run one tensor operation on the best device torch offers.
+
+    Not called during normal startup. It exists so that a build, or a developer
+    holding a machine the test suite cannot reach, can ask the shipped binary
+    the only question that matters about an installed runtime: does it compute.
+
+    Returns:
+        What happened, including which device was used.
+    """
+    try:
+        import torch
+    except ImportError as error:
+        if _torch_is_absent(error):
+            return ComputeCheck(detail="backend.cuda.torch_missing")
+        logger.exception("the installed runtime could not be imported")
+        return ComputeCheck(detail="runtime.import_failed")
+    except Exception:
+        logger.exception("the installed runtime could not be imported")
+        return ComputeCheck(detail="runtime.import_failed")
+
+    device = "cpu"
+    try:
+        if torch.cuda.is_available():
+            device = "cuda"
+        elif bool(getattr(torch.backends, "mps", None)) and torch.backends.mps.is_available():
+            device = "mps"
+
+        # Small enough to be free on any device, and checked rather than merely
+        # executed: a runtime that allocates and returns nonsense is worse than
+        # one that refuses.
+        values = torch.ones(8, device=device) + torch.ones(8, device=device)
+        ok = bool(float(values.sum().item()) == 16.0)
+    # Every interesting failure here is a native one - a driver that will not
+    # load, a kernel that will not launch - and none of them is an ImportError.
+    except Exception as error:
+        logger.exception("torch imported but could not compute on %s", device)
+        return ComputeCheck(device=device, detail="runtime.compute_failed", message=str(error))
+
+    return ComputeCheck(ok=ok, device=device, detail="" if ok else "runtime.compute_wrong_answer")

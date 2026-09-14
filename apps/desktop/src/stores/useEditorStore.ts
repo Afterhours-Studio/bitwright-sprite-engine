@@ -18,21 +18,24 @@
  * What the pixel editor is set to draw with.
  *
  * This is the editor's state, not the dock's. The dock happens to be where the
- * tool is chosen today, and the editing surface that will consume it is a
- * separate piece of work, which is why the store is named for the editor and
- * carries no knowledge of the bar that sets it.
+ * tool is chosen today, and the surface that consumes it is `useCanvasStore`,
+ * which is why this store is named for the editor and knows nothing about
+ * either the bar that sets it or the sprite it will be used on.
  *
  * Nothing here modifies an image. Choosing a tool says what the next stroke
  * would do; it does not make one. That is what allows the picker to sit in an
  * always-visible bar at all, where a control that acted on press would be the
- * easiest thing on screen to hit by accident.
+ * easiest thing on screen to hit by accident. The stroke itself is made in
+ * `useCanvasStore`, which reads these settings when a drag begins and holds
+ * them for its whole length, so changing one mid-drag cannot alter a stroke
+ * that is already under way.
  *
  * The tool set is the one every pixel editor agrees on. Aseprite, Libresprite,
  * Piskel and Pixelorama all put a pencil, an eraser, a bucket fill, a
  * rectangular selection and the shape tools on their primary bar, so those are
  * the tools here.
  *
- * There is no colour picker. The main canvas area is being split into two
+ * There is no colour picker. The main canvas area is split into two
  * containers, and picking a colour belongs there, beside the colour it picks.
  * A second way to reach it from the dock would be a second control for one
  * job, which is what the shape chip and the shape flyout used to be.
@@ -50,7 +53,7 @@
  * The brush settings sit here for the same reason the tool does: they are a
  * property of the tool, not of the generation request, and Aseprite,
  * Libresprite, Piskel and Pixelorama all put them beside the tool selector
- * rather than in a general purpose panel. Nothing consumes them yet either.
+ * rather than in a general purpose panel.
  *
  * The view settings are a different kind of thing again, and they are here
  * rather than in the generation store on purpose. They change what the canvas
@@ -122,15 +125,16 @@ interface EditorState {
   brushSize: number;
   /** The brush's footprint at sizes above one pixel. */
   brushShape: BrushShape;
-  /** Whether the canvas draws a line at every sprite pixel boundary. */
   /**
    * The colour painting uses, as hex, or null when none is chosen.
    *
    * Null rather than a default: a sprite's palette is not known until it has
    * one, and picking white in advance would be the interface inventing a
-   * colour the sprite may not contain.
+   * colour the sprite may not contain. What painting falls back to while it is
+   * null is `useCanvasStore`'s decision, which is where painting happens.
    */
   colour: string | null;
+  /** Whether the canvas draws a line at every sprite pixel boundary. */
   showPixelGrid: boolean;
   /** Whether the canvas shows transparent pixels as a checker pattern. */
   showCheckerboard: boolean;
@@ -143,9 +147,9 @@ interface EditorState {
   setBrushSize: (size: number) => void;
   /** Chooses the brush footprint. */
   setBrushShape: (shape: BrushShape) => void;
-  /** Shows or hides the pixel grid overlay. */
   /** Chooses the colour painting uses. */
   setColour: (colour: string) => void;
+  /** Shows or hides the pixel grid overlay. */
   setShowPixelGrid: (show: boolean) => void;
   /** Shows or hides the transparency checkerboard. */
   setShowCheckerboard: (show: boolean) => void;
@@ -191,11 +195,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   shape: DEFAULT_SHAPE,
   brushSize: DEFAULT_BRUSH_SIZE,
   brushShape: DEFAULT_BRUSH_SHAPE,
-  // On by default. The grid is the thing that tells a viewer where one sprite
-  // pixel ends and the next begins, and it suppresses itself whenever it would
-  // be a grey wash instead, so leaving it on costs nothing when it is not
-  // wanted.
   colour: null,
+  // The overlays are on by default. The grid is the thing that tells a viewer
+  // where one sprite pixel ends and the next begins, and it suppresses itself
+  // whenever it would be a grey wash instead, so leaving it on costs nothing
+  // when it is not wanted.
   ...storedView(),
 
   setTool: (tool) => {

@@ -45,9 +45,10 @@ already in the repository. It is worth being precise about which part.
 | Sheet packing                | `pipeline/postprocess/grid.py`                          | Uniform grid, frame rectangles reported            |
 | The options on the wire      | `api/schemas/generation.py`, `PostProcessBody`          | Four fields, sent with every generate call         |
 | The options in the interface | `ParameterPanel.tsx` and the post-processing dock entry | Both places expose the same four                   |
-| Tool and shape selection     | `stores/useEditorStore.ts`, the dock's lead cluster     | Selection only; nothing consumes it yet            |
+| Tool and shape selection     | `stores/useEditorStore.ts`, the dock's lead cluster     | Read by the canvas store when a stroke begins      |
 | Canvas                       | `features/generation/SpriteCanvas.tsx`                  | Checkerboard well, nearest-neighbour scaling       |
-| Undo and redo menu items     | `TitleBar.tsx`, the Edit group                          | Present and disabled                               |
+| The editable buffer          | `stores/useCanvasStore.ts`, `lib/pixels.ts`             | Every tool, bounded undo, published on each stroke |
+| Undo and redo menu items     | `TitleBar.tsx`, the Edit group                          | Wired to the canvas store                          |
 
 So the engine already does a weak version of three of the six steps below. The
 work is not a parallel system; it is replacing `snap_to_grid` with something

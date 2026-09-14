@@ -32,6 +32,7 @@ import {
   engineDownloadModel,
   engineRemoveModel,
   engineRemoveSprite,
+  engineSaveSpriteEdit,
   engineSprites,
   engineGenerate,
   engineModels,
@@ -67,6 +68,7 @@ import type {
   ProviderSaveRequest,
   RuntimeInfo,
   RuntimeRequest,
+  SavedSprite,
   SpriteListResponse,
   StorageChange,
   StorageInfo,
@@ -172,6 +174,22 @@ export function listSprites(): Promise<SpriteListResponse> {
 /** Deletes one sprite from disk. */
 export function removeSprite(name: string): Promise<null> {
   return unwrap(engineRemoveSprite(name));
+}
+
+/**
+ * Writes a painted sprite beside the one it was painted from.
+ *
+ * The caller names the sprite it started from; the engine decides what the
+ * edit is called and answers with it. That is not politeness, it is the
+ * security boundary: the only path this can reach is one the engine derived
+ * from a file it already owns, so no name the interface sends can steer a
+ * write anywhere else.
+ *
+ * A sprite whose name already belongs to an edit is written over, so a session
+ * of painting leaves one file rather than one per stroke.
+ */
+export function saveSpriteEdit(name: string, image: string): Promise<SavedSprite> {
+  return unwrap(engineSaveSpriteEdit(name, image));
 }
 
 /** Deletes a model's weights, reclaiming the space they occupy. */
