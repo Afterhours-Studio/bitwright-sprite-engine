@@ -18,6 +18,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { TitleBar } from '@/components/layout/TitleBar';
 import { CommandPalette } from '@/components/ui/CommandPalette';
 import { ToastViewport } from '@/components/ui/ToastViewport';
+import { ProjectSidebar } from '@/features/projects/ProjectSidebar';
 
 export interface AppShellProps {
   /** The current screen. */
@@ -44,6 +45,10 @@ export interface AppShellProps {
  * is clipped to this container rather than the window, so a toast never paints
  * over the bezel either.
  *
+ * The project sidebar is part of the frame rather than part of a screen. Which
+ * sprite is open decides what every screen shows, so the tree cannot belong to
+ * whichever one of them happens to be in front.
+ *
  * There is no status bar. Each screen supplies its own dock if it has tools
  * worth docking, which is why the content area is the positioning context.
  */
@@ -52,7 +57,13 @@ export function AppShell({ children }: AppShellProps): ReactElement {
     <div className="app-bezel h-full">
       <div className="relative flex h-full flex-col overflow-hidden rounded-window-inner bg-surface-canvas text-fg-primary">
         <TitleBar />
-        <main className="relative min-h-0 flex-1 overflow-hidden">{children}</main>
+        {/* Not a positioned element, so the sidebar's own dialogs lay
+            themselves out against this container and cover the content area
+            rather than the bezel, as the palette and the toasts do. */}
+        <div className="flex min-h-0 flex-1">
+          <ProjectSidebar />
+          <main className="relative min-h-0 flex-1 overflow-hidden">{children}</main>
+        </div>
         <CommandPalette />
         <ToastViewport />
       </div>

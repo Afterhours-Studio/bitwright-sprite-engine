@@ -26,6 +26,7 @@
 import type common from '@/locales/en/common.json';
 import type editor from '@/locales/en/editor.json';
 import type errors from '@/locales/en/errors.json';
+import type projects from '@/locales/en/projects.json';
 import type settings from '@/locales/en/settings.json';
 
 declare module 'i18next' {
@@ -34,6 +35,7 @@ declare module 'i18next' {
     resources: {
       common: typeof common;
       editor: typeof editor;
+      projects: typeof projects;
       settings: typeof settings;
       errors: typeof errors;
     };

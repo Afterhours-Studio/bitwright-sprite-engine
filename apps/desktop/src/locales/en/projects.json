@@ -1,0 +1,82 @@
+{
+  "title": "Projects",
+  "sidebar": "Projects and sprites",
+  "tree": "Project tree",
+  "menu": {
+    "label": "Project actions",
+    "project": "Project",
+    "asset": "Sprite",
+    "newProject": "New Project",
+    "renameProject": "Rename Project",
+    "deleteProject": "Delete Project",
+    "newAsset": "New Sprite",
+    "renameAsset": "Rename Sprite",
+    "deleteAsset": "Delete Sprite"
+  },
+  "empty": {
+    "projects": "No projects yet",
+    "projectsHint": "A project carries the style its sprites are drawn to. Create one to start.",
+    "assets": "No sprites in this project",
+    "assetsHint": "A sprite is created at a fixed size, because every layer and every recorded edit is measured in it."
+  },
+  "assetMeta": "{{width}} x {{height}} px, {{step}}",
+  "steps": {
+    "reference": "Reference",
+    "palette": "Palette",
+    "silhouette": "Silhouette",
+    "flats": "Flats",
+    "shadow": "Shadow",
+    "light": "Light",
+    "outline": "Outline",
+    "detail": "Detail",
+    "accent": "Accent",
+    "cleanup": "Cleanup",
+    "variation": "Variation"
+  },
+  "kinds": {
+    "character": "Character",
+    "prop": "Prop",
+    "tile": "Tile",
+    "tileset": "Tileset",
+    "background": "Background"
+  },
+  "presets": {
+    "hd2d": "HD-2D",
+    "snes": "SNES",
+    "gameboy": "Game Boy",
+    "custom": "Custom"
+  },
+  "form": {
+    "newProjectTitle": "New project",
+    "renameProjectTitle": "Rename project",
+    "newAssetTitle": "New sprite",
+    "renameAssetTitle": "Rename sprite",
+    "projectName": "Project name",
+    "assetName": "Sprite name",
+    "preset": "Style preset",
+    "presetHint": "Sets the palette ceiling, the ramp bounds and the outline rule every sprite in the project is checked against. It cannot be changed afterwards.",
+    "kind": "Kind",
+    "width": "Width",
+    "height": "Height",
+    "sizeHint": "Taken from the style preset. A sprite cannot be resized later, so this is the one number worth getting right now.",
+    "create": "Create",
+    "rename": "Rename"
+  },
+  "confirm": {
+    "deleteProjectTitle": "Delete {{name}}",
+    "deleteProjectBody": "This deletes the project and every sprite in it. For each sprite it deletes every layer, the palette, and the whole edit log, which is what undo reads from. There is nothing left to undo it with afterwards.",
+    "deleteAssetTitle": "Delete {{name}}",
+    "deleteAssetBody": "This deletes the sprite, every layer it has, its palette, and its whole edit log, which is what undo reads from. There is nothing left to undo it with afterwards.",
+    "delete": "Delete"
+  },
+  "toast": {
+    "failedTitle": "Project tree",
+    "loadFailed": "The projects could not be read.",
+    "createProjectFailed": "The project could not be created.",
+    "renameProjectFailed": "The project could not be renamed.",
+    "deleteProjectFailed": "The project could not be deleted.",
+    "createAssetFailed": "The sprite could not be created.",
+    "renameAssetFailed": "The sprite could not be renamed.",
+    "deleteAssetFailed": "The sprite could not be deleted."
+  }
+}

@@ -17,8 +17,8 @@ import type { ButtonHTMLAttributes, ReactElement, ReactNode } from 'react';
 
 import { cn } from '@/lib/cn';
 
-/** How prominent a button is. */
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost';
+/** How prominent a button is, and whether it reads as destructive. */
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /** How prominent the button is. */
@@ -31,6 +31,11 @@ const VARIANTS: Record<ButtonVariant, string> = {
   primary: 'bg-accent text-accent-fg hover:bg-accent-hover',
   secondary: 'bg-surface-content text-fg-primary border border-line-subtle shadow-sm',
   ghost: 'bg-transparent text-fg-secondary hover:bg-surface-content hover:text-fg-primary',
+  // The one button that says what it will destroy has to look like it at rest,
+  // not only under the pointer, because it is read before it is reached for.
+  // There is no hover step because there is no danger-hover token; adding one
+  // is a change to `styles/tokens.css`, which is where every colour lives.
+  danger: 'bg-danger text-danger-fg',
 };
 
 /**

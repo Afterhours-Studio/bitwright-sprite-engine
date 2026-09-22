@@ -1,0 +1,82 @@
+{
+  "title": "Dự án",
+  "sidebar": "Dự án và sprite",
+  "tree": "Cây dự án",
+  "menu": {
+    "label": "Thao tác dự án",
+    "project": "Dự án",
+    "asset": "Sprite",
+    "newProject": "Dự án mới",
+    "renameProject": "Đổi tên dự án",
+    "deleteProject": "Xóa dự án",
+    "newAsset": "Sprite mới",
+    "renameAsset": "Đổi tên sprite",
+    "deleteAsset": "Xóa sprite"
+  },
+  "empty": {
+    "projects": "Chưa có dự án nào",
+    "projectsHint": "Dự án mang theo phong cách mà các sprite trong nó được vẽ theo. Hãy tạo một dự án để bắt đầu.",
+    "assets": "Dự án này chưa có sprite nào",
+    "assetsHint": "Sprite được tạo ở một kích thước cố định, vì mọi lớp và mọi thao tác đã ghi lại đều đo theo kích thước đó."
+  },
+  "assetMeta": "{{width}} x {{height}} px, {{step}}",
+  "steps": {
+    "reference": "Ảnh tham chiếu",
+    "palette": "Bảng màu",
+    "silhouette": "Khối dáng",
+    "flats": "Màu nền phẳng",
+    "shadow": "Vùng tối",
+    "light": "Vùng sáng",
+    "outline": "Viền",
+    "detail": "Chi tiết",
+    "accent": "Điểm nhấn",
+    "cleanup": "Dọn nét",
+    "variation": "Biến thể"
+  },
+  "kinds": {
+    "character": "Nhân vật",
+    "prop": "Vật thể",
+    "tile": "Ô nền",
+    "tileset": "Bộ ô nền",
+    "background": "Ảnh nền"
+  },
+  "presets": {
+    "hd2d": "HD-2D",
+    "snes": "SNES",
+    "gameboy": "Game Boy",
+    "custom": "Tùy chỉnh"
+  },
+  "form": {
+    "newProjectTitle": "Dự án mới",
+    "renameProjectTitle": "Đổi tên dự án",
+    "newAssetTitle": "Sprite mới",
+    "renameAssetTitle": "Đổi tên sprite",
+    "projectName": "Tên dự án",
+    "assetName": "Tên sprite",
+    "preset": "Phong cách mẫu",
+    "presetHint": "Quy định trần số màu, giới hạn dải màu và luật viền mà mọi sprite trong dự án sẽ được kiểm theo. Không thể đổi về sau.",
+    "kind": "Loại",
+    "width": "Chiều rộng",
+    "height": "Chiều cao",
+    "sizeHint": "Lấy theo phong cách mẫu. Sprite không thể đổi kích thước về sau, nên đây là con số đáng cân nhắc ngay bây giờ.",
+    "create": "Tạo",
+    "rename": "Đổi tên"
+  },
+  "confirm": {
+    "deleteProjectTitle": "Xóa {{name}}",
+    "deleteProjectBody": "Thao tác này xóa dự án và mọi sprite trong đó. Với từng sprite, nó xóa mọi lớp, bảng màu, và toàn bộ nhật ký chỉnh sửa, thứ mà hoàn tác dựa vào. Sau đó không còn gì để hoàn tác lại nữa.",
+    "deleteAssetTitle": "Xóa {{name}}",
+    "deleteAssetBody": "Thao tác này xóa sprite, mọi lớp của nó, bảng màu, và toàn bộ nhật ký chỉnh sửa, thứ mà hoàn tác dựa vào. Sau đó không còn gì để hoàn tác lại nữa.",
+    "delete": "Xóa"
+  },
+  "toast": {
+    "failedTitle": "Cây dự án",
+    "loadFailed": "Không đọc được danh sách dự án.",
+    "createProjectFailed": "Không tạo được dự án.",
+    "renameProjectFailed": "Không đổi được tên dự án.",
+    "deleteProjectFailed": "Không xóa được dự án.",
+    "createAssetFailed": "Không tạo được sprite.",
+    "renameAssetFailed": "Không đổi được tên sprite.",
+    "deleteAssetFailed": "Không xóa được sprite."
+  }
+}

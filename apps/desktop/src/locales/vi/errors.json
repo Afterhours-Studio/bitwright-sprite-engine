@@ -42,6 +42,38 @@
     "not_a_directory": "Thư mục đó chưa tồn tại. Nó được tạo khi có thứ đầu tiên được ghi vào.",
     "open_failed": "Hệ thống từ chối mở thứ đó.",
     "url_not_allowed": "Ứng dụng này không mở liên kết đó.",
-    "no_storage_info": "Chưa đọc được vị trí lưu trữ. Hãy mở Cài đặt một lần rồi thử lại."
+    "no_storage_info": "Chưa đọc được vị trí lưu trữ. Hãy mở Cài đặt một lần rồi thử lại.",
+    "unavailable": "Cửa sổ này chưa kết nối với lõi ứng dụng, nên không đọc hay ghi được gì."
+  },
+  "document": {
+    "not_found": "Dự án, sprite hoặc lớp đó không còn trong cơ sở dữ liệu.",
+    "invalid_name": "Tên phải dài từ một đến 1024 byte và không chứa ký tự điều khiển.",
+    "invalid_dimensions": "Đó không phải kích thước khung vẽ có thể tạo sprite.",
+    "invalid_step": "Đó không phải một bước trong quy trình.",
+    "invalid_role": "Đó không phải vai trò lớp mà tài liệu này có.",
+    "invalid_buffer": "Số byte của lớp không khớp kích thước, hoặc trỏ tới ô màu không tồn tại.",
+    "invalid_batch": "Loạt chỉnh sửa đó bị từ chối trước khi bất kỳ phần nào được ghi.",
+    "layer_locked": "Lớp đó đang khóa, nên không có gì được ghi vào.",
+    "layer_not_found": "Lớp đó chưa được vẽ.",
+    "nothing_to_undo": "Không còn gì để hoàn tác trên sprite này.",
+    "nothing_to_redo": "Không có gì để làm lại trên sprite này."
+  },
+  "asset": {
+    "invalid_kind": "Đó không phải loại sprite mà ứng dụng này tạo."
+  },
+  "style": {
+    "invalid_preset": "Đó không phải phong cách mẫu mà ứng dụng này có."
+  },
+  "step": {
+    "complete": "Sprite này đang ở bước cuối của quy trình.",
+    "gate_failed": "Các kiểm tra của bước hiện tại chưa đạt, nên sprite chưa đi tiếp."
+  },
+  "store": {
+    "constraint": "Đã có thứ trùng tên ở đây.",
+    "database_failed": "Cơ sở dữ liệu từ chối thao tác đó. Có thể nó đang mở ở một bản sao khác của ứng dụng.",
+    "lock_failed": "Cơ sở dữ liệu bị kẹt khóa sau một lỗi, nên cửa sổ này cần được khởi động lại.",
+    "worker_failed": "Tiến trình cơ sở dữ liệu dừng trước khi trả lời.",
+    "migration_missing": "Cơ sở dữ liệu cũ hơn bản dựng này và không có đường nâng cấp tới nó.",
+    "newer_schema": "Cơ sở dữ liệu được ghi bởi một bản dựng mới hơn bản này."
   }
 }

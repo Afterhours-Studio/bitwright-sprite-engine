@@ -42,6 +42,38 @@
     "not_a_directory": "That folder does not exist yet. It is created the first time something is written there.",
     "open_failed": "The system refused to open that.",
     "url_not_allowed": "That link is not one this application opens.",
-    "no_storage_info": "The storage locations have not been read yet. Open Settings once, then try again."
+    "no_storage_info": "The storage locations have not been read yet. Open Settings once, then try again.",
+    "unavailable": "This window is not connected to the application shell, so nothing can be read or written."
+  },
+  "document": {
+    "not_found": "That project, sprite or layer is no longer in the database.",
+    "invalid_name": "A name has to be between one and 1024 bytes, and cannot contain control characters.",
+    "invalid_dimensions": "That canvas size is not one a sprite can be created at.",
+    "invalid_step": "That is not a step in the workflow.",
+    "invalid_role": "That is not a layer role this document has.",
+    "invalid_buffer": "The layer's bytes do not match its size, or name a palette slot that does not exist.",
+    "invalid_batch": "That batch of edits was rejected before any of it was written.",
+    "layer_locked": "That layer is locked, so nothing was written to it.",
+    "layer_not_found": "That layer has not been drawn yet.",
+    "nothing_to_undo": "There is nothing left to undo on this sprite.",
+    "nothing_to_redo": "There is nothing to redo on this sprite."
+  },
+  "asset": {
+    "invalid_kind": "That is not a kind of sprite this application makes."
+  },
+  "style": {
+    "invalid_preset": "That is not a style preset this application ships."
+  },
+  "step": {
+    "complete": "This sprite is at the last step of the workflow.",
+    "gate_failed": "The current step's checks did not pass, so the sprite did not advance."
+  },
+  "store": {
+    "constraint": "Something with that name already exists here.",
+    "database_failed": "The database refused that. It may be open in another copy of the application.",
+    "lock_failed": "The database was left locked by a failure, so this window has to be restarted.",
+    "worker_failed": "The database worker stopped before it answered.",
+    "migration_missing": "The database is older than this build and has no upgrade path to it.",
+    "newer_schema": "The database was written by a newer build than this one."
   }
 }
