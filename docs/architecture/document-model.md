@@ -185,7 +185,11 @@ to RGBA happens once, at the edge, when the renderer asks for something to draw.
 
 ```rust
 pub struct PaletteSlot {
-    pub index: u8,          // 1..=63; 0 is reserved for transparent
+    // 1..=62; 0 is reserved for transparent. The ceiling is 62 because that
+    // is how many symbols the grid alphabet has - `A`-`Z`, `a`-`z`, `0`-`9` -
+    // and a slot that cannot be named in a readback is a slot an agent cannot
+    // see. No pixel art style this application targets wants more.
+    pub index: u8,
     pub rgba:  [u8; 4],
     pub name:  Option<String>,
     pub ramp:  Option<String>,   // the ramp this slot belongs to
@@ -332,6 +336,45 @@ step_advance(asset_id)                      -> StepState
 `document_write_ops` taking a batch rather than a single op is deliberate: a
 user's brush stroke and an agent's `draw_run` are the same thing arriving at
 different granularities, and both want to land as one undo entry.
+
+### The op payload
+
+An op is a tagged union, serialised with an explicit `kind` discriminant rather
+than inferred from which fields are present. A log that has to be replayed years
+later should not depend on a reader guessing what it is looking at.
+
+```rust
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum Op {
+    PasteGrid  { layer: LayerRole, x: u16, y: u16, rows: Vec<String>, mode: PasteMode },
+    DrawRuns   { layer: LayerRole, runs: Vec<Run> },        // Run { y, x0, x1, slot }
+    SetPixels  { layer: LayerRole, pixels: Vec<PixelSet> }, // PixelSet { x, y, slot }
+    DrawShape  { layer: LayerRole, shape: Shape, from: Point, to: Point,
+                 slot: u8, fill: bool, pixel_perfect: bool },
+    FillRegion { layer: LayerRole, x: u16, y: u16, slot: u8, contiguous: bool },
+    Mirror     { layer: LayerRole, axis: Axis, about: Option<u16> },
+    Translate  { layer: LayerRole, dx: i32, dy: i32 },
+    Clear      { layer: LayerRole },
+    Shade      { target: LayerRole, from: LayerRole, region: Option<Rect>,
+                 kind: ShadeKind, direction: Direction, depth: u8 },
+    Outline    { from: LayerRole, mode: OutlineMode, darken: u8 },
+    Antialias  { layer: LayerRole, strength: u8 },
+}
+```
+
+Every variant names the layer it writes, which is what lets `document://changed`
+report the affected roles without re-reading anything.
+
+### The undo cursor
+
+Undo does not delete op rows. It moves a cursor, stored per asset, and redo
+moves it back; a new write truncates everything after the cursor and then
+appends. Deleting on undo would make redo impossible, and an op log that loses
+history on undo is not a log.
+
+The cursor lives in its own table with the schema version that introduced it, so
+it is migrated rather than inferred. Inferring it from the last op would be
+wrong the moment an asset is opened after being undone and closed.
 
 ## 8. Events
 
