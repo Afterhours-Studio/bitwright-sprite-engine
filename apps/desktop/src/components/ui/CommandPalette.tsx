@@ -24,7 +24,7 @@ import { LANGUAGES, setLanguage } from '@/lib/i18n';
 import { useCommandPaletteStore } from '@/stores/useCommandPaletteStore';
 import { useShellStore, type Screen, type Theme } from '@/stores/useShellStore';
 
-const SCREENS: readonly Screen[] = ['generate', 'gallery', 'settings'];
+const SCREENS: readonly Screen[] = ['editor', 'gallery', 'settings'];
 const THEMES: readonly Theme[] = ['dark', 'light'];
 
 /** One row in the palette. */

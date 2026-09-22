@@ -18,12 +18,12 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
 import enCommon from '@/locales/en/common.json';
+import enEditor from '@/locales/en/editor.json';
 import enErrors from '@/locales/en/errors.json';
-import enGeneration from '@/locales/en/generation.json';
 import enSettings from '@/locales/en/settings.json';
 import viCommon from '@/locales/vi/common.json';
+import viEditor from '@/locales/vi/editor.json';
 import viErrors from '@/locales/vi/errors.json';
-import viGeneration from '@/locales/vi/generation.json';
 import viSettings from '@/locales/vi/settings.json';
 
 /** Languages the application ships. Adding one is documented in docs/development/i18n.md. */
@@ -36,7 +36,7 @@ export type Language = (typeof LANGUAGES)[number];
 export const DEFAULT_LANGUAGE: Language = 'en';
 
 /** Namespaces, one file per locale. */
-export const NAMESPACES = ['common', 'generation', 'settings', 'errors'] as const;
+export const NAMESPACES = ['common', 'editor', 'settings', 'errors'] as const;
 
 /** A translation namespace. */
 export type Namespace = (typeof NAMESPACES)[number];
@@ -51,13 +51,13 @@ export type Namespace = (typeof NAMESPACES)[number];
 export const resources = {
   en: {
     common: enCommon,
-    generation: enGeneration,
+    editor: enEditor,
     settings: enSettings,
     errors: enErrors,
   },
   vi: {
     common: viCommon,
-    generation: viGeneration,
+    editor: viEditor,
     settings: viSettings,
     errors: viErrors,
   },

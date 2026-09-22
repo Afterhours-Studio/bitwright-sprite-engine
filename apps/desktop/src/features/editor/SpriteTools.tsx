@@ -18,14 +18,12 @@
  * The second column of the canvas: what to do to the sprite in front of you.
  *
  * Two tabs, because the two things a person does here are different in kind.
- * Adjust corrects what the model got wrong - a diffusion model produces an
- * image that looks like pixel art without being it, with drifting cell
- * boundaries, anti-aliased edges and hundreds of nearly identical colours.
- * Colour is for painting, and its palette is the one the sprite actually uses,
- * which is only a palette at all once Adjust has made it one.
- *
- * Both act on the sprite that exists, never on the request. Nothing here
- * regenerates anything.
+ * Adjust corrects an image that looks like pixel art without being it, with
+ * drifting cell boundaries, anti-aliased edges and hundreds of nearly
+ * identical colours - which is what a sprite that has been scaled, re-saved or
+ * exported by something that did not respect its grid comes back as. Colour is
+ * for painting, and its palette is the one the sprite actually uses, which is
+ * only a palette at all once Adjust has made it one.
  *
  * History sits above both tabs rather than inside either, because taking a
  * stroke back is not a colour decision or a correction: it belongs to the
@@ -50,7 +48,7 @@ import { useErrorMessage } from '@/hooks/useErrorMessage';
 import { cn } from '@/lib/cn';
 import { canRedo, canUndo, useCanvasStore } from '@/stores/useCanvasStore';
 import { useEditorStore } from '@/stores/useEditorStore';
-import { useGenerationStore } from '@/stores/useGenerationStore';
+import { useSpriteStore } from '@/stores/useSpriteStore';
 import { DITHER_MODES, type DitherMode } from '@/types/engine';
 
 /** Which tab is showing. */
@@ -60,25 +58,31 @@ type Tab = 'adjust' | 'colour';
 const ALPHA_STEP = 0.05;
 
 /**
+ * How close a pixel must be to the corner colour to count as background.
+ *
+ * The engine's own default, and not offered as a control: the fill either
+ * finds a background or it does not, and the correction comes back with a
+ * warning saying which. A slider here would be a number to guess at before
+ * seeing the result it changes.
+ */
+const BACKGROUND_TOLERANCE = 12;
+
+/**
  * The tabs and their contents.
  *
- * @param props.selected - Which sprite of a batch is being looked at. Passed
- *   rather than read from a store, because the selection belongs to the screen
- *   that draws the stage, and two copies of it would drift apart.
  * @returns The tool column.
  */
-export function SpriteTools({ selected }: { selected: number }): ReactElement {
-  const { t } = useTranslation('generation');
+export function SpriteTools(): ReactElement {
+  const { t } = useTranslation('editor');
   const translateWarning = useErrorMessage();
   const [tab, setTab] = useState<Tab>('adjust');
 
-  const images = useGenerationStore((state) => state.images);
-  const conform = useGenerationStore((state) => state.conform);
-  const conforming = useGenerationStore((state) => state.conforming);
-  const palette = useGenerationStore((state) => state.palette);
-  const detected = useGenerationStore((state) => state.detected);
-  const warnings = useGenerationStore((state) => state.conformWarnings);
-  const request = useGenerationStore((state) => state.request);
+  const image = useSpriteStore((state) => state.image);
+  const conform = useSpriteStore((state) => state.conform);
+  const conforming = useSpriteStore((state) => state.conforming);
+  const palette = useSpriteStore((state) => state.palette);
+  const detected = useSpriteStore((state) => state.detected);
+  const warnings = useSpriteStore((state) => state.warnings);
 
   const colour = useEditorStore((state) => state.colour);
   const setColour = useEditorStore((state) => state.setColour);
@@ -89,18 +93,17 @@ export function SpriteTools({ selected }: { selected: number }): ReactElement {
   const redo = useCanvasStore((state) => state.redo);
 
   const [removeBackground, setRemoveBackground] = useState(true);
-  // Seeded from the size that was asked for, because that is the answer almost
-  // every time. Emptying a field hands the decision back to the engine, which
-  // measures the grid the model actually drew rather than the one it was told
-  // to draw.
-  const [width, setWidth] = useState<number | null>(request.width);
-  const [height, setHeight] = useState<number | null>(request.height);
+  // Empty, which hands the decision to the engine: it measures the grid the
+  // image is actually drawn on, which is the answer almost every time and the
+  // one nobody can read off a sprite by eye. A number typed here overrides
+  // that measurement.
+  const [width, setWidth] = useState<number | null>(null);
+  const [height, setHeight] = useState<number | null>(null);
   const [paletteSize, setPaletteSize] = useState<number | null>(32);
   const [dither, setDither] = useState<DitherMode>('none');
   const [alphaThreshold, setAlphaThreshold] = useState(0.5);
 
-  const image = images[selected];
-  const ready = image !== undefined && !conforming;
+  const ready = image !== null && !conforming;
 
   return (
     <div className="flex min-h-0 flex-col gap-3">
@@ -116,7 +119,7 @@ export function SpriteTools({ selected }: { selected: number }): ReactElement {
         }}
       />
 
-      {image !== undefined && (
+      {image !== null && (
         <div className="flex items-center justify-between gap-2">
           <span className="text-xs font-medium text-fg-secondary">{t('tools.history')}</span>
           <div className="flex gap-1.5">
@@ -140,16 +143,16 @@ export function SpriteTools({ selected }: { selected: number }): ReactElement {
         </div>
       )}
 
-      {image === undefined ? (
+      {image === null ? (
         // Stated rather than shown as disabled controls: there is nothing to
-        // adjust and nothing to take a palette from until a sprite exists.
+        // adjust and nothing to take a palette from until a sprite is open.
         <p className="text-xs text-fg-secondary">{t('tools.empty')}</p>
       ) : tab === 'adjust' ? (
         <div className="flex min-h-0 flex-col gap-3 overflow-auto">
           <p className="text-xs text-fg-secondary">{t('tools.adjustHint')}</p>
 
           <Toggle
-            label={t('postprocess.removeBackground')}
+            label={t('tools.removeBackground')}
             checked={removeBackground}
             onCheckedChange={setRemoveBackground}
           />
@@ -176,7 +179,7 @@ export function SpriteTools({ selected }: { selected: number }): ReactElement {
 
           <NumberField
             clearable
-            label={t('postprocess.paletteSize')}
+            label={t('tools.paletteSize')}
             value={paletteSize}
             min={2}
             max={256}
@@ -212,11 +215,11 @@ export function SpriteTools({ selected }: { selected: number }): ReactElement {
             className="px-3 py-1 text-xs"
             disabled={!ready}
             onClick={() => {
-              void conform(selected, {
+              void conform({
                 width,
                 height,
                 removeBackground,
-                backgroundTolerance: request.postprocess.backgroundTolerance,
+                backgroundTolerance: BACKGROUND_TOLERANCE,
                 paletteSize,
                 dither,
                 alphaThreshold,
@@ -229,7 +232,7 @@ export function SpriteTools({ selected }: { selected: number }): ReactElement {
           {detected !== null && (
             // The measurement, not a setting. It is the only thing that says
             // whether there was a grid to find: a confidence near zero means
-            // the render was never pixel art and this was a resize.
+            // the image was never pixel art and this was a resize.
             <dl className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs text-fg-secondary">
               <dt>{t('tools.detectedCell')}</dt>
               <dd className="tabular-nums">

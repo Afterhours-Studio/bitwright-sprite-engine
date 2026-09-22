@@ -17,13 +17,14 @@
 /**
  * A list that can be searched, and typed into when the list is not enough.
  *
- * A provider can offer hundreds of models, so a plain dropdown is a scroll
- * through a wall of near-identical identifiers. Typing filters it.
+ * A list fetched from somewhere else can run to hundreds of near-identical
+ * identifiers, and a plain dropdown over one is a wall to scroll through.
+ * Typing filters it.
  *
- * The value is still free text, because the list is what a provider happened
- * to report and a model it does not list may still work - a preview name, or
- * one the account has and the catalogue does not. Refusing to accept anything
- * but a listed entry would trade a real limitation for an invented one.
+ * The value is still free text, because the list is only what the source
+ * happened to report and an identifier it left out may still be valid.
+ * Refusing to accept anything but a listed entry would trade a real limitation
+ * for an invented one.
  */
 
 import { useCallback, useId, useRef, useState, type ReactElement } from 'react';
@@ -38,7 +39,7 @@ export interface ComboBoxProps {
   label: string;
   /** Current value, which need not be one of the options. */
   value: string;
-  /** What the provider listed. May be empty before anything is fetched. */
+  /** What the source listed. May be empty before anything is fetched. */
   options: string[];
   /** Shown when the field is empty. */
   placeholder?: string;

@@ -86,7 +86,7 @@ export interface TextAreaFieldProps {
   onValueChange: (value: string) => void;
 }
 
-/** A labelled multi-line input, for prompts. */
+/** A labelled multi-line input, for text that runs past a single line. */
 export function TextAreaField({
   label,
   value,

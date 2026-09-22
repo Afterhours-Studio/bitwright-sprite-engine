@@ -10,89 +10,8 @@
     "exited": "The engine stopped unexpectedly.",
     "not_ready": "The engine is still starting. Try again in a moment."
   },
-  "backend": {
-    "error": "Generation failed.",
-    "unavailable": "The selected engine cannot run on this machine.",
-    "unsupported_capability": "The selected engine does not support this option.",
-    "none_available": "No engine is available. Configure a remote API in Settings.",
-    "unknown_kind": "That engine does not exist.",
-    "cuda": {
-      "torch_missing": "PyTorch is not installed, so the NVIDIA engine cannot run.",
-      "driver_missing": "No CUDA driver was found. Install the NVIDIA driver and restart.",
-      "no_device": "The CUDA driver reported no usable GPU."
-    },
-    "mps": {
-      "not_macos": "The Apple engine only runs on macOS.",
-      "torch_missing": "PyTorch is not installed, so the Apple engine cannot run.",
-      "torch_without_mps": "This build of PyTorch was compiled without Metal support.",
-      "device_unavailable": "The Metal device is not available on this machine."
-    },
-    "remote": {
-      "api_key_missing": "This provider has no API key stored. Edit it in Settings and paste one in.",
-      "bad_key": "The provider rejected the API key.",
-      "endpoint_missing": "Add an AI provider in Settings before using the remote engine.",
-      "forbidden": "The account is not permitted to use this model. It may need billing enabled.",
-      "insecure_url": "Plain http is accepted only for an endpoint on this machine. An API key sent over it would be readable on the way.",
-      "invalid_base_url": "That is not a usable base URL. It has to start with https:// and carry no query string.",
-      "invalid_header": "One of the headers is not usable. Names and values have to be plain text on a single line.",
-      "limit_reached": "No more providers can be stored. Remove one before adding another.",
-      "model_missing": "Name the model this provider should generate with.",
-      "name_missing": "Give the provider a display name.",
-      "no_active_provider": "Providers are configured, but none is selected. Choose one in Settings.",
-      "not_found": "The provider has no such model at that endpoint.",
-      "provider_unknown": "That provider is not configured any more.",
-      "rate_limited": "The provider is throttling this key. Wait, or check the plan's quota.",
-      "reachable": "The endpoint answered and accepted the key.",
-      "refused": "Something is at that address and refused the connection. Check the port.",
-      "request_failed": "The remote API rejected the request or could not be reached.",
-      "secret_read_failed": "The API key could not be read. The credential store may be locked.",
-      "secret_write_failed": "The API key could not be stored. The credential store refused it.",
-      "server_error": "The provider failed on its own side. Try again shortly.",
-      "store_write_failed": "The provider list could not be saved. Check the free space and the permissions on this disk.",
-      "timeout": "The endpoint accepted the connection and then did not answer.",
-      "unexpected_shape": "Something answered, but not with an OpenAI compatible model list. Check that the base URL points at the API and not at a web page.",
-      "unknown_preset": "That provider is not one this version knows. Use a custom endpoint instead.",
-      "unreachable": "That host could not be reached. Check the base URL and your connection.",
-      "rejected": "The provider refused the request. Check the API key and the model name.",
-      "no_allowance": "This plan has no allowance for that model, so waiting will not help. Enable billing with the provider, or generate on a local engine."
-    },
-    "adapter_unsupported": "The GPU runtime is missing a package that style adapters need. Install the missing packages in Settings, then restart.",
-    "adapter_mismatch": "That style adapter was made for a different base model. Pick one that matches the model you selected."
-  },
-  "models": {
-    "download_failed": "The model could not be downloaded.",
-    "downloads_disabled": "Downloads are turned off, and this model is not on this machine.",
-    "unknown": "That model is not in the registry.",
-    "already_downloading": "That model is already downloading.",
-    "download_rejected": "The model host refused the download. The file may have moved.",
-    "download_unreachable": "The model host could not be reached. Check your connection. What had already arrived was kept, so the download can be resumed.",
-    "download_incomplete": "The download ended before the whole file arrived. What had already arrived was kept, so the download can be resumed.",
-    "download_write_failed": "The download could not be saved. Check the free space on this disk.",
-    "download_range_refused": "The file on the model host is no longer the one this download started. What had arrived was removed; download it again to start from the beginning."
-  },
-  "runtime": {
-    "install_failed": "The GPU runtime could not be installed.",
-    "unsupported_platform": "This version has no PyTorch build pinned for this system and Python version, so it cannot install one here.",
-    "unknown_variant": "That is not a build this system can install.",
-    "already_installing": "The GPU runtime is already being installed.",
-    "already_installed": "The GPU runtime is already installed. Remove it before installing another build.",
-    "not_installed": "There is no GPU runtime installed to remove.",
-    "busy_installing": "An install is running. Stop it before removing the GPU runtime.",
-    "downloads_disabled": "Downloads are turned off, so the GPU runtime cannot be fetched.",
-    "insufficient_space": "There is not enough room on that drive for the GPU runtime. Free some space, or move the download folder to another drive in Storage location.",
-    "download_rejected": "The PyTorch index refused the download. The build may have been withdrawn.",
-    "download_unreachable": "The PyTorch index could not be reached. Check your connection.",
-    "download_incomplete": "The download ended before the whole file arrived, so it was discarded.",
-    "checksum_mismatch": "A downloaded file was not the one expected, so nothing was installed. Try again; if it keeps happening, something on the way is altering the download.",
-    "unsafe_archive": "A downloaded package tried to write outside its own folder and was refused.",
-    "extract_failed": "A downloaded package could not be unpacked.",
-    "write_failed": "The GPU runtime could not be written. Check the free space on that drive.",
-    "remove_failed": "The GPU runtime could not be deleted. A file in it may still be open.",
-    "import_failed": "The GPU runtime is installed but will not load. Remove it and install it again.",
-    "nothing_to_repair": "The GPU runtime is missing packages."
-  },
   "storage": {
-    "invalid_path": "That folder cannot be used for downloads.",
+    "invalid_path": "That folder cannot be used for the application's data.",
     "path_empty": "No folder was chosen.",
     "path_not_absolute": "Choose a full path, starting from a drive or from the root.",
     "path_too_long": "That path is too long to be a folder.",
@@ -101,15 +20,8 @@
     "create_failed": "That folder could not be created. Check the drive is connected and not full.",
     "not_writable": "That folder refused to be written to. It may be read-only, or on a share you cannot write to.",
     "inside_installation": "That folder is inside the application itself, and would be erased by the next update.",
-    "busy_downloading": "A download is running. Stop it before moving where downloads are kept.",
     "not_remembered": "The folder is in use now, but could not be saved, so the next launch will use the previous one.",
     "picker_failed": "The folder picker could not be opened."
-  },
-  "gpu": {
-    "ok": "A usable GPU was found.",
-    "no_device": "A GPU driver is installed, but no device was reported.",
-    "driver_error": "The GPU driver returned an error.",
-    "driver_missing": "No GPU driver was found. Generation will have to use a remote API."
   },
   "window": {
     "command_failed": "The window did not respond to that action."

@@ -342,8 +342,8 @@ export function NumberField(props: NumberFieldProps): ReactElement {
         return;
       }
       // A required field cannot be left showing nothing while the store still
-      // holds a number: the two would disagree, and the run would use a value
-      // that is not on screen.
+      // holds a number: the two would disagree, and whatever reads the store
+      // would use a value that is not on screen.
       setDraft(text(committed.current));
       return;
     }

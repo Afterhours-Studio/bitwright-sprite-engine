@@ -102,8 +102,8 @@ const CHIP_OPEN = 'border-line bg-surface-content-alt text-fg-primary';
  * The chip marking a standing choice.
  *
  * The accent, which is what marks the active state everywhere else in the
- * chrome: the selected tab in the title bar and the Generate pill on this same
- * bar. The anchor was tried here first and rejected on sight - a near black
+ * chrome, starting with the selected tab in the title bar. The anchor was
+ * tried here first and rejected on sight - a near black
  * chip on a light float bar reads as a hole punched in the dock, which is the
  * exact look the dock was rebuilt to get rid of.
  *
@@ -188,13 +188,14 @@ export interface DockProps {
  * Everything in `cluster` is a choice and everything in `children` opens a
  * popover. An always-visible bar is the easiest thing on screen to hit by
  * accident, so a one-press irreversible action does not belong in it. An
- * earlier version had a button that overwrote the seed the user had typed, and
- * another that wiped the prompt, the parameters and the results, both on a
- * single press with no way back. Randomising now lives inside the seed
- * popover, where it is a decision; resetting lives behind a confirm.
+ * earlier version had two of them - one that overwrote a value the user had
+ * typed and one that wiped the whole screen - both on a single press with no
+ * way back. Neither survived.
  *
  * `action` is the one exception, and it is separated structurally as well as
- * visually: a hairline, then the accent pill. A screen passes at most one.
+ * visually: a hairline, then the accent pill. A screen passes at most one, and
+ * a screen whose one press belongs beside the settings it applies passes none
+ * - which is what the editor does.
  *
  * It is a strip rather than a slab. The bar is its content plus four pixels,
  * so the height comes from the 32 pixel chips inside it and the padding never
@@ -213,8 +214,8 @@ export interface DockProps {
  * The dock is centred on the window, and it has to stay centred whatever the
  * rails beside it are showing. `justify-between` would centre it on the space
  * the rails left over instead, so the whole bar would slide sideways every
- * time a rail changed width - which the notification badge and the run pill
- * both do, while the user is looking at them. Two outer columns of equal width
+ * time a rail changed width - which the notification badge does, while the
+ * user is looking at it. Two outer columns of equal width
  * hold the middle one still. They are `minmax(0, 1fr)` rather than `1fr` so a
  * rail shrinks rather than shoving the dock off centre.
  */

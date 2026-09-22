@@ -48,7 +48,7 @@ function adopt(prepare?: (pixels: Pixels) => void): Pixels {
   prepare?.(pixels);
   // The encoded form is a label here, not bytes: nothing in this file decodes
   // or encodes anything, and the store only ever compares it.
-  useCanvasStore.getState().adopt(0, 'sprite-under-test', pixels);
+  useCanvasStore.getState().adopt('sprite-under-test', pixels);
   return pixels;
 }
 
@@ -287,7 +287,7 @@ describe('adopting a sprite', () => {
     drag({ x: 1, y: 1 });
     expect(useCanvasStore.getState().history.past).toHaveLength(1);
 
-    useCanvasStore.getState().adopt(0, 'a-different-sprite', createPixels(8, 8));
+    useCanvasStore.getState().adopt('a-different-sprite', createPixels(8, 8));
 
     expect(useCanvasStore.getState().history.past).toHaveLength(0);
     expect(useCanvasStore.getState().selection).toBeNull();
@@ -297,7 +297,7 @@ describe('adopting a sprite', () => {
     adopt();
     drag({ x: 1, y: 1 });
 
-    useCanvasStore.getState().adopt(0, 'sprite-under-test', createPixels(8, 8));
+    useCanvasStore.getState().adopt('sprite-under-test', createPixels(8, 8));
 
     expect(at(1, 1)).toEqual(RED);
   });

@@ -13,11 +13,11 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-import type { ReactElement } from 'react';
+import { useEffect, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/Button';
-import { useGenerationStore } from '@/stores/useGenerationStore';
+import { useSpriteStore } from '@/stores/useSpriteStore';
 import { useShellStore } from '@/stores/useShellStore';
 import { Pill } from '@/components/ui/Pill';
 import { toDataUrl } from '@/lib/api';
@@ -25,31 +25,37 @@ import { useGalleryStore, visibleItems, type GalleryFilter } from '@/stores/useG
 
 const FILTERS: readonly GalleryFilter[] = ['all', 'favourites'];
 
-/** The gallery: every sprite generated in this session. */
+/** The gallery: every sprite in the sprites directory, newest first. */
 export function GalleryScreen(): ReactElement {
   const { t } = useTranslation();
 
   const items = useGalleryStore((state) => state.items);
-  const openSprite = useGenerationStore((state) => state.open);
+  const openSprite = useSpriteStore((state) => state.open);
   const setScreen = useShellStore((state) => state.setScreen);
   const filter = useGalleryStore((state) => state.filter);
   const setFilter = useGalleryStore((state) => state.setFilter);
   const toggleFavourite = useGalleryStore((state) => state.toggleFavourite);
   const remove = useGalleryStore((state) => state.remove);
-  const clear = useGalleryStore((state) => state.clear);
+  const load = useGalleryStore((state) => state.load);
+
+  // The list comes from the engine, so there is nothing to ask for until the
+  // engine is answering. Re-read on every visit rather than once at startup:
+  // the directory is the record, and a sprite written or deleted since the
+  // last look is exactly what someone opening the gallery came to see.
+  const engineReady = useShellStore((state) => state.sidecar.ready);
+  useEffect(() => {
+    if (engineReady) {
+      void load();
+    }
+  }, [engineReady, load]);
 
   const shown = visibleItems(items, filter);
 
   return (
     <section className="flex h-full flex-col gap-4 overflow-auto p-4">
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-base font-semibold text-fg-primary">{t('gallery.title')}</h1>
-          <p className="text-xs text-fg-secondary">{t('gallery.subtitle')}</p>
-        </div>
-        <Button variant="ghost" disabled={items.length === 0} onClick={clear}>
-          {t('gallery.clear')}
-        </Button>
+      <header>
+        <h1 className="text-base font-semibold text-fg-primary">{t('gallery.title')}</h1>
+        <p className="text-xs text-fg-secondary">{t('gallery.subtitle')}</p>
       </header>
 
       {/* A secondary pill row, so its active state is the anchor colour rather
@@ -86,12 +92,17 @@ export function GalleryScreen(): ReactElement {
                   src={toDataUrl(item.image.data)}
                   width={item.image.width}
                   height={item.image.height}
-                  alt={item.prompt}
+                  alt={item.id}
                   style={{ imageRendering: 'pixelated', width: 128, height: 'auto' }}
                 />
               </div>
-              <p className="truncate text-xs text-fg-secondary" title={item.prompt}>
-                {item.prompt}
+              {/* The file name, which is what a sprite is called everywhere
+                  else: in the folder this list reads, in the editor's save,
+                  and in whatever the user does with it afterwards. Titled as
+                  well as shown, because the names are long enough to truncate
+                  and the tail is the part that differs. */}
+              <p className="truncate text-xs text-fg-secondary" title={item.id}>
+                {item.id}
               </p>
               <div className="flex items-center justify-between gap-2">
                 <Button
@@ -99,7 +110,7 @@ export function GalleryScreen(): ReactElement {
                   className="px-2 py-1 text-xs"
                   onClick={() => {
                     openSprite(item.image);
-                    setScreen('generate');
+                    setScreen('editor');
                   }}
                 >
                   {t('gallery.edit')}

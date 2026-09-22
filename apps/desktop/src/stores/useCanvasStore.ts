@@ -70,7 +70,7 @@ import {
   type Rgba,
 } from '@/lib/pixels';
 import { useEditorStore, type Shape, type Tool } from '@/stores/useEditorStore';
-import { useGenerationStore } from '@/stores/useGenerationStore';
+import { useSpriteStore } from '@/stores/useSpriteStore';
 
 /**
  * What painting writes when no palette colour has been chosen.
@@ -111,14 +111,12 @@ interface Stroke {
 }
 
 interface CanvasState {
-  /** Which sprite of the batch the buffer belongs to, or null before one does. */
-  index: number | null;
   /**
    * The encoded sprite the buffer last agreed with.
    *
    * Both what was decoded on arrival and what was last published, so the
    * surface can tell a sprite that changed underneath it from its own output
-   * coming back around through the generation store.
+   * coming back around through the sprite store.
    */
   origin: string | null;
   /** The sprite, as pixels. Null until one is adopted. */
@@ -131,7 +129,7 @@ interface CanvasState {
   stroke: Stroke | null;
 
   /** Takes a decoded sprite as the thing being drawn on. */
-  adopt: (index: number, data: string, pixels: Pixels) => void;
+  adopt: (data: string, pixels: Pixels) => void;
   /** Drops the buffer, for when there is no longer a sprite to draw on. */
   release: () => void;
   /** Starts a stroke at a pixel. */
@@ -147,22 +145,19 @@ interface CanvasState {
 }
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
-  index: null,
   origin: null,
   pixels: null,
   history: EMPTY_HISTORY,
   selection: null,
   stroke: null,
 
-  adopt: (index, data, pixels) => {
-    const state = get();
-    if (state.index === index && state.origin === data) {
+  adopt: (data, pixels) => {
+    if (get().origin === data) {
       return;
     }
     // A different sprite is a different history. Offering to undo a stroke
     // onto a sprite it was never made on is worse than offering nothing.
     set({
-      index,
       origin: data,
       pixels,
       history: EMPTY_HISTORY,
@@ -173,7 +168,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   release: () => {
     set({
-      index: null,
       origin: null,
       pixels: null,
       history: EMPTY_HISTORY,
@@ -392,10 +386,10 @@ function differs(before: Pixels, after: Pixels): boolean {
 /**
  * Hands the painted sprite to the rest of the application.
  *
- * This is what makes a stroke real outside the stage: the generation store
- * holds the sprite the gallery lists, the Adjust step corrects and the shell
- * writes to disk, so a painted sprite that did not go back into it would be a
- * picture of an edit rather than an edit.
+ * This is what makes a stroke real outside the stage: the sprite store holds
+ * the sprite the Adjust step corrects and the shell writes to disk, so a
+ * painted sprite that did not go back into it would be a picture of an edit
+ * rather than an edit.
  *
  * Publishing on every committed stroke, and on every undo, rather than behind
  * a save control: the store the sprite comes from is already the one every
@@ -406,8 +400,8 @@ function differs(before: Pixels, after: Pixels): boolean {
  * is the case under test and would be the case in a webview with no canvas.
  */
 function publish(): void {
-  const { pixels, index } = useCanvasStore.getState();
-  if (pixels === null || index === null) {
+  const { pixels } = useCanvasStore.getState();
+  if (pixels === null) {
     return;
   }
 
@@ -417,10 +411,10 @@ function publish(): void {
   }
 
   // Recorded before it is handed over, so that the sprite coming back through
-  // the generation store is recognised as this buffer's own output and does
-  // not cause it to be decoded and adopted again.
+  // the sprite store is recognised as this buffer's own output and does not
+  // cause it to be decoded and adopted again.
   useCanvasStore.setState({ origin: data });
-  useGenerationStore.getState().paint(index, data);
+  useSpriteStore.getState().paint(data);
 }
 
 /**

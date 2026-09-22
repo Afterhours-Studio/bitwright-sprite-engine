@@ -33,39 +33,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { App } from '@/App';
 import i18n, { resources } from '@/lib/i18n';
-import { useEngineStore } from '@/stores/useEngineStore';
 import { useGalleryStore } from '@/stores/useGalleryStore';
 import { useShellStore, type Screen, type Theme } from '@/stores/useShellStore';
-import type { BackendInfo } from '@/types/engine';
+import { useSpriteStore } from '@/stores/useSpriteStore';
 
-const BACKENDS: BackendInfo[] = [
-  {
-    kind: 'cuda',
-    available: false,
-    detail: 'backend.cuda.driver_missing',
-    device: '',
-    capabilities: ['batch', 'controlnet', 'ip_adapter', 'lora_hotswap'],
-    selected: false,
-  },
-  {
-    kind: 'mps',
-    available: false,
-    detail: 'backend.mps.not_macos',
-    device: '',
-    capabilities: ['batch', 'controlnet', 'lora_hotswap'],
-    selected: false,
-  },
-  {
-    kind: 'remote',
-    available: true,
-    detail: '',
-    device: 'https://api.example.com',
-    capabilities: ['batch'],
-    selected: true,
-  },
-];
-
-const SCREENS: Screen[] = ['generate', 'gallery', 'settings'];
+const SCREENS: Screen[] = ['editor', 'gallery', 'settings'];
 const THEMES: Theme[] = ['light', 'dark'];
 
 /** Inline colour written by a component, rather than taken from a token. */
@@ -73,14 +45,11 @@ const INLINE_COLOUR = /(?:color|background|border|fill|stroke)[^;"]*:\s*(?:#|rgb
 
 beforeEach(async () => {
   await i18n.changeLanguage('en');
-  useEngineStore.setState({
+  useShellStore.setState({
     sidecar: { ready: true, port: 51234, version: '0.1.0', error: '', detail: '' },
-    backends: BACKENDS,
-    models: [],
-    loading: false,
-    error: null,
   });
   useGalleryStore.setState({ items: [], filter: 'all' });
+  useSpriteStore.getState().close();
 });
 
 describe('screens', () => {
@@ -98,35 +67,17 @@ describe('screens', () => {
     }
   }
 
-  it('shows the reason an engine cannot be used, instead of hiding it', () => {
-    useShellStore.getState().setScreen('settings');
+  it('says what to do with an editor that has no sprite open', () => {
+    useShellStore.getState().setScreen('editor');
     render(<App />);
 
-    // Scoped to the content area, because the engine picker in the title bar
-    // lists the same reasons and its overlay stays mounted while closed. An
-    // unscoped query would pass on the chrome without the screen showing
-    // anything at all.
     const main = within(screen.getByRole('main'));
 
-    expect(
-      main.getByText('No CUDA driver was found. Install the NVIDIA driver and restart.'),
-    ).toBeInTheDocument();
-  });
-
-  it('disables the batch control when the engine cannot batch', () => {
-    useEngineStore.setState({
-      backends: BACKENDS.map((backend) =>
-        backend.kind === 'remote' ? { ...backend, capabilities: [] } : backend,
-      ),
-    });
-    useShellStore.getState().setScreen('generate');
-    render(<App />);
-
-    expect(screen.getByLabelText('Batch Size')).toBeDisabled();
+    expect(main.getByText('Open a sprite from the Gallery to edit it')).toBeInTheDocument();
   });
 
   it('opens the screen belonging to the tab that was clicked', () => {
-    useShellStore.getState().setScreen('generate');
+    useShellStore.getState().setScreen('editor');
     render(<App />);
 
     const gallery = screen.getByRole('tab', { name: 'Gallery' });
@@ -145,25 +96,23 @@ describe('screens', () => {
   });
 
   it('translates the interface when the language changes', async () => {
-    useShellStore.getState().setScreen('generate');
+    useShellStore.getState().setScreen('editor');
     await i18n.changeLanguage('vi');
     render(<App />);
 
     const main = within(screen.getByRole('main'));
 
-    // The generate screen has no heading any more: the selected tab is what
-    // names it, so the tab is what this reads. The parameter panel is checked
-    // as well, so that translated chrome around an untranslated screen would
-    // still fail. The expected text is read from the locale files rather than
-    // written here, so that translated strings live only under locales/vi.
-    // Scoped to the screen switcher, because the canvas now carries a second
-    // tab strip of its own and an unscoped query would find both.
+    // The editor has no heading: the selected tab is what names it, so the tab
+    // is what this reads. The tool column is checked as well, so that
+    // translated chrome around an untranslated screen would still fail. The
+    // expected text is read from the locale files rather than written here, so
+    // that translated strings live only under locales/vi. Scoped to the screen
+    // switcher, because the canvas carries a second tab strip of its own and
+    // an unscoped query would find both.
     const nav = within(screen.getByRole('tablist', { name: resources.vi.common.app.name }));
     expect(nav.getByRole('tab', { selected: true })).toHaveTextContent(
-      resources.vi.common.nav.generate,
+      resources.vi.common.nav.editor,
     );
-    expect(
-      main.getByRole('heading', { level: 2, name: resources.vi.generation.parameters.title }),
-    ).toBeInTheDocument();
+    expect(main.getByText(resources.vi.editor.tools.empty)).toBeInTheDocument();
   });
 });

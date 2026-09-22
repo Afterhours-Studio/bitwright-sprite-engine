@@ -21,18 +21,17 @@ import { Card } from '@/components/ui/Card';
 import { Overlay } from '@/components/ui/Overlay';
 import { useDismiss } from '@/hooks/useDismiss';
 import { useErrorMessage } from '@/hooks/useErrorMessage';
-import { BYTES_PER_MB, formatBytes, type ByteUnits } from '@/lib/format';
-import { useEngineStore } from '@/stores/useEngineStore';
+import { formatBytes, type ByteUnits } from '@/lib/format';
+import { useShellStore } from '@/stores/useShellStore';
 import { useStorageStore } from '@/stores/useStorageStore';
 import type { StorageInfo } from '@/types/engine';
 
 /**
- * The storage location: where downloaded weights are kept.
+ * The storage location: where everything the application writes is kept.
  *
- * Model weights are several gigabytes each, and the default location is under
- * the user's profile, which on Windows means the system drive. A user whose
- * system drive is full has to be able to point this at another volume, and
- * that is the whole purpose of this card.
+ * The default location is under the user's profile, which on Windows means the
+ * system drive. A user whose system drive is full has to be able to point this
+ * at another volume, and that is the whole purpose of this card.
  *
  * Choosing a folder does not apply it. The picker produces a candidate that
  * the engine has already created, proved writable, and reported the free space
@@ -40,12 +39,12 @@ import type { StorageInfo } from '@/types/engine';
  * this consequential is not something a single press should be able to do by
  * accident.
  *
- * Nothing is moved on disk. Weights already downloaded stay at the old
+ * Nothing is moved on disk. What is already written stays at the old
  * location, and the card says so afterwards rather than letting the user
- * assume they followed.
+ * assume it followed.
  *
- * Reads the store directly, as the engine selector on this screen does, so the
- * screen can mount it as `<StorageCard />` with nothing to wire up.
+ * Reads the store directly, so the screen can mount it as `<StorageCard />`
+ * with nothing to wire up.
  *
  * @returns The storage card.
  */
@@ -65,17 +64,10 @@ export function StorageCard(): ReactElement {
   const clearCandidate = useStorageStore((state) => state.clearCandidate);
   const apply = useStorageStore((state) => state.apply);
 
-  // The largest model in the registry is what decides whether a volume has
-  // enough room to be worth choosing. A fixed threshold would either nag on a
-  // volume that is fine or stay quiet on one that cannot hold anything.
-  const models = useEngineStore((state) => state.models);
-  const largestModelBytes =
-    models.reduce((most, model) => Math.max(most, model.sizeMb), 0) * BYTES_PER_MB;
-
   // The location comes from the engine, so there is nothing to ask for until
   // the engine is answering. Asking anyway would fill the card with
   // "the engine is still starting" every time the screen opens during startup.
-  const engineReady = useEngineStore((state) => state.sidecar.ready);
+  const engineReady = useShellStore((state) => state.sidecar.ready);
 
   const units: ByteUnits = {
     megabytes: tCommon('units.megabytes'),
@@ -164,7 +156,6 @@ export function StorageCard(): ReactElement {
               <Proposal
                 candidate={candidate}
                 units={units}
-                largestModelBytes={largestModelBytes}
                 busy={loading}
                 onCancel={close}
                 onConfirm={() => {
@@ -195,8 +186,6 @@ interface ProposalProps {
   candidate: StorageInfo;
   /** Translated unit words. */
   units: ByteUnits;
-  /** Size of the largest model in the registry, in bytes. Zero when unknown. */
-  largestModelBytes: number;
   /** Whether a request is in flight, which disables the confirmation. */
   busy: boolean;
   /** Called when the user backs out. */
@@ -208,26 +197,18 @@ interface ProposalProps {
 /**
  * The confirmation for a location the user picked.
  *
- * It states the free space it found and, when the volume cannot hold even the
- * largest model, says so before the user commits rather than after a download
- * has failed part way through.
+ * It states the free space it found before the user commits, because that is
+ * the one fact about a volume that decides whether choosing it was a mistake,
+ * and it is not visible in a folder picker.
  *
  * @param props - The proposal and its actions.
  * @returns The confirmation panel.
  */
-function Proposal({
-  candidate,
-  units,
-  largestModelBytes,
-  busy,
-  onCancel,
-  onConfirm,
-}: ProposalProps): ReactElement {
+function Proposal({ candidate, units, busy, onCancel, onConfirm }: ProposalProps): ReactElement {
   const { t } = useTranslation('settings');
   const { t: tCommon } = useTranslation();
 
   const free = candidate.freeBytes;
-  const tooSmall = free !== null && largestModelBytes > 0 && free < largestModelBytes;
 
   return (
     <div role="dialog" aria-label={t('storage.confirmTitle')} className="flex flex-col gap-2">
@@ -239,12 +220,6 @@ function Proposal({
         {free === null ? t('storage.unknownSpace') : formatBytes(free, units)}
       </p>
       <p className="text-xs text-fg-secondary">{t('storage.confirmBody')}</p>
-
-      {tooSmall && (
-        <p className="text-xs text-fg-secondary">
-          {t('storage.lowSpace', { needed: formatBytes(largestModelBytes, units) })}
-        </p>
-      )}
 
       <div className="flex flex-wrap justify-end gap-2 pt-1">
         <Button variant="ghost" className="px-3 py-1 text-xs" onClick={onCancel}>

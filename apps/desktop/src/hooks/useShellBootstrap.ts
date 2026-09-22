@@ -18,16 +18,13 @@ import { useEffect } from 'react';
 
 import {
   appVersion,
-  checkGpu,
   platformInfo,
   sidecarStatus,
   SHELL_EVENTS,
   on,
   vibrancyState,
-  type GpuReport,
   type SidecarStatus,
 } from '@/lib/tauri';
-import { useEngineStore } from '@/stores/useEngineStore';
 import { useToastStore } from '@/stores/useToastStore';
 import {
   applyRootAttributes,
@@ -47,10 +44,9 @@ import {
 export function useShellBootstrap(): void {
   const setPlatform = useShellStore((state) => state.setPlatform);
   const setVibrancy = useShellStore((state) => state.setVibrancy);
-  const setGpu = useShellStore((state) => state.setGpu);
   const setAppVersion = useShellStore((state) => state.setAppVersion);
   const theme = useShellStore((state) => state.theme);
-  const setSidecar = useEngineStore((state) => state.setSidecar);
+  const setSidecar = useShellStore((state) => state.setSidecar);
 
   // The stored theme is applied before anything renders, so the first paint is
   // already in the right palette. While the choice is `system`, the media query
@@ -74,11 +70,10 @@ export function useShellBootstrap(): void {
     const controller = new AbortController();
 
     void (async () => {
-      const [platform, vibrancy, sidecar, gpu, version] = await Promise.all([
+      const [platform, vibrancy, sidecar, version] = await Promise.all([
         platformInfo(),
         vibrancyState(),
         sidecarStatus(),
-        checkGpu(),
         appVersion(),
       ]);
 
@@ -96,18 +91,16 @@ export function useShellBootstrap(): void {
       if (sidecar.ok) {
         setSidecar(sidecar.value);
       } else if (sidecar.error.code !== 'shell.unavailable') {
-        // The only one of the five worth raising. The other four degrade into
+        // The only one of the four worth raising. The other three degrade into
         // a default the interface can carry, while an engine that never
-        // answered leaves nothing on the screen to explain why generation does
-        // not work. `shell.unavailable` is skipped because it only means the
-        // page is not in a Tauri window, which is not a fault to report.
+        // answered leaves nothing on the screen to explain why correcting a
+        // sprite does not work. `shell.unavailable` is skipped because it only
+        // means the page is not in a Tauri window, which is not a fault to
+        // report.
         useToastStore.getState().notify({
           severity: 'warning',
           messageKey: 'errors:network.unreachable',
         });
-      }
-      if (gpu.ok) {
-        setGpu(gpu.value);
       }
       // Read separately from the engine version. A frozen sidecar reporting an
       // old number looked like the application being stale, and showing only
@@ -120,13 +113,12 @@ export function useShellBootstrap(): void {
     return () => {
       controller.abort();
     };
-  }, [setAppVersion, setGpu, setPlatform, setSidecar, setVibrancy]);
+  }, [setAppVersion, setPlatform, setSidecar, setVibrancy]);
 
   useEffect(() => {
     const unsubscribers: Promise<() => void>[] = [
       on<SidecarStatus>(SHELL_EVENTS.sidecarReady, setSidecar),
       on<SidecarStatus>(SHELL_EVENTS.sidecarFailed, setSidecar),
-      on<GpuReport>(SHELL_EVENTS.gpu, setGpu),
     ];
 
     return () => {
@@ -136,5 +128,5 @@ export function useShellBootstrap(): void {
         });
       }
     };
-  }, [setGpu, setSidecar]);
+  }, [setSidecar]);
 }

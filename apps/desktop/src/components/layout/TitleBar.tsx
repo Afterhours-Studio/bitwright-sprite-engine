@@ -16,7 +16,6 @@
 import type { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { EngineStatus } from '@/components/layout/EngineStatus';
 import { IconButton } from '@/components/ui/IconButton';
 import { Menu, type MenuGroup } from '@/components/ui/Menu';
 import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
@@ -31,7 +30,7 @@ import { ApiError } from '@/lib/api';
 import { appVersion, openDirectory, openExternal } from '@/lib/tauri';
 import { useShellStore, type Screen } from '@/stores/useShellStore';
 
-const SCREENS: readonly Screen[] = ['generate', 'gallery', 'settings'];
+const SCREENS: readonly Screen[] = ['editor', 'gallery', 'settings'];
 
 /**
  * The window's own title bar, drawn because the system decorations are off.
@@ -96,7 +95,7 @@ export function TitleBar(): ReactElement {
   // Offered only on the screen that holds the sprite. The editor has one
   // buffer whatever is on screen, and a menu item that changes something the
   // user cannot see is worse than one that is greyed out.
-  const editing = screen === 'generate';
+  const editing = screen === 'editor';
   const undoable = editing && hasUndo;
   const redoable = editing && hasRedo;
 
@@ -107,10 +106,9 @@ export function TitleBar(): ReactElement {
       id: 'file',
       label: t('menu.file'),
       items: [
-        { id: 'new', label: t('menu.new'), accelerator: 'Ctrl+N' },
+        { id: 'editor', label: t('menu.editor'), accelerator: 'Ctrl+E' },
         { id: 'gallery', label: t('menu.gallery'), accelerator: 'Ctrl+G' },
         { id: 'sprites-folder', label: t('menu.spritesFolder') },
-        { id: 'models-folder', label: t('menu.modelsFolder') },
         { id: 'quit', label: t('menu.quit'), accelerator: 'Alt+F4' },
       ],
     },
@@ -146,13 +144,13 @@ export function TitleBar(): ReactElement {
   ];
 
   /**
-   * Opens one of the application's own directories.
+   * Opens the directory sprites are written to.
    *
    * The storage report is what knows where they are, and it is loaded when the
    * settings screen is first opened rather than at startup, so it may not be
    * there yet when someone reaches for this on a fresh launch.
    */
-  const openFolder = async (which: 'sprites' | 'models'): Promise<void> => {
+  const openSpritesFolder = async (): Promise<void> => {
     const info = storage ?? (await refreshStorage().then(() => useStorageStore.getState().info));
     if (info === null) {
       notify({ severity: 'warning', messageKey: 'errors:shell.no_storage_info' });
@@ -160,7 +158,7 @@ export function TitleBar(): ReactElement {
     }
 
     try {
-      await openDirectory(which === 'sprites' ? info.spritesDir : info.modelsDir);
+      await openDirectory(info.spritesDir);
     } catch (error) {
       notify({
         severity: 'warning',
@@ -183,17 +181,14 @@ export function TitleBar(): ReactElement {
 
   const onMenuSelect = (groupId: string, itemId: string): void => {
     if (groupId === 'file') {
-      if (itemId === 'new') {
-        setScreen('generate');
+      if (itemId === 'editor') {
+        setScreen('editor');
       }
       if (itemId === 'gallery') {
         setScreen('gallery');
       }
       if (itemId === 'sprites-folder') {
-        void openFolder('sprites');
-      }
-      if (itemId === 'models-folder') {
-        void openFolder('models');
+        void openSpritesFolder();
       }
       if (itemId === 'quit') {
         void close();
@@ -239,8 +234,8 @@ export function TitleBar(): ReactElement {
       }
       if (itemId === 'about') {
         // The shell's version rather than the engine's: this is the
-        // application the user installed, and the engine reports its own in
-        // the binaries rail.
+        // application the user installed, and the engine reports its own on
+        // the settings screen.
         void appVersion().then(
           (result) => {
             notify({
@@ -352,10 +347,6 @@ export function TitleBar(): ReactElement {
       </div>
 
       <div data-tauri-drag-region className="flex shrink-0 items-center gap-2">
-        <div className="no-drag">
-          <EngineStatus />
-        </div>
-
         <div className="no-drag flex items-center gap-1">
           <Tooltip label={t('theme.toggle')}>
             <IconButton

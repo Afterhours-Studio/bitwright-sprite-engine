@@ -1,84 +1,9 @@
 {
-  "title": "Generate",
-  "subtitle": "Describe the sprite you want",
-  "prompt": {
-    "label": "Prompt",
-    "placeholder": "A knight in silver armour, side view",
-    "negativeLabel": "Negative Prompt",
-    "negativePlaceholder": "blurry, text, watermark"
-  },
-  "parameters": {
-    "title": "Parameters",
-    "size": "Size",
-    "presets": "Presets",
-    "dimensions": "{{width}} x {{height}}",
-    "width": "Width",
-    "height": "Height",
-    "steps": "Steps",
-    "guidance": "Guidance",
-    "seed": "Seed",
-    "seedRandom": "Random",
-    "batch": "Batch Size",
-    "model": "Model",
-    "lora": "Style Adapter",
-    "loraNone": "None",
-    "presetCustom": "Custom",
-    "style": "Style",
-    "styles": {
-      "pixel": "Pixel Art",
-      "hd2d": "HD-2D",
-      "modern2d": "Modern 2D",
-      "classic": "Retro 16-bit",
-      "isometric": "Isometric"
-    },
-    "camera": "Camera",
-    "cameras": {
-      "side": "Side View",
-      "top_down": "Top Down",
-      "isometric": "Isometric",
-      "front": "Front"
-    },
-    "directions": "Directions",
-    "directionCount_one": "{{count}} direction",
-    "directionCount_other": "{{count}} directions",
-    "loraNotDownloaded": "{{name}} (not downloaded)",
-    "modelRemote": "The remote provider decides this. Choose its model in Settings."
-  },
-  "postprocess": {
-    "title": "Post-processing",
-    "removeBackground": "Remove Background",
-    "paletteSize": "Palette Size",
-    "dither": "Dither",
-    "pixelGrid": "Snap to Grid",
-    "pixelGridHint": "Resamples the sprite onto blocks of this size while it is generated. It changes the image, not what the canvas draws over it."
-  },
-  "actions": {
-    "generate": "Generate",
-    "generating": "Generating",
-    "stop": "Stop",
-    "reset": "Reset"
-  },
+  "title": "Editor",
   "canvas": {
-    "empty": "Your sprite will appear here",
+    "empty": "Open a sprite from the Gallery to edit it",
     "hint": "The checkerboard shows transparent pixels",
-    "actualSize": "Actual Size",
-    "batch": "Batch",
-    "railEmpty": "Nothing to preview yet",
-    "surface": "Sprite, drawing surface",
-    "selectSprite": "Show sprite {{index}}"
-  },
-  "capability": {
-    "unsupported": "Not supported by the selected engine",
-    "batch": "Batch Generation",
-    "loraHotswap": "Style Adapters",
-    "controlnet": "Pose Control",
-    "ipAdapter": "Reference Image"
-  },
-  "result": {
-    "seed": "Seed {{seed}}",
-    "duration": "Took {{ms}} ms",
-    "count_one": "{{count}} sprite",
-    "count_other": "{{count}} sprites"
+    "surface": "Sprite, drawing surface"
   },
   "dock": {
     "tools": "Tools",
@@ -100,40 +25,7 @@
     "pixelGrid": "Pixel Grid",
     "pixelGridHint": "Draws a line at every sprite pixel. It hides itself below six screen pixels per sprite pixel, where it would be a grey wash rather than a grid.",
     "checkerboard": "Checkerboard",
-    "checkerboardHint": "Shows transparent pixels as a checker pattern.",
-    "lastRun": "Last Run",
-    "runNone": "No runs yet",
-    "runDuration": "Duration",
-    "resetWarning": "This clears the prompt, every parameter, and the results of the last run.",
-    "resetConfirm": "Reset everything",
-    "resetCancel": "Cancel"
-  },
-  "binaries": {
-    "title": "Binaries",
-    "machine": "Machine",
-    "os": {
-      "windows": "Windows",
-      "macos": "macOS",
-      "linux": "Linux"
-    },
-    "engine": "Engine",
-    "stopped": "Not running",
-    "gpu": "GPU",
-    "none": "None found",
-    "runtime": "GPU runtime",
-    "notInstalled": "Not installed",
-    "restart": "Restart to use",
-    "runtimeHint": "Install it in Settings to generate on this GPU.",
-    "backend": {
-      "cuda": "NVIDIA engine",
-      "mps": "Apple engine",
-      "remote": "Remote API"
-    },
-    "unavailable": "Unavailable",
-    "models": "Model weights",
-    "modelCount": "{{cached}} of {{total}} downloaded",
-    "modelsHint": "Download at least one model in Settings.",
-    "empty": "Still checking this machine."
+    "checkerboardHint": "Shows transparent pixels as a checker pattern."
   },
   "tools": {
     "label": "Sprite Tools",
@@ -142,11 +34,13 @@
     "redo": "Redo",
     "adjust": "Adjust",
     "colour": "Colour",
-    "empty": "Generate a sprite to adjust it.",
-    "adjustHint": "A model produces something that looks like pixel art. These make it pixel art.",
+    "empty": "Open a sprite from the Gallery to adjust it.",
+    "adjustHint": "An image that looks like pixel art is not pixel art. These make it pixel art.",
+    "removeBackground": "Remove Background",
+    "paletteSize": "Palette Size",
     "targetWidth": "Cells Across",
     "targetHeight": "Cells Down",
-    "targetHint": "Leave a field empty to have the engine measure the grid the model actually drew, instead of the one it was asked for.",
+    "targetHint": "Leave a field empty to have the engine measure the grid the sprite is actually drawn on, instead of imposing one.",
     "dither": "Dither",
     "ditherHint": "Applied once the sprite is down to size, so the pattern lands on the sprite's own pixels. An ordered pattern is identical in every frame; error diffusion is not, and makes flat areas crawl during playback.",
     "dithers": {

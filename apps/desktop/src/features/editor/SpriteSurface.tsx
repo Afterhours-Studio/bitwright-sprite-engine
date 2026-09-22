@@ -26,8 +26,6 @@ import type { SpriteImage } from '@/types/engine';
 export interface SpriteSurfaceProps {
   /** The sprite being worked on. */
   image: SpriteImage;
-  /** Which sprite of the batch it is, which is how the buffer is identified. */
-  index: number;
   /** The drawn width of the sprite, in CSS pixels. */
   width: number;
   /** The drawn height, in CSS pixels. */
@@ -52,8 +50,8 @@ export interface SpriteSurfaceProps {
  * only thing that shows where there is no canvas at all, such as under test.
  * A sprite that cannot be painted on is still a sprite that has to be seen.
  */
-export function SpriteSurface({ image, index, width, height }: SpriteSurfaceProps): ReactElement {
-  const { t } = useTranslation('generation');
+export function SpriteSurface({ image, width, height }: SpriteSurfaceProps): ReactElement {
+  const { t } = useTranslation('editor');
   const canvas = useRef<HTMLCanvasElement>(null);
 
   const pixels = useCanvasStore((state) => state.pixels);
@@ -68,24 +66,23 @@ export function SpriteSurface({ image, index, width, height }: SpriteSurfaceProp
   // Decoded once per sprite. The buffer is the truth from then on, so a sprite
   // that is already adopted - including one this editor published itself - is
   // not decoded again, which is what stops a stroke from being undone by its
-  // own trip through the generation store.
+  // own trip through the sprite store.
   useEffect(() => {
-    const current = useCanvasStore.getState();
-    if (current.index === index && current.origin === image.data) {
+    if (useCanvasStore.getState().origin === image.data) {
       return;
     }
 
     let stale = false;
     void decodePng(image.data).then((decoded) => {
       if (!stale && decoded !== null) {
-        adopt(index, image.data, decoded);
+        adopt(image.data, decoded);
       }
     });
 
     return () => {
       stale = true;
     };
-  }, [adopt, index, image.data]);
+  }, [adopt, image.data]);
 
   useEffect(() => {
     const element = canvas.current;
@@ -105,7 +102,7 @@ export function SpriteSurface({ image, index, width, height }: SpriteSurfaceProp
   // On the window rather than on the canvas, because a canvas is not something
   // that takes focus and undo has to work wherever the pointer happens to be.
   // A field is left alone: the same chord is how a browser undoes typing, and
-  // taking it away from the prompt would be worse than not having it here.
+  // taking it away from a field would be worse than not having it here.
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent): void {
       if (!(event.ctrlKey || event.metaKey) || editingText(event.target)) {

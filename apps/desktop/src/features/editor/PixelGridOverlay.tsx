@@ -49,9 +49,9 @@ export interface PixelGridOverlayProps {
  * A line at every sprite pixel boundary, drawn over the sprite.
  *
  * THIS IS A VIEW OVERLAY AND NOTHING ELSE. It changes what is on screen; it
- * never changes the image, the request, or anything that is saved. It is not
- * the generation request's `postprocess.pixelGrid`, which is a block size the
- * engine resamples the sprite onto and which produces a different image.
+ * never changes the sprite or anything that is saved. The cell size it draws
+ * is the sprite's own, read from the buffer, rather than a number anything
+ * asked for.
  *
  * A CANVAS RATHER THAN A REPEATING GRADIENT, and the reason is the device pixel
  * ratio. A gradient's period is a CSS length, so on a display at 1.25 or 1.5

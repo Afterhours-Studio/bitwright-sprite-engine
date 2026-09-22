@@ -51,17 +51,15 @@
  * drag - rather than the two corners the other four take.
  *
  * The brush settings sit here for the same reason the tool does: they are a
- * property of the tool, not of the generation request, and Aseprite,
- * Libresprite, Piskel and Pixelorama all put them beside the tool selector
- * rather than in a general purpose panel.
+ * property of the tool, not of the sprite, and Aseprite, Libresprite, Piskel
+ * and Pixelorama all put them beside the tool selector rather than in a
+ * general purpose panel.
  *
  * The view settings are a different kind of thing again, and they are here
- * rather than in the generation store on purpose. They change what the canvas
- * DRAWS; they never change what is asked for or what comes back. The
- * generation request carries its own `postprocess.pixelGrid`, which resamples
- * the sprite onto blocks of a given size inside the engine and is a property of
- * the image rather than of the view. The two are unrelated and are deliberately
- * not named the same thing.
+ * rather than with the sprite on purpose. They change what the canvas DRAWS;
+ * they never change the sprite or anything that is saved. That is also why
+ * they outlive the window while nothing else in this store does: they describe
+ * how the user likes to look at a canvas, not what happens to be on one.
  */
 
 import { create } from 'zustand';

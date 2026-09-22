@@ -15,8 +15,8 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Shell state: which screen is open, the theme, the platform, and whether the
- * window background effect is active.
+ * Shell state: which screen is open, the theme, the platform, whether the
+ * window background effect is active, and how the sidecar is getting on.
  *
  * The theme and the vibrancy flag are written onto the root element as data
  * attributes, because that is what selects the token set in `tokens.css`. The
@@ -26,10 +26,10 @@
 
 import { create } from 'zustand';
 
-import type { GpuReport, PlatformInfo, VibrancyState } from '@/lib/tauri';
+import type { PlatformInfo, SidecarStatus, VibrancyState } from '@/lib/tauri';
 
 /** The screens the application has. */
-export type Screen = 'generate' | 'gallery' | 'settings';
+export type Screen = 'editor' | 'gallery' | 'settings';
 
 /** What the user chose. Dark is the default. */
 export type Theme = 'dark' | 'light' | 'system';
@@ -51,8 +51,16 @@ interface ShellState {
   platform: PlatformInfo | null;
   /** Whether a window background effect is active. */
   vibrancy: VibrancyState;
-  /** The startup GPU probe, or null before it has finished. */
-  gpu: GpuReport | null;
+  /**
+   * How the Python sidecar is getting on.
+   *
+   * It lives with the rest of the shell's facts rather than in a store of its
+   * own: it is one more thing Rust reports about the process the window is
+   * running in, alongside the platform and the window effect, and every screen
+   * that needs it needs it for the same reason - to know whether asking the
+   * engine for something is worth doing yet.
+   */
+  sidecar: SidecarStatus;
   /** The application's own version, or empty before the shell has answered. */
   appVersion: string;
 
@@ -66,8 +74,8 @@ interface ShellState {
   setPlatform: (platform: PlatformInfo) => void;
   /** Records whether a background effect was applied. */
   setVibrancy: (vibrancy: VibrancyState) => void;
-  /** Records the startup GPU probe. */
-  setGpu: (gpu: GpuReport) => void;
+  /** Records what the shell last said about the sidecar. */
+  setSidecar: (sidecar: SidecarStatus) => void;
   /** Records the application version reported by the shell. */
   setAppVersion: (version: string) => void;
 }
@@ -155,14 +163,14 @@ export function applyRootAttributes(attributes: {
 }
 
 export const useShellStore = create<ShellState>((set, get) => ({
-  screen: 'generate',
+  screen: 'editor',
   theme: storedTheme(),
   platform: null,
   // Opaque tokens are the safe default: an active effect with opaque surfaces
   // merely looks flat, while transparent surfaces with no effect leave text on
   // the wallpaper.
   vibrancy: { applied: false, effect: '', reason: '' },
-  gpu: null,
+  sidecar: { ready: false, port: 0, version: '', error: '', detail: '' },
   appVersion: '',
 
   setScreen: (screen) => {
@@ -196,8 +204,8 @@ export const useShellStore = create<ShellState>((set, get) => ({
     applyRootAttributes({ vibrancy: vibrancy.applied });
   },
 
-  setGpu: (gpu) => {
-    set({ gpu });
+  setSidecar: (sidecar) => {
+    set({ sidecar });
   },
 
   setAppVersion: (version) => {

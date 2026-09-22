@@ -16,8 +16,8 @@
 import { useCallback, useEffect, useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { MIN_GRID_CELL, PixelGridOverlay } from '@/features/generation/PixelGridOverlay';
-import { SpriteSurface } from '@/features/generation/SpriteSurface';
+import { MIN_GRID_CELL, PixelGridOverlay } from '@/features/editor/PixelGridOverlay';
+import { SpriteSurface } from '@/features/editor/SpriteSurface';
 
 /** The gap between the well's edge and the sprite, in pixels. */
 const WELL_INSET = 12;
@@ -27,26 +27,17 @@ import { useCanvasStore } from '@/stores/useCanvasStore';
 import type { SpriteImage } from '@/types/engine';
 
 export interface SpriteCanvasProps {
-  /** The sprite being looked at, or `undefined` before the first run. */
+  /** The sprite being looked at, or `undefined` when none is open. */
   image: SpriteImage | undefined;
-  /**
-   * Which sprite of the batch it is.
-   *
-   * Passed through to the editing surface, which identifies the buffer it is
-   * drawing on by it: a stroke has to be able to tell that the sprite under it
-   * was replaced from that the sprite beside it was chosen.
-   */
-  index: number;
   /** Whether a line is drawn at every sprite pixel boundary. */
   showPixelGrid: boolean;
   /** Whether transparent pixels read as a checker pattern. */
   showCheckerboard: boolean;
   /**
-   * The size the parameters currently ask for.
+   * The shape the stage takes when nothing is open.
    *
-   * The stage takes its shape from this rather than from the sprite, so the
-   * canvas states the size that was asked for before anything exists to show,
-   * and keeps stating it while a request is edited.
+   * The stage is sized from this rather than from the sprite, so an empty
+   * editor is still a canvas of a stated size rather than a blank panel.
    */
   requested: { width: number; height: number };
 }
@@ -62,31 +53,28 @@ export interface SpriteCanvasProps {
  * Sprites are scaled with nearest neighbour, because smoothing a 64 pixel
  * sprite up to display size destroys the thing being made.
  *
- * ONE SPRITE, NOT THE WHOLE BATCH. The stage used to lay every image from the
- * run out in a row, which meant a batch of four was four sprites at a quarter
- * of the size each, on the screen whose entire job is showing one sprite
- * properly. The rest of the batch is in the preview rail beside it, and
- * pressing one there brings it here.
+ * ONE SPRITE. The stage's entire job is showing a single sprite properly, so
+ * it never lays several out in a row at a fraction of the size each.
  *
  * The checkerboard is a fixed screen size and does not scale with the sprite.
  * Scaling it makes it read as part of the art, which is why no editor does it.
  */
 export function SpriteCanvas({
   image,
-  index,
   showPixelGrid,
   showCheckerboard,
   requested,
 }: SpriteCanvasProps): ReactElement {
-  const { t } = useTranslation('generation');
+  const { t } = useTranslation('editor');
   const { ref, width, height } = useElementSize();
   const [available, setAvailable] = useState(0);
   const release = useCanvasStore((state) => state.release);
 
-  // Reset clears the run, and a buffer nobody can see is one undo would act
-  // on invisibly. Dropped here rather than when the surface unmounts, because
-  // that also happens on a trip to another screen, and coming back to find the
-  // history gone would be the application forgetting work that is still there.
+  // Closing a sprite leaves a buffer nobody can see, which is one undo would
+  // act on invisibly. Dropped here rather than when the surface unmounts,
+  // because that also happens on a trip to another screen, and coming back to
+  // find the history gone would be the application forgetting work that is
+  // still there.
   useEffect(() => {
     if (image === undefined) {
       release();
@@ -197,7 +185,7 @@ export function SpriteCanvas({
                   An absolutely positioned sibling paints after in-flow content
                   regardless of source order, so a static image here was drawn
                   underneath the pattern and the sprite simply never appeared. */}
-              <SpriteSurface image={image} index={index} width={drawnWidth} height={drawnHeight} />
+              <SpriteSurface image={image} width={drawnWidth} height={drawnHeight} />
               {gridVisible && (
                 <PixelGridOverlay
                   columns={cells.width}

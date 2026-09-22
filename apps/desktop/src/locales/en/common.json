@@ -4,7 +4,7 @@
     "tagline": "Sprite Engine"
   },
   "nav": {
-    "generate": "Generate",
+    "editor": "Editor",
     "gallery": "Gallery",
     "settings": "Settings"
   },
@@ -13,15 +13,6 @@
     "maximize": "Maximize",
     "restore": "Restore",
     "close": "Close"
-  },
-  "status": {
-    "backend": "Engine",
-    "ready": "Ready",
-    "starting": "Starting engine",
-    "offline": "Engine offline",
-    "idle": "Idle",
-    "working": "Generating",
-    "progress": "{{done}} of {{total}}"
   },
   "theme": {
     "label": "Theme",
@@ -52,17 +43,16 @@
   },
   "empty": {
     "title": "Nothing here yet",
-    "description": "Generated sprites appear here once a run finishes."
+    "description": "Sprites appear here once there are some in the sprites folder."
   },
   "gallery": {
     "title": "Gallery",
-    "subtitle": "Everything generated in this session",
+    "subtitle": "Every sprite in the sprites folder, newest first",
     "filterAll": "All",
     "filterFavourites": "Favourites",
     "favourite": "Favourite",
     "unfavourite": "Favourited",
     "remove": "Remove",
-    "clear": "Clear gallery",
     "edit": "Edit"
   },
   "menu": {
@@ -72,10 +62,9 @@
     "view": "View",
     "quit": "Quit",
     "search": "Search",
-    "new": "New Sprite",
+    "editor": "Editor",
     "gallery": "Gallery",
     "spritesFolder": "Open Sprites Folder",
-    "modelsFolder": "Open Models Folder",
     "settings": "Settings",
     "commandPalette": "Command Palette",
     "pixelGrid": "Pixel Grid",
@@ -109,27 +98,6 @@
       "error": "Error"
     },
     "engineFailed": "Engine problem",
-    "generationFailed": "Generation failed",
-    "downloadFailed": "Could not download {{name}}",
-    "modelReady": "{{name}} is on this machine and ready to use.",
-    "gpuUnavailable": "No usable GPU",
-    "runtimeReady": "Restart Bitwright to start generating on the GPU.",
-    "runtimeRepaired": "The missing packages were added. Restart to use them.",
-    "runtimeRemoved": "Generation will use a remote API until it is installed again.",
-    "runtimeFailed": "The GPU runtime could not be installed",
-    "modelRemoved": "{{name}} was deleted from this machine.",
-    "modelReadyTitle": "Download Complete",
-    "runtimeReadyTitle": "GPU Runtime Installed",
-    "runtimeRepairedTitle": "Runtime Repaired",
-    "runtimeRemovedTitle": "GPU Runtime Removed",
-    "modelRemovedTitle": "Model Removed"
-  },
-  "downloads": {
-    "title": "Downloads",
-    "empty": "Nothing has been downloaded yet.",
-    "clear": "Clear",
-    "done": "Finished",
-    "cancelled": "Stopped",
-    "failed": "Failed"
+    "conformFailed": "Could not correct the sprite"
   }
 }

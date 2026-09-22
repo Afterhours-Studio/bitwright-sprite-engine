@@ -1,84 +1,9 @@
 {
-  "title": "Tạo sprite",
-  "subtitle": "Mô tả sprite bạn muốn",
-  "prompt": {
-    "label": "Mô tả",
-    "placeholder": "Hiệp sĩ mặc giáp bạc, nhìn ngang",
-    "negativeLabel": "Mô tả loại trừ",
-    "negativePlaceholder": "mờ, chữ, hình chìm"
-  },
-  "parameters": {
-    "title": "Tham số",
-    "size": "Kích thước",
-    "presets": "Kích thước dựng sẵn",
-    "dimensions": "{{width}} x {{height}}",
-    "width": "Chiều rộng",
-    "height": "Chiều cao",
-    "steps": "Số bước",
-    "guidance": "Độ bám mô tả",
-    "seed": "Seed",
-    "seedRandom": "Ngẫu nhiên",
-    "batch": "Số ảnh mỗi lần",
-    "model": "Model",
-    "lora": "Bộ điều chỉnh phong cách",
-    "loraNone": "Không dùng",
-    "presetCustom": "Tuỳ chỉnh",
-    "style": "Phong cách",
-    "styles": {
-      "pixel": "Pixel art",
-      "hd2d": "HD-2D",
-      "modern2d": "2D hiện đại",
-      "classic": "Retro 16-bit",
-      "isometric": "Góc nghiêng"
-    },
-    "camera": "Góc máy",
-    "cameras": {
-      "side": "Nhìn ngang",
-      "top_down": "Nhìn từ trên",
-      "isometric": "Góc nghiêng",
-      "front": "Nhìn thẳng"
-    },
-    "directions": "Số hướng",
-    "directionCount_other": "{{count}} hướng",
-    "directionCount_one": "{{count}} hướng",
-    "loraNotDownloaded": "{{name}} (chưa tải)",
-    "modelRemote": "Provider từ xa quyết định cái này. Hãy chọn model của nó trong Cài đặt."
-  },
-  "postprocess": {
-    "title": "Hậu xử lý",
-    "removeBackground": "Xoá nền",
-    "paletteSize": "Số màu",
-    "dither": "Tán màu",
-    "pixelGrid": "Ghép về lưới",
-    "pixelGridHint": "Lấy mẫu lại sprite theo khối có cạnh bằng số này ngay khi tạo. Nó đổi chính ảnh, không phải lớp lưới canvas vẽ đè lên."
-  },
-  "actions": {
-    "generate": "Tạo",
-    "generating": "Đang tạo",
-    "stop": "Dừng",
-    "reset": "Đặt lại"
-  },
+  "title": "Trình vẽ",
   "canvas": {
-    "empty": "Sprite của bạn sẽ hiện ở đây",
+    "empty": "Mở một sprite từ Thư viện để chỉnh sửa",
     "hint": "Ô bàn cờ thể hiện vùng trong suốt",
-    "actualSize": "Kích thước thật",
-    "batch": "Loạt ảnh",
-    "railEmpty": "Chưa có gì để xem trước",
-    "surface": "Sprite, vùng vẽ",
-    "selectSprite": "Xem sprite {{index}}"
-  },
-  "capability": {
-    "unsupported": "Engine đang chọn không hỗ trợ",
-    "batch": "Tạo nhiều ảnh một lượt",
-    "loraHotswap": "Bộ điều chỉnh phong cách",
-    "controlnet": "Điều khiển tư thế",
-    "ipAdapter": "Ảnh tham chiếu"
-  },
-  "result": {
-    "seed": "Seed {{seed}}",
-    "duration": "Mất {{ms}} ms",
-    "count_one": "{{count}} sprite",
-    "count_other": "{{count}} sprite"
+    "surface": "Sprite, vùng vẽ"
   },
   "dock": {
     "tools": "Công cụ",
@@ -100,40 +25,7 @@
     "pixelGrid": "Lưới pixel",
     "pixelGridHint": "Vẽ một đường ở từng pixel của sprite. Lưới tự ẩn khi mỗi pixel nhỏ hơn sáu điểm ảnh màn hình, vì lúc đó nó chỉ còn là một mảng xám.",
     "checkerboard": "Nền bàn cờ",
-    "checkerboardHint": "Hiện các pixel trong suốt dưới dạng ô bàn cờ.",
-    "lastRun": "Lần tạo gần nhất",
-    "runNone": "Chưa tạo lần nào",
-    "runDuration": "Thời gian",
-    "resetWarning": "Thao tác này xoá phần mô tả, toàn bộ tham số và kết quả của lần tạo gần nhất.",
-    "resetConfirm": "Đặt lại tất cả",
-    "resetCancel": "Huỷ"
-  },
-  "binaries": {
-    "title": "Thành phần",
-    "machine": "Máy",
-    "os": {
-      "windows": "Windows",
-      "macos": "macOS",
-      "linux": "Linux"
-    },
-    "engine": "Engine",
-    "stopped": "Chưa chạy",
-    "gpu": "GPU",
-    "none": "Không tìm thấy",
-    "runtime": "Bộ chạy GPU",
-    "notInstalled": "Chưa cài",
-    "restart": "Khởi động lại để dùng",
-    "runtimeHint": "Cài trong Cài đặt để tạo sprite bằng GPU này.",
-    "backend": {
-      "cuda": "Engine NVIDIA",
-      "mps": "Engine Apple",
-      "remote": "API từ xa"
-    },
-    "unavailable": "Không khả dụng",
-    "models": "Trọng số model",
-    "modelCount": "Đã tải {{cached}} trên {{total}}",
-    "modelsHint": "Hãy tải ít nhất một model trong Cài đặt.",
-    "empty": "Đang kiểm tra máy này."
+    "checkerboardHint": "Hiện các pixel trong suốt dưới dạng ô bàn cờ."
   },
   "tools": {
     "label": "Công cụ sprite",
@@ -142,11 +34,13 @@
     "redo": "Làm lại",
     "adjust": "Chỉnh",
     "colour": "Màu",
-    "empty": "Hãy tạo sprite trước khi chỉnh.",
-    "adjustHint": "Model tạo ra thứ trông giống pixel art. Các bước này biến nó thành pixel art thật.",
+    "empty": "Mở một sprite từ Thư viện để chỉnh.",
+    "adjustHint": "Một ảnh trông giống pixel art thì chưa phải pixel art. Các bước này biến nó thành pixel art thật.",
+    "removeBackground": "Xoá nền",
+    "paletteSize": "Số màu",
     "targetWidth": "Số ô ngang",
     "targetHeight": "Số ô dọc",
-    "targetHint": "Bỏ trống một ô để engine tự đo lưới mà model thật sự đã vẽ, thay vì lưới được yêu cầu.",
+    "targetHint": "Bỏ trống một ô để engine tự đo lưới mà sprite thật sự được vẽ trên đó, thay vì áp đặt một lưới khác.",
     "dither": "Tán màu",
     "ditherHint": "Chỉ chạy sau khi sprite đã về đúng cỡ, nên hoa văn nằm đúng trên pixel của sprite. Hoa văn theo ma trận giống hệt nhau ở mọi khung hình; khuếch tán sai số thì không, và làm các mảng phẳng lăn tăn khi chạy hoạt ảnh.",
     "dithers": {

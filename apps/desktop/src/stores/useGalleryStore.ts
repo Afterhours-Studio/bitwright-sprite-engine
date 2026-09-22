@@ -15,11 +15,17 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Sprites generated during this session.
+ * The sprites on disk.
  *
- * The gallery is in memory only. Persisting it means writing files to disk,
- * which needs a location the user chose, and that decision is not made in this
- * scaffold.
+ * The gallery is a view of the sprites directory rather than a list held in
+ * memory: anything else means a sprite exists in two places that disagree the
+ * moment one changes, and it means closing the window loses the record of work
+ * that is still sitting on disk.
+ *
+ * The favourite mark is the one thing here that is not on disk. It lasts for
+ * the session and no longer, because marking one costs nothing and keeping it
+ * would mean a second record beside the directory - which is the arrangement
+ * the rest of this store exists to avoid.
  */
 
 import { create } from 'zustand';
@@ -30,13 +36,11 @@ import type { SpriteImage } from '@/types/engine';
 
 /** One sprite in the gallery. */
 export interface GalleryItem {
-  /** Stable identifier, used as the React key. */
+  /** The file name, which is both the identifier and the React key. */
   id: string;
   /** The sprite itself. */
   image: SpriteImage;
-  /** The prompt that produced it. */
-  prompt: string;
-  /** When it was generated, as a millisecond timestamp. */
+  /** When it was written, as a millisecond timestamp. */
   createdAt: number;
   /** Whether the user marked it. */
   favourite: boolean;
@@ -53,31 +57,12 @@ interface GalleryState {
   loading: boolean;
   /** Reads the sprites directory, replacing what is shown. */
   load: () => Promise<void>;
-  /** Adds the sprites from one run, newest first. */
-  add: (images: SpriteImage[], prompt: string) => void;
   /** Marks or unmarks an item. */
   toggleFavourite: (id: string) => void;
-  /** Removes one item. */
+  /** Deletes one sprite, from the list and from disk. */
   remove: (id: string) => void;
-  /** Removes every item. */
-  clear: () => void;
   /** Changes which items are shown. */
   setFilter: (filter: GalleryFilter) => void;
-}
-
-let sequence = 0;
-
-/**
- * Returns an identifier that is unique within the session.
- *
- * A counter rather than a random value, so that a rendered gallery is stable
- * across a snapshot test run.
- *
- * @returns The next identifier.
- */
-function nextId(): string {
-  sequence += 1;
-  return `sprite-${sequence}`;
 }
 
 export const useGalleryStore = create<GalleryState>((set, get) => ({
@@ -102,7 +87,6 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
             height: sprite.height,
             path: sprite.path,
           },
-          prompt: '',
           createdAt: sprite.modifiedAt * 1000,
           favourite: false,
         })),
@@ -113,17 +97,6 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     } finally {
       set({ loading: false });
     }
-  },
-
-  add: (images, prompt) => {
-    const created = images.map((image) => ({
-      id: nextId(),
-      image,
-      prompt,
-      createdAt: Date.now(),
-      favourite: false,
-    }));
-    set({ items: [...created, ...get().items] });
   },
 
   toggleFavourite: (id) => {
@@ -139,10 +112,6 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     // the file would show it again on the next read.
     void removeSprite(id).catch(() => undefined);
     set({ items: get().items.filter((item) => item.id !== id) });
-  },
-
-  clear: () => {
-    set({ items: [] });
   },
 
   setFilter: (filter) => {

@@ -16,8 +16,8 @@
 
 import type { ReactElement } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
+import { EditorScreen } from '@/features/editor/EditorScreen';
 import { GalleryScreen } from '@/features/gallery/GalleryScreen';
-import { GenerateScreen } from '@/features/generation/GenerateScreen';
 import { SettingsScreen } from '@/features/settings/SettingsScreen';
 import { useShellBootstrap } from '@/hooks/useShellBootstrap';
 import { useShellStore } from '@/stores/useShellStore';
@@ -29,7 +29,7 @@ export function App(): ReactElement {
 
   return (
     <AppShell>
-      {screen === 'generate' && <GenerateScreen />}
+      {screen === 'editor' && <EditorScreen />}
       {screen === 'gallery' && <GalleryScreen />}
       {screen === 'settings' && <SettingsScreen />}
     </AppShell>

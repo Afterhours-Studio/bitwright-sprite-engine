@@ -31,12 +31,8 @@
 export const STORAGE_KEYS = {
   /** Dismissed notifications, newest first. */
   notifications: 'bitwright.notifications',
-  /** Finished transfers, newest first. */
-  downloads: 'bitwright.downloads',
   /** What the canvas draws over the sprite. */
   view: 'bitwright.view',
-  /** The generation request, minus anything a run produced. */
-  request: 'bitwright.request',
 } as const;
 
 /**

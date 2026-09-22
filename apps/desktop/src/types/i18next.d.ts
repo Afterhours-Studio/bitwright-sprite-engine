@@ -17,15 +17,15 @@
 /**
  * Type-safe translation keys.
  *
- * The English locale files are the schema. `t('nav.generate')` compiles;
- * `t('nav.generat')` does not, and neither does a key from the wrong
+ * The English locale files are the schema. `t('nav.editor')` compiles;
+ * `t('nav.edito')` does not, and neither does a key from the wrong
  * namespace. English is used as the source because it is the fallback, so it
  * is the locale guaranteed to hold every key.
  */
 
 import type common from '@/locales/en/common.json';
+import type editor from '@/locales/en/editor.json';
 import type errors from '@/locales/en/errors.json';
-import type generation from '@/locales/en/generation.json';
 import type settings from '@/locales/en/settings.json';
 
 declare module 'i18next' {
@@ -33,7 +33,7 @@ declare module 'i18next' {
     defaultNS: 'common';
     resources: {
       common: typeof common;
-      generation: typeof generation;
+      editor: typeof editor;
       settings: typeof settings;
       errors: typeof errors;
     };
