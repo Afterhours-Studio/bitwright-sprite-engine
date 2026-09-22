@@ -466,4 +466,77 @@ mod tests {
             assert!(!jaggy_runs(&runs));
         }
     }
+
+    #[test]
+    fn a_stair_stepped_edge_is_counted_and_a_clean_one_is_not() {
+        // The steps of this edge run two pixels, then one, then two, then one:
+        // the alternation the reversal rule looks for, and what an artist would
+        // call a jagged stair.
+        let jagged = grid::parse(
+            "AAAAAAAA
+AAAAAA..
+AAAAA...
+AAA.....
+AA......
+A.......
+A.......
+A.......",
+        )
+        .unwrap();
+        assert!(measure(&jagged, &palette()).unwrap().jaggy_sequences > 0);
+        // The same descent taken in steps that only ever grow: still a curve,
+        // but one whose stair reads as intentional.
+        let clean = grid::parse(
+            "AAAAAAAA
+AAAAAAAA
+AAAAAAA.
+AAAAAAA.
+AAAAAA..
+AAAAA...
+AAAA....
+AA......",
+        )
+        .unwrap();
+        assert_eq!(measure(&clean, &palette()).unwrap().jaggy_sequences, 0);
+    }
+
+    #[test]
+    fn speckle_counts_pixels_with_almost_no_company() {
+        // A checkerboard: no pixel is fully alone, because company is counted
+        // over the eight neighbours and every one of these has a diagonal. It
+        // is still the texture the despeckle pass exists to remove, and the
+        // speckle measure is what catches it where the orphan count cannot.
+        let noisy = grid::parse(
+            "A.A.
+.A.A
+A.A.
+.A.A",
+        )
+        .unwrap();
+        let measured = measure(&noisy, &palette()).unwrap();
+        assert_eq!(measured.orphan_fraction, 0.0);
+        assert!(measured.speckle_fraction > HD2D.speckle_fraction);
+        let solid = grid::parse(
+            "AAAA
+AAAA
+AAAA
+AAAA",
+        )
+        .unwrap();
+        let measured = measure(&solid, &palette()).unwrap();
+        assert_eq!(measured.orphan_count, 0);
+        assert_eq!(measured.speckle_fraction, 0.0);
+        // Pixels with nothing at all beside them, which is the orphan count.
+        let scattered = grid::parse(
+            "A..A
+....
+..A.
+A...",
+        )
+        .unwrap();
+        let measured = measure(&scattered, &palette()).unwrap();
+        assert_eq!(measured.orphan_count, 4);
+        assert_eq!(measured.orphan_fraction, 1.0);
+        assert_eq!(measured.speckle_fraction, 1.0);
+    }
 }

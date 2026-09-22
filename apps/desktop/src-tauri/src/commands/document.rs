@@ -17,7 +17,7 @@
 //! Both the window and the MCP transport use this service, so committing an
 //! edit and notifying listeners cannot drift into two different behaviours.
 
-use crate::raster::ops::DrawOp;
+use crate::raster::Op;
 use crate::raster::{self, IndexedBuffer, LayerRole, Palette, RgbaImage};
 use crate::store::{
     AppError, Asset, AssetId, Document, GateReport, OpResult, Project, Result, StepState, Store,
@@ -73,6 +73,25 @@ pub struct AgentSessionEvent {
 struct Pending {
     scheduled: bool,
     changes: BTreeMap<Uuid, ChangedEvent>,
+    last_seq: BTreeMap<Uuid, i64>,
+}
+impl Pending {
+    fn push(&mut self, id: AssetId, result: &OpResult) -> bool {
+        let latest = self.last_seq.entry(id.0).or_default();
+        *latest = (*latest).max(result.seq);
+        let event = self.changes.entry(id.0).or_insert(ChangedEvent {
+            asset_id: id,
+            roles: vec![],
+            seq: *latest,
+        });
+        event.roles.extend(&result.roles);
+        event.roles.sort();
+        event.roles.dedup();
+        event.seq = *latest;
+        let schedule = !self.scheduled;
+        self.scheduled = true;
+        schedule
+    }
 }
 
 pub struct DocumentState {
@@ -107,19 +126,9 @@ async fn run<T: Send + 'static>(
 
 fn changed<R: Runtime>(app: &AppHandle<R>, state: &DocumentState, id: AssetId, result: &OpResult) {
     let mut pending = state.pending.lock().unwrap_or_else(|e| e.into_inner());
-    let event = pending.changes.entry(id.0).or_insert(ChangedEvent {
-        asset_id: id,
-        roles: vec![],
-        seq: result.seq,
-    });
-    event.roles.extend(&result.roles);
-    event.roles.sort();
-    event.roles.dedup();
-    event.seq = event.seq.max(result.seq);
-    if pending.scheduled {
+    if !pending.push(id, result) {
         return;
     }
-    pending.scheduled = true;
     let queue = state.pending.clone();
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
@@ -156,7 +165,7 @@ fn step_event<R: Runtime>(app: &AppHandle<R>, id: AssetId, gate: GateReport) {
 pub async fn write_ops<R: Runtime>(
     app: &AppHandle<R>,
     asset_id: AssetId,
-    ops: Vec<DrawOp>,
+    ops: Vec<Op>,
     actor: String,
 ) -> Result<OpResult> {
     let state = app.state::<DocumentState>();
@@ -294,7 +303,7 @@ pub async fn document_read_layer(
 pub async fn document_write_ops<R: Runtime>(
     app: AppHandle<R>,
     asset_id: AssetId,
-    ops: Vec<DrawOp>,
+    ops: Vec<Op>,
 ) -> Result<OpResult> {
     write_ops(&app, asset_id, ops, "user".into()).await
 }
@@ -305,7 +314,7 @@ async fn travel<R: Runtime>(
     id: AssetId,
     redo: bool,
 ) -> Result<OpResult> {
-    let (result, palette_changed, step_changed, gate) = run(state, move |s| {
+    let (result, palette_changed, gate) = run(state, move |s| {
         let before = s.asset_open(id)?;
         let result = if redo {
             s.redo(id, "user")?
@@ -313,20 +322,23 @@ async fn travel<R: Runtime>(
             s.undo(id, "user")?
         };
         let after = s.asset_open(id)?;
-        Ok((
-            result,
-            before.palette != after.palette,
-            before.asset.step != after.asset.step,
-            s.step_check(id)?,
-        ))
+        let gate = if before.asset.step != after.asset.step {
+            Some(s.step_check(id))
+        } else {
+            None
+        };
+        Ok((result, before.palette != after.palette, gate))
     })
     .await?;
     changed(app, state, id, &result);
     if palette_changed {
         emit(app, EVENT_PALETTE, PaletteEvent { asset_id: id });
     }
-    if step_changed {
-        step_event(app, id, gate);
+    if let Some(gate) = gate {
+        match gate {
+            Ok(gate) => step_event(app, id, gate),
+            Err(error) => log::warn!("gate reevaluation failed after undo committed: {error}"),
+        }
     }
     Ok(result)
 }
@@ -386,4 +398,42 @@ pub async fn step_advance<R: Runtime>(
     changed(&app, &state, asset_id, &result);
     step_event(&app, asset_id, step.gate.clone());
     Ok(step)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn a_burst_has_one_frame_and_unions_roles_per_asset() {
+        let a = AssetId(Uuid::now_v7());
+        let b = AssetId(Uuid::now_v7());
+        let mut pending = Pending::default();
+        let result = |seq, roles| OpResult {
+            changed: 1,
+            bounds: None,
+            seq,
+            roles,
+        };
+        assert!(pending.push(a, &result(1, vec![LayerRole("silhouette")])));
+        assert!(!pending.push(
+            a,
+            &result(3, vec![LayerRole("flats"), LayerRole("silhouette")])
+        ));
+        assert!(!pending.push(b, &result(2, vec![LayerRole("outline")])));
+        assert_eq!(pending.changes.len(), 2);
+        let event = &pending.changes[&a.0];
+        assert_eq!(event.seq, 3);
+        assert_eq!(
+            event.roles,
+            vec![LayerRole("flats"), LayerRole("silhouette")]
+        );
+        let wire = serde_json::to_value(event).unwrap();
+        assert_eq!(wire.as_object().unwrap().len(), 3);
+        assert!(wire.get("assetId").is_some());
+        assert!(wire.get("pixels").is_none());
+        pending.changes.clear();
+        pending.scheduled = false;
+        assert!(pending.push(a, &result(2, vec![LayerRole("detail")])));
+        assert_eq!(pending.changes[&a.0].seq, 3);
+    }
 }

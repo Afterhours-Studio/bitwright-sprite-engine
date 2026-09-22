@@ -108,6 +108,31 @@ impl Store {
                     issues.push("gate.silhouette_solidity".into());
                 }
             }
+            "flats" => {
+                let flats = layer("flats")
+                    .ok_or_else(|| AppError::new("document.layer_not_found", "flats"))?;
+                let mask = silhouette
+                    .ok_or_else(|| AppError::new("document.layer_not_found", "silhouette"))?;
+                if mask
+                    .data
+                    .iter()
+                    .zip(&flats.data)
+                    .any(|(mask, flat)| (*mask != 0) != (*flat != 0))
+                {
+                    issues.push("gate.flats_coverage".into());
+                }
+                for &slot in flats.data.iter().filter(|s| **s != 0) {
+                    if !document
+                        .palette
+                        .ramps
+                        .iter()
+                        .any(|r| r.slots.get(r.slots.len() / 2) == Some(&slot))
+                    {
+                        issues.push("gate.flats_base_slot".into());
+                        break;
+                    }
+                }
+            }
             "outline" => {
                 if outside("outline") > 0 {
                     issues.push("gate.outline_outside".into());
@@ -161,7 +186,12 @@ impl Store {
                     issues.push("gate.light_outside".into());
                 }
             }
-            "rim" => {
+            "accent" => {
+                if layer("accent").map_or(0, |b| b.data.iter().filter(|s| **s != 0).count())
+                    > gates::HD2D.accent_count
+                {
+                    issues.push("gate.accent_budget".into());
+                }
                 if outside("rim") > 0 {
                     issues.push("gate.rim_outside".into());
                 }
@@ -215,11 +245,23 @@ impl Store {
                     issues.push("gate.speckle".into());
                 }
             }
-            "accent" => {
-                if layer("accent").map_or(0, |b| b.data.iter().filter(|s| **s != 0).count())
-                    > gates::HD2D.accent_count
+            "cleanup" => {
+                if metrics.orphan_fraction > rules.noise_budget
+                    || metrics.orphan_count > gates::HD2D.orphan_count
                 {
-                    issues.push("gate.accent_budget".into());
+                    issues.push("gate.noise".into());
+                }
+                if metrics.speckle_fraction > gates::HD2D.speckle_fraction {
+                    issues.push("gate.speckle".into());
+                }
+                if metrics.jaggy_sequences > 0 {
+                    issues.push("gate.jaggies".into());
+                }
+                if metrics.pillow_correlation > gates::HD2D.pillow_correlation {
+                    issues.push("gate.pillow_shading".into());
+                }
+                if document.layers.iter().any(|l| outside(l.role.0) > 0) {
+                    issues.push("gate.cleanup_outside".into());
                 }
             }
             "variation" => {
@@ -294,5 +336,349 @@ impl Store {
             .ok_or_else(|| AppError::new("step.complete", "the final step has no successor"))?;
         let result = self.commit(id, Mutation::Step((*next).into()), "user")?;
         Ok((self.step_state(id)?, result))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::raster::{grid, Material, Palette, PaletteSlot, Ramp};
+
+    /// A four-step cloth ramp, darkest first, that satisfies the palette gate:
+    /// its hue rotates cool into shadow and it spans the floor to the ceiling.
+    const RAMP: [[u8; 4]; 4] = [
+        [4, 7, 14, 255],
+        [29, 71, 98, 255],
+        [49, 153, 168, 255],
+        [191, 237, 230, 255],
+    ];
+    /// A solid six-by-six body with a one pixel margin, whose perimeter is 20.
+    const BODY: &str =
+        "........\n.AAAAAA.\n.AAAAAA.\n.AAAAAA.\n.AAAAAA.\n.AAAAAA.\n.AAAAAA.\n........";
+    const BLANK: &str =
+        "........\n........\n........\n........\n........\n........\n........\n........";
+    /// A rounded body: one region, and a perimeter the style calls readable.
+    const READABLE: &str = "..AAAA..
+.AAAAAA.
+AAAAAAAA
+AAAAAAAA
+AAAAAAAA
+AAAAAAAA
+.AAAAAA.
+..AAAA..";
+    /// Two separate blobs, which is a silhouette that has not resolved.
+    const SPLIT: &str =
+        "AA....AA\nAA....AA\n........\n........\n........\n........\n........\n........";
+
+    fn palette() -> Palette {
+        Palette {
+            slots: RAMP
+                .iter()
+                .enumerate()
+                .map(|(step, rgba)| PaletteSlot {
+                    index: step as u8 + 1,
+                    rgba: *rgba,
+                    name: None,
+                    ramp: Some("cloth".into()),
+                    step: Some(step as u8),
+                })
+                .collect(),
+            ramps: vec![Ramp {
+                name: "cloth".into(),
+                material: Material::Cloth,
+                slots: vec![1, 2, 3, 4],
+            }],
+        }
+    }
+
+    /// A store holding one asset parked on `step`, with the given layers drawn.
+    fn asset(step: &str, drawn: &[(&str, &str)]) -> (Store, AssetId) {
+        let mut store = Store::memory().unwrap();
+        let project = store.project_create("project", "hd2d").unwrap();
+        let canvas = grid::parse(drawn[0].1).unwrap();
+        let asset = store
+            .asset_create(
+                project.id,
+                "asset",
+                "character",
+                canvas.width,
+                canvas.height,
+            )
+            .unwrap();
+        store.palette_write(asset.id, palette()).unwrap();
+        for (role, text) in drawn {
+            let mut layer = store
+                .layer_read(asset.id, LayerRole::parse(role).unwrap())
+                .unwrap();
+            layer.buffer = grid::parse(text).unwrap();
+            store.layer_write(asset.id, layer).unwrap();
+        }
+        store
+            .commit(asset.id, Mutation::Step(step.to_string()), "user")
+            .unwrap();
+        (store, asset.id)
+    }
+
+    fn issues(step: &str, drawn: &[(&str, &str)]) -> Vec<String> {
+        let (store, id) = asset(step, drawn);
+        store.step_check(id).unwrap().issues
+    }
+
+    fn raised(step: &str, drawn: &[(&str, &str)], code: &str) -> bool {
+        issues(step, drawn).iter().any(|issue| issue == code)
+    }
+
+    #[test]
+    fn the_reference_step_has_no_gate_and_advances_to_the_palette() {
+        let (mut store, id) = asset("reference", &[("silhouette", BLANK)]);
+        assert!(store.step_state(id).unwrap().can_advance);
+        let (state, _) = store.step_advance(id).unwrap();
+        assert_eq!(state.step, "palette");
+    }
+
+    #[test]
+    fn the_palette_step_measures_the_ramp_rather_than_the_pixels() {
+        let (mut store, id) = asset("palette", &[("silhouette", BLANK)]);
+        assert!(store.step_check(id).unwrap().passed);
+        // The same four slots with the colour drained out of them: still a
+        // legal palette, no longer a legal ramp.
+        let mut grey = palette();
+        for (step, slot) in grey.slots.iter_mut().enumerate() {
+            let value = 8 + step as u8 * 75;
+            slot.rgba = [value, value, value, 255];
+        }
+        store.palette_write(id, grey).unwrap();
+        assert!(store
+            .step_check(id)
+            .unwrap()
+            .issues
+            .contains(&"palette.hue_shift:cloth".to_string()));
+    }
+
+    #[test]
+    fn a_silhouette_must_read_as_one_connected_shape() {
+        assert!(raised(
+            "silhouette",
+            &[("silhouette", SPLIT)],
+            "gate.silhouette_regions"
+        ));
+        assert!(!raised(
+            "silhouette",
+            &[("silhouette", BODY)],
+            "gate.silhouette_regions"
+        ));
+    }
+
+    #[test]
+    fn a_silhouette_that_is_all_edge_fails_readability() {
+        // A one pixel comb: the same area as a body spread over far more
+        // perimeter, which is what an unreadable silhouette looks like.
+        let comb = "A.A.A.A.\nA.A.A.A.\nA.A.A.A.\nAAAAAAAA\n........\n........\n........\n........";
+        assert!(raised(
+            "silhouette",
+            &[("silhouette", comb)],
+            "gate.silhouette_readability"
+        ));
+        assert!(!raised(
+            "silhouette",
+            &[("silhouette", READABLE)],
+            "gate.silhouette_readability"
+        ));
+        // A solid rectangle fails the other way: it fills its own convex hull,
+        // so it has no negative space and reads as a block, not a character.
+        assert!(raised(
+            "silhouette",
+            &[("silhouette", BODY)],
+            "gate.silhouette_solidity"
+        ));
+    }
+
+    #[test]
+    fn flats_must_cover_the_silhouette_exactly_and_sit_mid_ramp() {
+        let filled = BODY.replace('A', "C");
+        let holed = filled.replacen("CCCCCC", "CCCC.C", 1);
+        assert!(raised(
+            "flats",
+            &[("silhouette", BODY), ("flats", &holed)],
+            "gate.flats_coverage"
+        ));
+        assert!(!raised(
+            "flats",
+            &[("silhouette", BODY), ("flats", &filled)],
+            "gate.flats_coverage"
+        ));
+        // Slot 3 is the middle of the four step ramp, so it is the base a
+        // material shades away from. Slot 2 is already a shadow step.
+        assert!(raised(
+            "flats",
+            &[("silhouette", BODY), ("flats", &BODY.replace('A', "B"))],
+            "gate.flats_base_slot"
+        ));
+        assert!(!raised(
+            "flats",
+            &[("silhouette", BODY), ("flats", &filled)],
+            "gate.flats_base_slot"
+        ));
+    }
+
+    /// A body whose light sits upper left and whose shadow sits lower right,
+    /// which is the direction the default style rules name.
+    const LIT: [(&str, &str); 4] = [
+        (
+            "silhouette",
+            "........\n........\n..AAAA..\n..AAAA..\n..AAAA..\n..AAAA..\n........\n........",
+        ),
+        (
+            "flats",
+            "........\n........\n..CCCC..\n..CCCC..\n..CCCC..\n..CCCC..\n........\n........",
+        ),
+        (
+            "light",
+            "........\n........\n..DD....\n..DD....\n........\n........\n........\n........",
+        ),
+        (
+            "shadow-core",
+            "........\n........\n........\n........\n....BB..\n....BB..\n........\n........",
+        ),
+    ];
+
+    #[test]
+    fn the_shadow_step_needs_a_light_direction_it_can_measure() {
+        // A body painted in one slot has no dark to light vector at all, so
+        // there is nothing to check the key direction against.
+        let flat = &LIT[..2];
+        assert!(raised("shadow", flat, "gate.light_unmeasurable"));
+        assert!(!raised("shadow", &LIT, "gate.light_unmeasurable"));
+        assert!(!raised("shadow", &LIT, "gate.light_wrong_direction"));
+    }
+
+    #[test]
+    fn a_light_that_disagrees_with_the_style_is_named() {
+        // The same body with the light and the shadow exchanged, so the key
+        // now reads as coming from the lower right.
+        let inverted = [
+            LIT[0],
+            LIT[1],
+            (
+                "light",
+                "........\n........\n........\n........\n....DD..\n....DD..\n........\n........",
+            ),
+            (
+                "shadow-core",
+                "........\n........\n..BB....\n..BB....\n........\n........\n........\n........",
+            ),
+        ];
+        assert!(raised("shadow", &inverted, "gate.light_wrong_direction"));
+    }
+
+    #[test]
+    fn the_light_step_catches_shading_that_runs_inward_from_the_edge() {
+        // Concentric rings getting lighter toward the middle: the textbook
+        // pillow, and the exact correlation the gate measures.
+        let rings = [
+            ("silhouette", "AAAAA\nAAAAA\nAAAAA\nAAAAA\nAAAAA"),
+            ("flats", "AAAAA\nABBBA\nABCBA\nABBBA\nAAAAA"),
+        ];
+        assert!(raised("light", &rings, "gate.pillow_shading"));
+        assert!(!raised("light", &LIT, "gate.pillow_shading"));
+    }
+
+    #[test]
+    fn the_detail_step_counts_loose_pixels_against_the_noise_budget() {
+        let scattered =
+            "A.A.A.A.\n........\nA.A.A.A.\n........\nA.A.A.A.\n........\nA.A.A.A.\n........";
+        assert!(raised("detail", &[("detail", scattered)], "gate.noise"));
+        assert!(!raised("detail", &[("detail", BODY)], "gate.noise"));
+    }
+
+    #[test]
+    fn the_cleanup_step_refuses_pixels_outside_the_silhouette() {
+        let stray =
+            "B.......\n.AAAAAA.\n.AAAAAA.\n.AAAAAA.\n.AAAAAA.\n.AAAAAA.\n.AAAAAA.\n........";
+        assert!(raised(
+            "cleanup",
+            &[("silhouette", BODY), ("detail", stray)],
+            "gate.cleanup_outside"
+        ));
+        assert!(!raised(
+            "cleanup",
+            &[("silhouette", BODY), ("detail", BLANK)],
+            "gate.cleanup_outside"
+        ));
+    }
+
+    #[test]
+    fn the_accent_step_bounds_the_rim_to_a_share_of_the_perimeter() {
+        // Four pixels of a twenty pixel perimeter is a fifth, the middle of the
+        // style's band. None at all is not a rim.
+        let rim = "........\n......B.\n......B.\n......B.\n......B.\n........\n........\n........";
+        assert!(!raised(
+            "accent",
+            &[("silhouette", BODY), ("rim", rim)],
+            "gate.rim_coverage"
+        ));
+        assert!(!raised(
+            "accent",
+            &[("silhouette", BODY), ("rim", rim)],
+            "gate.rim_direction"
+        ));
+        assert!(raised(
+            "accent",
+            &[("silhouette", BODY), ("rim", BLANK)],
+            "gate.rim_coverage"
+        ));
+        // A rim on the side the key strikes is misplaced however much of it
+        // there is, because a backlight cannot reach that edge.
+        let front =
+            "........\n.B......\n.B......\n.B......\n.B......\n........\n........\n........";
+        assert!(raised(
+            "accent",
+            &[("silhouette", BODY), ("rim", front)],
+            "gate.rim_direction"
+        ));
+    }
+
+    #[test]
+    fn the_outline_step_bounds_coverage_and_keeps_it_inside_the_shape() {
+        // Thirteen of twenty perimeter pixels: a selective outline, which is
+        // what leaves the lit edge open.
+        let selective =
+            "........\n.BBBBBB.\n.B......\n........\n........\n........\n.BBBBBB.\n........";
+        assert!(!raised(
+            "outline",
+            &[("silhouette", BODY), ("outline", selective)],
+            "gate.outline_coverage"
+        ));
+        assert!(raised(
+            "outline",
+            &[("silhouette", BODY), ("outline", BLANK)],
+            "gate.outline_coverage"
+        ));
+        let escaped =
+            "B.......\n.BBBBBB.\n.B......\n........\n........\n........\n.BBBBBB.\n........";
+        assert!(raised(
+            "outline",
+            &[("silhouette", BODY), ("outline", escaped)],
+            "gate.outline_outside"
+        ));
+    }
+
+    #[test]
+    fn advancing_is_refused_while_a_gate_fails_and_leaves_the_step_alone() {
+        let (mut store, id) = asset("silhouette", &[("silhouette", SPLIT)]);
+        assert!(!store.step_state(id).unwrap().can_advance);
+        assert_eq!(store.step_advance(id).unwrap_err().code, "step.gate_failed");
+        assert_eq!(store.asset_read(id).unwrap().step, "silhouette");
+    }
+
+    #[test]
+    fn the_last_step_has_no_successor_and_an_unknown_step_is_refused() {
+        let (mut store, id) = asset("variation", &[("silhouette", BLANK)]);
+        // `variation` forks the asset rather than progressing, so it is the end
+        // of the line however its own gate reports.
+        assert!(!store.step_state(id).unwrap().can_advance);
+        assert!(store
+            .commit(id, Mutation::Step("sketching".into()), "user")
+            .is_err());
     }
 }

@@ -18,13 +18,17 @@
 //! introduce colours that do not belong to the document's palette.
 
 pub mod color;
+pub mod document_ops;
 pub mod gates;
 pub mod grid;
 pub mod ops;
 pub mod palette;
+pub mod shading;
 
-pub use palette::{Material, Palette, PaletteSlot, Ramp, StyleRules};
+pub use document_ops::Op;
+pub use palette::{Canvas, Material, Palette, PaletteSlot, Ramp, RampSteps, StyleRules};
 use serde::{Deserialize, Deserializer, Serialize};
+pub use shading::Direction;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -73,7 +77,7 @@ impl IndexedBuffer {
             || self.height == 0
             || self.data.len() != usize::from(self.width) * usize::from(self.height)
             || self.data.len() > 16_777_216
-            || self.data.iter().any(|v| *v > 63)
+            || self.data.iter().any(|v| *v > 62)
         {
             return Err(RasterError::new(
                 "document.invalid_buffer",
@@ -96,15 +100,27 @@ impl IndexedBuffer {
     }
 }
 
-pub const LAYER_ROLES: [(&str, i32); 8] = [
+/// Every layer role, with the ordinal it composites at.
+///
+/// The order is the drawing order from the document model, and it is not the
+/// obvious one. `outline` sits at 50, after `light`, because an outline's colour
+/// is derived from the fill beside it and so cannot be chosen until those fills
+/// exist. `rim` and `accent` sit at the top because they are the highest
+/// contrast pixels on the sprite and are placed last, against a budget.
+///
+/// Two steps own no layer and so appear nowhere here: `cleanup` anti-aliases
+/// and despeckles the layers that already exist, and `variation` forks the
+/// asset with a new palette rather than painting anything.
+pub const LAYER_ROLES: [(&str, i32); 9] = [
     ("silhouette", 10),
-    ("outline", 20),
+    ("flats", 20),
     ("shadow-core", 30),
     ("shadow-deep", 31),
     ("light", 40),
-    ("rim", 50),
+    ("outline", 50),
     ("detail", 60),
-    ("accent", 70),
+    ("rim", 70),
+    ("accent", 71),
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]

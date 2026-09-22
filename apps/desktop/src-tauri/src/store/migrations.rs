@@ -20,7 +20,7 @@
 use super::{AppError, Result};
 use rusqlite::Connection;
 
-pub const VERSION: i64 = 2;
+pub const VERSION: i64 = 3;
 
 pub fn migrate(connection: &mut Connection) -> Result<()> {
     connection.pragma_update(None, "foreign_keys", "ON")?;
@@ -43,7 +43,66 @@ pub fn migrate(connection: &mut Connection) -> Result<()> {
             // Applied state is separate from provenance. Undo and redo append
             // audit rows without destroying the original author's operation.
             2 => transaction.execute_batch("CREATE TABLE op_history (seq INTEGER PRIMARY KEY REFERENCES op(seq) ON DELETE CASCADE, asset_id TEXT NOT NULL REFERENCES asset(id) ON DELETE CASCADE, applied INTEGER NOT NULL CHECK(applied IN (0,1))); CREATE INDEX history_asset_seq ON op_history(asset_id,seq);")?,
-            _ => return Err(AppError::new("store.migration_missing",version.to_string())),
+            // The undo cursor replaces the per-row applied flag, and the step
+            // order gains `flats` and `cleanup`. Both are done here rather than
+            // by editing migration 1, so a database made before either change
+            // is carried forward instead of being read against a schema it was
+            // never written to.
+            3 => {
+                transaction.execute_batch(
+                    "CREATE TABLE op_cursor (
+                         asset_id TEXT PRIMARY KEY REFERENCES asset(id) ON DELETE CASCADE,
+                         seq      INTEGER NOT NULL DEFAULT 0
+                     );
+                     INSERT INTO op_cursor
+                         SELECT a.id, COALESCE((SELECT MAX(h.seq) FROM op_history h
+                                                WHERE h.asset_id = a.id AND h.applied = 1), 0)
+                         FROM asset a;
+                     DELETE FROM op
+                         WHERE kind NOT IN ('document_undo', 'document_redo')
+                           AND seq NOT IN (SELECT seq FROM op_history);
+                     DROP TABLE op_history;
+                     UPDATE layer SET ordinal = 50 WHERE role = 'outline';
+                     UPDATE layer SET ordinal = 70 WHERE role = 'rim';
+                     UPDATE layer SET ordinal = 71 WHERE role = 'accent';
+                     UPDATE asset SET step = 'accent' WHERE step = 'rim';",
+                )?;
+                // `flats` is a new role, so an existing asset has no layer for
+                // it. One is created empty rather than derived from the
+                // silhouette, because guessing which material each pixel is
+                // would be inventing work the artist has not done.
+                let mut statement = transaction.prepare(
+                    "SELECT id, width, height FROM asset
+                     WHERE NOT EXISTS (SELECT 1 FROM layer
+                                       WHERE asset_id = asset.id AND role = 'flats')",
+                )?;
+                let assets = statement
+                    .query_map([], |row| {
+                        Ok((
+                            row.get::<_, String>(0)?,
+                            row.get::<_, u16>(1)?,
+                            row.get::<_, u16>(2)?,
+                        ))
+                    })?
+                    .collect::<rusqlite::Result<Vec<_>>>()?;
+                for (id, width, height) in assets {
+                    let buffer = crate::raster::IndexedBuffer::new(width, height)?;
+                    transaction.execute(
+                        "INSERT INTO layer VALUES(?1, ?2, 'flats', 20, 1, 0, 1.0, ?3)",
+                        rusqlite::params![
+                            uuid::Uuid::now_v7().to_string(),
+                            id,
+                            buffer.data
+                        ],
+                    )?;
+                }
+            }
+            _ => {
+                return Err(AppError::new(
+                    "store.migration_missing",
+                    version.to_string(),
+                ))
+            }
         }
         transaction.execute(
             "INSERT INTO schema_migration(version,applied_at) VALUES(?1,?2)",

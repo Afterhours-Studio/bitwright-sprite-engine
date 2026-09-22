@@ -14,8 +14,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! History state is durable and separate from the append-only audit. A new edit
-//! after undo abandons redo without erasing who made the abandoned edit.
+//! A persisted cursor keeps undo valid across restarts. Undo and redo append
+//! audit rows, while a new branch truncates the abandoned future explicitly.
 
 use super::{AppError, AssetId, OpResult, Reference, Result, Store};
 use crate::raster::{ops, Layer, LayerRole, Palette};
@@ -26,7 +26,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "value", rename_all = "snake_case")]
 pub(super) enum Mutation {
-    Draw(Vec<ops::DrawOp>),
+    Draw(Vec<crate::raster::Op>),
     Regions(Vec<(LayerRole, ops::Edit)>),
     Palette(Palette),
     Layer(Option<Layer>, LayerRole),
@@ -66,7 +66,7 @@ impl Store {
     pub fn write_ops(
         &mut self,
         id: AssetId,
-        ops: Vec<ops::DrawOp>,
+        ops: Vec<crate::raster::Op>,
         actor: &str,
     ) -> Result<OpResult> {
         if ops.is_empty() || ops.len() > 4096 {
@@ -88,7 +88,7 @@ impl Store {
         let tx = self.connection.transaction()?;
         let (inverse, mut result) = apply(&tx, id, &mutation)?;
         tx.execute(
-            "DELETE FROM op_history WHERE asset_id=?1 AND applied=0",
+            "DELETE FROM op WHERE asset_id=?1 AND seq>COALESCE((SELECT seq FROM op_cursor WHERE asset_id=?1),0)",
             [id.0.to_string()],
         )?;
         result.seq = append(
@@ -101,7 +101,7 @@ impl Store {
             &result.roles,
         )?;
         tx.execute(
-            "INSERT INTO op_history(seq,asset_id,applied) VALUES(?1,?2,1)",
+            "INSERT INTO op_cursor(seq,asset_id) VALUES(?1,?2) ON CONFLICT(asset_id) DO UPDATE SET seq=excluded.seq",
             params![result.seq, id.0.to_string()],
         )?;
         trim(&tx, id, self.history_limit)?;
@@ -121,9 +121,9 @@ impl Store {
         let tx = self.connection.transaction()?;
         super::read_asset(&tx, id)?;
         let sql = if redo {
-            "SELECT op.seq,op.payload,op.inverse FROM op JOIN op_history h ON h.seq=op.seq WHERE h.asset_id=?1 AND h.applied=0 ORDER BY op.seq ASC LIMIT 1"
+            "SELECT seq,payload,inverse FROM op WHERE asset_id=?1 AND kind NOT IN ('document_undo','document_redo') AND seq>COALESCE((SELECT seq FROM op_cursor WHERE asset_id=?1),0) ORDER BY seq ASC LIMIT 1"
         } else {
-            "SELECT op.seq,op.payload,op.inverse FROM op JOIN op_history h ON h.seq=op.seq WHERE h.asset_id=?1 AND h.applied=1 ORDER BY op.seq DESC LIMIT 1"
+            "SELECT seq,payload,inverse FROM op WHERE asset_id=?1 AND kind NOT IN ('document_undo','document_redo') AND seq<=COALESCE((SELECT seq FROM op_cursor WHERE asset_id=?1),0) ORDER BY seq DESC LIMIT 1"
         };
         let found: Option<(i64, String, Vec<u8>)> = tx
             .query_row(sql, [id.0.to_string()], |r| {
@@ -146,10 +146,12 @@ impl Store {
             serde_json::from_slice(&inverse)?
         };
         let (opposite, mut result) = apply(&tx, id, &mutation)?;
-        tx.execute(
-            "UPDATE op_history SET applied=?1 WHERE seq=?2",
-            params![redo, seq],
-        )?;
+        let cursor = if redo {
+            seq
+        } else {
+            tx.query_row("SELECT COALESCE(MAX(seq),0) FROM op WHERE asset_id=?1 AND seq<?2 AND kind NOT IN ('document_undo','document_redo')",params![id.0.to_string(),seq],|r|r.get(0))?
+        };
+        tx.execute("INSERT INTO op_cursor(asset_id,seq) VALUES(?1,?2) ON CONFLICT(asset_id) DO UPDATE SET seq=excluded.seq",params![id.0.to_string(),cursor])?;
         result.seq = append(
             &tx,
             id,
@@ -262,23 +264,17 @@ fn apply(c: &Connection, id: AssetId, mutation: &Mutation) -> Result<(Mutation, 
     let inverse = match mutation {
         Mutation::Draw(operations) => {
             let mut inverses = Vec::new();
+            let rules = super::effective_rules(c, &document.asset)?;
             for operation in operations {
-                let layer = document
-                    .layers
-                    .iter_mut()
-                    .find(|l| l.role == operation.role)
-                    .ok_or_else(|| AppError::new("document.layer_not_found", operation.role.0))?;
-                if layer.locked {
-                    return Err(AppError::new("document.layer_locked", layer.role.0));
-                }
-                let edit = ops::apply(&mut layer.buffer, &operation.op)?;
-                for &index in &layer.buffer.data {
-                    if index != 0 {
-                        document.palette.slot(index)?;
-                    }
-                }
-                accumulate(&mut result, layer.role, &edit);
-                inverses.push((layer.role, edit));
+                let role = operation.target();
+                let edit = crate::raster::document_ops::apply(
+                    &mut document.layers,
+                    &document.palette,
+                    &rules,
+                    operation,
+                )?;
+                accumulate(&mut result, role, &edit);
+                inverses.push((role, edit));
             }
             for layer in &document.layers {
                 save_layer(c, id, layer)?;
@@ -308,6 +304,9 @@ fn apply(c: &Connection, id: AssetId, mutation: &Mutation) -> Result<(Mutation, 
                     changed,
                     bounds: edit.bounds,
                     prior,
+                    // Undoing a shading pass restores bytes; it resolves
+                    // nothing, so it has nothing it could have skipped.
+                    skipped: 0,
                 };
                 ops::restore(&mut layer.buffer, edit)?;
                 accumulate(&mut result, *role, &reverse);
@@ -341,6 +340,12 @@ fn apply(c: &Connection, id: AssetId, mutation: &Mutation) -> Result<(Mutation, 
         Mutation::Layer(layer, role) => {
             let previous = document.layers.iter().find(|l| l.role == *role).cloned();
             if let Some(layer) = layer {
+                if previous.as_ref().is_some_and(|old| old.id != layer.id) {
+                    return Err(AppError::new(
+                        "document.invalid_layer",
+                        "an existing role keeps its layer id",
+                    ));
+                }
                 layer.buffer.validate()?;
                 let ordinal = crate::raster::LAYER_ROLES
                     .iter()
@@ -386,6 +391,19 @@ fn apply(c: &Connection, id: AssetId, mutation: &Mutation) -> Result<(Mutation, 
             Mutation::Layer(previous, *role)
         }
         Mutation::Reference(reference, key) => {
+            let owner: Option<String> = c
+                .query_row(
+                    "SELECT asset_id FROM reference WHERE id=?1",
+                    [key.to_string()],
+                    |r| r.get(0),
+                )
+                .optional()?;
+            if owner.is_some_and(|owner| owner != id.0.to_string()) {
+                return Err(AppError::new(
+                    "reference.invalid_owner",
+                    "reference belongs to another asset",
+                ));
+            }
             let previous = super::read_references(c, id)?
                 .into_iter()
                 .find(|r| r.id == *key);
@@ -397,8 +415,10 @@ fn apply(c: &Connection, id: AssetId, mutation: &Mutation) -> Result<(Mutation, 
                     ));
                 }
                 if let Some(pixels) = &reference.conformed {
-                    if pixels.len()
-                        != usize::from(document.asset.width) * usize::from(document.asset.height)
+                    if pixels.iter().any(|slot| *slot > 62)
+                        || pixels.len()
+                            != usize::from(document.asset.width)
+                                * usize::from(document.asset.height)
                     {
                         return Err(AppError::new(
                             "reference.invalid_buffer",
@@ -505,12 +525,10 @@ mod tests {
         .unwrap();
         (s, a.id)
     }
-    fn draw(x: i32) -> ops::DrawOp {
-        ops::DrawOp {
-            role: LayerRole("silhouette"),
-            op: ops::RasterOp::SetPixels {
-                pixels: vec![ops::Pixel { x, y: 0, slot: 1 }],
-            },
+    fn draw(x: i32) -> crate::raster::Op {
+        crate::raster::Op::SetPixels {
+            layer: LayerRole("silhouette"),
+            pixels: vec![ops::Pixel { x, y: 0, slot: 1 }],
         }
     }
     #[test]
@@ -539,8 +557,10 @@ mod tests {
     fn invalid_batch_rolls_back_and_a_branch_abandons_redo() {
         let (mut s, id) = setup();
         let mut bad = draw(1);
-        bad.role = LayerRole("outline");
-        let mut layer = s.layer_read(id, bad.role).unwrap();
+        if let crate::raster::Op::SetPixels { layer, .. } = &mut bad {
+            *layer = LayerRole("outline");
+        }
+        let mut layer = s.layer_read(id, bad.target()).unwrap();
         layer.locked = true;
         s.layer_write(id, layer).unwrap();
         let count = s.op_log(id).unwrap().len();

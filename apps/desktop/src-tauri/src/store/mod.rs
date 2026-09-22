@@ -532,10 +532,10 @@ fn effective_rules(c: &Connection, asset: &Asset) -> Result<StyleRules> {
 }
 fn validate_rules(rules: &StyleRules) -> Result<()> {
     if rules.max_slots == 0
-        || rules.max_slots > 63
+        || rules.max_slots > 62
         || rules.ramp_steps.min == 0
         || rules.ramp_steps.min > rules.ramp_steps.max
-        || rules.ramp_steps.max > 63
+        || rules.ramp_steps.max > 62
         || !rules.noise_budget.is_finite()
         || !(0.0..=1.0).contains(&rules.noise_budget)
     {
@@ -546,4 +546,255 @@ fn validate_rules(rules: &StyleRules) -> Result<()> {
     }
     IndexedBuffer::new(rules.canvas.width, rules.canvas.height)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::raster::{Canvas, Material, PaletteSlot, Ramp, RampSteps};
+
+    fn store() -> (Store, Uuid) {
+        let mut store = Store::memory().unwrap();
+        let project = store.project_create("project", "hd2d").unwrap();
+        (store, project.id)
+    }
+
+    #[test]
+    fn a_new_asset_starts_at_the_first_step_with_every_layer_role_present() {
+        let (mut store, project) = store();
+        let asset = store
+            .asset_create(project, "hero", "character", 8, 8)
+            .unwrap();
+        assert_eq!(asset.step, "reference");
+        let document = store.asset_open(asset.id).unwrap();
+        let roles: Vec<(&str, i32)> = document
+            .layers
+            .iter()
+            .map(|layer| (layer.role.0, layer.ordinal))
+            .collect();
+        // In composite order, which is what the document model fixes.
+        assert_eq!(roles, LAYER_ROLES.to_vec());
+        assert!(document
+            .layers
+            .iter()
+            .all(|layer| layer.buffer.data == vec![0; 64]));
+        assert_eq!(document.palette, Palette::default());
+    }
+
+    #[test]
+    fn a_project_is_created_with_its_own_style_taken_from_the_preset() {
+        let (store, project) = store();
+        let style = store.project_read(project).unwrap().style_id.unwrap();
+        assert_eq!(store.style_read(style).unwrap().preset, "hd2d");
+        assert_eq!(store.style_read(style).unwrap().rules.max_slots, 24);
+        assert_eq!(
+            Store::memory()
+                .unwrap()
+                .project_create("project", "vector")
+                .unwrap_err()
+                .code,
+            "style.invalid_preset"
+        );
+    }
+
+    #[test]
+    fn an_asset_style_overrides_the_project_one_and_falls_back_when_deleted() {
+        let (mut store, project) = store();
+        let asset = store.asset_create(project, "hero", "prop", 4, 4).unwrap();
+        let rules = StyleRules {
+            max_slots: 8,
+            ..StyleRules::default()
+        };
+        let style = store
+            .style_create(Some(project), "terse", "custom", rules)
+            .unwrap();
+        store.asset_set_style(asset.id, Some(style.id)).unwrap();
+        let read = store.asset_read(asset.id).unwrap();
+        assert_eq!(
+            effective_rules(&store.connection, &read).unwrap().max_slots,
+            8
+        );
+        // Deleting the style must not orphan the asset: it falls back to the
+        // project's, because an asset with no resolvable rules cannot be gated.
+        store.style_delete(style.id).unwrap();
+        let read = store.asset_read(asset.id).unwrap();
+        assert!(read.style_id.is_none());
+        assert_eq!(
+            effective_rules(&store.connection, &read).unwrap().max_slots,
+            24
+        );
+    }
+
+    #[test]
+    fn rules_that_could_not_describe_a_palette_are_refused() {
+        let (mut store, project) = store();
+        let bad = [
+            StyleRules {
+                max_slots: 0,
+                ..StyleRules::default()
+            },
+            StyleRules {
+                max_slots: 200,
+                ..StyleRules::default()
+            },
+            StyleRules {
+                ramp_steps: RampSteps { min: 4, max: 2 },
+                ..StyleRules::default()
+            },
+            StyleRules {
+                noise_budget: f32::NAN,
+                ..StyleRules::default()
+            },
+            StyleRules {
+                canvas: Canvas {
+                    width: 0,
+                    height: 8,
+                },
+                ..StyleRules::default()
+            },
+        ];
+        for rules in bad {
+            assert!(store
+                .style_create(Some(project), "bad", "custom", rules)
+                .is_err());
+        }
+    }
+
+    #[test]
+    fn names_and_kinds_are_checked_before_anything_is_written() {
+        let (mut store, project) = store();
+        for bad in ["", "   ", "line\nbreak"] {
+            assert_eq!(
+                store
+                    .asset_create(project, bad, "prop", 4, 4)
+                    .unwrap_err()
+                    .code,
+                "document.invalid_name"
+            );
+        }
+        assert_eq!(
+            store
+                .asset_create(project, "hero", "spaceship", 4, 4)
+                .unwrap_err()
+                .code,
+            "asset.invalid_kind"
+        );
+        assert!(store.asset_list(project).unwrap().is_empty());
+        store.asset_create(project, "hero", "prop", 4, 4).unwrap();
+        // The schema makes a name unique within its project, and reusing one is
+        // a conflict rather than a silent second asset.
+        assert!(store.asset_create(project, "hero", "prop", 4, 4).is_err());
+    }
+
+    #[test]
+    fn deleting_a_project_takes_its_assets_and_leaves_the_others_alone() {
+        let (mut store, project) = store();
+        let kept = store.project_create("other", "snes").unwrap();
+        let doomed = store.asset_create(project, "hero", "prop", 4, 4).unwrap();
+        let survivor = store.asset_create(kept.id, "tile", "tile", 4, 4).unwrap();
+        store.project_delete(project).unwrap();
+        assert!(store.asset_read(doomed.id).is_err());
+        assert_eq!(store.asset_read(survivor.id).unwrap().name, "tile");
+        assert_eq!(store.project_list().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn a_layer_write_must_match_the_role_ordinal_and_canvas_it_claims() {
+        let (mut store, project) = store();
+        let asset = store.asset_create(project, "hero", "prop", 4, 4).unwrap();
+        let original = store.layer_read(asset.id, LayerRole("flats")).unwrap();
+        let mut wrong_ordinal = original.clone();
+        wrong_ordinal.ordinal = 99;
+        assert_eq!(
+            store.layer_write(asset.id, wrong_ordinal).unwrap_err().code,
+            "document.invalid_layer"
+        );
+        let mut wrong_size = original.clone();
+        wrong_size.buffer = IndexedBuffer::new(2, 2).unwrap();
+        assert_eq!(
+            store.layer_write(asset.id, wrong_size).unwrap_err().code,
+            "document.invalid_layer"
+        );
+        let mut foreign = original.clone();
+        foreign.id = Uuid::now_v7();
+        assert_eq!(
+            store.layer_write(asset.id, foreign).unwrap_err().code,
+            "document.invalid_layer"
+        );
+        // A pixel pointing at a slot the palette does not hold is the same kind
+        // of fault, caught before the layer is stored rather than at composite.
+        let mut unpainted = original;
+        unpainted.buffer.data[0] = 1;
+        assert_eq!(
+            store.layer_write(asset.id, unpainted).unwrap_err().code,
+            "palette.unknown_slot"
+        );
+    }
+
+    #[test]
+    fn a_palette_cannot_be_narrowed_under_the_pixels_already_using_it() {
+        let (mut store, project) = store();
+        let asset = store.asset_create(project, "hero", "prop", 4, 4).unwrap();
+        let palette = Palette {
+            slots: vec![PaletteSlot {
+                index: 1,
+                rgba: [90, 70, 50, 255],
+                name: None,
+                ramp: Some("cloth".into()),
+                step: Some(0),
+            }],
+            ramps: vec![Ramp {
+                name: "cloth".into(),
+                material: Material::Cloth,
+                slots: vec![1],
+            }],
+        };
+        store.palette_write(asset.id, palette).unwrap();
+        let mut layer = store.layer_read(asset.id, LayerRole("flats")).unwrap();
+        layer.buffer.data[0] = 1;
+        store.layer_write(asset.id, layer).unwrap();
+        assert_eq!(
+            store.palette_delete(asset.id).unwrap_err().code,
+            "palette.unknown_slot"
+        );
+        assert_eq!(store.palette_read(asset.id).unwrap().slots.len(), 1);
+    }
+
+    #[test]
+    fn a_reference_belongs_to_one_asset_and_is_read_back_as_it_was_stored() {
+        let (mut store, project) = store();
+        let asset = store.asset_create(project, "hero", "prop", 2, 2).unwrap();
+        let other = store
+            .asset_create(project, "villain", "prop", 2, 2)
+            .unwrap();
+        let reference = Reference {
+            id: Uuid::now_v7(),
+            asset_id: asset.id,
+            name: "photo".into(),
+            source_png: vec![1, 2, 3],
+            conformed: Some(vec![0; 4]),
+            conform_meta: None,
+            created_at: now(),
+        };
+        store.reference_write(reference.clone()).unwrap();
+        let read = store.reference_read(asset.id, reference.id).unwrap();
+        assert_eq!(read.source_png, vec![1, 2, 3]);
+        assert!(store.reference_list(other.id).unwrap().is_empty());
+        // A conformed buffer that is not the asset's own size would misalign
+        // against every layer it is compared with.
+        let mut ragged = reference.clone();
+        ragged.id = Uuid::now_v7();
+        ragged.conformed = Some(vec![0; 9]);
+        assert_eq!(
+            store.reference_write(ragged).unwrap_err().code,
+            "reference.invalid_buffer"
+        );
+        // And claiming another asset's reference id is refused outright.
+        let mut stolen = reference;
+        stolen.asset_id = other.id;
+        assert_eq!(
+            store.reference_write(stolen).unwrap_err().code,
+            "reference.invalid_owner"
+        );
+    }
 }

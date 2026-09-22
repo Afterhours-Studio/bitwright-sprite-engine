@@ -101,15 +101,16 @@ pub struct StepState {
     pub gate: GateReport,
 }
 
-pub const STEPS: [&str; 10] = [
+pub const STEPS: [&str; 11] = [
     "reference",
     "palette",
     "silhouette",
-    "outline",
+    "flats",
     "shadow",
     "light",
-    "rim",
+    "outline",
     "detail",
     "accent",
+    "cleanup",
     "variation",
 ];

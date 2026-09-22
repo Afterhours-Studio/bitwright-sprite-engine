@@ -277,6 +277,8 @@ These are the ones where the engine decides the colour.
 {
   "assetId": "…",
   "target": "shadow-core",      // shadow-core | shadow-deep | light | rim
+                                // the target layer IS the band; there is no
+                                // second argument that can contradict it
   "from": "flats",              // the layer whose material slots are being shaded
   "region": { "x": 0, "y": 0, "w": 64, "h": 64 },   // optional, defaults to all
   "direction": "upper-left",    // omitted: taken from the style rules

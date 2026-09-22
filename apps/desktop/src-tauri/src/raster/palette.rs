@@ -156,7 +156,7 @@ impl Palette {
     }
 
     pub fn validate(&self, rules: &StyleRules) -> Result<()> {
-        if self.slots.len() > usize::from(rules.max_slots.min(63)) {
+        if self.slots.len() > usize::from(rules.max_slots.min(62)) {
             return Err(RasterError::new(
                 "palette.too_many_slots",
                 "palette exceeds the style ceiling",
@@ -220,6 +220,13 @@ impl Palette {
             .map(|s| s.index)
     }
 
+    /// Everything about this palette the style guide would reject, by name.
+    ///
+    /// These are separate from [`Palette::validate`] on purpose. A malformed
+    /// palette cannot be stored at all, whereas an unfinished one can: an artist
+    /// halfway through building a ramp still needs to save. So a structural
+    /// fault is an error here and a style fault is a listed issue, and only the
+    /// second kind is what holds the `palette` step closed.
     pub fn gate_issues(&self, rules: &StyleRules) -> Result<Vec<String>> {
         self.validate(rules)?;
         let mut issues = Vec::new();
@@ -235,24 +242,251 @@ impl Palette {
             {
                 issues.push(format!("palette.ramp_steps:{}", ramp.name));
             }
-            let labs = ramp
+            // Skin, and anything else translucent, rotates toward red in shadow
+            // rather than toward blue, because light that enters the surface and
+            // scatters back out carries the blood under it. It is the one
+            // material where the cool-shadow rule is inverted rather than
+            // relaxed, so the whole exception is this sign.
+            let warm = rules.warm_shadow_materials.contains(&ramp.material);
+            let bounds = rules.hue_shift.darker_hue_deg;
+            let darker_rotation = if warm {
+                [-bounds[1], -bounds[0]]
+            } else {
+                bounds
+            };
+            let entries = ramp
                 .slots
                 .iter()
-                .map(|i| self.slot(*i).map(|s| color::srgb_to_oklab(s.rgba)))
+                .map(|index| self.slot(*index))
                 .collect::<Result<Vec<_>>>()?;
-            for pair in labs.windows(2) {
-                if pair[1][0] <= pair[0][0] {
-                    issues.push(format!("palette.ramp_order:{}", ramp.name));
-                }
+            let labs: Vec<[f32; 3]> = entries
+                .iter()
+                .map(|slot| color::srgb_to_oklab(slot.rgba))
+                .collect();
+            let (mut misordered, mut too_close, mut unshifted) = (false, false, false);
+            for (step, pair) in labs.windows(2).enumerate() {
+                misordered |= pair[1][0] <= pair[0][0];
+                // Two steps that sit this close in value read as one colour
+                // wherever they touch, which wastes a slot and leaves the form
+                // undescribed at exactly the edge it was meant to show.
+                too_close |= pair[1][0] - pair[0][0] < rules.min_edge_delta_l;
                 // Hue has no direction at zero chroma, so a grey ramp does not
                 // acquire a fabricated hue shift from floating point noise.
-                if pair.iter().any(|v| v[1].hypot(v[2]) < 0.001)
-                    || color::angle_delta(color::hue(pair[1]), color::hue(pair[0])).abs() < 1.0
-                {
-                    issues.push(format!("palette.hue_shift:{}", ramp.name));
+                let grey = pair.iter().any(|lab| color::chroma(*lab) < 0.001);
+                // Measured in HSL degrees, which is the unit the style rules are
+                // written in, and from the lighter step toward the darker one,
+                // which is the direction the rule names.
+                let rotation = color::angle_delta(
+                    color::hsl_hue(entries[step].rgba),
+                    color::hsl_hue(entries[step + 1].rgba),
+                );
+                unshifted |= grey || !(darker_rotation[0]..=darker_rotation[1]).contains(&rotation);
+            }
+            // One fault per ramp, however many of its steps share it, so the
+            // report names what is wrong rather than how long the ramp is.
+            for (failed, code) in [
+                (misordered, "palette.ramp_order"),
+                (too_close, "palette.edge_delta_l"),
+                (unshifted, "palette.hue_shift"),
+            ] {
+                if failed {
+                    issues.push(format!("{code}:{}", ramp.name));
                 }
             }
         }
+        // The floor and the ceiling are properties of the whole palette rather
+        // than of any one ramp: they are what keeps a sprite from going to pure
+        // black in its deepest occlusion or blowing out to paper white, both of
+        // which read as a hole rather than as a surface.
+        let lightness: Vec<f32> = self
+            .slots
+            .iter()
+            .map(|slot| color::srgb_to_oklab(slot.rgba)[0])
+            .collect();
+        if let Some(floor) = lightness.iter().copied().reduce(f32::min) {
+            if !(rules.value_floor[0]..=rules.value_floor[1]).contains(&floor) {
+                issues.push("palette.value_floor".into());
+            }
+        }
+        if let Some(ceiling) = lightness.iter().copied().reduce(f32::max) {
+            if !(rules.value_ceiling[0]..=rules.value_ceiling[1]).contains(&ceiling) {
+                issues.push("palette.value_ceiling".into());
+            }
+        }
         Ok(issues)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A four-step ramp, darkest first, whose hue rotates cool into shadow by
+    /// the sixteen degrees the `hd2d` rules ask for, spanning the value floor
+    /// to the value ceiling.
+    const COOL: [[u8; 4]; 4] = [
+        [4, 7, 14, 255],
+        [29, 71, 98, 255],
+        [49, 153, 168, 255],
+        [191, 237, 230, 255],
+    ];
+    /// The same ramp built the other way round: its shadows rotate toward red.
+    const WARM: [[u8; 4]; 4] = [
+        [12, 5, 4, 255],
+        [91, 57, 31, 255],
+        [166, 132, 55, 255],
+        [230, 229, 180, 255],
+    ];
+
+    fn ramped(colours: &[[u8; 4]], material: Material) -> Palette {
+        Palette {
+            slots: colours
+                .iter()
+                .enumerate()
+                .map(|(step, rgba)| PaletteSlot {
+                    index: step as u8 + 1,
+                    rgba: *rgba,
+                    name: None,
+                    ramp: Some("cloth".into()),
+                    step: Some(step as u8),
+                })
+                .collect(),
+            ramps: vec![Ramp {
+                name: "cloth".into(),
+                material,
+                slots: (1..=colours.len() as u8).collect(),
+            }],
+        }
+    }
+
+    /// Appends a slot that belongs to no ramp, to move the palette's extremes.
+    fn with_loose_slot(mut palette: Palette, rgba: [u8; 4]) -> Palette {
+        palette.slots.push(PaletteSlot {
+            index: palette.slots.len() as u8 + 1,
+            rgba,
+            name: None,
+            ramp: None,
+            step: None,
+        });
+        palette
+    }
+
+    fn issues(palette: &Palette) -> Vec<String> {
+        palette.gate_issues(&StyleRules::default()).unwrap()
+    }
+
+    #[test]
+    fn a_ramp_built_to_the_style_passes_every_gate() {
+        assert_eq!(
+            issues(&ramped(&COOL, Material::Cloth)),
+            Vec::<String>::new()
+        );
+    }
+
+    #[test]
+    fn a_ramp_of_the_wrong_length_is_named() {
+        let short = ramped(&COOL[..2], Material::Cloth);
+        assert!(issues(&short).contains(&"palette.ramp_steps:cloth".to_string()));
+        let rules = StyleRules {
+            ramp_steps: RampSteps { min: 2, max: 2 },
+            ..StyleRules::default()
+        };
+        assert!(!short
+            .gate_issues(&rules)
+            .unwrap()
+            .contains(&"palette.ramp_steps:cloth".to_string()));
+    }
+
+    #[test]
+    fn a_grey_ramp_has_no_hue_shift_to_find() {
+        let grey = [
+            [8, 8, 8, 255],
+            [80, 80, 80, 255],
+            [150, 150, 150, 255],
+            [235, 235, 235, 255],
+        ];
+        assert!(issues(&ramped(&grey, Material::Cloth))
+            .contains(&"palette.hue_shift:cloth".to_string()));
+        assert!(!issues(&ramped(&COOL, Material::Cloth))
+            .contains(&"palette.hue_shift:cloth".to_string()));
+    }
+
+    #[test]
+    fn two_steps_that_read_alike_fail_the_edge_delta() {
+        let mut crowded = COOL;
+        // Second step moved up against the first, so the pair no longer carries
+        // the value difference the eye needs to see them as two colours.
+        crowded[1] = [10, 14, 22, 255];
+        assert!(issues(&ramped(&crowded, Material::Cloth))
+            .contains(&"palette.edge_delta_l:cloth".to_string()));
+        assert!(!issues(&ramped(&COOL, Material::Cloth))
+            .contains(&"palette.edge_delta_l:cloth".to_string()));
+    }
+
+    #[test]
+    fn the_floor_and_the_ceiling_bound_the_whole_palette() {
+        let passing = ramped(&COOL, Material::Cloth);
+        assert!(!issues(&passing)
+            .iter()
+            .any(|i| i.starts_with("palette.value")));
+        let sunk = with_loose_slot(passing.clone(), [0, 0, 0, 255]);
+        assert!(issues(&sunk).contains(&"palette.value_floor".to_string()));
+        let blown = with_loose_slot(passing, [255, 255, 255, 255]);
+        assert!(issues(&blown).contains(&"palette.value_ceiling".to_string()));
+    }
+
+    #[test]
+    fn skin_shadows_rotate_warm_and_everything_else_rotates_cool() {
+        let shift = "palette.hue_shift:cloth".to_string();
+        // The same four colours are correct for skin and wrong for cloth, which
+        // is the whole of the subsurface-scattering exception.
+        assert!(!issues(&ramped(&WARM, Material::Skin)).contains(&shift));
+        assert!(issues(&ramped(&WARM, Material::Cloth)).contains(&shift));
+        // And the exception is an inversion, not a relaxation: a cool ramp is
+        // wrong for skin exactly as a warm one is wrong for cloth.
+        assert!(issues(&ramped(&COOL, Material::Skin)).contains(&shift));
+        assert!(!issues(&ramped(&COOL, Material::Cloth)).contains(&shift));
+    }
+
+    #[test]
+    fn a_malformed_palette_is_an_error_while_an_unfinished_one_is_an_issue() {
+        let rules = StyleRules::default();
+        let mut broken = ramped(&COOL, Material::Cloth);
+        broken.slots[2].index = 9;
+        assert_eq!(
+            broken.gate_issues(&rules).unwrap_err().code,
+            "palette.invalid_index"
+        );
+        let mut orphaned = ramped(&COOL, Material::Cloth);
+        orphaned.ramps.clear();
+        assert_eq!(
+            orphaned.gate_issues(&rules).unwrap_err().code,
+            "palette.invalid_ramp"
+        );
+        // An empty palette is merely unfinished, so it saves and is reported.
+        let empty = Palette::default();
+        assert_eq!(
+            empty.gate_issues(&rules).unwrap(),
+            vec!["palette.empty".to_string(), "palette.no_ramps".to_string()]
+        );
+    }
+
+    #[test]
+    fn a_preset_narrows_the_rules_rather_than_replacing_them() {
+        assert_eq!(StyleRules::preset("snes").unwrap().max_slots, 16);
+        assert_eq!(StyleRules::preset("gameboy").unwrap().outline, "full");
+        assert_eq!(
+            StyleRules::preset("vector").unwrap_err().code,
+            "style.invalid_preset"
+        );
+    }
+
+    #[test]
+    fn nearest_is_measured_perceptually_rather_than_in_srgb() {
+        let palette = ramped(&COOL, Material::Cloth);
+        assert_eq!(palette.nearest([5, 8, 15, 255]), Some(1));
+        assert_eq!(palette.nearest([200, 240, 235, 255]), Some(4));
+        assert_eq!(Palette::default().nearest([0, 0, 0, 255]), None);
+        assert_eq!(palette.slot(9).unwrap_err().code, "palette.unknown_slot");
     }
 }

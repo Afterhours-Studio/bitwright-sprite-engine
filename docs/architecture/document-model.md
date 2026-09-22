@@ -385,8 +385,12 @@ pub enum Op {
     Mirror     { layer: LayerRole, axis: Axis, about: Option<u16> },
     Translate  { layer: LayerRole, dx: i32, dy: i32 },
     Clear      { layer: LayerRole },
+    // The target layer names the band: shadow-core, shadow-deep, light and rim
+    // each mean one thing. A separate band argument could contradict it, and an
+    // argument that can contradict another is an argument an agent will get
+    // wrong.
     Shade      { target: LayerRole, from: LayerRole, region: Option<Rect>,
-                 kind: ShadeKind, direction: Direction, depth: u8 },
+                 direction: Direction, depth: u8 },
     Outline    { from: LayerRole, mode: OutlineMode, darken: u8 },
     Antialias  { layer: LayerRole, strength: u8 },
 }
