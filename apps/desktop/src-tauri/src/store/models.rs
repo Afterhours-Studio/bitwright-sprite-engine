@@ -16,7 +16,7 @@
 
 //! These wire types keep database column names out of the renderer's contract.
 
-use crate::raster::gates::GateMetrics;
+use crate::raster::gates::{GateCheck, GateMetrics};
 use crate::raster::ops::Bounds;
 use crate::raster::{Layer, Palette, StyleRules};
 use serde::{Deserialize, Serialize};
@@ -88,9 +88,24 @@ pub struct OpResult {
 #[serde(rename_all = "camelCase")]
 pub struct GateReport {
     pub step: String,
-    pub passed: bool,
-    pub issues: Vec<String>,
+    pub pass: bool,
+    /// Every check the step ran, the ones that passed included. An agent that
+    /// can only see what broke cannot tell a gate that verified its work from
+    /// one that never looked.
+    pub checks: Vec<GateCheck>,
     pub metrics: GateMetrics,
+}
+
+impl GateReport {
+    /// The names of the checks that failed, for a message that has room for
+    /// nothing else.
+    pub fn failures(&self) -> Vec<&str> {
+        self.checks
+            .iter()
+            .filter(|check| !check.pass)
+            .map(|check| check.name.as_str())
+            .collect()
+    }
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

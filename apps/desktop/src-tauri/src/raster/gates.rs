@@ -39,6 +39,11 @@ pub struct Thresholds {
     pub jaggy_repeat: usize,
     pub jaggy_jump: usize,
     pub accent_count: usize,
+    pub rim_run: [usize; 2],
+    pub rim_gap: [usize; 2],
+    pub rim_contrast: f32,
+    pub change_rate: f32,
+    pub outline_bottom_band: f32,
 }
 pub const HD2D: Thresholds = Thresholds {
     orphan_fraction: 0.02,
@@ -76,7 +81,81 @@ pub const HD2D: Thresholds = Thresholds {
     jaggy_repeat: 5,
     jaggy_jump: 2,
     accent_count: 6,
+    // §5.5 rule 4 draws the rim in runs of 3 to 7 px separated by gaps of 1 to
+    // 3 px, and the step 7 checklist repeats the run half of it. A longer run
+    // is the glow-outline sticker the rule exists to prevent, and a shorter
+    // one is the stray pixel rule 5 warns about at the bottom of the band.
+    rim_run: [3, 7],
+    rim_gap: [1, 3],
+    // §5.5 rule 9: the rim has to beat the fill it sits against by this much
+    // in OKLCH lightness or it does not read as a backlight at all.
+    rim_contrast: 0.20,
+    // §11.5 calls a sprite busy above this rate of horizontal colour changes
+    // per filled pixel. At the flats step nothing has been detailed yet, so a
+    // buffer over the busy line is not detail that went too far: it is two
+    // materials interleaved where one material's area should be.
+    change_rate: 0.45,
+    // §4.3 never drops the outline along the bottom fifth of the sprite, where
+    // the contact shadow is what anchors the character to the ground plane.
+    outline_bottom_band: 0.20,
 };
+
+/// One measurement a gate made, in the shape `mcp-tools.md` §8 specifies.
+///
+/// A bare reason code tells an agent only that it failed. A measured `detail`
+/// and a `hint` that names coordinates tell it what to do next, which is the
+/// difference between an agent that converges and one that retries blindly.
+/// Checks that passed are reported alongside the ones that did not, so a reader
+/// can see what was verified rather than only what broke.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GateCheck {
+    pub name: String,
+    pub pass: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hint: Option<String>,
+}
+
+impl GateCheck {
+    /// A check whose verdict and whose measurement are computed together.
+    ///
+    /// The hint is built whether or not it is needed and then dropped on a
+    /// pass, because a hint assembled at the call site beside the measurement
+    /// can name the pixels that failed, and one assembled later cannot.
+    pub fn verdict(
+        name: &str,
+        pass: bool,
+        detail: impl Into<String>,
+        hint: impl Into<String>,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            pass,
+            detail: Some(detail.into()),
+            hint: (!pass).then(|| hint.into()),
+        }
+    }
+}
+
+/// Where a gate found something, as `(x,y)` pairs an agent can paint over.
+///
+/// Only the first few are named: a hint is a place to start, and a list of
+/// three hundred coordinates is not one.
+pub fn named_points(points: &[(u16, u16)]) -> String {
+    const SHOWN: usize = 6;
+    let named = points
+        .iter()
+        .take(SHOWN)
+        .map(|(x, y)| format!("({x},{y})"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    match points.len().checked_sub(SHOWN) {
+        Some(rest) if rest > 0 => format!("{named} and {rest} more"),
+        _ => named,
+    }
+}
 
 /// Where a region sits, so a report can point an agent at the pixels it has to
 /// repaint rather than only telling it that something is wrong.
@@ -108,6 +187,7 @@ pub struct GateMetrics {
     pub orphan_fraction: f32,
     pub speckle_fraction: f32,
     pub jaggy_sequences: usize,
+    pub horizontal_change_rate: f32,
     pub pillow_correlation: f32,
     pub light_vectors: Vec<f32>,
     pub light_mean_degrees: Option<f32>,
@@ -280,12 +360,212 @@ pub fn measure(buffer: &IndexedBuffer, palette: &Palette) -> Result<GateMetrics>
         orphan_fraction: orphan_count as f32 / denominator,
         speckle_fraction: speckle as f32 / denominator,
         jaggy_sequences: jaggies(buffer),
+        horizontal_change_rate: horizontal_change_rate(buffer),
         pillow_correlation: pillow_correlation(buffer, &distance, &lightness),
         light_vectors: vectors,
         light_mean_degrees: mean,
         light_std_degrees: std,
         undirected_regions,
     })
+}
+
+/// §11.5's colour-change rate: horizontally adjacent pairs that differ in
+/// colour, over filled pixels. It is what separates an area of one material
+/// from two materials interleaved, and it does not depend on canvas size.
+pub fn horizontal_change_rate(buffer: &IndexedBuffer) -> f32 {
+    let width = usize::from(buffer.width);
+    let mut changes = 0;
+    for row in buffer.data.chunks(width) {
+        // A pair is counted only where both pixels are filled, because the
+        // silhouette's own edge is a colour change the sprite is supposed to
+        // have and counting it would charge a shape for its outline.
+        changes += row
+            .windows(2)
+            .filter(|p| p[0] != 0 && p[1] != 0 && p[0] != p[1])
+            .count();
+    }
+    let filled = buffer.data.iter().filter(|s| **s != 0).count();
+    changes as f32 / filled.max(1) as f32
+}
+
+/// A pixel on the silhouette's outer edge, and which way that edge faces.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EdgePixel {
+    pub x: u16,
+    pub y: u16,
+    pub index: usize,
+    /// The edge here faces into the key light, which is the arc §4.3 lets the
+    /// outline drop and §5.5 rule 8 keeps the rim off.
+    pub key_facing: bool,
+    /// The edge here faces away from the key, which is where §4.3 requires an
+    /// outline and where §5.5 puts the backlight.
+    pub shadow_facing: bool,
+}
+
+impl EdgePixel {
+    pub fn point(&self) -> (u16, u16) {
+        (self.x, self.y)
+    }
+}
+
+/// The angle the key light arrives from, in canvas degrees, where y increases
+/// downward and an unrecognised name falls back to the §5.1 convention.
+pub fn key_degrees(light_direction: &str) -> f32 {
+    match light_direction {
+        "upper-right" => -45.0,
+        "lower-left" => 135.0,
+        "lower-right" => 45.0,
+        "up" => -90.0,
+        "down" => 90.0,
+        "left" => 180.0,
+        "right" => 0.0,
+        _ => -135.0,
+    }
+}
+
+/// The same direction as a unit vector pointing toward the light, which is what
+/// an edge's outward normal is compared against.
+pub fn key_vector(light_direction: &str) -> (f32, f32) {
+    let radians = key_degrees(light_direction).to_radians();
+    (radians.cos(), radians.sin())
+}
+
+/// A canvas position, for a hint that has to name where to paint.
+pub fn point(buffer: &IndexedBuffer, index: usize) -> (u16, u16) {
+    let (x, y) = xy(buffer, index);
+    (x as u16, y as u16)
+}
+
+/// One filled pixel of `mask` that has transparency beside it, described
+/// against the key light `key` — a unit vector pointing toward the light, on a
+/// canvas whose y increases downward.
+pub fn edge_pixel(mask: &IndexedBuffer, index: usize, key: (f32, f32)) -> EdgePixel {
+    let (x, y) = xy(mask, index);
+    let facing = |sign: f32| {
+        neighbours(x, y)
+            .iter()
+            .zip([(-1.0, 0.0), (1.0, 0.0), (0.0, -1.0), (0.0, 1.0)])
+            .any(|(&(nx, ny), (ox, oy))| {
+                // The outward normal at an edge is the direction of the
+                // transparent pixel beside it, so an edge faces the key exactly
+                // when that direction agrees with the key vector.
+                mask.get(nx, ny) == 0 && (ox * key.0 + oy * key.1) * sign > 0.01
+            })
+    };
+    EdgePixel {
+        x: x as u16,
+        y: y as u16,
+        index,
+        key_facing: facing(1.0),
+        shadow_facing: facing(-1.0),
+    }
+}
+
+/// Every edge pixel of `mask`, in raster order.
+///
+/// This includes the border of an enclosed hole, which is a perimeter the
+/// outline has to cover as much as the outer silhouette does.
+pub fn edge_pixels(mask: &IndexedBuffer, key: (f32, f32)) -> Vec<EdgePixel> {
+    (0..mask.data.len())
+        .filter(|&i| {
+            let (x, y) = xy(mask, i);
+            mask.data[i] != 0 && neighbours(x, y).iter().any(|&(x, y)| mask.get(x, y) == 0)
+        })
+        .map(|i| edge_pixel(mask, i, key))
+        .collect()
+}
+
+/// The outer boundary of `mask`, in order, walking from its topmost-leftmost
+/// filled pixel (Moore-neighbour tracing, stopping when the start is re-entered
+/// from the direction it was first left by).
+///
+/// The order is the point. §5.5 states the rim as runs and gaps *along* the
+/// silhouette's edge, and a set of edge pixels cannot answer how long a run is
+/// or how wide the gap after it was. The trace follows the outer contour only,
+/// so a pixel bordering an enclosed hole is not on the ring — which is the same
+/// reading §5.5 rule 3 gives when it says the rim sits on the outermost pixel.
+///
+/// `key` is the direction the light comes from, as a unit vector on the canvas
+/// with y increasing downward.
+pub fn perimeter_ring(mask: &IndexedBuffer, key: (f32, f32)) -> Vec<EdgePixel> {
+    const CLOCKWISE: [(i32, i32); 8] = [
+        (-1, -1),
+        (0, -1),
+        (1, -1),
+        (1, 0),
+        (1, 1),
+        (0, 1),
+        (-1, 1),
+        (-1, 0),
+    ];
+    let Some(start) = mask.data.iter().position(|s| *s != 0) else {
+        return Vec::new();
+    };
+    let mut ring = vec![edge_pixel(mask, start, key)];
+    let (sx, sy) = xy(mask, start);
+    // The pixel to the west of the topmost-leftmost filled pixel is empty by
+    // construction, so it is where the walk can always be entered from.
+    let mut backtrack = CLOCKWISE.iter().position(|d| *d == (-1, 0)).unwrap_or(7);
+    let (mut x, mut y) = (sx, sy);
+    let first = (x, y, backtrack);
+    // Every pixel can be entered from at most eight directions, so this many
+    // steps is past any legal contour and the walk cannot spin on a fault.
+    for step in 0..mask.data.len() * 8 {
+        let mut moved = false;
+        for turn in 1..=8 {
+            let direction = (backtrack + turn) % 8;
+            let (dx, dy) = CLOCKWISE[direction];
+            if mask.get(x + dx, y + dy) != 0 {
+                backtrack = (direction + 4) % 8;
+                x += dx;
+                y += dy;
+                moved = true;
+                break;
+            }
+        }
+        if !moved {
+            break;
+        }
+        if (x, y, backtrack) == first || (step > 0 && (x, y) == (sx, sy) && ring.len() > 2) {
+            break;
+        }
+        if let Some(index) = mask.offset(x, y) {
+            if !ring.iter().any(|p| p.index == index) {
+                ring.push(edge_pixel(mask, index, key));
+            }
+        }
+    }
+    ring
+}
+
+/// Runs of `true` along a ring, as `(start position, length)` pairs.
+///
+/// The ring is circular, so a run that straddles its first pixel is one run and
+/// not two. A run that covers the whole ring is reported once, at position 0.
+pub fn ring_runs(marked: &[bool]) -> Vec<(usize, usize)> {
+    let total = marked.iter().filter(|m| **m).count();
+    if total == 0 {
+        return Vec::new();
+    }
+    if total == marked.len() {
+        return vec![(0, total)];
+    }
+    let offset = marked.iter().position(|m| !*m).unwrap_or(0);
+    let mut runs = Vec::new();
+    let mut run: Option<(usize, usize)> = None;
+    for step in 0..marked.len() {
+        let position = (offset + step) % marked.len();
+        if marked[position] {
+            match &mut run {
+                Some(open) => open.1 += 1,
+                None => run = Some((position, 1)),
+            }
+        } else if let Some(open) = run.take() {
+            runs.push(open);
+        }
+    }
+    runs.extend(run);
+    runs
 }
 
 fn bounds(buffer: &IndexedBuffer, region: &[usize]) -> RegionBounds {
@@ -729,6 +1009,56 @@ AABCBAA",
         let measured = measure(&lit, &palette()).unwrap();
         assert_eq!(measured.light_vectors.len(), 1);
         assert!(measured.undirected_regions.is_empty());
+    }
+
+    #[test]
+    fn the_perimeter_is_walked_in_order_and_each_edge_knows_which_way_it_faces() {
+        // A four by four block on a six by six canvas: twelve edge pixels, and
+        // a walk that starts at the top left and comes back to it.
+        let b = grid::parse("......\n.AAAA.\n.AAAA.\n.AAAA.\n.AAAA.\n......").unwrap();
+        let key = key_vector("upper-left");
+        let ring = perimeter_ring(&b, key);
+        assert_eq!(ring.len(), 12);
+        assert_eq!(ring.len(), edge_pixels(&b, key).len());
+        assert_eq!(ring[0].point(), (1, 1));
+        assert_eq!(ring[1].point(), (2, 1));
+        // Consecutive ring pixels touch, which is what makes a run a run.
+        for pair in ring.windows(2) {
+            assert!(pair[0].x.abs_diff(pair[1].x) <= 1 && pair[0].y.abs_diff(pair[1].y) <= 1);
+        }
+        // The top edge faces the key, the right edge faces away from it, and
+        // the top right corner does both at once.
+        let at = |x: u16, y: u16| *ring.iter().find(|p| p.point() == (x, y)).unwrap();
+        assert!(at(2, 1).key_facing && !at(2, 1).shadow_facing);
+        assert!(at(4, 2).shadow_facing && !at(4, 2).key_facing);
+        assert!(at(4, 1).key_facing && at(4, 1).shadow_facing);
+        // A key from straight above leaves the sides facing neither way, which
+        // is the perpendicular case §4.2 gives its own mix to.
+        let above = perimeter_ring(&b, key_vector("up"));
+        let at = |x: u16, y: u16| *above.iter().find(|p| p.point() == (x, y)).unwrap();
+        assert!(!at(4, 2).key_facing && !at(4, 2).shadow_facing);
+    }
+
+    #[test]
+    fn runs_along_a_ring_wrap_around_its_join() {
+        assert_eq!(ring_runs(&[false; 4]), Vec::new());
+        assert_eq!(ring_runs(&[true; 4]), vec![(0, 4)]);
+        assert_eq!(ring_runs(&[true, false, true, true]), vec![(2, 3)]);
+        // A run that straddles the start of the ring is one run, not two: the
+        // ring has no beginning, and §5.5 counts runs along the silhouette.
+        assert_eq!(ring_runs(&[true, true, false, true]), vec![(3, 3)]);
+    }
+
+    #[test]
+    fn the_change_rate_separates_an_area_from_two_colours_interleaved() {
+        let woven = grid::parse("ABAB\nBABA\nABAB\nBABA").unwrap();
+        assert!(horizontal_change_rate(&woven) > HD2D.change_rate);
+        let blocks = grid::parse("AABB\nAABB\nAABB\nAABB").unwrap();
+        assert!(horizontal_change_rate(&blocks) < HD2D.change_rate);
+        // The silhouette's own edge is not a colour change the sprite chose, so
+        // a field of one colour on a transparent canvas reads as zero.
+        let flat = grid::parse(".AA.\n.AA.\n.AA.").unwrap();
+        assert_eq!(horizontal_change_rate(&flat), 0.0);
     }
 
     #[test]

@@ -21,6 +21,7 @@ use crate::raster::Op;
 use crate::raster::{self, IndexedBuffer, LayerRole, Palette, RgbaImage};
 use crate::store::{
     AppError, Asset, AssetId, Document, GateReport, OpResult, Project, Result, StepState, Store,
+    Style,
 };
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -274,6 +275,13 @@ pub async fn asset_delete(state: State<'_, DocumentState>, id: AssetId) -> Resul
 #[tauri::command]
 pub async fn asset_open(state: State<'_, DocumentState>, id: AssetId) -> Result<Document> {
     run(&state, move |s| s.asset_open(id)).await
+}
+/// The style a document is judged against, which is where the canvas tier and
+/// every gate band come from. Without it the interface cannot ask a project
+/// what size of canvas its style wants before creating an asset.
+#[tauri::command]
+pub async fn style_read(state: State<'_, DocumentState>, id: Uuid) -> Result<Style> {
+    run(&state, move |s| s.style_read(id)).await
 }
 #[tauri::command]
 pub async fn document_composite(
