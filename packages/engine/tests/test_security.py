@@ -28,9 +28,9 @@ from bitwright_engine.api.security import TOKEN_HEADER, generate_token, reject_b
 from tests.conftest import TEST_TOKEN
 
 PROTECTED = [
-    ("get", "/v1/backends"),
-    ("get", "/v1/models"),
-    ("post", "/v1/backends/remote/select"),
+    ("get", "/v1/sprites"),
+    ("get", "/v1/storage"),
+    ("post", "/v1/conform"),
     ("post", "/shutdown"),
 ]
 
@@ -50,7 +50,7 @@ def test_health_needs_no_token(anonymous_client: TestClient) -> None:
 
 def test_health_reveals_nothing_beyond_liveness(anonymous_client: TestClient) -> None:
     body = anonymous_client.get("/health").json()
-    assert set(body) == {"status", "version", "backend", "backendReady"}
+    assert set(body) == {"status", "version"}
 
 
 def test_a_missing_token_is_rejected(anonymous_client: TestClient) -> None:
@@ -70,12 +70,16 @@ def test_a_token_prefix_is_rejected(anonymous_client: TestClient) -> None:
     # A prefix must fail like any other wrong value. Comparing with == would
     # return sooner for a longer shared prefix, which leaks the token one
     # character at a time to a caller that measures the difference.
-    response = anonymous_client.get("/v1/backends", headers={TOKEN_HEADER: TEST_TOKEN[:-1]})
+    response = anonymous_client.get("/v1/sprites", headers={TOKEN_HEADER: TEST_TOKEN[:-1]})
     assert response.status_code == 401
 
 
-def test_generate_is_rejected_without_a_token(anonymous_client: TestClient) -> None:
-    response = anonymous_client.post("/v1/generate", json={"prompt": "a knight"})
+def test_a_body_carrying_request_is_rejected_before_it_is_read(
+    anonymous_client: TestClient,
+) -> None:
+    # The token is checked as a dependency, ahead of body validation, so an
+    # unauthenticated caller cannot learn a schema by sending a wrong payload.
+    response = anonymous_client.post("/v1/conform", json={"image": "not base64"})
     assert response.status_code == 401
 
 
@@ -89,14 +93,14 @@ def test_a_request_with_an_origin_is_refused(client: TestClient) -> None:
 
 
 def test_an_origin_is_refused_even_with_a_valid_token(client: TestClient) -> None:
-    response = client.get("/v1/backends", headers={"Origin": "http://localhost:1420"})
+    response = client.get("/v1/sprites", headers={"Origin": "http://localhost:1420"})
     assert response.status_code == 403
 
 
 def test_a_tauri_origin_is_refused_too(client: TestClient) -> None:
     # The webview is not a client of this API. It goes through shell commands,
     # so its origin gets no exception.
-    response = client.get("/v1/backends", headers={"Origin": "tauri://localhost"})
+    response = client.get("/v1/sprites", headers={"Origin": "tauri://localhost"})
     assert response.status_code == 403
 
 

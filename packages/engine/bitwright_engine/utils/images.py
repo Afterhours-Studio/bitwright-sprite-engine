@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-"""Image helpers shared by backends and post-processing steps."""
+"""Image helpers shared by the pipeline and the routes."""
 
 from __future__ import annotations
 
@@ -38,47 +38,6 @@ def new_canvas(width: int, height: int, color: RGBA = (0, 0, 0, 0)) -> Image.Ima
         A new RGBA image filled with ``color``.
     """
     return Image.new("RGBA", (width, height), color)
-
-
-def placeholder(width: int, height: int, seed: int) -> Image.Image:
-    """Render a deterministic checkerboard placeholder.
-
-    The scaffold backends return this instead of a real diffusion result, so
-    that the end to end path can be exercised without model weights. The
-    pattern is derived from the seed, which makes it obvious in the gallery
-    that a different seed produced a different image.
-
-    Args:
-        width: Image width in pixels.
-        height: Image height in pixels.
-        seed: Seed that selects the two checkerboard colours.
-
-    Returns:
-        An opaque RGBA checkerboard image.
-    """
-    cell = max(1, min(width, height) // 8)
-    first: RGBA = (
-        (seed * 37) % 256,
-        (seed * 59) % 256,
-        (seed * 83) % 256,
-        255,
-    )
-    second: RGBA = (
-        255 - first[0],
-        255 - first[1],
-        255 - first[2],
-        255,
-    )
-
-    image = new_canvas(width, height, first)
-    pixels = image.load()
-    if pixels is None:  # pragma: no cover - Pillow always provides an accessor
-        return image
-    for y in range(height):
-        for x in range(width):
-            if ((x // cell) + (y // cell)) % 2 == 1:
-                pixels[x, y] = second
-    return image
 
 
 def to_png_bytes(image: Image.Image) -> bytes:

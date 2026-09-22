@@ -38,11 +38,11 @@ APP_ID = "studio.afterhours.bitwright"
 
 
 def default_data_root() -> Path:
-    """Return the per-user directory that holds downloaded data.
+    """Return the per-user directory that holds this application's data.
 
     This is the root the user is allowed to move. Everything the application
-    downloads lives under it, so moving it moves the gigabytes rather than
-    scattering them.
+    writes lives under it, so moving it moves the whole library rather than
+    scattering it.
 
     Returns:
         The per-user data directory for this platform.
@@ -57,10 +57,10 @@ def default_data_root() -> Path:
 
 
 def default_cache_dir() -> Path:
-    """Return the per-user model cache directory for this platform.
+    """Return the per-user cache directory for this platform.
 
     Returns:
-        The directory that holds downloaded model weights.
+        The cached-asset directory under the default data root.
     """
     return default_data_root() / MODELS_DIRNAME
 
@@ -70,24 +70,17 @@ class Settings(BaseSettings):
 
     Attributes:
         host: Loopback address the HTTP server binds to. Binding anywhere other
-            than loopback exposes generation to the network, and is not
+            than loopback exposes this API to the network, and is not
             supported.
         port: Port to bind. ``0`` asks the operating system for a free port.
         log_level: Minimum log level.
-        backend: Which backend to select, one of ``cuda``, ``mps``, ``remote``,
-            or ``auto`` to pick the first available.
-        remote_endpoint: Base URL of the remote inference API.
-        remote_api_key: Bearer token for the remote endpoint.
-        remote_timeout_s: Request timeout for the remote endpoint, in seconds.
-        data_root: Directory that holds everything this application downloads.
-            The one setting the user moves when their system drive is full.
-        sprites_dir: Directory generated sprites are written to. Derived from
+        data_root: Directory that holds everything this application writes. The
+            one setting the user moves when their system drive is full.
+        sprites_dir: Directory sprites are written to. Derived from
             ``data_root``, so it follows the location the user chose.
-        cache_dir: Directory that holds downloaded model weights. Derived from
-            ``data_root`` unless it is set explicitly, which keeps the older
-            ``BITWRIGHT_CACHE_DIR`` override working.
-        allow_downloads: When False, a missing model is an error rather than a
-            download.
+        cache_dir: Directory that holds cached assets under the data root.
+            Derived from ``data_root`` unless it is set explicitly, which keeps
+            the older ``BITWRIGHT_CACHE_DIR`` override working.
     """
 
     model_config = SettingsConfigDict(
@@ -100,36 +93,28 @@ class Settings(BaseSettings):
     port: int = 0
     log_level: str = "INFO"
 
-    backend: str = "auto"
-
-    remote_endpoint: str = ""
-    remote_api_key: str = ""
-    remote_timeout_s: float = 120.0
-
     data_root: Path = Field(default_factory=default_data_root)
     cache_dir: Path = Field(default_factory=default_cache_dir)
 
     @property
     def sprites_dir(self) -> Path:
-        """Return where generated sprites are written.
+        """Return where sprites are written.
 
         Derived rather than stored, so moving the data root moves this with
-        it. A sprite is small, but it is what the user came for, and
-        writing it beside gigabytes of weights they deliberately placed is
-        less surprising than putting it somewhere they did not choose.
+        it. A sprite is small, but it is what the user came for, and putting it
+        anywhere other than the location they deliberately chose is the kind of
+        surprise a settings screen may not spring on them.
 
         Returns:
             The directory. It may not exist yet.
         """
         return self.data_root / SPRITES_DIRNAME
 
-    allow_downloads: bool = True
-
     @model_validator(mode="after")
     def _derive_cache_dir(self) -> Settings:
         """Keep the cache directory under the data root unless it was set.
 
-        Moving the data root has to move the weights with it, or the setting
+        Moving the data root has to carry the cache with it, or the setting
         would appear to do nothing. An explicit ``cache_dir`` still wins, so
         the documented environment override keeps working.
 
@@ -143,9 +128,9 @@ class Settings(BaseSettings):
     def use_data_root(self, root: Path) -> None:
         """Point this process at another data root.
 
-        Only the process is repointed. Nothing on disk is moved: weights that
-        were already downloaded stay where they are, and the caller is expected
-        to tell the user so.
+        Only the process is repointed. Nothing on disk is moved: sprites that
+        are already there stay where they are, and the caller is expected to
+        tell the user so.
 
         Args:
             root: The validated directory to use from now on.

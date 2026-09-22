@@ -16,9 +16,9 @@
 
 """Palette quantization and pixel snapping.
 
-Diffusion output is smooth. Pixel art is not. These steps cut the colour count
-and align the image to a pixel grid, which is what makes the result read as a
-sprite rather than as a small blurry painting.
+A photographic or painted source is smooth. Pixel art is not. These steps cut
+the colour count and align the image to a pixel grid, which is what makes the
+result read as a sprite rather than as a small blurry painting.
 """
 
 from __future__ import annotations

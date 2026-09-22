@@ -16,32 +16,7 @@
 
 """Pydantic models for the HTTP API."""
 
-from bitwright_engine.api.schemas.backends import (
-    BackendInfo,
-    BackendListResponse,
-    ModelInfo,
-    ModelListResponse,
-)
 from bitwright_engine.api.schemas.common import ErrorResponse, HealthResponse
-from bitwright_engine.api.schemas.generation import (
-    GenerateBody,
-    GenerateResponse,
-    PostProcessBody,
-    SpriteImage,
-)
-from bitwright_engine.api.schemas.providers import (
-    ConnectionTestResponse,
-    ProviderInfo,
-    ProviderListResponse,
-    ProviderPresetInfo,
-    ProviderSaveBody,
-)
-from bitwright_engine.api.schemas.runtime import (
-    RuntimeInfo,
-    RuntimeInstallBody,
-    RuntimePackage,
-    RuntimePlan,
-)
 from bitwright_engine.api.schemas.storage import (
     StorageChangeResponse,
     StorageInfo,
@@ -49,25 +24,8 @@ from bitwright_engine.api.schemas.storage import (
 )
 
 __all__ = [
-    "BackendInfo",
-    "BackendListResponse",
-    "ConnectionTestResponse",
     "ErrorResponse",
-    "GenerateBody",
-    "GenerateResponse",
     "HealthResponse",
-    "ModelInfo",
-    "ModelListResponse",
-    "PostProcessBody",
-    "ProviderInfo",
-    "ProviderListResponse",
-    "ProviderPresetInfo",
-    "ProviderSaveBody",
-    "RuntimeInfo",
-    "RuntimeInstallBody",
-    "RuntimePackage",
-    "RuntimePlan",
-    "SpriteImage",
     "StorageChangeResponse",
     "StorageInfo",
     "StorageRootBody",

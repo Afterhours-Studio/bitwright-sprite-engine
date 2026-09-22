@@ -19,7 +19,7 @@
 Two routers, because they need different authentication. The shell polls health
 before it has read the handshake, so that route carries no token and reveals
 only liveness. Shutting the engine down is authenticated, since an unauthorised
-caller could otherwise stop generation at will.
+caller could otherwise stop the sidecar at will.
 """
 
 from __future__ import annotations
@@ -27,7 +27,6 @@ from __future__ import annotations
 from fastapi import APIRouter, Request, Response, status
 
 from bitwright_engine.api.schemas import HealthResponse
-from bitwright_engine.api.state import StateDep
 from bitwright_engine.utils.logging import get_logger
 from bitwright_engine.version import __version__
 
@@ -38,29 +37,24 @@ shutdown_router = APIRouter(tags=["health"])
 
 
 @router.get("/health", response_model=HealthResponse)
-def health(state: StateDep) -> HealthResponse:
-    """Report that the sidecar is up, and whether it can generate.
+def health() -> HealthResponse:
+    """Report that the sidecar is up.
 
-    Args:
-        state: The engine state.
+    No engine state is read. The shell polls this while the application is
+    still starting, and a probe that depended on anything the process builds
+    would answer 500 during exactly the window it exists to cover.
 
     Returns:
         The current health of the process.
     """
-    backend = state.generator.backend
-    return HealthResponse(
-        status="ok",
-        version=__version__,
-        backend=backend.kind.value,
-        backend_ready=backend.available().ready,
-    )
+    return HealthResponse(status="ok", version=__version__)
 
 
 @shutdown_router.post("/shutdown", status_code=status.HTTP_202_ACCEPTED)
 def shutdown(request: Request) -> Response:
     """Ask the server to stop once in-flight requests have finished.
 
-    The shell calls this before it terminates the process, so that generation
+    The shell calls this before it terminates the process, so that a conform
     already under way is not cut off mid-write. Setting the flag is portable;
     signalling a process group is not, on Windows.
 

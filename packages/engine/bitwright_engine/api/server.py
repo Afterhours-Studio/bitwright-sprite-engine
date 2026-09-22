@@ -44,16 +44,7 @@ from bitwright_engine.api.routes import health_router, protected_router
 from bitwright_engine.api.schemas import ErrorResponse
 from bitwright_engine.api.security import generate_token, reject_browser_origin, require_token
 from bitwright_engine.api.state import EngineState
-from bitwright_engine.backends import BackendError
 from bitwright_engine.config import Settings, get_settings
-from bitwright_engine.runtime import (
-    RuntimeInstaller,
-    activate,
-    compute_check,
-    probe,
-    target_key,
-    variants_for,
-)
 from bitwright_engine.utils.logging import configure_logging, get_logger
 from bitwright_engine.utils.watchdog import exit_now, install_parent_death_signal, watch_parent
 from bitwright_engine.version import __version__
@@ -68,7 +59,7 @@ LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Build the engine state on startup and log the selected backend.
+    """Build the engine state on startup.
 
     Args:
         app: The application being started.
@@ -79,26 +70,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings: Settings = app.state.settings
     app.state.engine = EngineState.create(settings)
 
-    backend = app.state.engine.generator.backend
-    availability = backend.available()
-    logger.info(
-        "engine %s ready: backend=%s available=%s device=%s",
-        __version__,
-        backend.kind.value,
-        availability.ready,
-        availability.device or availability.detail,
-    )
+    logger.info("engine %s ready: data root=%s", __version__, settings.data_root)
     yield
-
-    # A transfer that is still running when the process goes away loses its
-    # socket as the loop tears down, and what is left on disk is whatever the
-    # operating system happened to have flushed. Asking each worker to pause
-    # and waiting for it to close its file is what leaves bytes the next
-    # launch can continue from, which is the case the user actually hits:
-    # they start a four gigabyte download and then close the application.
-    paused = app.state.engine.downloader.pause_all()
-    if paused:
-        logger.info("paused %d download(s) on shutdown: %s", len(paused), ", ".join(paused))
 
     logger.info("engine shutting down")
 
@@ -118,7 +91,7 @@ def create_app(settings: Settings | None = None, token: str | None = None) -> Fa
     app = FastAPI(
         title="Bitwright Sprite Engine",
         version=__version__,
-        summary="Cross-platform sprite generation engine for pixel art games",
+        summary="Image pipeline for the Bitwright pixel art editor",
         lifespan=lifespan,
     )
     app.state.settings = resolved
@@ -156,24 +129,9 @@ def create_app(settings: Settings | None = None, token: str | None = None) -> Fa
 
         return await call_next(request)
 
-    @app.exception_handler(BackendError)
-    async def handle_backend_error(request: Request, error: BackendError) -> JSONResponse:
-        """Turn a backend failure into a response the frontend can translate.
-
-        Args:
-            request: The request that failed.
-            error: The raised backend error.
-
-        Returns:
-            A 503 response carrying a stable reason code.
-        """
-        logger.warning("backend error on %s: %s", request.url.path, error)
-        payload = ErrorResponse(code=error.code, message=str(error))
-        return JSONResponse(status_code=503, content=payload.model_dump(by_alias=True))
-
     # Health is unauthenticated, so that the shell can probe for readiness
-    # before it has parsed the handshake. It reports only liveness and the
-    # backend state, and nothing that would help an unauthenticated caller.
+    # before it has parsed the handshake. It reports only liveness, and nothing
+    # that would help an unauthenticated caller.
     app.include_router(health_router)
     app.include_router(protected_router, dependencies=[Depends(require_token)])
     return app
@@ -195,9 +153,10 @@ def bind_socket(host: str, port: int) -> socket.socket:
     Raises:
         ValueError: ``host`` is not a loopback address.
     """
-    # Never 0.0.0.0. Binding any other address would put generation on the
+    # Never 0.0.0.0. Binding any other address would put this API on the
     # network, where the token would be the only thing between an attacker and
-    # this machine's GPU. This is a raise rather than an assert on purpose:
+    # a process that reads and writes this machine's files. This is a raise
+    # rather than an assert on purpose:
     # assertions are stripped when Python runs with -O, and this check must
     # survive that.
     if host not in LOOPBACK_HOSTS:
@@ -242,7 +201,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """
     parser = argparse.ArgumentParser(
         prog="bitwright-engine",
-        description="Sprite generation engine for Bitwright.",
+        description="Image pipeline sidecar for Bitwright.",
     )
     parser.add_argument(
         "--parent-pid",
@@ -250,69 +209,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help=(
             "Process id of the shell that spawned this process. When it exits, "
-            "this process exits too, so that no orphan keeps holding GPU memory."
-        ),
-    )
-    parser.add_argument(
-        "--report-runtime",
-        action="store_true",
-        help=(
-            "Activate the installed GPU runtime, report as JSON whether torch "
-            "loads from it and computes, and exit without serving. Used by the "
-            "build to check the frozen bundle against a real install."
+            "this process exits too, so that no orphan keeps holding the port."
         ),
     )
     return parser.parse_args(argv)
 
 
-def report_runtime(settings: Settings) -> None:
-    """Print what this process can make of the installed runtime, as JSON.
-
-    This takes the same path the server takes at startup: activate, then import.
-    That is the point of it. A frozen bundle's import path holds only its own
-    archive, so the only torch it can reach is one that activation put there,
-    and ``torchLocation`` in the output says where the module actually came
-    from rather than asking anyone to assume.
-
-    Args:
-        settings: Configuration to read the data root from.
-    """
-    installer = RuntimeInstaller(settings)
-    record = installer.record()
-    site = activate(settings)
-    found = probe()
-    compute = compute_check()
-
-    report = {
-        "target": target_key(),
-        "supported": bool(variants_for()),
-        "frozen": bool(getattr(sys, "frozen", False)),
-        "installDir": str(installer.root),
-        "installed": record is not None,
-        "installedAccelerator": "" if record is None else record.accelerator,
-        "installedTarget": "" if record is None else record.target,
-        "activatedPath": "" if site is None else str(site),
-        "torchImportable": found.importable,
-        "torchVersion": found.version,
-        "torchLocation": found.location,
-        "probeDetail": found.detail,
-        "cudaAvailable": found.cuda_available,
-        "mpsAvailable": found.mps_available,
-        "device": found.device,
-        "computeOk": compute.ok,
-        "computeDevice": compute.device,
-        "computeDetail": compute.detail,
-        "computeMessage": compute.message,
-    }
-    sys.stdout.write(json.dumps(report) + "\n")
-    sys.stdout.flush()
-
-
 def main(argv: list[str] | None = None) -> None:
     """Run the sidecar until it is asked to stop.
-
-    With ``--report-runtime`` it prints one JSON line about the installed GPU
-    runtime and returns instead, binding no socket.
 
     Args:
         argv: Command line arguments. Defaults to the process arguments.
@@ -320,18 +224,6 @@ def main(argv: list[str] | None = None) -> None:
     arguments = parse_args(argv)
     settings = get_settings()
     configure_logging(settings.log_level)
-
-    if arguments.report_runtime:
-        report_runtime(settings)
-        return
-
-    # Before anything selects a backend, and therefore before anything tries to
-    # import torch. A frozen bundle's import path holds only its own archive, so
-    # a runtime installed into the user's data folder is invisible until this
-    # runs. It is deliberately not called from create_app: the test suite builds
-    # applications and must never pick up whatever is installed on the machine
-    # running it.
-    activate(settings)
 
     token = generate_token()
     listener = bind_socket(settings.host, settings.port)

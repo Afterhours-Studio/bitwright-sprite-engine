@@ -16,31 +16,32 @@
 
 """Turning an image of pixel art into pixel art.
 
-A diffusion model does not produce pixel art, it produces an image of it. At a
-glance the two look the same; measured, the grid drifts by a pixel or two
-across the image and starts at a fractional offset, every block boundary
-carries a pixel of blend, and a sixteen colour sprite arrives with tens of
-thousands of distinct colours that are close to right rather than right. None
-of it shows until the sprite is imported into a game engine at its real size.
+Most images of pixel art are not pixel art. A screenshot, a scan, an upscaled
+JPEG or anything a generative model drew looks right at a glance and measures
+wrong: the grid drifts by a pixel or two across the image and starts at a
+fractional offset, every block boundary carries a pixel of blend, and a sixteen
+colour sprite arrives with tens of thousands of distinct colours that are close
+to right rather than right. None of it shows until the sprite is brought into
+the editor at its real size, where every drifted cell is a pixel the artist
+did not place.
 
-Conform is one operation that fixes all three:
+Conform is the importer, and it is one operation that fixes all three:
 
 1. separate the subject from the background,
-2. find the cell size and the phase the model actually drew on,
+2. find the cell size and the phase the image was actually drawn on,
 3. take the most common colour in each cell,
 4. build a palette in Oklab,
 5. snap every cell to it.
 
 This is a pipeline of its own rather than a change to
-:mod:`bitwright_engine.pipeline.postprocess`. The generate path's existing
-behaviour is a reasonable cheap default, and changing it would change every
-result a user has already tuned their prompts against; conform is the explicit
-second step they ask for when they want the expensive answer.
+:mod:`bitwright_engine.pipeline.postprocess`, whose steps are cheap defaults
+that run over a finished sprite. Conform is the expensive answer, asked for
+explicitly, and it measures the image rather than assuming anything about it.
 
-The order differs from the generate path's, and deliberately. Background
+The order differs from the post-processing path's, and deliberately. Background
 removal runs **first** here, because a cell that straddles the silhouette must
-not let background pixels vote on the subject's colour. The generate path runs
-it last, which is correct for a box filter that averages everything in the cell
+not let background pixels vote on the subject's colour. Post-processing runs it
+last, which is correct for a box filter that averages everything in the cell
 regardless, and wrong for a modal vote.
 """
 

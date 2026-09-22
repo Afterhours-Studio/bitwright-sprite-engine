@@ -14,7 +14,12 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-"""Post-processing steps applied to raw backend output."""
+"""Post-processing steps applied to a finished image.
+
+Cheap, order-dependent corrections over a whole image: snap, quantize, clear
+the background. Conform is the measured alternative; these are the defaults
+that need no measurement.
+"""
 
 from __future__ import annotations
 
@@ -67,7 +72,7 @@ def apply(image: Image.Image, options: PostProcessOptions) -> Image.Image:
     about to change.
 
     Args:
-        image: Raw backend output.
+        image: The image to process.
         options: Which steps to run.
 
     Returns:

@@ -16,9 +16,13 @@
 
 """Bitwright - Sprite Engine.
 
-Cross-platform sprite generation engine for pixel art games. This package runs
-as a sidecar process next to the desktop application, and exposes generation
-over a loopback HTTP API.
+The image pipeline behind the Bitwright pixel art editor. This package runs as
+a sidecar process next to the desktop application and exposes its batch image
+work — conform, palette extraction, export — over a loopback HTTP API.
+
+Nothing interactive lives here. The document, the canvas and the agent-facing
+tools are owned by the shell, which keeps a draw call a direct event rather
+than a round trip through this process.
 """
 
 from bitwright_engine.version import __version__

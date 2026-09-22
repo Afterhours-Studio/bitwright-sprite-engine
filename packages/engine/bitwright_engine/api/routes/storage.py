@@ -14,16 +14,17 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-"""Where downloaded data is kept.
+"""Where the application's data is kept.
 
 The default root is under the user's profile, which on Windows means the system
-drive. Weights are gigabytes each, so a full system drive has to be answerable
-by pointing this somewhere with room, and that is what these routes do.
+drive. A library of sprites grows without limit, so a full system drive has to
+be answerable by pointing this somewhere with room, and that is what these
+routes do.
 
 A candidate is validated before it is accepted, and the validation writes and
 deletes a real file rather than reading a permission bit. Changing the root
-never moves what is already downloaded: the response says what stayed at the
-old location, and the interface tells the user.
+never moves what is already there: the response says what stayed at the old
+location, and the interface tells the user.
 """
 
 from __future__ import annotations
@@ -42,14 +43,6 @@ from bitwright_engine.utils.logging import get_logger
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/v1/storage", tags=["storage"])
-
-BUSY_DOWNLOADING = "storage.busy_downloading"
-"""Reason code for a change asked for while a transfer is in flight.
-
-Moving the root under a running download would publish the finished file into
-one directory and leave its partial file in another, so the change is refused
-until the transfer finishes or is cancelled.
-"""
 
 
 def _to_info(location: StorageLocation) -> StorageInfo:
@@ -118,15 +111,7 @@ def _switch(state: EngineState, root: Path) -> StorageChangeResponse:
 
     Returns:
         The new location, and the old one with whatever it still holds.
-
-    Raises:
-        HTTPException: A download is in flight.
     """
-    active = state.downloader.active()
-    if active:
-        logger.info("refusing to move the data root while %s is downloading", ", ".join(active))
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=BUSY_DOWNLOADING)
-
     previous = state.settings.data_root
     state.settings.use_data_root(root)
     logger.info("data root moved from %s to %s", previous, root)
@@ -178,9 +163,9 @@ def validate(body: StorageRootBody) -> StorageInfo:
 def change(body: StorageRootBody, state: StateDep) -> StorageChangeResponse:
     """Adopt a new data root for this process.
 
-    Nothing is moved. Weights already on disk stay at the old location, and are
-    fetched again if they are needed at the new one, which is why the previous
-    location is described in the response rather than quietly forgotten.
+    Nothing is moved. Sprites already on disk stay at the old location, where
+    the gallery will no longer find them, which is why the previous location is
+    described in the response rather than quietly forgotten.
 
     The choice lives only in this process. The sidecar is spawned fresh on each
     launch, so the shell writes the same path into its own preferences and
@@ -194,8 +179,7 @@ def change(body: StorageRootBody, state: StateDep) -> StorageChangeResponse:
         The new location, and the old one with whatever it still holds.
 
     Raises:
-        HTTPException: The directory cannot hold the data, or a download is in
-            flight.
+        HTTPException: The directory cannot hold the application's data.
     """
     return _switch(state, _accept(body.path))
 
@@ -214,7 +198,6 @@ def reset(state: StateDep) -> StorageChangeResponse:
         The default location, and the one that was in use.
 
     Raises:
-        HTTPException: The default cannot hold the data, or a download is in
-            flight.
+        HTTPException: The default cannot hold the application's data.
     """
     return _switch(state, _accept(str(default_data_root())))

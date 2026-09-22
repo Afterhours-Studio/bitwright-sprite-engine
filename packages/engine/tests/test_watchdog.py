@@ -16,8 +16,8 @@
 
 """Tests for the parent watchdog.
 
-A sidecar that outlives its parent keeps the GPU memory it had loaded, and the
-next launch of the application fails to allocate for a reason the user cannot
+A sidecar that outlives its parent keeps the loopback port it bound, and the
+next launch of the application fails to start for a reason the user cannot
 see.
 """
 

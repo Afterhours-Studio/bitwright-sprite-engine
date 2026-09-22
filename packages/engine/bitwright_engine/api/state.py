@@ -19,6 +19,11 @@
 The sidecar serves one user, so a single mutable holder is enough. Keeping it
 here, rather than in the module that builds the application, lets the routes
 depend on it without importing the server.
+
+What it holds is deliberately small. The sidecar no longer owns a model, a
+download or a credential; it converts images on request. The one thing that
+outlives a single request is the configuration, because the storage routes
+repoint the data root in place and every later request has to see the new one.
 """
 
 from __future__ import annotations
@@ -26,15 +31,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated
 
-import httpx
 from fastapi import Depends, Request
 
-from bitwright_engine.backends import Backend, BackendKind, build_backend, select_backend
 from bitwright_engine.config import Settings, get_settings
-from bitwright_engine.models import ModelDownloader
-from bitwright_engine.pipeline import SpriteGenerator
-from bitwright_engine.providers import ProviderStore, get_provider_store
-from bitwright_engine.runtime import RuntimeInstaller
 
 
 @dataclass(slots=True)
@@ -42,32 +41,16 @@ class EngineState:
     """Everything the routes need, built once at startup.
 
     Attributes:
-        settings: Process configuration.
-        generator: The pipeline serving generation requests.
-        downloader: Resolves models in the local cache.
-        providers: Configured remote inference providers and their
-            credentials.
-        runtime: Installs and removes the GPU runtime under the data root.
-        probe_client: HTTP client the connection test borrows, or ``None`` to
-            let it open its own. Only tests set it, and they set it to a client
-            with a mounted transport, which is what keeps the suite off the
-            network.
+        settings: Process configuration. Mutated in place by the storage
+            routes, which is why it is held here rather than read afresh from
+            :func:`get_settings` at every call site.
     """
 
     settings: Settings
-    generator: SpriteGenerator
-    downloader: ModelDownloader
-    providers: ProviderStore
-    runtime: RuntimeInstaller
-    probe_client: httpx.Client | None = None
 
     @classmethod
     def create(cls, settings: Settings | None = None) -> EngineState:
         """Build the state from configuration.
-
-        Backend selection never fails here. When nothing is available the
-        remote backend is held, so that the settings screen can still load and
-        show the user why each option is unusable.
 
         Args:
             settings: Configuration to use. Defaults to the process wide
@@ -76,28 +59,7 @@ class EngineState:
         Returns:
             A new state holder.
         """
-        resolved = settings if settings is not None else get_settings()
-        try:
-            backend: Backend = select_backend(resolved.backend, resolved)
-        # Startup must not fail because a GPU is missing or a driver is broken.
-        except Exception:
-            backend = build_backend(BackendKind.REMOTE, resolved)
-
-        return cls(
-            settings=resolved,
-            generator=SpriteGenerator(backend),
-            downloader=ModelDownloader(resolved),
-            providers=get_provider_store(),
-            runtime=RuntimeInstaller(resolved),
-        )
-
-    def select(self, kind: BackendKind) -> None:
-        """Switch the backend that serves generation requests.
-
-        Args:
-            kind: Which backend to select.
-        """
-        self.generator = SpriteGenerator(build_backend(kind, self.settings))
+        return cls(settings=settings if settings is not None else get_settings())
 
 
 def get_state(request: Request) -> EngineState:

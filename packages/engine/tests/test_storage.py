@@ -48,7 +48,6 @@ from bitwright_engine.config.storage import (
     scan_models,
     validate_root,
 )
-from bitwright_engine.models.downloader import ModelDownloader
 
 
 def make_model(root: Path, kind: str, model_id: str, size: int = 8) -> Path:
@@ -318,19 +317,3 @@ def test_the_default_is_restored(
     assert body["current"]["isDefault"] is True
     assert settings.data_root == fallback
     assert settings.cache_dir == fallback / MODELS_DIRNAME
-
-
-def test_the_root_cannot_move_while_a_download_runs(
-    client: TestClient,
-    settings: Settings,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(ModelDownloader, "active", lambda _self: ("sd15-base",))
-
-    response = client.post("/v1/storage", json={"path": str(tmp_path / "elsewhere")})
-
-    assert response.status_code == 409
-    assert response.json()["detail"] == "storage.busy_downloading"
-    # Refused, so the process is still pointed at the original location.
-    assert settings.data_root == tmp_path

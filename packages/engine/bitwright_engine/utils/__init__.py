@@ -16,7 +16,7 @@
 
 """Shared helpers that do not belong to a single subsystem."""
 
-from bitwright_engine.utils.images import from_png_bytes, placeholder, to_png_bytes
+from bitwright_engine.utils.images import from_png_bytes, to_png_bytes
 from bitwright_engine.utils.logging import configure_logging, get_logger
 from bitwright_engine.utils.watchdog import install_parent_death_signal, watch_parent
 
@@ -25,7 +25,6 @@ __all__ = [
     "from_png_bytes",
     "get_logger",
     "install_parent_death_signal",
-    "placeholder",
     "to_png_bytes",
     "watch_parent",
 ]

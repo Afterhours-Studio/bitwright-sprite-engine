@@ -14,9 +14,13 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-"""Generation pipeline and post-processing."""
+"""Image pipeline.
 
-from bitwright_engine.pipeline.generator import SpriteGenerator
+Conform turns a reference image into real pixel art — a measured grid, a
+reduced palette, hard edges — and post-processing carries the smaller steps
+that operate on a finished sprite.
+"""
+
 from bitwright_engine.pipeline.postprocess import PostProcessOptions, SpriteSheet
 
-__all__ = ["PostProcessOptions", "SpriteGenerator", "SpriteSheet"]
+__all__ = ["PostProcessOptions", "SpriteSheet"]

@@ -37,19 +37,19 @@ class CamelModel(BaseModel):
 
 
 class HealthResponse(CamelModel):
-    """Liveness and readiness of the sidecar.
+    """Liveness of the sidecar.
+
+    Deliberately thin. This route is the only unauthenticated one, so it says
+    that the process is up and which build it is, and nothing about where the
+    user's data lives or what the process can reach.
 
     Attributes:
         status: ``"ok"`` once the process can serve requests.
         version: Engine version.
-        backend: Kind of the currently selected backend.
-        backend_ready: Whether that backend can generate right now.
     """
 
     status: str = Field(examples=["ok"])
     version: str
-    backend: str
-    backend_ready: bool
 
 
 class ErrorResponse(CamelModel):
@@ -60,7 +60,7 @@ class ErrorResponse(CamelModel):
     their own language. ``message`` is a developer-facing fallback in English.
 
     Attributes:
-        code: Stable reason code, for example ``backend.cuda.driver_missing``.
+        code: Stable reason code, for example ``conform.bad_image``.
         message: English description, for logs and for unmapped codes.
     """
 

@@ -1,19 +1,23 @@
 # bitwright-engine
 
 The Python sidecar for [Bitwright - Sprite Engine](https://github.com/Afterhours-Studio/bitwright-sprite-engine).
-It owns model loading, generation, and post-processing, and exposes them over a
-loopback HTTP API that the desktop application calls.
+It owns the batch image work — conforming a reference image into real pixel
+art, reducing a palette, post-processing a finished sprite — and exposes it over
+a loopback HTTP API that the desktop application calls.
+
+Nothing interactive lives here. The document, the canvas and the agent-facing
+tools belong to the Rust shell, which keeps a draw call a direct event rather
+than a round trip through this process.
 
 ## Layout
 
 | Path | Contents |
 | --- | --- |
 | `bitwright_engine/api/` | FastAPI application, routes, and schemas |
-| `bitwright_engine/backends/` | The backend interface and its implementations |
-| `bitwright_engine/pipeline/` | Generation pipeline and post-processing |
-| `bitwright_engine/models/` | Model registry and download cache |
+| `bitwright_engine/pipeline/conform/` | Grid detection, palette reduction, modal downsampling, dithering |
+| `bitwright_engine/pipeline/postprocess/` | Background removal, quantization, grid snapping, sheet packing |
 | `bitwright_engine/config/` | Settings, read from the environment |
-| `bitwright_engine/utils/` | Logging and image helpers |
+| `bitwright_engine/utils/` | Logging, colour maths, and image helpers |
 
 ## Install
 
@@ -29,14 +33,9 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-Torch and diffusers are optional extras, so that a contributor working on the
-API does not have to download several gigabytes. Install one when you need
-local generation:
-
-```bash
-pip install -e ".[dev,cuda]"   # NVIDIA
-pip install -e ".[dev,mps]"    # Apple Silicon
-```
+There is one install. Everything this package needs is a base dependency, so a
+contributor working on the API installs the same thing as one working on
+conform.
 
 ## Run
 
@@ -59,7 +58,7 @@ token is never logged. Override any setting with a `BITWRIGHT_` prefixed
 environment variable:
 
 ```bash
-BITWRIGHT_PORT=8000 BITWRIGHT_BACKEND=remote BITWRIGHT_LOG_LEVEL=DEBUG bitwright-engine
+BITWRIGHT_PORT=8000 BITWRIGHT_LOG_LEVEL=DEBUG bitwright-engine
 ```
 
 With a fixed port, the interactive API documentation is at
@@ -69,11 +68,13 @@ With a fixed port, the interactive API documentation is at
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/health` | Liveness, version, and backend readiness. No token |
-| GET | `/v1/backends` | Every backend, its availability, and its capabilities |
-| POST | `/v1/backends/{kind}/select` | Switch the active backend |
-| POST | `/v1/generate` | Generate sprites |
-| GET | `/v1/models` | Registered models, their licences, and cache state |
+| GET | `/health` | Liveness and version. No token |
+| POST | `/v1/conform` | Conform an image into real pixel art |
+| GET | `/v1/sprites` | Sprites on disk, newest first |
+| POST | `/v1/sprites/{name}/edit` | Write a painted sprite beside its source |
+| POST | `/v1/sprites/{name}/remove` | Delete one sprite |
+| GET | `/v1/storage` | The data root in use, and its free space |
+| POST | `/v1/storage` | Adopt a new data root |
 
 Full reference: [docs/reference/api.md](../../docs/reference/api.md).
 
@@ -88,5 +89,4 @@ pytest
 
 ## Licence
 
-AGPL-3.0-only, copyright (C) 2026 Afterhours Studio. Model weights are not
-covered by that licence; see [MODELS.md](../../MODELS.md).
+AGPL-3.0-only, copyright (C) 2026 Afterhours Studio.

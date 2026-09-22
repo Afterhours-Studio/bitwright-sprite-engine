@@ -14,17 +14,18 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-"""Correcting a sprite that already exists.
+"""Importing a reference image as real pixel art.
 
-A diffusion model produces an image that looks like pixel art without being
-it: the cells are not aligned to a grid, the edges are anti-aliased, and there
-are far more colours than a palette. This route applies the corrections to a
-sprite that has already been generated, so the same image can be adjusted
-repeatedly without paying for generation again.
+An image the user brings in looks like pixel art without being it: the cells
+are not aligned to a grid, the edges are anti-aliased, and there are far more
+colours than a palette. This route measures what the image was actually drawn
+on and corrects it, so that what lands on the canvas is an indexed sprite
+rather than a picture of one.
 
-It is a route of its own rather than an option on generation, because coupling
-it to ``POST /v1/generate`` would mean re-running the model to change a
-palette.
+It takes the image in the request and answers with the corrected one. Nothing
+is stored here: the document lives in the shell, and this process stays a
+function of its arguments so that the same reference can be re-imported at
+different settings until the user likes the result.
 """
 
 from __future__ import annotations

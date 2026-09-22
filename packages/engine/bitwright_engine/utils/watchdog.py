@@ -16,10 +16,10 @@
 
 """Exit when the process that spawned us is gone.
 
-A sidecar that outlives its parent is not merely untidy. It holds the GPU
-memory it had loaded, so the next launch of the application fails to allocate,
-and the user is told they are out of memory by an application that has only
-just started. The orphan is invisible to them.
+A sidecar that outlives its parent is not merely untidy. It keeps its loopback
+port and its file handles, so the next launch finds the port taken and the user
+is shown a start-up failure by an application they have only just opened. The
+orphan is invisible to them.
 
 The shell passes its own process id on the command line, and this module
 watches it. Polling is the primary mechanism, because it works the same way on

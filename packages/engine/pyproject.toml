@@ -10,16 +10,15 @@ path = "bitwright_engine/version.py"
 [project]
 name = "bitwright-engine"
 dynamic = ["version"]
-description = "Cross-platform sprite generation engine for pixel art games"
+description = "Image pipeline sidecar for the Bitwright pixel art editor"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "AGPL-3.0-only" }
 authors = [{ name = "Afterhours Studio" }]
 maintainers = [{ name = "h1dr0n" }]
-keywords = ["pixel-art", "sprite", "diffusion", "game-development"]
+keywords = ["pixel-art", "sprite", "game-development"]
 classifiers = [
     "Development Status :: 3 - Alpha",
-    "Environment :: GPU :: NVIDIA CUDA",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: GNU Affero General Public License v3",
     "Operating System :: OS Independent",
@@ -36,32 +35,14 @@ dependencies = [
     "pillow>=11.0",
     "psutil>=6.1",
     # Conform measures a grid with a DFT bin and reduces a palette with a
-    # weighted k-means, both over every pixel of a 512 by 512 render. Pillow
-    # has no cross-channel arithmetic above eight bits, so doing either on it
-    # alone would mean a pure Python inner loop and an Oklab conversion that
-    # rounds twice. A base dependency rather than an extra, because conform has
-    # to work on a machine that generates through a remote provider and has
-    # therefore installed no GPU runtime at all. BSD-3-Clause. Like pillow and
-    # psutil it is also a wheel in runtime/manifest.py; activation appends, so
-    # the copy shipped here is the one that stays in force.
+    # weighted k-means, both over every pixel of a reference image. Pillow has
+    # no cross-channel arithmetic above eight bits, so doing either on it alone
+    # would mean a pure Python inner loop and an Oklab conversion that rounds
+    # twice. BSD-3-Clause.
     "numpy>=2.0",
-    # API keys belong in the operating system credential store, not in a JSON
-    # file beside the preferences. keyring is the portable way to reach
-    # Windows Credential Manager, the macOS Keychain, and a Linux Secret
-    # Service, and it is pure Python with no compiled extension. MIT licensed,
-    # as are its jaraco.* and more-itertools dependencies; the Windows backend
-    # rides on pywin32-ctypes, BSD-3-Clause. All compatible with AGPL-3.0-only.
-    "keyring>=25.5",
 ]
 
 [project.optional-dependencies]
-# These extras are for a source checkout only. The shipped application never
-# installs them: PyTorch is fetched at run time from a pinned wheel manifest
-# into the data folder the user chose, because a frozen PyInstaller bundle has
-# no pip to install an extra with. See bitwright_engine/runtime/manifest.py and
-# docs/architecture/decisions/0011-gpu-runtime-installation.md.
-cuda = ["torch>=2.5", "diffusers>=0.31", "transformers>=4.46", "safetensors>=0.4", "numpy>=2.0"]
-mps = ["torch>=2.5", "diffusers>=0.31", "transformers>=4.46", "safetensors>=0.4", "numpy>=2.0"]
 dev = [
     "pyinstaller>=6.11",
     "pytest>=8.3",
@@ -132,10 +113,6 @@ warn_unused_ignores = true
 disallow_any_explicit = false
 show_error_codes = true
 files = ["bitwright_engine", "tests"]
-
-[[tool.mypy.overrides]]
-module = ["torch.*", "diffusers.*", "transformers.*"]
-ignore_missing_imports = true
 
 # numpy is checked against, not checked. Its own stubs are written in the 3.12
 # `type` statement, which mypy cannot parse while it is targeting 3.11, and a
