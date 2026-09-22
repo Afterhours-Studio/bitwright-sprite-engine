@@ -388,12 +388,33 @@ fn jaggies(buffer: &IndexedBuffer) -> usize {
             }
         }
         for axis in 0..2 {
+            // Steps along one axis are separated by the steps across it, so the
+            // contour's moves are read per axis to recover the run sequence the
+            // style guide talks about.
+            let along: Vec<(u8, usize)> = runs
+                .iter()
+                .copied()
+                .filter(|&(direction, _)| direction % 2 == axis)
+                .collect();
+            // The line between a jaggy and a legitimate curve is drawn on how
+            // often the edge turns back on itself, not on how far it moves. A
+            // curve reverses only at its turning points, so a circle reverses
+            // twice in a whole loop and an S-curve four times; an edge that
+            // reverses at every step for a whole window is the chewed line of
+            // §11.2 at any scale. This is checked on the direction sequence
+            // because the length sequence cannot see it: a wobble's widening
+            // and narrowing runs point opposite ways, so the monotonicity rule
+            // below only ever receives the fragments between two reversals,
+            // which are too short for a window of `jaggy_span` to fit in.
+            if along
+                .windows(HD2D.jaggy_span)
+                .any(|w| w.windows(2).all(|p| p[0].0 != p[1].0))
+            {
+                failures += 1;
+            }
             let mut sequence = Vec::new();
             let mut last_direction = None;
-            for &(direction, length) in &runs {
-                if direction % 2 != axis {
-                    continue;
-                }
+            for &(direction, length) in &along {
                 if last_direction.is_some_and(|d| d != direction) {
                     failures += usize::from(jaggy_runs(&sequence));
                     sequence.clear();
@@ -538,5 +559,92 @@ A...",
         assert_eq!(measured.orphan_count, 4);
         assert_eq!(measured.orphan_fraction, 1.0);
         assert_eq!(measured.speckle_fraction, 1.0);
+    }
+
+    #[test]
+    fn a_wobbling_edge_is_counted_and_a_deliberate_curve_is_not() {
+        // Row widths 6, 3, 5, 2, 4, 1: the edge widens and narrows at every
+        // step, which is the chewed line of §11.2. The run-length rules cannot
+        // see it, because the widening runs and the narrowing runs point
+        // opposite ways and so reach those rules as fragments of one.
+        let wobble = grid::parse(
+            "AAAAAA..
+AAA.....
+AAAAA...
+AA......
+AAAA....
+A.......",
+        )
+        .unwrap();
+        assert!(measure(&wobble, &palette()).unwrap().jaggy_sequences > 0);
+        // Row widths 6, 5, 4, 3, 2, 1: the same descent, taken monotonically,
+        // which §6.3 offers as the example of a clean curve.
+        let curve = grid::parse(
+            "AAAAAA..
+AAAAA...
+AAAA....
+AAA.....
+AA......
+A.......",
+        )
+        .unwrap();
+        assert_eq!(measure(&curve, &palette()).unwrap().jaggy_sequences, 0);
+        // A forty-five degree diagonal, whose runs are all one, and a straight
+        // edge, whose contour never turns back on itself at all.
+        let diagonal = grid::parse(
+            "A.....
+AA....
+AAA...
+AAAA..
+AAAAA.
+AAAAAA",
+        )
+        .unwrap();
+        assert_eq!(measure(&diagonal, &palette()).unwrap().jaggy_sequences, 0);
+        let straight = grid::parse(
+            "AAAAAA
+AAAAAA
+AAAAAA
+AAAAAA",
+        )
+        .unwrap();
+        assert_eq!(measure(&straight, &palette()).unwrap().jaggy_sequences, 0);
+    }
+
+    #[test]
+    fn a_spindly_silhouette_fails_both_shape_bands_and_a_readable_one_passes() {
+        // Limbs one pixel thick: the perimeter runs away from the area and the
+        // shape fills under half its own hull. A human reads this as a wire
+        // frame rather than a sprite, and both §11.6 bands say the same.
+        let spindly = grid::parse(
+            "..A...
+..A...
+AAAAAA
+..A...
+..A...
+..A...",
+        )
+        .unwrap();
+        let measured = measure(&spindly, &palette()).unwrap();
+        assert!(measured.perimeter_squared_over_area > HD2D.perimeter_ratio[1]);
+        assert!(measured.solidity < HD2D.solidity[0]);
+        // The same cross with limbs thick enough to read at this size, which is
+        // the shape the bands are calibrated to accept.
+        let readable = grid::parse(
+            "...AAAA...
+...AAAA...
+...AAAA...
+AAAAAAAAAA
+AAAAAAAAAA
+AAAAAAAAAA
+...AAAA...
+...AAAA...
+...AAAA...",
+        )
+        .unwrap();
+        let measured = measure(&readable, &palette()).unwrap();
+        assert!((HD2D.perimeter_ratio[0]..=HD2D.perimeter_ratio[1])
+            .contains(&measured.perimeter_squared_over_area));
+        assert!((HD2D.solidity[0]..=HD2D.solidity[1]).contains(&measured.solidity));
     }
 }
