@@ -210,17 +210,35 @@ against:
 
 ```jsonc
 {
-  "maxSlots": 24,              // hard ceiling on palette size
+  "maxSlots": 24,                  // hard ceiling on palette size
   "rampSteps": { "min": 3, "max": 5 },
-  "hueShift": {               // shadows cool and desaturate, lights warm
-    "shadowHueDeg": [-25, -8],
-    "shadowChromaFactor": [0.75, 1.15],
-    "lightHueDeg": [5, 25]
+
+  // Per ramp step, in HSL degrees, positive rotating toward blue/violet.
+  // Darker steps rotate cool and gain a little chroma before losing it at
+  // the deepest step; lighter steps rotate warm and lose chroma.
+  "hueShift": {
+    "darkerHueDeg":      [12, 20],
+    "darkerChromaFactor": [0.85, 1.12],
+    "darkerDeltaL":      [-0.13, -0.08],   // OKLCH
+    "lighterHueDeg":     [-20, -12],
+    "lighterChromaFactor": [0.70, 0.85],
+    "lighterDeltaL":     [0.09, 0.15]
   },
-  "outline": "selective",     // 'none' | 'selective' | 'full'
+
+  // Skin, and anything translucent, rotates toward red/magenta in shadow
+  // rather than toward blue. Subsurface scattering; the one exception.
+  "warmShadowMaterials": ["skin"],
+
+  "valueFloor":   [0.10, 0.16],   // darkest slot, OKLCH L
+  "valueCeiling": [0.88, 0.94],   // lightest slot, excepting a 1px specular
+  "minEdgeDeltaL": 0.07,          // two touching slots that must read apart
+
+  "outline": "selective",         // 'none' | 'selective' | 'full'
+  "outlineCoverage": [0.60, 0.75],
   "lightDirection": "upper-left",
-  "noiseBudget": 0.02,        // max fraction of isolated single pixels
-  "canvas": { "width": 64, "height": 64 }
+  "rimCoverage": [0.15, 0.25],    // fraction of perimeter
+  "noiseBudget": 0.02,            // max fraction of isolated single pixels
+  "canvas": { "width": 48, "height": 64 }
 }
 ```
 
