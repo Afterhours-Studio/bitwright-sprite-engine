@@ -337,6 +337,11 @@ The renderer's whole view of the document goes through these. Names are
 tree. All are async and return `Result<T, AppError>` with the stable error codes
 the existing `EngineError` already uses.
 
+Field names are camelCase on the wire. The Rust structs are snake_case and
+serde renames them at the boundary, so `pixel_perfect` in Rust is
+`pixelPerfect` in a payload. Arguments marked optional below carry
+`#[serde(default)]` and inherit the project's style when omitted.
+
 ```
 project_list()                              -> Project[]
 project_create(name, preset)                -> Project
@@ -348,6 +353,8 @@ asset_create(project_id, name, kind, w, h)  -> Asset
 asset_rename(id, name)                      -> Asset
 asset_delete(id)                            -> ()
 asset_open(id)                              -> Document
+
+style_read(id)                              -> Style
 
 document_composite(asset_id)                -> RgbaImage      // for the canvas
 document_read_layer(asset_id, role)         -> IndexedBuffer
@@ -390,9 +397,9 @@ pub enum Op {
     // argument that can contradict another is an argument an agent will get
     // wrong.
     Shade      { target: LayerRole, from: LayerRole, region: Option<Rect>,
-                 direction: Direction, depth: u8 },
-    Outline    { from: LayerRole, mode: OutlineMode, darken: u8 },
-    Antialias  { layer: LayerRole, strength: u8 },
+                 direction: Option<Direction>, depth: Option<u8> },
+    Outline    { from: LayerRole, mode: Option<OutlineMode>, darken: Option<u8> },
+    Antialias  { layer: LayerRole, strength: Option<u8> },
 }
 ```
 
