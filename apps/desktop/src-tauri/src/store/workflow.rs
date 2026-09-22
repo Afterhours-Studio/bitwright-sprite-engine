@@ -57,8 +57,24 @@ impl Store {
             })
         };
         let check_light = |issues: &mut Vec<String>| {
-            if metrics.light_vectors.is_empty() {
+            if metrics.light_vectors.is_empty() && metrics.undirected_regions.is_empty() {
                 issues.push("gate.light_unmeasurable".into());
+            }
+            // A shaded region whose dark and light bands share a centroid is
+            // lit from nowhere. It has to be named on its own, because every
+            // other check here reads the vector list, and a region that
+            // contributes no vector is invisible to all of them.
+            if !metrics.undirected_regions.is_empty() {
+                let named = metrics
+                    .undirected_regions
+                    .iter()
+                    .map(gates::RegionBounds::to_string)
+                    .collect::<Vec<_>>()
+                    .join("; ");
+                issues.push(format!(
+                    "gate.light_undirected:{named} shade symmetrically about their own centre; \
+                     re-shade each one from the key direction so its light band sits off centre"
+                ));
             }
             if metrics
                 .light_std_degrees
@@ -424,8 +440,12 @@ AAAAAAAA
         store.step_check(id).unwrap().issues
     }
 
+    /// An issue is its code and, after a colon, whatever detail the gate could
+    /// name, so a test asks about the code and leaves the detail to the agent.
     fn raised(step: &str, drawn: &[(&str, &str)], code: &str) -> bool {
-        issues(step, drawn).iter().any(|issue| issue == code)
+        issues(step, drawn)
+            .iter()
+            .any(|issue| issue.split(':').next() == Some(code))
     }
 
     #[test]
@@ -583,6 +603,108 @@ AAAAAAAA
         assert!(!raised("light", &LIT, "gate.pillow_shading"));
     }
 
+    /// A pillow-shaded head on a flat body: one correlation over every filled
+    /// pixel reads 0.52 here and passes, because the body contributes edge
+    /// distance and no lightness to go with it. The head is the same head.
+    const PILLOW_HEAD: [(&str, &str); 2] = [
+        (
+            "silhouette",
+            "...AAAAAAA...
+...AAAAAAA...
+...AAAAAAA...
+...AAAAAAA...
+...AAAAAAA...
+...AAAAAAA...
+...AAAAAAA...
+.....AAA.....
+.AAAAAAAAAAA.
+.AAAAAAAAAAA.
+.AAAAAAAAAAA.
+.AAAAAAAAAAA.
+.AAAAAAAAAAA.",
+        ),
+        (
+            "flats",
+            "...AAAAAAA...
+...ABBBBBA...
+...ABCCCBA...
+...ABCDCBA...
+...ABCDCBA...
+...ABCDCBA...
+...AABCBAA...
+.....ABA.....
+.CCCCCCCCCCC.
+.CCCCCCCCCCC.
+.CCCCCCCCCCC.
+.CCCCCCCCCCC.
+.CCCCCCCCCCC.",
+        ),
+    ];
+
+    #[test]
+    fn a_pillow_shaded_head_is_caught_over_the_flat_body_carrying_it() {
+        assert!(raised("light", &PILLOW_HEAD, "gate.pillow_shading"));
+        // The same silhouette in four cel bands laid across an upper-left key,
+        // which is the shading §5.2 asks for and which must keep passing.
+        let banded = [
+            PILLOW_HEAD[0],
+            (
+                "flats",
+                "...DDDCCCC...
+...DDCCCCC...
+...DCCCCCB...
+...CCCCCBB...
+...CCCCBBB...
+...CCCBBBB...
+...CCBBBBB...
+.....BBB.....
+.CCBBBBBAAAA.
+.CBBBBBAAAAA.
+.BBBBBAAAAAA.
+.BBBBAAAAAAA.
+.BBBAAAAAAAA.",
+            ),
+        ];
+        assert!(!raised("light", &banded, "gate.pillow_shading"));
+    }
+
+    #[test]
+    fn shading_with_no_light_direction_fails_the_light_step_by_name() {
+        // Two forms side by side. The right one is banded across an upper-left
+        // key and reports a clean -135 degree vector. The left one has columns
+        // A A B C B A A, brightest down the middle and mirrored about it, so
+        // its darkest band's centroid and its lightest band's land on the same
+        // pixel and it contributes no vector at all. That is textbook pillow
+        // shading, and it measures 0.49 on the pillow gate, under the
+        // threshold. Every other light check reads the vector list, and the
+        // list is a clean single vector, so before the region was reported on
+        // its own the whole sprite passed the light step in silence.
+        let symmetric = "AABCBAA.DDDCCCB
+AABCBAA.DDCCCBB
+AABCBAA.DCCCBBB
+AABCBAA.CCCBBBA
+AABCBAA.CCBBBAA
+AABCBAA.CBBBAAA
+AABCBAA.BBBAAAA";
+        let drawn = [("silhouette", symmetric), ("flats", symmetric)];
+        assert!(!raised("light", &drawn, "gate.pillow_shading"));
+        assert!(!raised("light", &drawn, "gate.light_unmeasurable"));
+        assert!(!raised("light", &drawn, "gate.light_inconsistent"));
+        assert!(!raised("light", &drawn, "gate.light_wrong_direction"));
+        assert!(raised("light", &drawn, "gate.light_undirected"));
+        assert!(raised("shadow", &drawn, "gate.light_undirected"));
+        // The report names the pixels, so an agent can go and repaint them.
+        assert!(issues("light", &drawn)
+            .iter()
+            .any(|issue| issue.contains("7x7 at 0,0")));
+        // A body shaded across a key keeps its direction and stays quiet, and
+        // so does a body with no shading at all: an unshaded region is not a
+        // region lit from nowhere, and §2.5's dL 0.07 is what separates them.
+        assert!(!raised("light", &LIT, "gate.light_undirected"));
+        assert!(!raised("shadow", &LIT[..2], "gate.light_undirected"));
+        assert!(raised("shadow", &LIT[..2], "gate.light_unmeasurable"));
+    }
+
     #[test]
     fn the_detail_step_counts_loose_pixels_against_the_noise_budget() {
         let scattered =
@@ -660,6 +782,87 @@ AAAAAAAA
             "outline",
             &[("silhouette", BODY), ("outline", escaped)],
             "gate.outline_outside"
+        ));
+    }
+
+    #[test]
+    fn flats_that_spill_past_the_silhouette_are_caught_as_well_as_flats_that_fall_short() {
+        // The coverage check reads both ways round, so paint that leaves the
+        // shape is the same finding as paint that never reaches its edge.
+        let spilled = BODY.replace('A', "C").replacen("........", "C.......", 1);
+        assert!(raised(
+            "flats",
+            &[("silhouette", BODY), ("flats", &spilled)],
+            "gate.flats_coverage"
+        ));
+    }
+
+    #[test]
+    fn an_outline_that_rings_the_whole_shape_fails_the_same_band_as_one_that_is_missing() {
+        // §4.3 has the outline drop on the key-lit arc, so a ring all the way
+        // round is out of the band at the top end just as nothing at all is out
+        // at the bottom end.
+        let ring = "........
+.BBBBBB.
+.B....B.
+.B....B.
+.B....B.
+.B....B.
+.BBBBBB.
+........";
+        assert!(raised(
+            "outline",
+            &[("silhouette", BODY), ("outline", ring)],
+            "gate.outline_coverage"
+        ));
+    }
+
+    #[test]
+    fn a_rim_that_is_too_wide_or_sits_inside_or_low_is_refused() {
+        // §5.5 caps the backlight at a quarter of the perimeter; the crown and
+        // the back edge together run to half of it here.
+        let wide = "........
+.BBBBBB.
+......B.
+......B.
+......B.
+......B.
+........
+........";
+        assert!(raised(
+            "accent",
+            &[("silhouette", BODY), ("rim", wide)],
+            "gate.rim_coverage"
+        ));
+        // Rule 3 puts the rim on the outermost filled pixel, so a rim pixel
+        // with sprite on all four sides is inside the form.
+        let inside = "........
+........
+........
+...BB...
+...BB...
+........
+........
+........";
+        assert!(raised(
+            "accent",
+            &[("silhouette", BODY), ("rim", inside)],
+            "gate.rim_direction"
+        ));
+        // Rule 8 keeps the rim off the bottom quarter, where nothing is behind
+        // the subject to light it.
+        let low = "........
+........
+........
+........
+........
+........
+.BBBB...
+........";
+        assert!(raised(
+            "accent",
+            &[("silhouette", BODY), ("rim", low)],
+            "gate.rim_direction"
         ));
     }
 

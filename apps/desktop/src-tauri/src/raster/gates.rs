@@ -28,6 +28,9 @@ pub struct Thresholds {
     pub perimeter_ratio: [f32; 2],
     pub solidity: [f32; 2],
     pub pillow_correlation: f32,
+    pub pillow_window: usize,
+    pub pillow_window_fill: f32,
+    pub shaded_spread: f32,
     pub light_std_degrees: f32,
     pub light_region_deviation: f32,
     pub light_mean_deviation: f32,
@@ -43,7 +46,28 @@ pub const HD2D: Thresholds = Thresholds {
     speckle_fraction: 0.06,
     perimeter_ratio: [18.0, 28.0],
     solidity: [0.62, 0.82],
+    // §11.7 fixes the lightness-to-edge-distance correlation at r <= 0.6. The
+    // number survives the move to a windowed, direction-corrected measurement
+    // because that measurement can only ever read lower than the sprite-wide
+    // Pearson the guide describes: removing the planar component removes
+    // lightness that answers to the key rather than to the silhouette, and a
+    // window that happens to sit on a flat area contributes nothing instead of
+    // diluting a neighbour. Measured against the two figures §7.2 draws, the
+    // pillowed one scores 1.00 and the directional one 0.48 once §4.3 is
+    // applied to its outline, so 0.6 sits between them with room on both sides.
     pillow_correlation: 0.6,
+    // §5.2 gives three bands only to a form larger than 6 x 6 px, so a 7 x 7
+    // window is the smallest patch of sprite that can carry a shading ramp at
+    // all, and therefore the smallest that can carry a pillow.
+    pillow_window: 7,
+    // A window that is mostly transparent is looking at the silhouette's edge
+    // rather than into a form, where edge distance has neither the spread nor
+    // the meaning the heuristic needs. Two thirds filled keeps the window on a
+    // body.
+    pillow_window_fill: 0.666,
+    // §2.5 puts the floor for a band boundary the eye can read at dL 0.07.
+    // Below it a region carries no shading, which is a legitimate flat.
+    shaded_spread: 0.07,
     light_std_degrees: 35.0,
     light_region_deviation: 45.0,
     light_mean_deviation: 30.0,
@@ -53,6 +77,24 @@ pub const HD2D: Thresholds = Thresholds {
     jaggy_jump: 2,
     accent_count: 6,
 };
+
+/// Where a region sits, so a report can point an agent at the pixels it has to
+/// repaint rather than only telling it that something is wrong.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegionBounds {
+    pub x: u16,
+    pub y: u16,
+    pub width: u16,
+    pub height: u16,
+    pub area: usize,
+}
+
+impl std::fmt::Display for RegionBounds {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}x{} at {},{}", self.width, self.height, self.x, self.y)
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -70,6 +112,10 @@ pub struct GateMetrics {
     pub light_vectors: Vec<f32>,
     pub light_mean_degrees: Option<f32>,
     pub light_std_degrees: Option<f32>,
+    /// Regions that are shaded but whose shading points nowhere. They are
+    /// reported rather than dropped, because a missing vector reads as consent
+    /// to every downstream check that only looks at the vectors it was given.
+    pub undirected_regions: Vec<RegionBounds>,
 }
 
 pub fn connected_regions(buffer: &IndexedBuffer) -> Vec<Vec<usize>> {
@@ -169,13 +215,6 @@ pub fn measure(buffer: &IndexedBuffer, palette: &Palette) -> Result<GateMetrics>
             }
         }
     }
-    let samples: Vec<_> = buffer
-        .data
-        .iter()
-        .enumerate()
-        .filter(|(_, s)| **s != 0)
-        .map(|(i, s)| (distance[i] as f32, lightness[usize::from(*s)]))
-        .collect();
     let hull = hull_area(corners);
     let material = |slot| {
         palette
@@ -185,6 +224,7 @@ pub fn measure(buffer: &IndexedBuffer, palette: &Palette) -> Result<GateMetrics>
             .unwrap_or(palette.ramps.len() + usize::from(slot))
     };
     let mut vectors = Vec::new();
+    let mut undirected_regions = Vec::new();
     for region in regions(buffer, material) {
         let low = region
             .iter()
@@ -194,7 +234,13 @@ pub fn measure(buffer: &IndexedBuffer, palette: &Palette) -> Result<GateMetrics>
             .iter()
             .map(|&i| lightness[usize::from(buffer.data[i])])
             .fold(f32::NEG_INFINITY, f32::max);
-        if high - low < 0.0001 {
+        // A region whose whole lightness spread is under the §2.5 floor carries
+        // no boundary the eye can read, so it is a flat and it owes the light
+        // step nothing. A region above the floor is shaded, and from here on
+        // silence about its direction is a finding rather than an exemption:
+        // that is the only difference between a flat and a form lit from
+        // nowhere, and it is the one the reader sees.
+        if high - low < HD2D.shaded_spread {
             continue;
         }
         let centroid = |level: f32| {
@@ -214,6 +260,8 @@ pub fn measure(buffer: &IndexedBuffer, palette: &Palette) -> Result<GateMetrics>
         let (dx, dy) = (light.0 - dark.0, light.1 - dark.1);
         if dx.hypot(dy) > 0.0001 {
             vectors.push(dy.atan2(dx).to_degrees());
+        } else {
+            undirected_regions.push(bounds(buffer, &region));
         }
     }
     let (mean, std) = circular_statistics(&vectors);
@@ -232,11 +280,128 @@ pub fn measure(buffer: &IndexedBuffer, palette: &Palette) -> Result<GateMetrics>
         orphan_fraction: orphan_count as f32 / denominator,
         speckle_fraction: speckle as f32 / denominator,
         jaggy_sequences: jaggies(buffer),
-        pillow_correlation: correlation(&samples),
+        pillow_correlation: pillow_correlation(buffer, &distance, &lightness),
         light_vectors: vectors,
         light_mean_degrees: mean,
         light_std_degrees: std,
+        undirected_regions,
     })
+}
+
+fn bounds(buffer: &IndexedBuffer, region: &[usize]) -> RegionBounds {
+    let (mut left, mut top) = (i32::MAX, i32::MAX);
+    let (mut right, mut bottom) = (i32::MIN, i32::MIN);
+    for &i in region {
+        let (x, y) = xy(buffer, i);
+        left = left.min(x);
+        top = top.min(y);
+        right = right.max(x);
+        bottom = bottom.max(y);
+    }
+    RegionBounds {
+        x: left as u16,
+        y: top as u16,
+        width: (right - left + 1) as u16,
+        height: (bottom - top + 1) as u16,
+        area: region.len(),
+    }
+}
+
+/// The worst 7 x 7 window rather than the whole sprite, because a sprite with
+/// one pillow-shaded region is pillow-shaded. A single correlation over every
+/// filled pixel is defeated by the ordinary shape of a sprite: flat base colour
+/// adds edge-distance spread that carries no lightness with it, so a pillowed
+/// head reading 1.00 on its own falls to 0.41 once a plain body is attached
+/// below it. Averaging regions would lose the same way, so the worst window is
+/// reported and nothing is allowed to vote it down.
+fn pillow_correlation(buffer: &IndexedBuffer, distance: &[usize], lightness: &[f32; 64]) -> f32 {
+    let width = usize::from(buffer.width);
+    let height = usize::from(buffer.height);
+    let sample = |i: usize| {
+        let (x, y) = xy(buffer, i);
+        [
+            x as f32,
+            y as f32,
+            distance[i] as f32,
+            lightness[usize::from(buffer.data[i])],
+        ]
+    };
+    let edge = HD2D.pillow_window.min(width).min(height);
+    let required = ((edge * edge) as f32 * HD2D.pillow_window_fill).ceil() as usize;
+    let mut worst = None;
+    for top in 0..=height - edge {
+        for left in 0..=width - edge {
+            let window: Vec<[f32; 4]> = (top..top + edge)
+                .flat_map(|y| (left..left + edge).map(move |x| y * width + x))
+                .filter(|&i| buffer.data[i] != 0)
+                .map(sample)
+                .collect();
+            if window.len() < required {
+                continue;
+            }
+            let score = pillow_score(&window);
+            worst = Some(worst.map_or(score, |previous: f32| previous.max(score)));
+        }
+    }
+    // A sprite too sparse for any window to sit on a form is its own window.
+    // Refusing to measure it would be a third way to pass the gate by default.
+    worst.unwrap_or_else(|| {
+        let whole: Vec<[f32; 4]> = (0..buffer.data.len())
+            .filter(|&i| buffer.data[i] != 0)
+            .map(sample)
+            .collect();
+        pillow_score(&whole)
+    })
+}
+
+/// Lightness against edge distance, with the planar component of both removed.
+/// §7.2 says that in a correctly lit sprite lightness tracks
+/// `dot(pixel_normal_estimate, L)`, which across a window this small is a plane
+/// in x and y; taking that plane out leaves only the shading that answers to
+/// the silhouette, which is the definition of a pillow. Without the correction
+/// the shadow side of any legitimately lit form reads as a pillow locally,
+/// because there too lightness rises as you walk inward.
+fn pillow_score(samples: &[[f32; 4]]) -> f32 {
+    if samples.len() < 3 {
+        return 0.0;
+    }
+    let paired: Vec<(f32, f32)> = plane_residuals(samples, 2)
+        .into_iter()
+        .zip(plane_residuals(samples, 3))
+        .collect();
+    correlation(&paired)
+}
+
+/// What is left of `axis` once the best-fitting plane in x and y is subtracted.
+fn plane_residuals(samples: &[[f32; 4]], axis: usize) -> Vec<f32> {
+    let count = samples.len() as f32;
+    let mean = |k: usize| samples.iter().map(|s| s[k]).sum::<f32>() / count;
+    let (mx, my, mv) = (mean(0), mean(1), mean(axis));
+    let centred = |s: &[f32; 4]| (s[0] - mx, s[1] - my, s[axis] - mv);
+    let (mut sxx, mut syy, mut sxy, mut svx, mut svy) = (0.0, 0.0, 0.0, 0.0, 0.0);
+    for s in samples {
+        let (x, y, v) = centred(s);
+        sxx += x * x;
+        syy += y * y;
+        sxy += x * y;
+        svx += v * x;
+        svy += v * y;
+    }
+    // Cauchy-Schwarz keeps the determinant non-negative, so it only reaches
+    // zero when the window's pixels are collinear and there is no plane to fit.
+    let determinant = sxx * syy - sxy * sxy;
+    if determinant <= f32::EPSILON {
+        return samples.iter().map(|s| centred(s).2).collect();
+    }
+    let slope_x = (svx * syy - svy * sxy) / determinant;
+    let slope_y = (svy * sxx - svx * sxy) / determinant;
+    samples
+        .iter()
+        .map(|s| {
+            let (x, y, v) = centred(s);
+            v - slope_x * x - slope_y * y
+        })
+        .collect()
 }
 
 pub fn correlation(samples: &[(f32, f32)]) -> f32 {
@@ -469,6 +634,103 @@ mod tests {
         let flat = grid::parse("AAAAA\nAAAAA\nAAAAA").unwrap();
         assert_eq!(measure(&flat, &palette()).unwrap().pillow_correlation, 0.0);
     }
+    #[test]
+    fn a_pillow_region_is_measured_past_the_flat_area_beside_it() {
+        // A seven by seven lump shaded concentrically inward, which is the
+        // figure §7.2 draws, carried on a flat body of base colour. On its own
+        // the lump measures 0.98 against every filled pixel; the body adds edge
+        // distance that carries no lightness with it, and one correlation over
+        // the whole sprite falls to 0.46 and passes. Nothing about the lump has
+        // changed, and a reader still sees a cushion where the head should be.
+        let head_on_body = grid::parse(
+            "...AAAAAAA...
+...ABBBBBA...
+...ABCCCBA...
+...ABCCCBA...
+...ABCCCBA...
+...ABCCCBA...
+...AABCBAA...
+.....ABA.....
+.CCCCCCCCCCC.
+.CCCCCCCCCCC.
+.CCCCCCCCCCC.
+.CCCCCCCCCCC.
+.CCCCCCCCCCC.",
+        )
+        .unwrap();
+        assert!(
+            measure(&head_on_body, &palette())
+                .unwrap()
+                .pillow_correlation
+                > HD2D.pillow_correlation
+        );
+        // The same silhouette in three cel bands running across an upper-left
+        // key, which is what §5.2 asks for. Its lightness rises inward from the
+        // shadowed edge exactly as a pillow's does, so an uncorrected window
+        // reads 0.77 on it; the plane the key light draws is taken out first,
+        // and what is left measures 0.21.
+        let lit = grid::parse(
+            "....CCCCC....
+...CCCCCBB...
+..CCCCCBBBB..
+.CCCCCBBBBBB.
+CCCCCBBBBBBAA
+CCCCBBBBBBAAA
+CCCBBBBBBAAAA
+CCBBBBBBAAAAA
+CBBBBBBAAAAAA
+.BBBBBAAAAAA.
+..BBBAAAAAA..
+...BAAAAAA...
+....AAAAA....",
+        )
+        .unwrap();
+        assert!(measure(&lit, &palette()).unwrap().pillow_correlation < HD2D.pillow_correlation);
+    }
+
+    #[test]
+    fn shading_that_points_nowhere_is_reported_and_a_flat_is_not() {
+        // Columns A A B C B A A: brightest down the middle, symmetric about it,
+        // so the darkest band's centroid and the lightest band's land on the
+        // same pixel and the region offers no light vector at all. It is
+        // textbook pillow shading, and it measures 0.49 on the pillow gate, so
+        // unless the absence is itself reported nothing here says a word.
+        let symmetric = grid::parse(
+            "AABCBAA
+AABCBAA
+AABCBAA
+AABCBAA
+AABCBAA
+AABCBAA
+AABCBAA",
+        )
+        .unwrap();
+        let measured = measure(&symmetric, &palette()).unwrap();
+        assert!(measured.light_vectors.is_empty());
+        assert!(measured.pillow_correlation < HD2D.pillow_correlation);
+        assert_eq!(
+            measured.undirected_regions,
+            vec![RegionBounds {
+                x: 0,
+                y: 0,
+                width: 7,
+                height: 7,
+                area: 49,
+            }]
+        );
+        // A region painted in one colour is not shaded at all, so it is a flat
+        // and not a finding.
+        let flat = grid::parse("AAAA\nAAAA\nAAAA\nAAAA").unwrap();
+        let measured = measure(&flat, &palette()).unwrap();
+        assert!(measured.light_vectors.is_empty());
+        assert!(measured.undirected_regions.is_empty());
+        // And a region shaded across a key keeps its vector and stays quiet.
+        let lit = grid::parse("CCBB\nCCBB\nBBAA\nBBAA").unwrap();
+        let measured = measure(&lit, &palette()).unwrap();
+        assert_eq!(measured.light_vectors.len(), 1);
+        assert!(measured.undirected_regions.is_empty());
+    }
+
     #[test]
     fn light_vectors_respect_wraparound_and_disagreeing_regions() {
         let (_, std) = circular_statistics(&[179.0, -179.0]);
