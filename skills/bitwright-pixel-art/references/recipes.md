@@ -54,7 +54,7 @@ set_palette { "assetId": "…", "ramps": [
   { "name": "hair",        "material": "hair",    "slots": ["#2E0C20","#492C46","#64546E"] },
   { "name": "ink",         "material": "ink",     "slots": ["#0E0418","#211E36","#363C50"] },
   { "name": "rim",         "material": "rim",     "slots": ["#B3AC82","#DDC8A2","#FBE3CE"] } ] }
-→ { "slots": 22, "ramps": 7 }
+→ { "slots": 22, "ramps": 7, "seq": 1 }
 ```
 
 Read the slot numbers back rather than assuming them:
@@ -79,10 +79,11 @@ check_step  { "assetId": "…" }
 advance_step { "assetId": "…" } → { "step": "silhouette" }
 ```
 
-## A2. Silhouette, pass A — the mask
+## A2. Silhouette — one slot, the shape only
 
-One slot, the whole mass. Slot 6 (`F`, cloth-blue base) becomes the coat later, so use
-it now and save a repaint.
+The mask slot is arbitrary; nothing downstream reads it, because `shade` and `outline`
+read the `flats` layer. Use slot 18 (`R`, ink.mid) so no readback of this layer can be
+mistaken for a material decision.
 
 ```
 paste_grid {
@@ -92,68 +93,68 @@ paste_grid {
     "................................................",
     "................................................",
     "................................................",
-    "....................FFFFFFFF....................",
-    "...................FFFFFFFFFF...................",
-    "..................FFFFFFFFFFFF..................",
-    ".................FFFFFFFFFFFFFF.................",
-    ".................FFFFFFFFFFFFFF.................",
-    "..............FFFFFFFFFFFFFFFFF.................",
-    "..............FFFFFFFFFFFFFFFFF.................",
-    "..............FFFFFFFFFFFFFFFFF.................",
-    "..............FFFFFFFFFFFFFFFFF.................",
-    "..............FFFFFFFFFFFFFFFFF.................",
-    "..............FFFFFFFFFFFFFFFFF.................",
-    "..............FFFFFFFFFFFFFFFFF.................",
-    "..............FFFFFFFFFFFFFFFFF.................",
-    ".................FFFFFFFFFFFFFF.................",
-    ".................FFFFFFFFFFFFFF.................",
-    "..................FFFFFFFFFFFF..................",
-    "...................FFFFFFFFFF...................",
-    "....................FFFFFFFF....................",
-    ".....................FFFFFF.....................",
-    ".....................FFFFFF.....................",
-    ".............FFFFFFFFFFFFFFFFFFFFFF.............",
-    ".............FFFFFFFFFFFFFFFFFFFFFF.............",
-    ".............FFFFFFFFFFFFFFFFFFFFFF.............",
-    "............FFFFFFFFFFFFFFFFFFFFFFF.............",
-    "............FFFFFFFFFFFFFFFFFFFFFFFF............",
-    "............FFFFFFFFFFFFFFFFFFFFFFFF............",
-    "............FFFFFFFFFFFFFFFFFFF..FFF............",
-    "............FFFFFFFFFFFFFFFFFFF..FFF............",
-    "............FFFFFFFFFFFFFFFFFFF..FFF............",
-    "............FFFFFFFFFFFFFFFFFFFFFFFF............",
-    "............FFFFFFFFFFFFFFFFFFFFFFFF............",
-    "...........FFFFFFFFFFFFFFFFFFFFFFFF.............",
-    "...........FFFFFFFFFFFFFFFFFFFFFFFF.............",
-    "...........FFFFFFFFFFFFFFFFFFFFFFF..............",
-    "...........FFFFFFFFFFFFFFFFFFFFFFF..............",
-    "...........FFFFFFFFFFFFFFFFFFFFFFF..............",
-    "...........FFFFFFFFFFFFFFFFFFFFFFFF.............",
-    "..........FFFFFFFFFFFFFFFFFFFFFFFFFFF...........",
-    "..........FFFFFFFFFFFFFFFFFFFFFFFFFFFF..........",
-    ".................FFFFFF..FFFFFF.................",
-    ".................FFFFFF..FFFFFF.................",
-    ".................FFFFFF..FFFFFF.................",
-    ".................FFFFFF..FFFFFF.................",
-    ".................FFFFFF..FFFFFF.................",
-    ".................FFFFFF..FFFFFF.................",
-    ".................FFFFFF..FFFFFF.................",
-    ".................FFFFFF..FFFFFF.................",
-    ".................FFFFFF..FFFFFF.................",
-    ".................FFFFFF..FFFFFF.................",
-    ".................FFFFFF..FFFFFF.................",
-    ".................FFFFFF..FFFFFF.................",
-    ".................FFFFFF..FFFFFF.................",
-    ".................FFFFFF..FFFFFF.................",
-    ".................FFFFFF..FFFFFF.................",
-    ".................FFFFFF..FFFFFF.................",
-    ".................FFFFFF..FFFFFF.................",
-    ".................FFFFFF..FFFFFF.................",
+    "....................RRRRRRRR....................",
+    "...................RRRRRRRRRR...................",
+    "..................RRRRRRRRRRRR..................",
+    ".................RRRRRRRRRRRRRR.................",
+    ".................RRRRRRRRRRRRRR.................",
+    "..............RRRRRRRRRRRRRRRRR.................",
+    "..............RRRRRRRRRRRRRRRRR.................",
+    "..............RRRRRRRRRRRRRRRRR.................",
+    "..............RRRRRRRRRRRRRRRRR.................",
+    "..............RRRRRRRRRRRRRRRRR.................",
+    "..............RRRRRRRRRRRRRRRRR.................",
+    "..............RRRRRRRRRRRRRRRRR.................",
+    "..............RRRRRRRRRRRRRRRRR.................",
+    ".................RRRRRRRRRRRRRR.................",
+    ".................RRRRRRRRRRRRRR.................",
+    "..................RRRRRRRRRRRR..................",
+    "...................RRRRRRRRRR...................",
+    "....................RRRRRRRR....................",
+    ".....................RRRRRR.....................",
+    ".....................RRRRRR.....................",
+    ".............RRRRRRRRRRRRRRRRRRRRRR.............",
+    ".............RRRRRRRRRRRRRRRRRRRRRR.............",
+    ".............RRRRRRRRRRRRRRRRRRRRRR.............",
+    "............RRRRRRRRRRRRRRRRRRRRRRR.............",
+    "............RRRRRRRRRRRRRRRRRRRRRRRR............",
+    "............RRRRRRRRRRRRRRRRRRRRRRRR............",
+    "............RRRRRRRRRRRRRRRRRRR..RRR............",
+    "............RRRRRRRRRRRRRRRRRRR..RRR............",
+    "............RRRRRRRRRRRRRRRRRRR..RRR............",
+    "............RRRRRRRRRRRRRRRRRRRRRRRR............",
+    "............RRRRRRRRRRRRRRRRRRRRRRRR............",
+    "...........RRRRRRRRRRRRRRRRRRRRRRRR.............",
+    "...........RRRRRRRRRRRRRRRRRRRRRRRR.............",
+    "...........RRRRRRRRRRRRRRRRRRRRRRR..............",
+    "...........RRRRRRRRRRRRRRRRRRRRRRR..............",
+    "...........RRRRRRRRRRRRRRRRRRRRRRR..............",
+    "...........RRRRRRRRRRRRRRRRRRRRRRRR.............",
+    "..........RRRRRRRRRRRRRRRRRRRRRRRRRRR...........",
+    "..........RRRRRRRRRRRRRRRRRRRRRRRRRRRR..........",
+    ".................RRRRRR..RRRRRR.................",
+    ".................RRRRRR..RRRRRR.................",
+    ".................RRRRRR..RRRRRR.................",
+    ".................RRRRRR..RRRRRR.................",
+    ".................RRRRRR..RRRRRR.................",
+    ".................RRRRRR..RRRRRR.................",
+    ".................RRRRRR..RRRRRR.................",
+    ".................RRRRRR..RRRRRR.................",
+    ".................RRRRRR..RRRRRR.................",
+    ".................RRRRRR..RRRRRR.................",
+    ".................RRRRRR..RRRRRR.................",
+    ".................RRRRRR..RRRRRR.................",
+    ".................RRRRRR..RRRRRR.................",
+    ".................RRRRRR..RRRRRR.................",
+    ".................RRRRRR..RRRRRR.................",
+    ".................RRRRRR..RRRRRR.................",
+    ".................RRRRRR..RRRRRR.................",
+    ".................RRRRRR..RRRRRR.................",
     "................................................",
     "................................................",
     "................................................"
   ] }
-→ { "changed": 927, "bounds": { "x": 10, "y": 4, "w": 28, "h": 57 }, "seq": 8 }
+→ { "changed": 927, "bounds": { "x": 10, "y": 4, "w": 28, "h": 57 }, "seq": 2 }
 ```
 
 The reported `bounds` already says something: `y` runs 4 to 60, and the contact row is
@@ -177,85 +178,156 @@ The gate measured the buffer and named the coordinates. Do exactly what it says.
 
 ```
 draw_runs { "assetId": "…", "layer": "silhouette", "runs": [
-  { "y": 61, "x0": 17, "x1": 22, "slot": 6 },
-  { "y": 61, "x0": 25, "x1": 30, "slot": 6 } ] }
-→ { "changed": 12, "bounds": { "x": 17, "y": 61, "w": 14, "h": 1 }, "seq": 9 }
+  { "y": 61, "x0": 17, "x1": 22, "slot": 18 },
+  { "y": 61, "x0": 25, "x1": 30, "slot": 18 } ] }
+→ { "changed": 12, "bounds": { "x": 17, "y": 61, "w": 14, "h": 1 }, "seq": 3 }
 ```
 
 Read back the part you touched — not the whole canvas:
 
 ```
 read_region { "assetId": "…", "layer": "silhouette", "x": 14, "y": 56, "w": 20, "h": 8 }
-→ legend: F=6 cloth-blue.base  .=transparent
+→ legend: R=18 ink.mid  .=transparent
 
-         15   20   25   30
-    56 | ...FFFFFF..FFFFFF...
-    57 | ...FFFFFF..FFFFFF...
-    58 | ...FFFFFF..FFFFFF...
-    59 | ...FFFFFF..FFFFFF...
-    60 | ...FFFFFF..FFFFFF...
-    61 | ...FFFFFF..FFFFFF...
+         15   20   25   30  
+    56 | ...RRRRRR..RRRRRR...
+    57 | ...RRRRRR..RRRRRR...
+    58 | ...RRRRRR..RRRRRR...
+    59 | ...RRRRRR..RRRRRR...
+    60 | ...RRRRRR..RRRRRR...
+    61 | ...RRRRRR..RRRRRR...
     62 | ....................
     63 | ....................
 
 check_step { "assetId": "…" }
-→ { "step": "silhouette", "pass": true, "checks": [ … all pass … ] }
+→ { "step": "silhouette", "pass": true, "checks": [ every check above now passes ] }
+
+advance_step { "assetId": "…" } → { "step": "flats" }
 ```
 
-## A3. Silhouette, pass B — the base flats
+## A3. Flats — made of what
 
-Same layer. Repaint each material over the mask. `shade` will read this layer and
-resolve each pixel's ramp from the slot it finds here, so every material must carry its
-own base slot before you advance.
+A different layer and a different question. Every pixel of the mask gets its material's
+base slot: hair 15, skin 3, cloth-blue 6, cloth-green 9, leather 12.
 
-```
-draw_runs { "assetId": "…", "layer": "silhouette", "runs": [
-  { "y": 4,  "x0": 20, "x1": 27, "slot": 15 }, { "y": 5,  "x0": 19, "x1": 28, "slot": 15 },
-  { "y": 6,  "x0": 18, "x1": 29, "slot": 15 }, { "y": 7,  "x0": 17, "x1": 30, "slot": 15 },
-  { "y": 8,  "x0": 17, "x1": 30, "slot": 15 }, { "y": 9,  "x0": 14, "x1": 30, "slot": 15 },
-  { "y": 10, "x0": 14, "x1": 30, "slot": 15 }, { "y": 11, "x0": 14, "x1": 30, "slot": 15 },
-  { "y": 12, "x0": 14, "x1": 30, "slot": 15 },
-  { "y": 13, "x0": 14, "x1": 18, "slot": 15 }, { "y": 13, "x0": 29, "x1": 30, "slot": 15 },
-  { "y": 14, "x0": 14, "x1": 18, "slot": 15 }, { "y": 14, "x0": 29, "x1": 30, "slot": 15 },
-  { "y": 15, "x0": 14, "x1": 18, "slot": 15 }, { "y": 15, "x0": 29, "x1": 30, "slot": 15 },
-  { "y": 16, "x0": 14, "x1": 18, "slot": 15 }, { "y": 16, "x0": 29, "x1": 30, "slot": 15 },
-  { "y": 17, "x0": 17, "x1": 18, "slot": 15 }, { "y": 17, "x0": 29, "x1": 30, "slot": 15 },
-  { "y": 18, "x0": 17, "x1": 18, "slot": 15 }, { "y": 18, "x0": 29, "x1": 30, "slot": 15 },
-  { "y": 19, "x0": 18, "x1": 18, "slot": 15 }, { "y": 19, "x0": 29, "x1": 29, "slot": 15 },
-  { "y": 20, "x0": 19, "x1": 19, "slot": 15 }, { "y": 20, "x0": 28, "x1": 28, "slot": 15 },
-
-  { "y": 13, "x0": 19, "x1": 28, "slot": 3 }, { "y": 14, "x0": 19, "x1": 28, "slot": 3 },
-  { "y": 15, "x0": 19, "x1": 28, "slot": 3 }, { "y": 16, "x0": 19, "x1": 28, "slot": 3 },
-  { "y": 17, "x0": 19, "x1": 28, "slot": 3 }, { "y": 18, "x0": 19, "x1": 28, "slot": 3 },
-  { "y": 19, "x0": 19, "x1": 28, "slot": 3 }, { "y": 20, "x0": 20, "x1": 27, "slot": 3 },
-  { "y": 21, "x0": 20, "x1": 27, "slot": 3 }, { "y": 22, "x0": 21, "x1": 26, "slot": 3 },
-  { "y": 23, "x0": 21, "x1": 26, "slot": 3 },
-  { "y": 31, "x0": 33, "x1": 35, "slot": 3 }, { "y": 32, "x0": 33, "x1": 35, "slot": 3 },
-  { "y": 33, "x0": 12, "x1": 14, "slot": 3 }, { "y": 34, "x0": 12, "x1": 14, "slot": 3 },
-
-  { "y": 24, "x0": 19, "x1": 28, "slot": 9 }, { "y": 25, "x0": 19, "x1": 28, "slot": 9 },
-  { "y": 41, "x0": 10, "x1": 36, "slot": 9 }, { "y": 42, "x0": 10, "x1": 37, "slot": 9 },
-
-  { "y": 37, "x0": 11, "x1": 33, "slot": 12 }, { "y": 38, "x0": 11, "x1": 33, "slot": 12 },
-  { "y": 57, "x0": 17, "x1": 22, "slot": 12 }, { "y": 57, "x0": 25, "x1": 30, "slot": 12 },
-  { "y": 58, "x0": 17, "x1": 22, "slot": 12 }, { "y": 58, "x0": 25, "x1": 30, "slot": 12 },
-  { "y": 59, "x0": 17, "x1": 22, "slot": 12 }, { "y": 59, "x0": 25, "x1": 30, "slot": 12 },
-  { "y": 60, "x0": 17, "x1": 22, "slot": 12 }, { "y": 60, "x0": 25, "x1": 30, "slot": 12 },
-  { "y": 61, "x0": 17, "x1": 22, "slot": 12 }, { "y": 61, "x0": 25, "x1": 30, "slot": 12 } ] }
-→ { "changed": 457, "bounds": { "x": 10, "y": 4, "w": 28, "h": 58 }, "seq": 10 }
-```
-
-Runs whose span reaches outside the mask are clipped to it — `{ "y": 37, "x0": 11,
-"x1": 33 }` paints the belt across the whole waist and stops at the coat edge. That is
-why the belt run can be stated as one span instead of measured.
-
-Read back the head, where the material boundaries are tightest:
+This is a picture, so it is a `paste_grid`:
 
 ```
-read_region { "assetId": "…", "layer": "silhouette", "x": 12, "y": 4, "w": 26, "h": 22 }
+paste_grid {
+  "assetId": "…", "layer": "flats", "x": 0, "y": 0, "mode": "replace",
+  "rows": [
+    "................................................",
+    "................................................",
+    "................................................",
+    "................................................",
+    "....................OOOOOOOO....................",
+    "...................OOOOOOOOOO...................",
+    "..................OOOOOOOOOOOO..................",
+    ".................OOOOOOOOOOOOOO.................",
+    ".................OOOOOOOOOOOOOO.................",
+    "..............OOOOOOOOOOOOOOOOO.................",
+    "..............OOOOOOOOOOOOOOOOO.................",
+    "..............OOOOOOOOOOOOOOOOO.................",
+    "..............OOOOOOOOOOOOOOOOO.................",
+    "..............OOOOOCCCCCCCCCCOO.................",
+    "..............OOOOOCCCCCCCCCCOO.................",
+    "..............OOOOOCCCCCCCCCCOO.................",
+    "..............OOOOOCCCCCCCCCCOO.................",
+    ".................OOCCCCCCCCCCOO.................",
+    ".................OOCCCCCCCCCCOO.................",
+    "..................OCCCCCCCCCCO..................",
+    "...................OCCCCCCCCO...................",
+    "....................CCCCCCCC....................",
+    ".....................CCCCCC.....................",
+    ".....................CCCCCC.....................",
+    ".............FFFFFFIIIIIIIIIIFFFFFF.............",
+    ".............FFFFFFIIIIIIIIIIFFFFFF.............",
+    ".............FFFFFFFFFFFFFFFFFFFFFF.............",
+    "............FFFFFFFFFFFFFFFFFFFFFFF.............",
+    "............FFFFFFFFFFFFFFFFFFFFFFFF............",
+    "............FFFFFFFFFFFFFFFFFFFFFFFF............",
+    "............FFFFFFFFFFFFFFFFFFF..FFF............",
+    "............FFFFFFFFFFFFFFFFFFF..CCC............",
+    "............FFFFFFFFFFFFFFFFFFF..CCC............",
+    "...............FFFFFFFFFFFFFFFFFFFFF............",
+    "...............FFFFFFFFFFFFFFFFFFFFF............",
+    "...........FFFFFFFFFFFFFFFFFFFFFFFF.............",
+    "...........FFFFFFFFFFFFFFFFFFFFFFFF.............",
+    "...........LLLLLLLLLLLLLLLLLLLLLLL..............",
+    "...........LLLLLLLLLLLLLLLLLLLLLLL..............",
+    "...........FFFFFFFFFFFFFFFFFFFFFFF..............",
+    "...........FFFFFFFFFFFFFFFFFFFFFFFF.............",
+    "..........IIIIIIIIIIIIIIIIIIIIIIIIIII...........",
+    "..........IIIIIIIIIIIIIIIIIIIIIIIIIIII..........",
+    ".................FFFFFF..FFFFFF.................",
+    ".................FFFFFF..FFFFFF.................",
+    ".................FFFFFF..FFFFFF.................",
+    ".................FFFFFF..FFFFFF.................",
+    ".................FFFFFF..FFFFFF.................",
+    ".................FFFFFF..FFFFFF.................",
+    ".................FFFFFF..FFFFFF.................",
+    ".................FFFFFF..FFFFFF.................",
+    ".................FFFFFF..FFFFFF.................",
+    ".................FFFFFF..FFFFFF.................",
+    ".................FFFFFF..FFFFFF.................",
+    ".................FFFFFF..FFFFFF.................",
+    ".................FFFFFF..FFFFFF.................",
+    ".................FFFFFF..FFFFFF.................",
+    ".................LLLLLL..LLLLLL.................",
+    ".................LLLLLL..LLLLLL.................",
+    ".................LLLLLL..LLLLLL.................",
+    ".................LLLLLL..LLLLLL.................",
+    ".................LLLLLL..LLLLLL.................",
+    "................................................",
+    "................................................"
+  ] }
+→ { "changed": 933, "bounds": { "x": 10, "y": 4, "w": 28, "h": 58 }, "seq": 4 }
+```
+
+933, against a mask of 939. The flats gate exists for exactly that difference:
+
+```
+check_step { "assetId": "…" }
+→ { "step": "flats", "pass": false,
+    "checks": [
+      { "name": "coverage", "pass": false,
+        "detail": "6 silhouette pixels unassigned: (12,33)–(14,33), (12,34)–(14,34)",
+        "hint": "Assign the left hand block. It is skin, slot 3." },
+      { "name": "containment", "pass": true },
+      { "name": "base-slots-only", "pass": true, "detail": "5 materials, 5 slots" },
+      { "name": "ramped-slots", "pass": true },
+      { "name": "material-separation", "pass": true, "detail": "min ΔL 0.08" } ] }
+
+draw_runs { "assetId": "…", "layer": "flats", "runs": [
+  { "y": 33, "x0": 12, "x1": 14, "slot": 3 },
+  { "y": 34, "x0": 12, "x1": 14, "slot": 3 } ] }
+→ { "changed": 6, "bounds": { "x": 12, "y": 33, "w": 3, "h": 2 }, "seq": 5 }
+
+read_region { "assetId": "…", "layer": "flats", "x": 10, "y": 30, "w": 28, "h": 7 }
+→ legend: C=3 skin.base  F=6 cloth-blue.base  .=transparent
+
+        10   15   20   25   30   35 
+    30 | ..FFFFFFFFFFFFFFFFFFF..FFF..
+    31 | ..FFFFFFFFFFFFFFFFFFF..CCC..
+    32 | ..FFFFFFFFFFFFFFFFFFF..CCC..
+    33 | ..CCCFFFFFFFFFFFFFFFFFFFFF..
+    34 | ..CCCFFFFFFFFFFFFFFFFFFFFF..
+    35 | .FFFFFFFFFFFFFFFFFFFFFFFF...
+    36 | .FFFFFFFFFFFFFFFFFFFFFFFF...
+```
+
+Both hands now read as skin: the right at columns 33–35, rows 31–32, and the left at
+columns 12–14, rows 33–34. The two transparent columns at 31–32, rows 30–32, are the
+gap between forearm and torso, and they are transparent in the flats because they are
+transparent in the mask.
+
+Read the head, where the material boundaries are tightest:
+
+```
+read_region { "assetId": "…", "layer": "flats", "x": 12, "y": 4, "w": 26, "h": 22 }
 → legend: C=3 skin.base  F=6 cloth-blue.base  I=9 cloth-green.base  O=15 hair.base
 
-           15   20   25   30   35
+           15   20   25   30   35 
      4 | ........OOOOOOOO..........
      5 | .......OOOOOOOOOO.........
      6 | ......OOOOOOOOOOOO........
@@ -286,78 +358,57 @@ refers to.
 
 ```
 check_step { "assetId": "…" }
-→ { "step": "silhouette", "pass": true,
+→ { "step": "flats", "pass": true,
     "checks": [
-      { "name": "single-region", "pass": true },
-      { "name": "base-slots-only", "pass": true, "detail": "5 materials, 5 slots" },
+      { "name": "coverage", "pass": true, "detail": "939 of 939 assigned" },
+      { "name": "containment", "pass": true },
+      { "name": "base-slots-only", "pass": true },
+      { "name": "ramped-slots", "pass": true },
       { "name": "material-separation", "pass": true, "detail": "min ΔL 0.08" },
       { "name": "area-share", "pass": true,
         "detail": "cloth-blue 51.3% (main cloth, exempt), hair 17.7%, skin 11.7%, leather 11.3%, cloth-green 8.0%" },
       { "name": "signature-hue", "pass": true, "detail": "cloth-green 8.0%, in 8–15%" } ] }
 
-advance_step { "assetId": "…" } → { "step": "outline" }
-```
-
-## A4. Outline
-
-One call. Do not draw outline pixels by hand.
-
-```
-outline { "assetId": "…", "from": "silhouette", "mode": "selective", "darken": 2 }
-→ { "changed": 214, "bounds": { "x": 10, "y": 4, "w": 28, "h": 58 }, "seq": 11 }
-
-diff_layers { "assetId": "…", "a": "silhouette", "b": "outline" }
-→ 0 outline pixels outside the silhouette
-
-check_step { "assetId": "…" }
-→ { "step": "outline", "pass": true,
-    "checks": [ { "name": "containment", "pass": true },
-                { "name": "coverage", "pass": true, "detail": "0.68 of perimeter, target 0.60–0.75" },
-                { "name": "thickness", "pass": true, "detail": "1px everywhere" },
-                { "name": "bottom-band", "pass": true },
-                { "name": "hue-variety", "pass": true, "detail": "5 distinct outline colours" } ] }
-
 advance_step { "assetId": "…" } → { "step": "shadow" }
 ```
 
-If coverage comes back at 0.82 the style rules were not applied; re-send with
-`"mode": "selective"` spelled exactly, and check `get_style_rules` says
-`"outline": "selective"`.
+Get the material map right here. Every shading layer downstream is resolved from these
+slots, so revisiting `flats` after shading means re-running `shade` and `outline`.
 
-## A5. Shadow
+## A4. Shadow
 
 Core shadow over everything, then deep shadow region by region. You name places, never
-colours.
+colours, and `from` is always `"flats"`.
 
 ```
-shade { "assetId": "…", "target": "shadow-core", "from": "silhouette",
+shade { "assetId": "…", "target": "shadow-core", "from": "flats",
         "direction": "upper-left", "depth": 1 }
-→ { "changed": 331, "bounds": { "x": 10, "y": 4, "w": 28, "h": 58 }, "seq": 12,
+→ { "changed": 331, "bounds": { "x": 10, "y": 4, "w": 28, "h": 58 }, "seq": 6,
     "skipped": 0 }
 ```
 
 `skipped: 0` means every source pixel belonged to a ramp. A non-zero number here means
-part of the silhouette is painted with an unramped slot — go back and fix the flats.
+part of the flats layer carries an unramped slot — go back and fix the flats.
 
 Deep shadow is ambient occlusion only, one `region` per placement: under the chin, under
 the collar, under the belt, and the contact rows.
 
 ```
-shade { "assetId": "…", "target": "shadow-deep", "from": "silhouette",
+shade { "assetId": "…", "target": "shadow-deep", "from": "flats",
         "region": { "x": 20, "y": 21, "w": 8, "h": 3 }, "depth": 2 }
-→ { "changed": 20, "bounds": { "x": 20, "y": 21, "w": 8, "h": 3 }, "seq": 13 }
+→ { "changed": 20, "bounds": { "x": 20, "y": 21, "w": 8, "h": 3 }, "seq": 7 }
 
-shade { "assetId": "…", "target": "shadow-deep", "from": "silhouette",
+shade { "assetId": "…", "target": "shadow-deep", "from": "flats",
         "region": { "x": 13, "y": 26, "w": 22, "h": 2 }, "depth": 2 }
-→ { "changed": 44, "bounds": { "x": 13, "y": 26, "w": 22, "h": 2 }, "seq": 14 }
+→ { "changed": 44, "bounds": { "x": 13, "y": 26, "w": 22, "h": 2 }, "seq": 8 }
 
-shade { "assetId": "…", "target": "shadow-deep", "from": "silhouette",
+shade { "assetId": "…", "target": "shadow-deep", "from": "flats",
         "region": { "x": 11, "y": 39, "w": 23, "h": 2 }, "depth": 2 }
-→ { "changed": 46, "bounds": { "x": 11, "y": 39, "w": 23, "h": 2 }, "seq": 15 }
+→ { "changed": 46, "bounds": { "x": 11, "y": 39, "w": 23, "h": 2 }, "seq": 9 }
 
-shade { "assetId": "…", "target": "shadow-deep", "from": "silhouette",
+shade { "assetId": "…", "target": "shadow-deep", "from": "flats",
         "region": { "x": 17, "y": 60, "w": 14, "h": 2 }, "depth": 2 }
-→ { "changed": 24, "bounds": { "x": 17, "y": 60, "w": 14, "h": 2 }, "seq": 16 }
+→ { "changed": 24, "bounds": { "x": 17, "y": 60, "w": 14, "h": 2 }, "seq": 10 }
 
 check_step { "assetId": "…" }
 → { "step": "shadow", "pass": false,
@@ -376,12 +427,16 @@ the whole waist, which is more than the form justifies. Undo that one call and r
 it one row deep:
 
 ```
-undo { "assetId": "…", "count": 1 }
-→ { "seq": 15, "undone": "shade shadow-deep" }
+undo { "assetId": "…", "count": 2 }
+→ { "seq": 8, "undone": ["shade shadow-deep", "shade shadow-deep"] }
 
-shade { "assetId": "…", "target": "shadow-deep", "from": "silhouette",
+shade { "assetId": "…", "target": "shadow-deep", "from": "flats",
         "region": { "x": 11, "y": 39, "w": 23, "h": 1 }, "depth": 2 }
-→ { "changed": 23, "bounds": { "x": 11, "y": 39, "w": 23, "h": 1 }, "seq": 17 }
+→ { "changed": 23, "bounds": { "x": 11, "y": 39, "w": 23, "h": 1 }, "seq": 9 }
+
+shade { "assetId": "…", "target": "shadow-deep", "from": "flats",
+        "region": { "x": 17, "y": 60, "w": 14, "h": 2 }, "depth": 2 }
+→ { "changed": 24, "bounds": { "x": 17, "y": 60, "w": 14, "h": 2 }, "seq": 10 }
 
 check_step { "assetId": "…" }
 → { "name": "ao-coverage", "pass": true, "detail": "shadow-deep 7.9% of filled" }
@@ -389,12 +444,15 @@ check_step { "assetId": "…" }
 advance_step { "assetId": "…" } → { "step": "light" }
 ```
 
-## A6. Light
+`undo` with `count: 2` because the feet placement landed after the belt one; the op log
+is a stack, not a set, so you walk back to the call you want and re-send what followed.
+
+## A5. Light
 
 ```
-shade { "assetId": "…", "target": "light", "from": "silhouette",
+shade { "assetId": "…", "target": "light", "from": "flats",
         "direction": "upper-left", "depth": 1 }
-→ { "changed": 239, "bounds": { "x": 10, "y": 4, "w": 28, "h": 58 }, "seq": 18,
+→ { "changed": 239, "bounds": { "x": 10, "y": 4, "w": 28, "h": 58 }, "seq": 11,
     "skipped": 0 }
 
 check_step { "assetId": "…" }
@@ -405,17 +463,90 @@ check_step { "assetId": "…" }
                 { "name": "extremes", "pass": true },
                 { "name": "band-count", "pass": true, "detail": "skin 4, cloth 3, leather 3, hair 3" } ] }
 
-advance_step { "assetId": "…" } → { "step": "rim" }
+advance_step { "assetId": "…" } → { "step": "outline" }
 ```
 
-## A7. Rim
+## A6. Outline
 
-Pass the same `direction` you used for shadow. The engine places the rim opposite it.
+The outline comes here, with every fill it borders already on the canvas. One call; do
+not draw outline pixels by hand.
 
 ```
-shade { "assetId": "…", "target": "rim", "from": "silhouette",
+outline { "assetId": "…", "from": "flats", "mode": "selective", "darken": 2 }
+→ { "changed": 214, "bounds": { "x": 10, "y": 4, "w": 28, "h": 58 }, "seq": 12 }
+
+diff_layers { "assetId": "…", "a": "silhouette", "b": "outline" }
+→ 0 outline pixels outside the silhouette
+
+check_step { "assetId": "…" }
+→ { "step": "outline", "pass": true,
+    "checks": [ { "name": "containment", "pass": true },
+                { "name": "coverage", "pass": true, "detail": "0.68 of perimeter, target 0.60–0.75" },
+                { "name": "thickness", "pass": true, "detail": "1px everywhere" },
+                { "name": "bottom-band", "pass": true },
+                { "name": "hue-variety", "pass": true, "detail": "5 distinct outline colours" } ] }
+
+advance_step { "assetId": "…" } → { "step": "detail" }
+```
+
+If coverage comes back at 0.82 the style rules were not applied; re-send with
+`"mode": "selective"` spelled exactly, and check `get_style_rules` says
+`"outline": "selective"`.
+
+## A7. Detail
+
+Face on the eye line, a cast shadow from the collar, the coat seam.
+
+```
+draw_runs { "assetId": "…", "layer": "detail", "runs": [
+  { "y": 14, "x0": 21, "x1": 22, "slot": 17 },
+  { "y": 14, "x0": 25, "x1": 26, "slot": 17 },
+  { "y": 18, "x0": 23, "x1": 24, "slot": 2  },
+  { "y": 26, "x0": 19, "x1": 28, "slot": 8  },
+  { "y": 27, "x0": 20, "x1": 27, "slot": 8  } ] }
+→ { "changed": 26, "bounds": { "x": 19, "y": 14, "w": 10, "h": 14 }, "seq": 13 }
+```
+
+Rows 14 are the two eyes, 2 px each, on the eye line, in ink dark. Row 18 is the mouth
+in skin shadow. Rows 26–27 are the collar's cast shadow on the coat, in cloth-green
+shadow, offset down from its caster at rows 24–25.
+
+The coat seam, as geometry rather than runs:
+
+```
+draw_shape { "assetId": "…", "layer": "detail", "shape": "line",
+             "from": { "x": 23, "y": 28 }, "to": { "x": 23, "y": 40 },
+             "slot": 5, "fill": false, "pixelPerfect": true }
+→ { "changed": 13, "bounds": { "x": 23, "y": 28, "w": 1, "h": 13 }, "seq": 14 }
+
+check_step { "assetId": "…" }
+→ { "step": "detail", "pass": false,
+    "checks": [
+      { "name": "noise", "pass": true, "detail": "2 orphan pixels, budget 6" },
+      { "name": "feature-budget", "pass": true, "detail": "4 features below 4x4" },
+      { "name": "separator-length", "pass": false,
+        "detail": "run of 13px at x=23, y=28–40; maximum is 8",
+        "hint": "Break the seam: remove y=34 and y=35 at x=23." },
+      { "name": "detail-distribution", "pass": true, "detail": "64% in the top 40%" },
+      { "name": "colour-change-rate", "pass": true, "detail": "0.29, target 0.22–0.38" } ] }
+
+set_pixels { "assetId": "…", "layer": "detail", "pixels": [
+  { "x": 23, "y": 34, "slot": 0 }, { "x": 23, "y": 35, "slot": 0 } ] }
+→ { "changed": 2, "bounds": { "x": 23, "y": 34, "w": 1, "h": 2 }, "seq": 15 }
+
+check_step { "assetId": "…" } → { "step": "detail", "pass": true }
+advance_step { "assetId": "…" } → { "step": "accent" }
+```
+
+## A8. Accent — rim, then speculars
+
+One step, two layers, in ordinal order. The rim is a `shade` call; pass the same
+`direction` you used for shadow, because the engine places the rim opposite it.
+
+```
+shade { "assetId": "…", "target": "rim", "from": "flats",
         "direction": "upper-left" }
-→ { "changed": 41, "bounds": { "x": 17, "y": 4, "w": 20, "h": 34 }, "seq": 19 }
+→ { "changed": 41, "bounds": { "x": 17, "y": 4, "w": 20, "h": 34 }, "seq": 16 }
 
 read_region { "assetId": "…", "layer": "rim", "x": 14, "y": 4, "w": 22, "h": 10 }
 → legend: T=20 rim.deep  U=21 rim.soft  V=22 rim  .=transparent
@@ -432,79 +563,52 @@ read_region { "assetId": "…", "layer": "rim", "x": 14, "y": 4, "w": 22, "h": 1
     12 | ...................V..
     13 | ...................U..
 
-check_step { "assetId": "…" }
-→ { "step": "rim", "pass": true,
-    "checks": [ { "name": "key-side", "pass": true, "detail": "0 rim pixels on the lit side" },
-                { "name": "thickness", "pass": true, "detail": "1px" },
-                { "name": "broken", "pass": true, "detail": "runs 5,3,2,2,4; gaps 1,2,1,3" },
-                { "name": "coverage", "pass": true, "detail": "0.19 of perimeter, target 0.15–0.25" },
-                { "name": "bottom-clear", "pass": true },
-                { "name": "contrast", "pass": true, "detail": "min ΔL 0.24" } ] }
-
-advance_step { "assetId": "…" } → { "step": "detail" }
-```
-
-## A8. Detail
-
-Face on the eye line, a cast shadow from the collar, the coat seam. Everything here is
-placed by hand into the `detail` layer.
-
-```
-draw_runs { "assetId": "…", "layer": "detail", "runs": [
-  { "y": 14, "x0": 21, "x1": 22, "slot": 17 },
-  { "y": 14, "x0": 25, "x1": 26, "slot": 17 },
-  { "y": 18, "x0": 23, "x1": 24, "slot": 2  },
-  { "y": 26, "x0": 19, "x1": 28, "slot": 8  },
-  { "y": 27, "x0": 20, "x1": 27, "slot": 8  } ] }
-→ { "changed": 26, "bounds": { "x": 19, "y": 14, "w": 10, "h": 14 }, "seq": 20 }
-```
-
-Rows 14 are the two eyes, 2 px each, on the eye line, in ink dark. Row 18 is the mouth
-in skin shadow. Rows 26–27 are the collar's cast shadow on the coat, in cloth-green
-shadow, offset down from its caster at rows 24–25.
-
-The coat seam, as geometry rather than runs:
-
-```
-draw_shape { "assetId": "…", "layer": "detail", "shape": "line",
-             "from": { "x": 23, "y": 28 }, "to": { "x": 23, "y": 40 },
-             "slot": 5, "fill": false, "pixelPerfect": true }
-→ { "changed": 13, "bounds": { "x": 23, "y": 28, "w": 1, "h": 13 }, "seq": 21 }
-
-check_step { "assetId": "…" }
-→ { "step": "detail", "pass": false,
-    "checks": [
-      { "name": "noise", "pass": true, "detail": "2 orphan pixels, budget 6" },
-      { "name": "feature-budget", "pass": true, "detail": "4 features below 4x4" },
-      { "name": "separator-length", "pass": false,
-        "detail": "run of 13px at x=23, y=28–40; maximum is 8",
-        "hint": "Break the seam: remove y=34 and y=35 at x=23." },
-      { "name": "detail-distribution", "pass": true, "detail": "64% in the top 40%" },
-      { "name": "colour-change-rate", "pass": true, "detail": "0.29, target 0.22–0.38" } ] }
-
-set_pixels { "assetId": "…", "layer": "detail", "pixels": [
-  { "x": 23, "y": 34, "slot": 0 }, { "x": 23, "y": 35, "slot": 0 } ] }
-→ { "changed": 2, "bounds": { "x": 23, "y": 34, "w": 1, "h": 2 }, "seq": 22 }
-
-check_step { "assetId": "…" } → { "step": "detail", "pass": true }
-advance_step { "assetId": "…" } → { "step": "accent" }
-```
-
-## A9. Accent, cleanup, export
-
-```
 set_pixels { "assetId": "…", "layer": "accent", "pixels": [
   { "x": 21, "y": 14, "slot": 22 }, { "x": 25, "y": 14, "slot": 22 } ] }
-→ { "changed": 2, "bounds": { "x": 21, "y": 14, "w": 5, "h": 1 }, "seq": 23 }
-
-antialias { "assetId": "…", "layer": "detail", "strength": 1 }
-→ { "changed": 9, "bounds": { "x": 17, "y": 13, "w": 14, "h": 15 }, "seq": 24 }
+→ { "changed": 2, "bounds": { "x": 21, "y": 14, "w": 5, "h": 1 }, "seq": 17 }
 
 check_step { "assetId": "…" }
 → { "step": "accent", "pass": true,
-    "checks": [ { "name": "specular-count", "pass": true, "detail": "2 pixels, budget 6" },
-                { "name": "specular-value", "pass": true, "detail": "max L 0.930" },
-                { "name": "palette", "pass": true, "detail": "22 slots, unchanged" } ] }
+    "checks": [ { "name": "rim-side", "pass": true, "detail": "0 rim pixels on the lit side" },
+                { "name": "rim-thickness", "pass": true, "detail": "1px" },
+                { "name": "rim-broken", "pass": true, "detail": "runs 5,3,2,2,4; gaps 1,2,1,3" },
+                { "name": "rim-coverage", "pass": true, "detail": "0.19 of perimeter, target 0.15–0.25" },
+                { "name": "rim-bottom", "pass": true },
+                { "name": "rim-contrast", "pass": true, "detail": "min ΔL 0.24" },
+                { "name": "specular-count", "pass": true, "detail": "2 pixels, budget 6" },
+                { "name": "specular-value", "pass": true, "detail": "max L 0.930" } ] }
+
+advance_step { "assetId": "…" } → { "step": "cleanup" }
+```
+
+## A9. Cleanup and export
+
+`cleanup` owns no layer. Each call names the finished layer it is polishing.
+
+```
+antialias { "assetId": "…", "layer": "detail", "strength": 1 }
+→ { "changed": 9, "bounds": { "x": 17, "y": 13, "w": 14, "h": 15 }, "seq": 18 }
+
+check_step { "assetId": "…" }
+→ { "step": "cleanup", "pass": false,
+    "checks": [
+      { "name": "outer-edge-untouched", "pass": true, "detail": "alpha set {0, 255}" },
+      { "name": "aa-placement", "pass": true },
+      { "name": "aa-palette", "pass": true, "detail": "22 slots, unchanged" },
+      { "name": "orphans", "pass": false,
+        "detail": "8 pixels with 0 same-slot neighbours; the limit is 6",
+        "hint": "Merge or remove the orphans at (27,16) and (20,33)." },
+      { "name": "speckle", "pass": true, "detail": "3.1% of filled, limit 6%" },
+      { "name": "jaggies", "pass": true },
+      { "name": "value-audit", "pass": true, "detail": "L range 0.790" },
+      { "name": "pillow-test", "pass": true, "detail": "r = 0.31" },
+      { "name": "banding-test", "pass": true } ] }
+
+set_pixels { "assetId": "…", "layer": "detail", "pixels": [
+  { "x": 27, "y": 16, "slot": 0 }, { "x": 20, "y": 33, "slot": 0 } ] }
+→ { "changed": 2, "bounds": { "x": 20, "y": 16, "w": 8, "h": 18 }, "seq": 19 }
+
+check_step { "assetId": "…" } → { "step": "cleanup", "pass": true }
 
 read_canvas { "assetId": "…" }            # the flattened composite, one last look
 
@@ -514,7 +618,7 @@ export_png { "assetId": "…", "scale": 1, "layers": "visible" }
 
 ---
 
-# B. Deriving a palette and a silhouette from a reference
+# B. Deriving a palette, a silhouette and flats from a reference
 
 There is no import tool. The person imports the image in the application; the conform
 pipeline detects its grid, reduces its palette in Oklab and stores the result. Your
@@ -571,7 +675,7 @@ set_palette { "assetId": "…", "ramps": [
   { "name": "hair",        "material": "hair",    "slots": ["#2E0C20","#492C46","#64546E"] },
   { "name": "ink",         "material": "ink",     "slots": ["#0E0418","#211E36","#363C50"] },
   { "name": "rim",         "material": "rim",     "slots": ["#B3AC82","#DDC8A2","#FBE3CE"] } ] }
-→ { "slots": 22, "ramps": 7 }
+→ { "slots": 22, "ramps": 7, "seq": 1 }
 ```
 
 Sending the raw proposal instead gives:
@@ -584,21 +688,16 @@ Sending the raw proposal instead gives:
 
 ## B2. Silhouette from the reference grid
 
-`read_reference` returned the conformed grid in the asset's palette. Read the
-silhouette layer, which is still empty, then paste the reference's opaque mask into it
-as a single slot — do not paste the reference's colours, because they are its palette's
-clusters and not your ramps.
-
-Take the mask from the reference grid row by row, replacing every non-`.` character
-with `F`, then paste. Then read back and compare:
+Take the mask from the reference grid row by row: `R` wherever the reference was
+opaque, `.` where it was not. Do not carry the reference's colours into the silhouette
+— it is one slot, and its colours are the importer's k-means clusters, not your ramps.
 
 ```
 paste_grid { "assetId": "…", "layer": "silhouette", "x": 0, "y": 0,
              "mode": "replace",
-             "rows": [ 64 rows of 48 characters, one per canvas row, `F` wherever the
-                       reference grid was opaque and `.` where it was not — the same
-                       shape as the block in A2 ] }
-→ { "changed": 941, "bounds": { "x": 9, "y": 3, "w": 30, "h": 58 }, "seq": 4 }
+             "rows": [ 64 rows of 48 characters, one per canvas row, `R` for opaque and
+                       `.` for transparent — the same block shape as A2 ] }
+→ { "changed": 941, "bounds": { "x": 9, "y": 3, "w": 30, "h": 58 }, "seq": 2 }
 
 check_step { "assetId": "…" }
 → { "step": "silhouette", "pass": false,
@@ -619,10 +718,10 @@ set_pixels { "assetId": "…", "layer": "silhouette", "pixels": [
   { "x": 37, "y": 13, "slot": 0 }, { "x": 38, "y": 13, "slot": 0 },
   { "x": 37, "y": 14, "slot": 0 }, { "x": 38, "y": 14, "slot": 0 },
   { "x": 9,  "y": 44, "slot": 0 }, { "x": 9,  "y": 45, "slot": 0 } ] }
-→ { "changed": 8, "bounds": { "x": 9, "y": 12, "w": 30, "h": 34 }, "seq": 5 }
+→ { "changed": 8, "bounds": { "x": 9, "y": 12, "w": 30, "h": 34 }, "seq": 3 }
 
 translate { "assetId": "…", "layer": "silhouette", "dx": 0, "dy": 1 }
-→ { "changed": 933, "bounds": { "x": 10, "y": 4, "w": 28, "h": 58 }, "seq": 6, "lost": 0 }
+→ { "changed": 933, "bounds": { "x": 10, "y": 4, "w": 28, "h": 58 }, "seq": 4, "lost": 0 }
 ```
 
 `lost: 0` matters — `translate` discards pixels pushed off the canvas. A non-zero count
@@ -630,11 +729,36 @@ means you shifted content out of existence and should `undo`.
 
 ```
 check_step { "assetId": "…" } → { "step": "silhouette", "pass": true }
+advance_step { "assetId": "…" } → { "step": "flats" }
 ```
 
-From here the flats, outline, shadow, light, rim, detail and accent steps are identical
-to recipe A. Keep reading the reference as you go — `read_reference` costs one call and
-tells you where the material boundaries were in the original.
+## B3. Flats from the reference's material regions
+
+The reference is still readable and it is the cheapest way to find where one material
+ends and the next begins. Read it, then write the flats from the regions you see — with
+your slot numbers, not the reference's.
+
+```
+read_reference { "assetId": "…" }
+paste_grid { "assetId": "…", "layer": "flats", "x": 0, "y": 0, "mode": "replace",
+             "rows": [ the same 64 rows, each mask character replaced by its material's
+                       base letter: O hair, C skin, F cloth-blue, I cloth-green,
+                       L leather ] }
+→ { "changed": 939, "bounds": { "x": 10, "y": 4, "w": 28, "h": 58 }, "seq": 5 }
+
+check_step { "assetId": "…" }
+→ { "step": "flats", "pass": true, "checks": [ { "name": "coverage", "pass": true,
+                                                 "detail": "939 of 939 assigned" } ] }
+```
+
+Watch for the one failure that is specific to this route: the translate in B2 moved the
+silhouette down a row, so flats derived from the *untranslated* reference grid will be
+off by one and the coverage check will report a whole row unassigned at the bottom and a
+whole row outside the mask at the top. Translate the flats by the same amount, or
+rebuild the rows from the translated silhouette.
+
+From here the shadow, light, outline, detail, accent and cleanup steps are identical to
+recipe A.
 
 ---
 
@@ -644,7 +768,7 @@ The sprite is finished and its gates all pass. Make the same traveller in rose.
 
 ```
 get_step { "assetId": "…" }
-→ { "step": "accent", "pass": true, "next": "variation" }
+→ { "step": "cleanup", "pass": true, "next": "variation" }
 
 advance_step { "assetId": "…" } → { "step": "variation" }
 
@@ -684,6 +808,10 @@ check_step { "assetId": "…" }
                 { "name": "edge-separation", "pass": true, "detail": "min ΔL 0.08" },
                 { "name": "fixed-values", "pass": true, "detail": "ink and rim unchanged" } ] }
 ```
+
+Not one pixel moved. The `flats` layer still says slot 6 everywhere the coat is; slot 6
+is simply a different colour now, and every shadow, light, outline and rim pixel that
+was resolved from it keeps its exact position and its exact value relationship.
 
 What to remap and what to leave alone:
 

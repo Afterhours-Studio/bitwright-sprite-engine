@@ -40,9 +40,9 @@ Rules that are not negotiable:
 
 ## 2. The step workflow
 
-An asset moves `reference → palette → silhouette → outline → shadow → light → rim →
-detail → accent → variation`. You cannot skip a step and you cannot advance until the
-gate passes.
+An asset moves `reference → palette → silhouette → flats → shadow → light → outline →
+detail → accent → cleanup → variation`. You cannot skip a step and you cannot advance
+until the gate passes.
 
 `check_step` evaluates the gate without advancing. `advance_step` moves on, or fails
 with `step.gate_failed` and hands you the same report. Every check in that report is
@@ -50,41 +50,48 @@ with `step.gate_failed` and hands you the same report. Every check in that repor
 assert — a failing check is a statement about pixels, so change pixels. The `hint`
 field names coordinates wherever it can; act on those coordinates directly.
 
-| Step | Layer role | You place | Tools | Gate measures |
-| --- | --- | --- | --- | --- |
-| `reference` | — | optional imported art | `read_reference` | nothing |
-| `palette` | — | ramps per material | `set_palette`, `extract_palette`, `describe_palette` | ≥ 3 steps per ramp, hue shift present, slot ceiling |
-| `silhouette` | `silhouette` | the mask, then the base flats | `paste_grid`, `draw_runs`, `mirror`, `fill_region` | single connected region, reads at 1× |
-| `outline` | `outline` | the selective outline | `outline` | no outline pixel outside the silhouette |
-| `shadow` | `shadow-core`, `shadow-deep` | core shadow, then AO | `shade` | one consistent light direction |
-| `light` | `light` | lit planes | `shade` | no pillow shading, no banding |
-| `rim` | `rim` | the backlight edge | `shade` | rim only on edges away from the key light |
-| `detail` | `detail` | interior features, face, folds | `draw_runs`, `set_pixels`, `draw_shape` | isolated-pixel noise within budget |
-| `accent` | `accent` | specular and eye highlights | `set_pixels` | accent count within budget |
-| `variation` | — | recolours | `create_variation` | value structure unchanged |
+| Step | Layer role | Ord | You place | Tools | Gate measures |
+| --- | --- | --- | --- | --- | --- |
+| `reference` | — | — | optional imported art | `read_reference` | nothing |
+| `palette` | — | — | ramps per material | `set_palette`, `extract_palette`, `describe_palette` | ≥ 3 steps per ramp, hue shift present, slot ceiling |
+| `silhouette` | `silhouette` | 10 | the mask, one slot | `paste_grid`, `draw_runs`, `mirror` | single connected region, reads at 1× |
+| `flats` | `flats` | 20 | each material's base slot | `paste_grid`, `draw_runs`, `fill_region` | no pixel of the mask left unassigned |
+| `shadow` | `shadow-core`, `shadow-deep` | 30, 31 | core shadow, then AO | `shade` | one consistent light direction |
+| `light` | `light` | 40 | lit planes | `shade` | no pillow shading, no banding |
+| `outline` | `outline` | 50 | the selective outline | `outline` | no outline pixel outside the silhouette |
+| `detail` | `detail` | 60 | interior features, folds, face | `draw_runs`, `set_pixels`, `draw_shape` | isolated-pixel noise within budget |
+| `accent` | `rim`, `accent` | 70, 71 | the backlight edge, then speculars | `shade`, `set_pixels` | rim coverage and accent count within budget |
+| `cleanup` | — | — | polish, in place | `antialias`, `set_pixels` | noise below budget, outer edge untouched |
+| `variation` | — | — | recolours | `create_variation` | value structure unchanged |
 
-Three things about this table that catch agents out:
+Four things about this order that catch agents out:
 
-- **The `silhouette` layer carries the base flats too.** There is no separate flats
-  layer. Fill the mask in one slot, pass the shape gate, then repaint the mask with
-  each material's base slot — still in `silhouette`, before you advance. `shade` reads
-  `from: "silhouette"` and resolves each pixel's ramp from the slot it finds there, so
-  a silhouette left in one flat colour gives you one ramp of shading for the whole
-  sprite.
-- **The outline pass runs before shadow here**, not after light. The `outline` tool
-  derives each outline pixel from the fill it borders, and the base flats already
-  exist, so it has everything it needs.
-- **Writing to a layer that does not belong to the current step fails** with
-  `step.wrong`. Passing `force: true` is allowed and is sometimes right, but prefer
-  `revisit_step` — it is recorded, and nothing is erased when you go back.
+- **Silhouette and flats are different layers because they answer different
+  questions.** The silhouette is one opaque slot answering *what shape*; the flats
+  assign each material's base slot, answering *made of what*. They get revised for
+  different reasons, and the flats gate is simply that the flats cover the mask
+  completely.
+- **`shade` and `outline` both read `from: "flats"`**, never from the silhouette. They
+  resolve each pixel's ramp from the material slot they find there. Point either at
+  `silhouette` and every pixel resolves to the one mask slot, so the whole sprite
+  shades off a single ramp.
+- **The outline goes late, after light.** An outline pixel's colour is derived from the
+  fill beside it, so outlining before the fills exist means guessing, and the guess is
+  always flat black. This is the position most likely to surprise you; do not reorder it.
+- **`cleanup` owns no layer.** It polishes the layers already drawn, in place, so its
+  calls name whichever finished layer they are touching.
 
 Full step table with the numeric thresholds: `references/workflow.md`.
+
+Writing to a layer that does not belong to the current step fails with `step.wrong`.
+Passing `force: true` is allowed and is sometimes right, but prefer `revisit_step` — it
+is recorded, and nothing is erased when you go back.
 
 ## 3. Choosing a write tool
 
 | Situation | Tool |
 | --- | --- |
-| A silhouette, a whole tile, any region you can state as a rectangle of characters | `paste_grid` |
+| A silhouette, a flats map, a whole tile — any region you can state as a rectangle of characters | `paste_grid` |
 | A shape you are describing scanline by scanline | `draw_runs` |
 | Fewer than about a dozen corrections | `set_pixels` |
 | A straight edge, a box, an ellipse, a curve | `draw_shape` |
@@ -104,7 +111,8 @@ The decision rule: **pick the tool whose arguments state what you actually know.
   doubled corner pixel on a diagonal is the clearest tell of machine-drawn pixel art.
 - The form is bilaterally symmetric → draw one half and `mirror` with
   `{ axis: "x", about: 23 }` on a 48-wide canvas. Drawing both halves by hand is where
-  drift enters. Do **not** mirror after shading; the lighting is not symmetric.
+  drift enters. Mirror the silhouette and the flats; never mirror after shading,
+  because the lighting is not symmetric.
 
 ## 4. You never choose a colour for shading
 
@@ -113,18 +121,18 @@ direction the light comes from*; the engine looks up the ramp the source slot be
 to and steps along it.
 
 ```jsonc
-{ "assetId": "…", "target": "shadow-core", "from": "silhouette",
+{ "assetId": "…", "target": "shadow-core", "from": "flats",
   "direction": "upper-left", "depth": 1 }
 ```
 
 - `target` is one of `shadow-core`, `shadow-deep`, `light`, `rim`.
+- `from` is `"flats"`. That is where the material slots are.
 - Omit `direction` and the style rules supply it. Do not vary it between calls on one
   sprite; one inconsistent call is exactly what the shadow gate detects.
 - `depth` is how many ramp steps to move. `depth: 1` for core shadow and for light;
   `depth: 2` for `shadow-deep`.
 - If `shade` reports skipped pixels, those source slots belong to no ramp. That means
-  you painted flats with a slot that is not in any ramp. Fix the flats, not the shade
-  call.
+  the flats carry a slot that is not in any ramp. Fix the flats, not the shade call.
 
 **The only hex values you ever type are in `set_palette`.** Those are checked against
 the style rules — slot ceiling, ramp length, hue-shift bounds, value floor and ceiling
@@ -140,21 +148,21 @@ prefixed by its row number. Example, `read_region` with
 `{ layer: "silhouette", x: 10, y: 24, w: 28, h: 12 }`:
 
 ```
-legend: F=6 cloth-blue.base  .=transparent
+legend: R=18 ink.mid  .=transparent
 
         10   15   20   25   30   35
-   24 | ...FFFFFFFFFFFFFFFFFFFFFF...
-   25 | ...FFFFFFFFFFFFFFFFFFFFFF...
-   26 | ...FFFFFFFFFFFFFFFFFFFFFF...
-   27 | ..FFFFFFFFFFFFFFFFFFFFFFF...
-   28 | ..FFFFFFFFFFFFFFFFFFFFFFFF..
-   29 | ..FFFFFFFFFFFFFFFFFFFFFFFF..
-   30 | ..FFFFFFFFFFFFFFFFFFF..FFF..
-   31 | ..FFFFFFFFFFFFFFFFFFF..FFF..
-   32 | ..FFFFFFFFFFFFFFFFFFF..FFF..
-   33 | ..FFFFFFFFFFFFFFFFFFFFFFFF..
-   34 | ..FFFFFFFFFFFFFFFFFFFFFFFF..
-   35 | .FFFFFFFFFFFFFFFFFFFFFFFF...
+   24 | ...RRRRRRRRRRRRRRRRRRRRRR...
+   25 | ...RRRRRRRRRRRRRRRRRRRRRR...
+   26 | ...RRRRRRRRRRRRRRRRRRRRRR...
+   27 | ..RRRRRRRRRRRRRRRRRRRRRRR...
+   28 | ..RRRRRRRRRRRRRRRRRRRRRRRR..
+   29 | ..RRRRRRRRRRRRRRRRRRRRRRRR..
+   30 | ..RRRRRRRRRRRRRRRRRRR..RRR..
+   31 | ..RRRRRRRRRRRRRRRRRRR..RRR..
+   32 | ..RRRRRRRRRRRRRRRRRRR..RRR..
+   33 | ..RRRRRRRRRRRRRRRRRRRRRRRR..
+   34 | ..RRRRRRRRRRRRRRRRRRRRRRRR..
+   35 | .RRRRRRRRRRRRRRRRRRRRRRRR...
 ```
 
 Read it like this, every time:
@@ -173,6 +181,10 @@ Read it like this, every time:
    transparent" becomes `{ "y": 30, "x0": 31, "x1": 32, "slot": 0 }`. Never convert a
    grid reading into a bare column number you then reuse from memory.
 
+The mask slot here is `R`, slot 18. Which slot the silhouette uses does not matter:
+nothing downstream reads it, because `shade` and `outline` read the `flats` layer. What
+matters is that it is one slot and that the shape is right.
+
 Miscounting one column is the mistake that ruins a shading pass, because the error is
 invisible in the diff summary and only shows up as a one-pixel-wide misalignment three
 steps later. When a region matters, re-read it with a tighter `read_region` so the
@@ -190,7 +202,7 @@ ruler starts near the coordinate you care about.
 | `bounds.outside` | Coordinates fall off the canvas | Re-read the asset size from `open_asset` or `get_step`. Remember `x1` in a run is inclusive. |
 | `step.wrong` | The layer does not belong to the current step | Use the layer the current step owns, or `revisit_step` to go back. Nothing is erased by revisiting. `force: true` is a last resort and is logged as a forced write. |
 | `layer.locked` | The person locked that layer in the application | Say so and ask. Do not work around it. |
-| `layer.unknown_role` | The role string is not a workflow role | The roles are `silhouette`, `outline`, `shadow-core`, `shadow-deep`, `light`, `rim`, `detail`, `accent`. |
+| `layer.unknown_role` | The role string is not a workflow role | The roles are `silhouette`, `flats`, `shadow-core`, `shadow-deep`, `light`, `outline`, `detail`, `rim`, `accent`. |
 | `asset.not_open` / `asset.not_found` | No current asset, or a bad id | `list_assets`, then `open_asset`. |
 
 ## 7. Starting from nothing

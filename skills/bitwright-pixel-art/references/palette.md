@@ -148,6 +148,10 @@ The slots it produces, with the character `read_canvas` prints for each:
 | 21 | `U` | rim **soft** — run tapers | `#DDC8A2` | 0.841 | 0.056 | 82° |
 | 22 | `V` | rim | `#FBE3CE` | 0.930 | 0.038 | 64° |
 
+The slots marked **base** are the ones the `flats` layer is painted with: 3, 6, 9, 12,
+15. Every other slot in the table is reached by the engine stepping along a ramp from
+one of those, so you never write them yourself except as detail and accent marks.
+
 Why it passes:
 
 - Every ramp is 3 steps except skin, which is 4. All within 3–5.

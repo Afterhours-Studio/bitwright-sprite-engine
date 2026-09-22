@@ -1,8 +1,31 @@
 # The step workflow, in full
 
-Ten steps. Each owns at most one layer role. The gate at the end of each step is
-computed from the pixel buffer by the engine; `check_step` runs it without advancing,
-`advance_step` runs it and moves on if it passes.
+Eleven steps. Each owns at most one layer role, except `accent`, which owns two. The
+gate at the end of each step is computed from the pixel buffer by the engine;
+`check_step` runs it without advancing, `advance_step` runs it and moves on if it
+passes.
+
+```
+reference → palette → silhouette → flats → shadow → light → outline
+                                                               │
+              variation ← cleanup ← accent ← detail ←───────────┘
+```
+
+| Step | Layer role | Ordinal |
+| --- | --- | --- |
+| `reference` | — | — |
+| `palette` | — | — |
+| `silhouette` | `silhouette` | 10 |
+| `flats` | `flats` | 20 |
+| `shadow` | `shadow-core` | 30 |
+| | `shadow-deep` | 31 |
+| `light` | `light` | 40 |
+| `outline` | `outline` | 50 |
+| `detail` | `detail` | 60 |
+| `accent` | `rim` | 70 |
+| | `accent` | 71 |
+| `cleanup` | — | — |
+| `variation` | — | — |
 
 Canvas assumed below: `hd2d-field`, 48 × 64, light from `upper-left`, contact row
 `y = 61`. Substitute your asset's numbers from `get_style_rules`.
@@ -55,14 +78,9 @@ Failure code: `palette.rule_violation`, with the offending ramp named in the hin
 
 ## 3. `silhouette` — layer: `silhouette`
 
-Two passes into one layer.
-
-**Pass A — the mask.** One slot, the whole character mass. `paste_grid` is the tool.
-
-**Pass B — the base flats.** Repaint the mask with each material's *base* slot, still
-in `silhouette`, before advancing. `draw_runs` is the tool. `shade` later reads this
-layer and resolves each pixel's ramp from the slot it finds, so a mask left in one flat
-colour produces one ramp of shading for the entire sprite.
+One slot, the whole character mass. `paste_grid` is the tool. This layer answers *what
+shape* and nothing else; which slot you use for the mask does not matter, because
+nothing downstream reads it.
 
 **Gate checks and thresholds**
 
@@ -82,16 +100,6 @@ colour produces one ramp of shading for the entire sprite.
 | Solidity (filled ÷ convex hull) | 0.62 – 0.82 |
 | Centre of mass | horizontal centroid within ±1 px of the canvas centreline |
 
-Flats-specific checks, measured on the same layer:
-
-| Check | Threshold |
-| --- | --- |
-| Base slots only | no shading slots present; one base slot per material |
-| Adjacent material separation | ΔL ≥ 0.07 between touching bases |
-| Area share | no single material other than skin and the main cloth exceeds 40% of filled pixels |
-| Signature hue | exactly one high-chroma hue, at 8–15% of filled pixels |
-| Greyscale legibility | head, torso, arms, legs, held objects still separable with hue removed |
-
 Landmark rows for a 3.5-head figure on 48 × 64 — use these before drawing, not after:
 
 ```
@@ -110,30 +118,29 @@ a 96 px canvas. Feet are 3–5 px wide seen from the front.
 
 ---
 
-## 4. `outline` — layer: `outline`
+## 4. `flats` — layer: `flats`
 
-One call:
+Assign every pixel of the mask its material's **base** slot, unshaded. `paste_grid` for
+the whole map, `draw_runs` for a material at a time, `fill_region` to convert a closed
+area of one slot into another.
 
-```jsonc
-{ "assetId": "…", "from": "silhouette", "mode": "selective", "darken": 2 }
-```
-
-`mode: "selective"` is what HD-2D does — the outline is dropped where the key light
-strikes, so the sprite reads as lit rather than as a sticker. Each outline pixel's
-colour is derived from the fill it borders, never a flat black. Do not attempt to draw
-outline pixels by hand; `draw_runs` into `outline` is for repairs only.
+This is the layer `shade` and `outline` read. Every later step resolves a pixel's ramp
+from the slot it finds here, which is why the gate cares about coverage above
+everything else: an unassigned pixel is a pixel that will never be shaded, outlined or
+rimmed.
 
 **Gate checks and thresholds**
 
 | Check | Threshold |
 | --- | --- |
-| Containment | no outline pixel outside the silhouette; verify with `diff_layers { a: "silhouette", b: "outline" }` |
-| Outline coverage | 60–75% of the perimeter present, 25–40% dropped |
-| Thickness | 1 px everywhere; 2 px only at ≥ 96 × 128 and only on the shadow side |
-| Bottom band | the bottom 20% of the sprite has a full outline, zero dropped pixels |
-| Dropped edges | where dropped, the outermost pixel is at least the material's base value |
-| Hue variety | ≥ 3 distinct outline colours on a sprite with ≥ 3 materials |
-| Pure black | zero `#000000` pixels |
+| Coverage | zero pixels of the silhouette left unassigned in `flats` |
+| Containment | zero `flats` pixels outside the silhouette; verify with `diff_layers { a: "silhouette", b: "flats" }` |
+| Base slots only | no shading slots present; one base slot per material |
+| Ramped slots | every slot used belongs to a ramp |
+| Adjacent material separation | ΔL ≥ 0.07 between touching bases |
+| Area share | no single material other than skin and the main cloth exceeds 40% of filled pixels |
+| Signature hue | exactly one high-chroma hue, at 8–15% of filled pixels |
+| Greyscale legibility | head, torso, arms, legs, held objects still separable with hue removed |
 
 ---
 
@@ -142,15 +149,19 @@ outline pixels by hand; `draw_runs` into `outline` is for repairs only.
 Two `shade` calls, in this order:
 
 ```jsonc
-{ "assetId": "…", "target": "shadow-core", "from": "silhouette", "depth": 1 }
-{ "assetId": "…", "target": "shadow-deep", "from": "silhouette", "depth": 2,
-  "region": { "x": 17, "y": 19, "w": 14, "h": 6 } }
+{ "assetId": "…", "target": "shadow-core", "from": "flats", "depth": 1 }
+{ "assetId": "…", "target": "shadow-deep", "from": "flats", "depth": 2,
+  "region": { "x": 20, "y": 21, "w": 8, "h": 3 } }
 ```
 
 `shadow-core` is the whole away-from-key side. `shadow-deep` is ambient occlusion only,
 and it takes a `region` per placement: under the chin, under a hat brim, under the
 belt, inside a neckline, in an armpit, between limbs, and the contact rows at the feet.
 Never use `shadow-deep` as a general darker shadow.
+
+Shadow comes before light because the shadow shape *is* the form description, and
+because placing light first tempts you into shading inward from the edge, which is
+pillow shading.
 
 **Gate checks and thresholds**
 
@@ -170,12 +181,8 @@ Never use `shadow-deep` as a general darker shadow.
 ## 6. `light` — layer: `light`
 
 ```jsonc
-{ "assetId": "…", "target": "light", "from": "silhouette", "depth": 1 }
+{ "assetId": "…", "target": "light", "from": "flats", "depth": 1 }
 ```
-
-Light comes after shadow because the shadow shape is the form description, and because
-placing light first tempts you into shading inward from the edge, which is pillow
-shading.
 
 **Gate checks and thresholds**
 
@@ -191,29 +198,33 @@ shading.
 
 ---
 
-## 7. `rim` — layer: `rim`
+## 7. `outline` — layer: `outline`
+
+One call:
 
 ```jsonc
-{ "assetId": "…", "target": "rim", "from": "silhouette", "direction": "upper-left" }
+{ "assetId": "…", "from": "flats", "mode": "selective", "darken": 2 }
 ```
 
-The engine writes only the edge pixels on the side away from the key light. Pass the
-same `direction` you used for shadow — `rim` is placed opposite it, so passing the
-opposite direction yourself puts the rim on the key side and fails the gate.
+The outline goes here, after the fills it borders exist, and not earlier. Each outline
+pixel's colour is derived from the fill beside it, never a flat black; outlining before
+`flats`, `shadow` and `light` exist means guessing, and the guess is always black.
+
+`mode: "selective"` is what HD-2D does — the outline is dropped where the key light
+strikes, so the sprite reads as lit rather than as a sticker. Do not attempt to draw
+outline pixels by hand; `draw_runs` into `outline` is for repairs only.
 
 **Gate checks and thresholds**
 
 | Check | Threshold |
 | --- | --- |
-| Side | zero rim pixels on the key-lit side |
-| Position | rim sits on the outermost filled pixel; never outside the silhouette, never inside it |
-| Thickness | 1 px on `hd2d-field`; 1–2 px at ≥ 64 × 96; never more than 2 |
-| Broken | runs of 3–7 px separated by gaps of 1–3 px; zero runs longer than 8 px |
-| Coverage | 15–25% of the perimeter; hard fail above 35%, reads as stray pixels below 10% |
-| Taper | every run of length ≥ 4 ends in the softer rim step |
-| Bottom | zero rim pixels in the bottom 25% of the sprite |
-| Contrast | rim exceeds the adjacent fill by ΔL ≥ 0.20 |
-| Consistency | the rim slots are identical across every sprite in the project |
+| Containment | no outline pixel outside the silhouette; verify with `diff_layers { a: "silhouette", b: "outline" }` |
+| Outline coverage | 60–75% of the perimeter present, 25–40% dropped |
+| Thickness | 1 px everywhere; 2 px only at ≥ 96 × 128 and only on the shadow side |
+| Bottom band | the bottom 20% of the sprite has a full outline, zero dropped pixels |
+| Dropped edges | where dropped, the outermost pixel is at least the material's base value |
+| Hue variety | ≥ 3 distinct outline colours on a sprite with ≥ 3 materials |
+| Pure black | zero `#000000` pixels |
 
 ---
 
@@ -245,21 +256,51 @@ over-outlining.
 
 ---
 
-## 9. `accent` — layer: `accent`
+## 9. `accent` — layers: `rim`, then `accent`
 
-`set_pixels` only. The highest-contrast marks in the sprite: metal speculars, eye
-highlights, emissive points.
+One step, two layers, in ordinal order. The rim first:
+
+```jsonc
+{ "assetId": "…", "target": "rim", "from": "flats", "direction": "upper-left" }
+```
+
+The engine writes only the edge pixels on the side away from the key light. Pass the
+same `direction` you used for shadow — `rim` is placed opposite it, so passing the
+opposite direction yourself puts the rim on the key side and fails the gate.
+
+Then the accents, by hand, with `set_pixels` into `accent`: metal speculars, eye
+highlights, emissive points. These are the highest-contrast pixels on the sprite and
+they go last so you can place them where they earn it and count them.
 
 **Gate checks and thresholds**
 
 | Check | Threshold |
 | --- | --- |
+| Rim side | zero rim pixels on the key-lit side |
+| Rim position | rim sits on the outermost filled pixel; never outside the silhouette, never inside it |
+| Rim thickness | 1 px on `hd2d-field`; 1–2 px at ≥ 64 × 96; never more than 2 |
+| Rim broken | runs of 3–7 px separated by gaps of 1–3 px; zero runs longer than 8 px |
+| Rim coverage | 15–25% of the perimeter; hard fail above 35%, reads as stray pixels below 10% |
+| Rim taper | every run of length ≥ 4 ends in the softer rim step |
+| Rim bottom | zero rim pixels in the bottom 25% of the sprite |
+| Rim contrast | rim exceeds the adjacent fill by ΔL ≥ 0.20 |
+| Rim consistency | the rim slots are identical across every sprite in the project |
 | Specular count | ≤ 6 pixels total, only on metal, glass or eyes |
 | Specular value | max L 0.97 |
 | Palette | accents use existing slots |
 
-Finish the sprite with `antialias { assetId, layer, strength: 1 }` on interior layers.
-It refuses the outer silhouette boundary by design: a billboard sprite sits on
+---
+
+## 10. `cleanup` — layer: none
+
+The polish pass. It owns no layer of its own: it writes in place into the layers
+already drawn, so each call names whichever finished layer it is touching.
+
+```jsonc
+{ "assetId": "…", "layer": "detail", "strength": 1 }
+```
+
+`antialias` refuses the outer silhouette boundary by design: a billboard sprite sits on
 backgrounds of unknown colour and an anti-aliased outer edge produces a halo. Alpha
 values other than 0 and 255 are forbidden at the edge.
 
@@ -268,9 +309,28 @@ corners: 0 AA pixels for runs of 1–2 px, 1 for 3–4 px, 2 for 5–8 px, 3 for
 on a 45° diagonal, never on a feature ≤ 3 px, never where it would create a value used
 only once.
 
+Despeckle with `set_pixels` — merge each orphan into its most common neighbour, or grow
+it into a 2 px mark if it was carrying information.
+
+**Gate checks and thresholds**
+
+| Check | Threshold |
+| --- | --- |
+| Outer edge untouched | zero AA pixels on the perimeter; alpha set is exactly {0, 255} |
+| AA placement | zero AA on 45° diagonals, zero on features ≤ 3 px, counts per run length as above |
+| AA palette | palette size did not grow; AA colours are existing slots |
+| Orphans | pixels with zero same-slot neighbours ≤ 6 absolute and ≤ 2% of filled, excluding eye highlights and metal speculars |
+| Speckle | pixels with ≤ 1 like neighbour ≤ 6% of filled |
+| Jaggies | run-length sequences per edge are monotone or constant |
+| Value audit | L range ≥ 0.55; ≤ 55% of pixels inside any 0.15 L window; darkest L ≥ 0.10; lightest L ≤ 0.94 outside specular |
+| Pillow test | lightness ↔ edge-distance correlation r ≤ 0.6 |
+| Banding test | zero pairs of parallel adjacent boundaries longer than 4 px |
+| Thumbnail test | class identifiable at 50%, silhouette coherent at 25% |
+| Background test | composited over black, white and mid-grey, no fringe pixels appear |
+
 ---
 
-## 10. `variation` — layer: none
+## 11. `variation` — layer: none
 
 `create_variation { assetId, name, remap: [{ ramp, to: [hex, …] }] }` forks the asset
 with a new palette and identical layers. Not one pixel moves, so the value structure is
@@ -296,3 +356,8 @@ silently is not. Use it only when the person has asked for it, and say that you 
 `revisit_step { assetId, step }` moves back without erasing anything. Every earlier
 step's output is still in its own layer — that is the reason the steps are separate
 layers. Revisit, fix, advance forward again.
+
+Revisiting `flats` is cheap and revisiting it late is not: the shading layers were all
+resolved from the slots in `flats`, so changing a material there means re-running the
+`shade` and `outline` passes that read it. Get the material map right before advancing
+out of `flats`.

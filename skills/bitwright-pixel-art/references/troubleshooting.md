@@ -1,8 +1,15 @@
 # Failure modes, detection, and the calls that fix them
 
 Every heuristic here is computed from the pixel buffer, which means `check_step` will
-find it before you do. Run this list yourself at the `detail` and `accent` steps, and
-whenever a sprite "looks wrong" and you cannot say why.
+find it before you do. Run this list yourself at the `cleanup` step, which is where most
+of these gates live, and whenever a sprite "looks wrong" and you cannot say why.
+
+Two notes that apply to every fix below. `shade` and `outline` always read
+`from: "flats"` — the layer that carries the material base slots — never from
+`silhouette`, which is one slot and would resolve the whole sprite onto one ramp. And
+the step order is `silhouette → flats → shadow → light → outline → detail → accent →
+cleanup`, so a `revisit_step` back to `flats` invalidates every shading layer resolved
+from it.
 
 ---
 
@@ -34,7 +41,7 @@ patching pixel by pixel:
 
 ```
 undo { "assetId": "…", "count": 1 }
-shade { "assetId": "…", "target": "shadow-core", "from": "silhouette",
+shade { "assetId": "…", "target": "shadow-core", "from": "flats",
         "region": { "x": 11, "y": 24, "w": 25, "h": 18 }, "depth": 1 }
 ```
 
@@ -59,8 +66,20 @@ these scales: `1,1,1,…` (45°), `2,2,2,…`, `3,3,3,…`, and monotone runs li
 `5,4,3,2,1,1` or `1,1,2,3,4,6`.
 
 ```
-read_region { "assetId": "…", "layer": "silhouette", "x": 28, "y": 24, "w": 10, "h": 12 }
-draw_runs   { "assetId": "…", "layer": "silhouette", "runs": [
+revisit_step { "assetId": "…", "step": "silhouette" }
+read_region  { "assetId": "…", "layer": "silhouette", "x": 28, "y": 24, "w": 10, "h": 12 }
+draw_runs    { "assetId": "…", "layer": "silhouette", "runs": [
+  { "y": 27, "x0": 12, "x1": 34, "slot": 18 },
+  { "y": 28, "x0": 12, "x1": 35, "slot": 18 },
+  { "y": 29, "x0": 12, "x1": 35, "slot": 18 } ] }
+```
+
+Every silhouette edit changes what the flats must cover. Repair `flats` to match in the
+same trip, or the flats coverage gate will fail the moment you advance:
+
+```
+advance_step { "assetId": "…" }        → { "step": "flats" }
+draw_runs    { "assetId": "…", "layer": "flats", "runs": [
   { "y": 27, "x0": 12, "x1": 34, "slot": 6 },
   { "y": 28, "x0": 12, "x1": 35, "slot": 6 },
   { "y": 29, "x0": 12, "x1": 35, "slot": 6 } ] }
@@ -119,14 +138,14 @@ to match a mistake.
 ```
 get_style_rules { "assetId": "…" }      # confirm the declared direction
 clear_layer { "assetId": "…", "layer": "shadow-core" }
-shade { "assetId": "…", "target": "shadow-core", "from": "silhouette",
+shade { "assetId": "…", "target": "shadow-core", "from": "flats",
         "direction": "upper-left", "depth": 1 }
 ```
 
 If only one form is wrong, scope it rather than clearing the layer:
 
 ```
-shade { "assetId": "…", "target": "shadow-core", "from": "silhouette",
+shade { "assetId": "…", "target": "shadow-core", "from": "flats",
         "region": { "x": 33, "y": 30, "w": 3, "h": 3 },
         "direction": "upper-left", "depth": 1 }
 ```
@@ -152,7 +171,7 @@ clear_layer { "assetId": "…", "layer": "light" }
 clear_layer { "assetId": "…", "layer": "shadow-core" }
 clear_layer { "assetId": "…", "layer": "shadow-deep" }
 revisit_step { "assetId": "…", "step": "shadow" }
-shade { "assetId": "…", "target": "shadow-core", "from": "silhouette",
+shade { "assetId": "…", "target": "shadow-core", "from": "flats",
         "direction": "upper-left", "depth": 1 }
 ```
 
@@ -248,7 +267,9 @@ check_step { "assetId": "…" }
 ```
 
 That is the arm-to-torso gap: three runs, one enclosed 2 × 3 hole, and it moves both
-solidity and the negative-space check at once.
+solidity and the negative-space check at once. Clear the same six pixels from `flats`
+before advancing, or the flats containment check will report them as painted outside the
+mask.
 
 ---
 
@@ -287,7 +308,7 @@ it borders.
 
 ```
 clear_layer { "assetId": "…", "layer": "outline" }
-outline { "assetId": "…", "from": "silhouette", "mode": "selective", "darken": 2 }
+outline { "assetId": "…", "from": "flats", "mode": "selective", "darken": 2 }
 diff_layers { "assetId": "…", "a": "silhouette", "b": "outline" }
 ```
 
@@ -310,7 +331,7 @@ the rim opposite it — then break the runs by hand if the result is still conti
 
 ```
 clear_layer { "assetId": "…", "layer": "rim" }
-shade { "assetId": "…", "target": "rim", "from": "silhouette",
+shade { "assetId": "…", "target": "rim", "from": "flats",
         "direction": "upper-left" }
 read_region { "assetId": "…", "layer": "rim", "x": 14, "y": 4, "w": 22, "h": 14 }
 set_pixels  { "assetId": "…", "layer": "rim", "pixels": [
@@ -333,8 +354,9 @@ pixel on the perimeter.
 **Cause.** `antialias` was pointed at the outer boundary — which it refuses — or AA
 pixels were placed by hand along the silhouette.
 
-**Fix.** Anti-alias interior edges only. `antialias` will not touch the outer boundary
-by design, because a billboard sprite sits on backgrounds of unknown colour.
+**Fix.** Anti-alias interior edges only, and do it from the `cleanup` step, which is
+where `antialias` belongs. `antialias` will not touch the outer boundary by design,
+because a billboard sprite sits on backgrounds of unknown colour.
 
 ```
 read_region { "assetId": "…", "layer": "detail", "x": 10, "y": 24, "w": 28, "h": 14 }
@@ -402,7 +424,7 @@ fur, rust — as a transparency effect, or to extend a ramp on a large flat area
 | What you see | What it means |
 | --- | --- |
 | A write returns `"changed": 0` | Wrong layer, wrong coordinates, or that slot was already there. `read_region` the target before writing again. |
-| `shade` returns a non-zero skipped count | Those source slots belong to no ramp. The silhouette flats are painted with an unramped slot. Fix the flats. |
+| `shade` returns a non-zero skipped count | Those source slots belong to no ramp. The `flats` layer carries a slot that is in no ramp. `revisit_step` to `flats` and repaint it. |
 | `translate` returns a non-zero `lost` | Pixels were pushed off the canvas and are gone. `undo` and translate by less. |
 | `outline` covers 100% of the perimeter | `mode` was not `selective`. Check `get_style_rules`. |
 | `paste_grid` returns `grid.size_mismatch` | Ragged `rows`, or the block does not fit at `x, y`. Every string must be the same length. |
