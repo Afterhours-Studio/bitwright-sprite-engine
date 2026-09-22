@@ -4,12 +4,17 @@ Getting a working build of all three parts, and the commands to run each one.
 
 ## Prerequisites
 
-| Tool    | Version       | Why                  |
-| ------- | ------------- | -------------------- |
-| Node.js | 20 or later   | Frontend and tooling |
-| Python  | 3.11 or later | The engine           |
-| Rust    | Stable        | The Tauri shell      |
-| Git     | Any recent    | Source control       |
+| Tool    | Version       | Why                                      |
+| ------- | ------------- | ---------------------------------------- |
+| Node.js | 20 or later   | Frontend and tooling                     |
+| Rust    | Stable        | The shell, the document store, MCP       |
+| Python  | 3.11 or later | The sidecar: conform, palettes, export   |
+| Git     | Any recent    | Source control                           |
+
+Rust is the one to install first. It carries the window, the SQLite store, the
+raster core and the MCP server, which is most of the application; see
+[the architecture overview](../architecture/overview.md). None of the three
+needs a graphics card, and nothing in the build downloads a model.
 
 ### Platform packages
 
@@ -55,8 +60,9 @@ cd bitwright-sprite-engine
 ```
 
 The script checks the prerequisites, installs both dependency sets, builds the
-sidecar binary, and runs the checks. Pass `--gpu` (or `-Gpu` on Windows) to also
-install the local generation extras, which are several gigabytes.
+sidecar binary, and runs the checks. There are no optional extras to choose
+between: the engine's dependencies are numpy, Pillow and FastAPI, and the whole
+install is tens of megabytes.
 
 ## Manual setup
 
@@ -81,18 +87,15 @@ source .venv/bin/activate        # Linux and macOS
 pip install -e ".[dev]"
 ```
 
-Torch and diffusers are optional extras, so that work on the API does not
-require a multi-gigabyte download. Add one when you need local generation:
-
-```bash
-pip install -e ".[dev,cuda]"   # NVIDIA
-pip install -e ".[dev,mps]"    # Apple Silicon
-```
+That is the whole engine. It was once a multi-gigabyte install behind optional
+extras; local and remote diffusion are deleted, and what remains is the conform
+pipeline and the routes that serve it. See
+[decision 0012](../architecture/decisions/0012-pivot-to-an-agent-driven-pixel-editor.md).
 
 ### Sidecar binary
 
-Tauri bundles the engine as an external binary, and its configuration names one
-per target triple. The crate will not build until it exists.
+Tauri bundles the engine as a resource directory named per target triple. The
+crate will not build until it exists.
 
 ```bash
 python scripts/build-sidecar.py
@@ -103,8 +106,11 @@ This freezes the engine with PyInstaller into
 Re-run it after changing engine code that you want the packaged application to
 pick up; the development commands below run the engine from source instead.
 
-Onedir rather than onefile because onefile unpacks its whole payload on every
-launch, which will be minutes once PyTorch is in the bundle. See
+Onedir rather than onefile. The original reason was that onefile unpacks its
+whole payload on every launch and the payload was about to become PyTorch; that
+payload is gone, and onedir is kept for the reasons that never depended on it —
+an inspectable layout, no temporary directory written on each launch, and a
+wrong-platform artefact that fails loudly at startup. See
 [decision 0007](../architecture/decisions/0007-sidecar-packaging-strategy.md).
 
 ## Running
@@ -147,7 +153,7 @@ Health needs no token; everything else does:
 
 ```bash
 curl http://127.0.0.1:51234/health
-curl -H "X-Bitwright-Token: 3Qq7..." http://127.0.0.1:51234/v1/backends
+curl -H "X-Bitwright-Token: 3Qq7..." http://127.0.0.1:51234/v1/storage
 ```
 
 A request carrying an `Origin` header is refused with 403 whatever the token,

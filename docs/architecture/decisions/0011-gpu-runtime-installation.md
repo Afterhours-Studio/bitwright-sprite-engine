@@ -4,7 +4,23 @@ Date: 2026-09-06
 
 ## Status
 
-Accepted
+Superseded in full by
+[0012](0012-pivot-to-an-agent-driven-pixel-editor.md).
+
+Local diffusion is deleted, so there is nothing for a GPU runtime to run. The
+manifest, the installer, the activation hook, the settings card and the
+`--report-runtime` build check are all removed with it, and the whole standard
+library is no longer collected into the frozen sidecar because nothing arrives
+after the build that would need it.
+
+The record is kept in full, and not only for the history. It is the most
+detailed account this repository has of what it costs to put a multi-gigabyte
+machine learning runtime on a user's machine, and that cost is part of why
+[0012](0012-pivot-to-an-agent-driven-pixel-editor.md) was worth making. The
+findings below about PyInstaller's hidden imports, about resolving wheels for a
+platform other than the host, and about per-target wheel tags remain true of
+PyInstaller and of pip; they simply no longer apply to anything this project
+ships.
 
 ## Context
 

@@ -3,12 +3,10 @@
 How to install Bitwright on Windows, macOS, and Linux, and what to do when the
 operating system blocks the first launch.
 
-Check [System requirements](system-requirements.md) first. Releases are on the
+Check [System requirements](system-requirements.md) first, though there is not
+much to check: the application needs no graphics card and downloads nothing
+after it is installed. Releases are on the
 [releases page](https://github.com/Afterhours-Studio/bitwright-sprite-engine/releases).
-
-No model weights are included in any of these downloads. The first generation
-fetches the model you selected, under its own licence. See
-[MODELS.md](../../MODELS.md).
 
 ## Windows
 
@@ -108,11 +106,20 @@ Get-FileHash .\Bitwright_0.0.3_x64-setup.exe -Algorithm SHA256
 | Linux (rpm)      | `sudo dnf remove bitwright`                         |
 | Linux (AppImage) | Delete the AppImage file                            |
 
-Uninstalling leaves the model cache in place, because it is large and may be
-shared with another tool. Remove it separately:
+Uninstalling leaves your work in place, because your projects, documents and
+exported sprites are yours rather than the application's. That is one directory,
+and removing it removes everything Bitwright ever wrote:
 
 | Platform | Path                                                        |
 | -------- | ----------------------------------------------------------- |
 | Windows  | `%LOCALAPPDATA%\studio.afterhours.bitwright`                |
 | macOS    | `~/Library/Application Support/studio.afterhours.bitwright` |
 | Linux    | `~/.local/share/studio.afterhours.bitwright`                |
+
+If you moved the data root in Settings, remove the location you chose instead;
+Settings names it.
+
+## Next
+
+- [Quick start](quick-start.md) — a first sprite, drawn by an agent.
+- [Reference import](../guides/post-processing.md) — bringing existing art in.

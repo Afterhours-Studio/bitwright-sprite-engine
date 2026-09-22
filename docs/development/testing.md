@@ -34,32 +34,32 @@ pytest -k capability       # by name
 pytest -v                  # verbose
 ```
 
-| File                  | Covers                                           |
-| --------------------- | ------------------------------------------------ |
-| `test_backends.py`    | The protocol, availability, capability rejection |
-| `test_pipeline.py`    | Generation and sheet packing                     |
-| `test_postprocess.py` | Background removal, quantization, grid packing   |
-| `test_models.py`      | The registry and the download cache              |
-| `test_api.py`         | Every HTTP endpoint                              |
+| File                  | Covers                                              |
+| --------------------- | --------------------------------------------------- |
+| `test_conform.py`     | Grid detection, the modal vote, palettes, clean-up  |
+| `test_postprocess.py` | Background removal, quantization, grid packing      |
+| `test_sprites.py`     | Listing, removing and writing back a saved sprite   |
+| `test_storage.py`     | The data root: validation, switching, defaults      |
+| `test_security.py`    | The token, and the refusal of a request with Origin |
+| `test_watchdog.py`    | Exiting when the parent process is gone             |
+| `test_api.py`         | Every HTTP endpoint                                 |
 
-`tests/conftest.py` provides a fake backend with configurable availability and
-capabilities. Use it rather than a mock: it goes through the same validation as
-a real backend, so a test cannot pass against behaviour the real code would
-reject.
+Conform is where the interesting tests are, because it is the one part of the
+engine with an answer that can be checked rather than merely observed. The tests
+build an image by upscaling a known grid at a known phase, run detection over
+it, and assert that the cell size and offset come back exactly. A test written
+that way fails when the mathematics is wrong; a test that asserts the output has
+the right dimensions passes whatever the mathematics did.
 
 ```python
-def test_generate_rejects_an_unsupported_capability() -> None:
-    backend = FakeBackend(supported=frozenset())
-    with pytest.raises(UnsupportedCapabilityError):
-        backend.generate(GenerationRequest(prompt="a knight", batch_size=2))
-    assert backend.calls == []
+def test_detects_the_phase_of_an_offset_grid() -> None:
+    source = upscale(known_sprite, factor=8, offset=(3, 5))
+    grid = detect_grid(source, target=(16, 16))
+    assert (grid.phase_x, grid.phase_y) == (3, 5)
 ```
 
-The last line matters: the request must be rejected before the backend runs, not
-after.
-
-Tests never touch the network, and never download a model. The `settings`
-fixture points the cache at a temporary directory and turns downloads off.
+Tests never touch the network and never write outside a temporary directory. The
+`settings` fixture points the data root at one.
 
 ## Frontend (Vitest)
 
@@ -100,9 +100,13 @@ cd apps/desktop/src-tauri
 cargo test
 ```
 
-The tests cover the parts that are pure logic: handshake parsing, the base URL
-guard, the platform report, and the GPU probe's contract. Window management and
-process spawning need a real window and a real child, and are exercised by
+Rust now carries the document store, the raster core and the MCP server, so this
+is where most of the application's logic is and where most of its tests belong.
+The existing ones cover handshake parsing, the base URL guard and the platform
+report; the ones that arrive with the store and the raster core cover the op set
+and the workflow gates, which are pure functions over a pixel buffer and are
+therefore the easiest thing in the project to test properly. Window management
+and process spawning need a real window and a real child, and are exercised by
 running the application.
 
 ```rust
@@ -147,9 +151,11 @@ another function breaks when the code is tidied and catches nothing.
 
 Worth a test:
 
-- A backend rejecting a request it cannot serve.
+- A workflow gate failing a silhouette that is two disconnected regions.
+- An op applied and then undone leaving the buffer byte for byte as it was.
+- Grid detection recovering a cell size and phase that a test constructed.
 - A reason code being returned rather than an exception escaping.
-- A post-processing step preserving alpha.
+- A conform step preserving alpha.
 - A locale gaining a key in one language only.
 - A colour token pairing falling below its contrast threshold.
 
@@ -168,4 +174,4 @@ Not worth a test:
 | Rust       | A `#[cfg(test)] mod tests` in the file | Functions describing the behaviour                     |
 
 Name a test after the behaviour, not the function:
-`test_generate_rejects_an_unsupported_capability`, not `test_generate_2`.
+`test_detects_the_phase_of_an_offset_grid`, not `test_conform_2`.

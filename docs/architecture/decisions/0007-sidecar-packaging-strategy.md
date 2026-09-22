@@ -4,7 +4,28 @@ Date: 2026-02-10
 
 ## Status
 
-Accepted
+Accepted, and partly superseded by
+[0012](0012-pivot-to-an-agent-driven-pixel-editor.md).
+
+What still holds is the decision itself: the sidecar is frozen in onedir mode
+and ships through `bundle.resources` rather than `externalBin`, the directory
+and the executable both carry the Rust target triple, and the shell resolves it
+at startup with a development fallback. None of that depended on what the
+sidecar contained.
+
+What no longer holds is the size argument that made the choice urgent. The
+sidecar's real dependencies are no longer PyTorch, diffusers and transformers,
+so there is no two to four gigabyte payload for onefile to unpack on every
+launch. A conform-only bundle is small enough that onefile would be tolerable;
+onedir is kept because the secondary reasons below still stand — an inspectable
+layout, no temporary directory written on each launch, and a loud failure on a
+wrong-platform artefact — and because changing it would buy nothing.
+
+The final section, "The fallback, if the bundle is still too large", is void.
+Splitting PyTorch out and fetching it on first run was built, and is recorded in
+[0011](0011-gpu-runtime-installation.md), which
+[0012](0012-pivot-to-an-agent-driven-pixel-editor.md) supersedes in full. There
+is no longer a PyTorch to split out.
 
 ## Context
 

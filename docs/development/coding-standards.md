@@ -65,7 +65,7 @@ A `Raises:` section for every exception a caller has to handle.
 
 `Protocol` rather than inheritance, so that callers, tests, and fakes are not
 tied to a base class. A base class may exist alongside it to hold shared
-behaviour; `BaseBackend` does exactly that.
+behaviour.
 
 ### Errors
 
@@ -73,8 +73,8 @@ Every exception a user can reach carries a stable `code`. The frontend
 translates the code, so the exception message is for logs.
 
 ```python
-class BackendUnavailableError(BackendError):
-    code = "backend.unavailable"
+class GridNotFoundError(ConformError):
+    code = "conform.grid_not_found"
 ```
 
 Add each new code to both `locales/en/errors.json` and `locales/vi/errors.json`.
@@ -111,9 +111,9 @@ State lives in Zustand; side effects live in hooks. That is what lets a screen
 be rendered in a test with an arbitrary store state.
 
 ```typescript
-export function GenerateScreen(): ReactElement {
-  const request = useGenerationStore((state) => state.request);
-  const run = useGenerationStore((state) => state.run);
+export function EditorScreen(): ReactElement {
+  const document = useDocumentStore((state) => state.document);
+  const applyOp = useDocumentStore((state) => state.applyOp);
   // no local state, no fetching
 }
 ```
@@ -124,8 +124,8 @@ No user-visible string is hardcoded. Everything goes through `useTranslation`.
 The keys are typed from the English locale files, so a typo does not compile.
 
 ```typescript
-const { t } = useTranslation('generation');
-return <button>{t('actions.generate')}</button>;
+const { t } = useTranslation('editor');
+return <button>{t('actions.fill')}</button>;
 ```
 
 ### Colour

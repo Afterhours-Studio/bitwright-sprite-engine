@@ -4,9 +4,29 @@ Date: 2026-01-16
 
 ## Status
 
-Accepted. Amended by
+Accepted, and partly superseded. Amended by
 [0008](0008-authenticate-the-sidecar.md), which moved engine calls behind the
-shell instead of letting the webview make them directly.
+shell instead of letting the webview make them directly. Partly superseded by
+[0012](0012-pivot-to-an-agent-driven-pixel-editor.md) and
+[0013](0013-rust-mcp-server-in-the-tauri-process.md).
+
+What still holds: there is a Python child process, it exposes a FastAPI
+application over a loopback port it binds itself, it announces that port and a
+token in a one-line stdout handshake, the shell supervises it and stops it
+cleanly, and it is frozen with PyInstaller and shipped inside the bundle. Every
+argument in the Context below about where to put Python, and every argument
+about HTTP against a hand-rolled stdout protocol, is unaffected.
+
+What no longer holds is the premise. The sidecar does not exist because
+generation needs PyTorch and diffusers; both are deleted. It exists because
+conform is tested numpy work, and because the reasoning in
+[0013](0013-rust-mcp-server-in-the-tauri-process.md) keeps batch image maths out
+of the process that owns the window. Concretely, the consequences below about
+model loading, GPU memory and multi-gigabyte builds no longer describe anything:
+nothing in the sidecar holds a GPU, the frozen bundle is tens of megabytes, and
+the process starts in well under a second. The claim that the same engine could
+later serve a headless deployment is also void — headless use is now the stdio
+MCP transport, which is served from Rust.
 
 ## Context
 

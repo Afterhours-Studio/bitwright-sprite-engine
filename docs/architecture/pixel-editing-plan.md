@@ -1,17 +1,39 @@
 # Pixel editing plan
 
-How a diffusion image is turned into real pixel art, and where the controls for
-doing that and for touching up the result belong in the interface.
+How a picture of pixel art is turned into real pixel art, and where the
+controls for doing that and for editing the result belong in the interface.
 
 This is a plan, not a decision record. It is written to be split into separable
 pieces of work and handed out. Anything in it that changes a rule the project
 has already written down is called out as such and belongs in an ADR of its own
 before it is built.
 
+**This document was written when Bitwright generated sprites with a diffusion
+model, and its diagnosis is the reason it no longer does.** The observation
+below — that a model produces an image of pixel art rather than pixel art — was
+the argument for
+[decision 0012](decisions/0012-pivot-to-an-agent-driven-pixel-editor.md), which
+deleted generation and put an agent in the drawing seat instead. What an agent
+draws needs no conforming; it writes palette indices into an indexed buffer and
+is correct when it is written.
+
+Conform survives because the problem was never about generated images
+specifically. It is about *any* image that arrives from outside: a screenshot, a
+painted mock-up, a sprite someone scaled up for a store page, a photograph of a
+sketch on paper. Each of those is a picture of pixel art, with exactly the
+defects described below, and each is something a person wants to hand an agent
+as a reference. So the pipeline is unchanged and its input is different: conform
+is the reference importer, described for users in
+[Reference import](../guides/post-processing.md).
+
+The framing throughout this document has been corrected to say so. Where it says
+"the source" or "the reference", it means the image being imported — which used
+to be the model's output and is now a file someone chose.
+
 ## The problem
 
-A diffusion model does not produce pixel art. It produces an image of pixel
-art. At a glance the two look the same; measured, they are not:
+An image of pixel art is not pixel art. At a glance the two look the same;
+measured, they are not:
 
 - **The grid drifts.** A model asked for a 64 by 64 sprite at 512 pixels lays
   down blocks that are near enough 8 pixels wide to read as a grid and not
@@ -19,22 +41,27 @@ art. At a glance the two look the same; measured, they are not:
   across the image, and the whole grid usually starts at a fractional offset
   rather than at zero.
 - **The edges are soft.** Every block boundary carries one or two pixels of
-  blend, because the model was trained on images that had been resampled. The
+  blend, because the image has been resampled at some point in its life. The
   same softness sits on the silhouette, where a background remover then leaves
   a ring of half-subject, half-background pixels at full alpha.
 - **There are far too many colours, and they are close to right rather than
-  right.** A 512 pixel render of a 16 colour sprite typically contains tens of
+  right.** A 512 pixel copy of a 16 colour sprite typically contains tens of
   thousands of distinct colours, most of them within a couple of units of one
   of the sixteen.
 
 None of this shows at a glance and all of it shows the moment the image is
-imported into a game engine at its real size. Fixing it is the core of this
-plan; the editing tools exist so that what the fix cannot decide, a person can.
+brought into an editor at its real size — which is precisely when a reference
+has to be trusted, because an agent asked to match a palette will match whatever
+palette it is handed. Fixing it is the core of this plan; the editing tools
+exist so that what the fix cannot decide, a person can.
 
-## What already exists
+## What already existed
 
-A large part of this feature is surfacing and extending machinery that is
-already in the repository. It is worth being precise about which part.
+A large part of this feature was surfacing and extending machinery that was
+already in the repository. The table below is the state of it when the plan was
+written, and is kept because the argument that follows it turns on which parts
+were weak and why. Conform itself has since been built, and lives in
+`pipeline/conform/`; the generation-side entries are gone with generation.
 
 | Capability                   | Where it is                                             | State                                              |
 | ---------------------------- | ------------------------------------------------------- | -------------------------------------------------- |
@@ -44,9 +71,9 @@ already in the repository. It is worth being precise about which part.
 | Grid snapping                | same, `snap_to_grid()`                                  | Box downscale then nearest upscale, integer factor |
 | Sheet packing                | `pipeline/postprocess/grid.py`                          | Uniform grid, frame rectangles reported            |
 | The options on the wire      | `api/schemas/generation.py`, `PostProcessBody`          | Four fields, sent with every generate call         |
-| The options in the interface | `ParameterPanel.tsx` and the post-processing dock entry | Both places expose the same four                   |
+| The options in the interface | `ParameterPanel.tsx` and the post-processing dock entry | Both places exposed the same four                  |
 | Tool and shape selection     | `stores/useEditorStore.ts`, the dock's lead cluster     | Read by the canvas store when a stroke begins      |
-| Canvas                       | `features/generation/SpriteCanvas.tsx`                  | Checkerboard well, nearest-neighbour scaling       |
+| Canvas                       | `SpriteCanvas.tsx`                                      | Checkerboard well, nearest-neighbour scaling       |
 | The editable buffer          | `stores/useCanvasStore.ts`, `lib/pixels.ts`             | Every tool, bounded undo, published on each stroke |
 | Undo and redo menu items     | `TitleBar.tsx`, the Edit group                          | Wired to the canvas store                          |
 
@@ -58,7 +85,7 @@ something that works in a perceptual space, and adding the steps between them.
 Two things about the existing pipeline are wrong for this purpose and are
 changed by this plan:
 
-**The order is wrong.** `apply()` runs snap, then quantize, then background
+**The order was wrong.** `apply()` ran snap, then quantize, then background
 removal. Background removal has to run first, because a cell that straddles the
 silhouette must not let background pixels vote on the subject's colour. The
 current order is correct for the existing box filter, which averages everything
@@ -66,7 +93,7 @@ in the cell regardless; it is wrong for a modal vote. The docstring's reasoning
 (background removal last so it sees final colours) stops applying once the
 background decision is a hard alpha threshold rather than a colour match.
 
-**`snap_to_grid` takes a factor, not a target.** The user thinks in "I want
+**`snap_to_grid` took a factor, not a target.** The user thinks in "I want
 64 by 64", not "divide by 8". A factor also cannot express a fractional cell
 size, which is what a drifting grid actually has. The new entry point takes the
 target dimensions and finds the factor itself.
@@ -75,12 +102,12 @@ target dimensions and finds the factor itself.
 
 # Part 1: Conform
 
-One operation, `conform`, that takes the image the model produced and returns
+One operation, `conform`, that takes the image being imported and returns
 an image that is genuinely `N` by `M` pixels, on a real palette, with a hard
 alpha edge. Six steps, in this order.
 
 ```
-model output
+the source image
    |
    v
 [1] separate subject from background      -> a soft alpha mask
@@ -101,7 +128,7 @@ model output
 [6] clean up                              -> hard alpha, no halo, no specks
    |
    v
-a sprite
+a reference to draw from
 ```
 
 Every step runs in the Python sidecar. None of it runs in the frontend. The
@@ -270,8 +297,8 @@ thing this operation exists to remove.
 ### Why not nearest neighbour, and why not area average
 
 **Nearest neighbour** takes `I[round(phix + (i+0.5)*sx), ...]` — one source
-pixel. It is exact if and only if the phase is exact and the cell is flat. A
-diffusion image's cells are neither: interiors carry a gentle gradient and
+pixel. It is exact if and only if the phase is exact and the cell is flat. An
+upscaled image's cells are neither: interiors carry a gentle gradient and
 boundaries carry a blend. A half-pixel phase error puts the sample on a
 boundary, and the output pixel is then a colour that belongs to neither of the
 two cells it sits between. The failure is not graceful. One wrong sample is one
@@ -546,8 +573,8 @@ treats it as data it was given rather than something it computes.
 
 ## The API
 
-A new route, because conform is not generation and coupling it to
-`POST /v1/generate` would mean re-running the model to change a palette.
+A route of its own, because conform is an explicit action on an image the user
+chose, and nothing else in the engine shares its inputs or its failure modes.
 
 ```
 POST /v1/conform
@@ -578,7 +605,7 @@ Response (`ConformResponse`):
 | `palette`    | `list[str]`    | Hex values actually used, in descending frequency order     |
 | `detected`   | `DetectedGrid` | `cellWidth`, `cellHeight`, `phaseX`, `phaseY`, `confidence` |
 | `durationMs` | `int`          |                                                             |
-| `warnings`   | `list[str]`    | Stable reason codes, as `GenerateResponse` already carries  |
+| `warnings`   | `list[str]`    | Stable reason codes the interface translates                |
 
 The warning codes named above — `conform.grid_not_found`,
 `conform.grid_anisotropic`, `conform.background_uncertain`,
@@ -596,7 +623,7 @@ POST /v1/palettes/import     import one from a file the shell read
 
 The webview is not a client of the engine; every call goes through a Rust
 command (`apps/desktop/src-tauri/src/commands.rs`) and `engine::call`. Conform
-needs `engine_conform`, `engine_palettes`, and `engine_import_palette`, plus
+needed `engine_conform`, `engine_palettes`, and `engine_import_palette`, plus
 the `lib/tauri.ts` and `lib/api.ts` wrappers and the types in
 `types/engine.ts`. That is mechanical and small.
 
@@ -865,9 +892,9 @@ side, permanently, at every window size. That space is already there; the
 question is only what goes in it.
 
 What goes in it is the thing Aseprite calls the Preview window: **the sprite at
-100 percent, while the stage is zoomed in**, plus the pre-conform source to
-compare against, plus the rest of the batch. Calling it a rail rather than a
-second canvas is deliberate — it displays, it does not edit.
+100 percent, while the stage is zoomed in**, plus the reference being worked
+from, plus the imported source before conform touched it. Calling it a rail
+rather than a second canvas is deliberate — it displays, it does not edit.
 
 ## The layout
 
@@ -875,7 +902,7 @@ At 1200 pixels of content width and above:
 
 ```
 +---------------------------------------------------------------------------+
-| title bar: menu, back/forward, name, [Generate|Gallery|Settings], engine   |
+| title bar: menu, back/forward, name, [Editor|Gallery|Settings], agent      |
 +---------------------------------------------------------------------------+
 |                                              |          |                 |
 |  STAGE                                       |  RAIL    |  RIGHT PANEL    |
@@ -891,10 +918,10 @@ At 1200 pixels of content width and above:
 |  +----------------------------------------+  | +------+ | |             | |
 |                                              |          | |             | |
 |  +----------------------------------------+  |          | |             | |
-|  |  prompt / negative      [collapse ^]   |  |          | |             | |
+|  |  step rail: silhouette .. accent       |  |          | |             | |
 |  +----------------------------------------+  |          | +-------------+ |
 |                                              |          |                 |
-|      [ tool | shape | brush | grid | size | seed | conform | post | GEN ]  |
+|      [ tool | shape | brush | grid | layers | conform | export | reset ]   |
 +---------------------------------------------------------------------------+
 ```
 
@@ -937,16 +964,18 @@ Three stacked cells at 200 pixels wide:
 1. **1:1.** The sprite at exactly one image pixel per screen pixel. This is the
    only view that tells the truth about what was made, and while the stage is at
    800 percent it is the only place it can be seen.
-2. **Source.** The image as the model produced it, before conform. Pressing it
+2. **Source.** The imported image as it arrived, before conform. Pressing it
    swaps the stage to show the source instead, so the two can be compared by
    pressing rather than by remembering.
-3. **Batch.** The other images from the run, when `batchSize > 1`. Pressing one
-   makes it the edited image.
+3. **Reference.** The conformed reference the asset is being drawn from, when
+   there is one. Pressing it puts it beside the stage rather than replacing it,
+   because a reference is for looking at while drawing rather than instead of
+   drawing.
 
 The rail collapses to a 28-pixel tab on the stage's trailing edge below 1200
 pixels of content width, and disappears below 1024, where its contents are
 reachable from a dock entry instead. The 1:1 view is the one to keep longest;
-the batch strip is the first to go.
+the source cell is the first to go, since it only matters just after an import.
 
 ## The right panel and its sub-tabs
 
@@ -956,9 +985,9 @@ Sub-tabs, not a second column. Three reasons:
   rail leaves 40 pixels of stage. One column leaves 360, which is enough to show
   a 64 by 64 sprite at 5x. The second column is not affordable at the size the
   application declares it supports.
-- **The three sets are never wanted at once.** Generation parameters are set
-  before a run; colour and brush are used after one. Showing both permanently is
-  paying screen for a state nobody is in.
+- **The three sets are never wanted at once.** Import settings are chosen once,
+  when a reference arrives; colour and brush are used continuously while
+  drawing. Showing both permanently is paying screen for a state nobody is in.
 - **The mechanism already exists.** `SegmentedTabs` is built, tested, and is
   what the title bar navigation uses. Reusing it means the sub-tabs read as the
   same kind of control as the screen tabs, one level down.
@@ -967,7 +996,7 @@ The tabs:
 
 | Tab            | Contents                                                                                                                                  |
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| **Parameters** | Everything `ParameterPanel` holds today, plus a Conform section (see below)                                                               |
+| **Import**     | The conform controls described below, and the detected-grid readout                                                                      |
 | **Colour**     | Foreground/background swatches with a swap, a saturation-value field with a hue slider, a hex field, a recent strip, and the palette grid |
 
 Two, not the three that were asked for. **Brush size and shape go in the dock,
@@ -979,16 +1008,18 @@ ink modes, per-tool opacity, custom brushes — and adding it then costs one
 entry in an array. This is an open question, listed below, with that as the
 recommendation rather than the decision.
 
-The Colour tab's palette is the palette conform returned, when there is one, and
-a derived palette of the current image otherwise. It is not a static list.
+The Colour tab's palette is the document's own palette — the slots and ramps an
+agent draws into — seeded from what conform returned when a reference was
+imported. It is not a static list, and it is the same palette the engine resolves
+a shading step against.
 
 ## The Conform section
 
 Conform is the feature's centre and it needs a home that says so.
 
-It lives as a section at the top of the **Parameters** tab, above the generation
-parameters, containing the target size, the palette choice, the dither mode, the
-cleanup toggles, the detected grid readout with its confidence, and one button.
+It is the **Import** tab: the target size, the palette choice, the dither mode,
+the cleanup toggles, the detected grid readout with its confidence, and one
+button.
 
 It is _also_ reachable from a **dock entry** that opens a popover with the same
 button and the two settings that change most often (target size, palette size).
@@ -996,8 +1027,8 @@ The dock is where the hand is between runs; making the main action of the
 feature take a trip to a panel would be wrong.
 
 **This does not break the dock rule.** The rule is that nothing in the dock
-fires a one-press action except Generate. The dock entry opens a popover; the
-press inside the popover acts. That is exactly the shape the Reset entry already
+fires a one-press action. The dock entry opens a popover; the press inside the
+popover acts. That is exactly the shape the Reset entry already
 has.
 
 **Conform does not need a confirmation, and should not have one.** A destructive
@@ -1005,19 +1036,18 @@ action needs a confirm; an undoable one does not. Conform keeps the pre-conform
 image as the rail's Source cell and offers "revert to source", so it is
 undoable by construction. Building it that way is cheaper than building a
 confirmation dialog and it is better. Note the asymmetry with Reset, which is
-behind a confirm because it genuinely destroys the prompt and the parameters.
+behind a confirm because it genuinely discards a layer's work.
 
 ## The dock
 
-The dock is currently: `[tools | shape] | size | seed | postprocess | reset |
-GENERATE`. After this work:
+The dock carries the tool cluster and a row of popovers:
 
 ```
-[ pencil eraser fill pick select shape ] | brush  grid  conform  size  seed  post  reset | GENERATE
-   the tool cluster (a radio group)         popovers, each opening something            the one action
+[ pencil eraser fill pick select shape ] | brush  grid  layers  conform  export  reset
+   the tool cluster (a radio group)         popovers, each opening something
 ```
 
-Three new entries, all of them popovers or selections:
+The three this work adds are all popovers or selections:
 
 - **Brush** — size (1 to 16 for sprite work, `[` and `]` on the keyboard), shape
   (circle, square), and the pixel-perfect toggle. A popover of selections.
@@ -1027,7 +1057,7 @@ Three new entries, all of them popovers or selections:
 - **Conform** — the popover described above.
 
 Watch the width. The dock is `max-w-[92%]` and centred; at 960 pixels of window
-the cluster of six tools plus seven popovers plus the Generate pill is tight.
+the cluster of six tools plus six popovers is tight.
 The tool cluster's chips are 32 pixels collapsed, so six tools is 192 plus gaps.
 Measure it at the minimum window size before adding the third entry, and if it
 does not fit, the first thing to move out is Reset, which belongs in the File
@@ -1039,7 +1069,7 @@ or Edit menu at least as much as it belongs in a bar.
 | ------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | 1200 and up   | Everything as drawn above                                                                                                               |
 | 1024 to 1200  | Rail collapses to a 28-pixel tab on the stage's trailing edge and slides over the stage when opened                                     |
-| 960 to 1024   | Rail hidden; the 1:1 view and the batch move into a dock popover, and the prompt card collapses to a single line with an expand control |
+| 960 to 1024   | Rail hidden; the 1:1 view and the source move into a dock popover, and the step rail collapses to the current step alone               |
 | Below 960     | Does not occur; `minWidth` is 960                                                                                                       |
 
 The right panel stays at 320 throughout. It is the only fixed thing, and a panel
@@ -1062,13 +1092,13 @@ at this size means the parameter grid dropping from two columns to one and back.
 | Pan                          | Stage, space-drag             | No control needed                                                 |
 | 1:1 preview                  | Rail                          | Must be visible _while_ editing, so not a mode                    |
 | Compare with source          | Rail                          | Same                                                              |
-| Conform settings             | Right panel, Parameters tab   | Ten controls; too many for a popover                              |
+| Conform settings             | Right panel, Import tab       | Ten controls; too many for a popover                              |
 | Conform action               | Right panel, and dock popover | Reachable from where the hand is, without a one-press dock action |
 | Revert to source             | Rail, on the Source cell      | Next to the thing it reverts to                                   |
 | Import a palette             | Right panel, Colour tab       | Rare, and needs a file dialog                                     |
-| Generation parameters        | Right panel, Parameters tab   | Unchanged                                                         |
-| Size, seed, post-processing  | Dock popovers                 | Unchanged                                                         |
-| Undo/redo                    | Edit menu, `Ctrl+Z`/`Ctrl+Y`  | The menu items already exist and are disabled                     |
+| Import a reference           | Right panel, Import tab       | Where its settings are, and it opens a file dialog                |
+| Layer and step selection     | Dock popover, and the step rail | A layer is picked constantly; a step is advanced rarely          |
+| Undo/redo                    | Edit menu, `Ctrl+Z`/`Ctrl+Y`  | The menu items already exist                                      |
 | Export the sprite            | File menu                     | Not a dock action; it opens a file dialog                         |
 
 Two things push against the dock rule and are called out rather than hidden:
@@ -1077,185 +1107,67 @@ Two things push against the dock rule and are called out rather than hidden:
   It is not in the dock, so the rule does not literally apply, but it has the
   same hazard. Make it undoable through the same undo stack as a brush stroke,
   and it stops being a hazard.
-- **Conform** run from its popover replaces the image. Undoable by construction,
-  as described. If for any reason the source is not kept, it needs a confirm and
+- **Conform** run from its popover replaces the imported image. Undoable by
+  construction, as described. If for any reason the source is not kept, it needs a confirm and
   the design is worse.
 
 ---
 
-# Part 4: The work, in order
+# Part 4: What was built, and what still has to be
 
-Eleven pieces. Sizes are relative: small is a day or less for someone who knows
-the codebase, medium is a few days, large is a week or more plus a design
-conversation.
+The eleven-piece work breakdown this document originally carried has been
+overtaken. Parts of it were built — the Oklab utilities, grid detection, the
+conform pipeline, the route and the shell hop all exist, in
+`bitwright_engine/utils/color.py` and `bitwright_engine/pipeline/conform/` — and
+the rest was sequenced against a screen that no longer exists.
 
-### 1. Oklab utilities and the palette module (small, no dependencies on other pieces)
+Sequencing now lives in [the plan](../plan/PLAN.md), which owns the phases, the
+task boundaries and the file ownership rules for the whole rebuild. The pieces
+of this document that it picks up are the canvas and the palette editor in Phase
+1, and reference import in Phase 3. Nothing here should be read as a schedule.
 
-`packages/engine/bitwright_engine/utils/color.py`: sRGB to Oklab and back,
-vectorised over a NumPy array; weighted median cut with the box and axis
-heuristics from Part 1; Lloyd refinement; nearest-entry snap.
+What is worth keeping from the original breakdown is the way it argued about
+testing, because that argument holds whatever the sequence is. Grid detection is
+the piece most likely to be subtly wrong and the easiest to test exactly, so it
+is tested exactly: take an image of known colours, scale it by a known factor,
+offset it by a known phase, blur it slightly, and assert that detection recovers
+the factor and the offset. A test that only asserts the output has the right
+dimensions passes whatever the mathematics did.
 
-Testable in isolation with no image involved, which is why it is first. Round
-trip sRGB to Oklab and back and assert equality to within one 8-bit unit. Feed
-median cut a known 4-colour image at `K=4` and assert it recovers exactly those
-four.
+## Decisions taken, with their reasoning
 
-Needs NumPy promoted to a base dependency. See the dependency section.
+These were open questions when this document was written. Each is now settled,
+and the reasoning is recorded because a settled question that loses its reasoning
+gets re-opened.
 
-### 2. Grid detection (small, depends on 1 for the Oklab conversion)
+**Conform runs on a button, not live.** The detected-grid readout updates as the
+settings change, because it is cheap. The image updates only on the press. A
+512 by 512 PNG base64-encoded is roughly half a megabyte of JSON travelling
+webview to Rust to Python and back, which is fine for one press and is not
+something to build a debounce around.
 
-`pipeline/conform/grid.py`: edge energy, the DFT bin, phase, the `N` sweep and
-the smallest-N-within-tolerance rule.
+**Editing is the application, not a mode inside another screen.** The question
+used to be whether editing stayed on the Generate screen or became a fourth one.
+Generation is gone, so the editor is what the window is for; the stage, the rail
+and the panel are components a screen mounts, which is what the original
+recommendation asked for in any case.
 
-Test it by construction: take an 8 by 8 image of known colours, scale it by
-nearest neighbour by 7, offset it by 3, blur it slightly, and assert the
-detected cell size is 7 and the phase is 3. Then do the same for a non-integer
-scale. This is the piece most likely to be subtly wrong and the easiest to test
-exactly, so test it exactly.
+**Named palettes ship as a mechanism, plus import, and no bundled set.** The
+licensing discussion above is the reason. There is precedent on both sides:
+Aseprite, LibreSprite and Pixelorama all bundle presets, and Piskel bundles none
+as a stated policy, having closed two requests for a famous-palettes database as
+not planned. An editor is complete without them.
 
-### 3. The conform pipeline (medium, depends on 1 and 2)
+**Alpha stays hard, and the threshold is exposed.** A soft-alpha mode is not
+built until someone asks for one. Sprites with soft alpha edges are the problem
+this pipeline exists to solve.
 
-`pipeline/conform/__init__.py` with a `conform()` entry point and
-`ConformOptions`, plus `downsample.py` (the modal vote) and `cleanup.py` (alpha,
-halo, despeckle, outline). Rework `postprocess/__init__.py`'s `apply()` order,
-or leave `apply()` alone for the generate path and have conform be its own
-pipeline. Prefer the second: the generate path's existing behaviour is a
-reasonable cheap default and changing it changes every existing result.
-
-### 4. The route and the shell hop (small, depends on 3)
-
-`api/schemas/conform.py`, `api/routes/conform.py`, the three Rust commands, the
-`tauri.ts` and `api.ts` wrappers, the types, and the warning codes in both
-`errors.json` files. Mechanical. It is separate from piece 3 so that piece 3 can
-be tested through pytest before any of this exists.
-
-### 5. Stage: grid overlay, zoom, pan, readout (medium, frontend only, no dependency on 1 to 4)
-
-`SpriteCanvas` gains a zoom and pan state, a grid overlay, and the pointer
-readout. This is the piece that makes the user's "pick 64x64 and see 64 cells"
-true, and it can be built and shipped before conform exists, against the images
-generation already produces.
-
-Start it in parallel with piece 1.
-
-### 6. Right panel sub-tabs (small, depends on 5 only for what fills the Colour tab)
-
-Wrap the existing `ParameterPanel` body in a tab, add `SegmentedTabs` at the top
-of the panel, add an empty Colour tab. Twenty minutes of work and it unblocks
-pieces 7 and 8 for someone else.
-
-### 7. Conform in the interface (small, depends on 4 and 6)
-
-The Conform section in the Parameters tab, the dock entry, the rail's Source
-cell, and revert. Wire the returned palette into the store.
-
-### 8. The rail (small, depends on 5)
-
-Three cells, the collapse behaviour, the responsive breakpoints.
-
-### 9. Colour tab: picker and palette (medium, depends on 6, and on 4 for the palette data)
-
-Foreground and background swatches with a swap, a saturation-value field, a hue
-slider, a hex field, a recent strip, the palette grid with left-click and
-right-click assignment. No dependency worth taking: a saturation-value field is
-a canvas and two pointer handlers.
-
-### 10. Palette import and named palettes (small, depends on 4 and 9)
-
-`.hex`, `.gpl` and `.png` parsers in the sidecar, the two palette routes, a
-file dialog through Tauri, and the list in the Colour tab.
-
-### 11. The editable pixel buffer and the tools (large, depends on 5, 9, and the tool selector already built)
-
-This is the genuinely large piece and it should not be started until the others
-are done, because everything else is useful without it and it is not useful
-without them.
-
-It needs, at minimum: an `ImageData` buffer in the store as the single source of
-truth for the current sprite; pointer-to-cell mapping through the stage's zoom
-and pan; pencil, eraser, fill (scanline flood fill), eyedropper, and the three
-shapes as preview-then-commit strokes; pixel-perfect stroke correction; an undo
-stack with a stroke as the unit and a bounded depth; the Edit menu items
-enabled; and re-encoding to PNG on export.
-
-Two decisions inside it that are worth making before starting, not during:
-whether the buffer is the only truth (and the base64 PNG from the engine is
-decoded into it on arrival) or whether the PNG stays authoritative and the
-buffer is a cache; and whether an edit invalidates the gallery entry or creates
-a new one. Recommend: the buffer is the truth, the engine's PNG is decoded on
-arrival and never read again, and an edit creates a new gallery entry on export
-rather than mutating one.
-
-## Suggested order
-
-```
-Python:      1 ---> 2 ---> 3 ---> 4 ------+
-                                          |
-                                          v
-TypeScript:  5 ---> 6 -------------------> 7
-              \      \
-               -> 8   -> 9 ---> 10
-                        |
-                        v
-                       11   (also needs 5)
-```
-
-Two people can work in parallel from the start: one on 1-2-3-4 in Python, one on
-5-6-8 in TypeScript. They meet at 7.
-
-If only one person is available and something has to ship early, ship 5 and 6
-first. The grid overlay alone answers the loudest part of the complaint — "I
-picked 64x64 and I cannot see 64 pixels" — and it needs nothing from the engine.
-
----
-
-# Open questions
-
-**1. Two sub-tabs or three?** Recommendation: two (Parameters, Colour), with
-brush size and shape in a dock popover beside the tool selector, which is where
-every editor surveyed puts them. A third Brush tab is one array entry away when
-brush settings outgrow a popover. The request was for three; this is a
-disagreement worth resolving before piece 6 is built, because it is cheap now
-and annoying later.
-
-**2. Does conform run live, or on a button?** Recommendation: on a button, with
-the detected-grid readout updating live (it is cheap) and the image updating
-only on the press. A half-megabyte round trip per slider drag is not something
-to build a debounce around when the alternative is one press.
-
-**3. Does editing stay on the Generate screen, or become a fourth screen?**
-Recommendation: stay on Generate for now. The loop is generate, conform, touch
-up, generate again, and splitting it across screens breaks that. But say now
-that the moment layers, frames, or a timeline appear, it needs its own screen
-and the navigation gains a fourth tab — so do not build anything into
-`GenerateScreen` that assumes it will always live there. The stage, the rail,
-and the panel should all be components that a different screen could mount.
-
-**4. Ship named palettes, or only the mechanism?** Recommendation: only the
-mechanism, plus import. See the licensing discussion. There is precedent on both
-sides and it is worth stating: Aseprite, LibreSprite and Pixelorama all bundle
-presets, and Piskel bundles none as a stated policy, having closed two requests
-for a famous-palettes database as not planned. An editor is complete without
-them. This is the user's call because it is a product decision, not a technical
-one, and the technical answer is that it makes no difference to the work.
-
-**5. Is semi-transparent output ever wanted?** Recommendation: keep the hard
-alpha threshold as the default and expose the threshold, but do not build a
-soft-alpha mode until someone asks. Sprites with soft alpha edges are the
-problem this feature exists to solve.
-
-**6. Should the generate path adopt the new pipeline, or keep the old one?**
-Recommendation: keep the old one as the default post-processing on generate, and
-make conform an explicit second step. Changing what `POST /v1/generate` returns
-changes every result the user has already tuned their prompts against. Revisit
-once conform has been used enough to trust.
-
-**7. What happens to an edited sprite when the user presses Generate again?**
-Recommendation: the edit is not discarded silently. Either the new result goes
-to the rail's batch strip and the stage keeps the edited image until the user
-picks the new one, or Generate is blocked behind the same undoable-replacement
-rule as conform. The first is less surprising. This needs deciding before piece
-11, and it is the kind of thing that is very annoying to retrofit.
+**The indexed buffer is the only truth.** A document's layers are palette
+indices in the Rust process; an imported PNG is decoded on arrival and never
+read again; an export writes a new file rather than mutating what an import
+produced. This is the same recommendation the original breakdown made about the
+editable buffer, generalised: the answer to "which of these two representations
+is authoritative" is always the one the editor mutates.
 
 ---
 
@@ -1267,7 +1179,7 @@ fails CI on GPL, AGPL, SSPL and BUSL. Against that:
 
 | Dependency       | Licence               | Verdict                                                                                                                                                                                                                                                                                                                                                                                   |
 | ---------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **NumPy**        | BSD-3-Clause          | **Required.** Compatible. Currently only in the `cuda` and `mps` extras; must be promoted to a base dependency, because conform must work on the remote backend too, where neither extra is installed. Adds roughly 20 MB to the PyInstaller bundle.                                                                                                                                      |
+| **NumPy**        | BSD-3-Clause          | **Required.** Compatible. Was only in the `cuda` and `mps` extras; promoted to a base dependency when those extras were deleted, since conform is the engine's whole job. Adds roughly 20 MB to the PyInstaller bundle.                                                                                                                                      |
 | Pillow           | MIT-CMU               | Already present. Unchanged.                                                                                                                                                                                                                                                                                                                                                               |
 | SciPy            | BSD-3-Clause          | **Not needed.** Only wanted for `signal.find_peaks`, which the DFT approach replaces. Would add 40 MB or more to the bundle. Do not add it.                                                                                                                                                                                                                                               |
 | OpenCV           | Apache-2.0            | **Not needed.** Only wanted for Canny and Hough. Very large. Do not add it.                                                                                                                                                                                                                                                                                                               |
@@ -1280,9 +1192,9 @@ So: one new base dependency, NumPy, already vendored in two optional extras,
 BSD-3-Clause, and compatible.
 
 Bundle size is the real cost. `scripts/build-sidecar.py` freezes the sidecar
-with PyInstaller; adding NumPy to the base set adds it to the default bundle for
-every user, including remote-backend users who install no extras. That is worth
-20 MB, and it should be measured rather than assumed.
+with PyInstaller, and NumPy is in the base set, so every user carries it. Against
+a sidecar that once expected to carry PyTorch, 20 MB is not a figure worth
+arguing about; it should still be measured rather than assumed.
 
 ---
 

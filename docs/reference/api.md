@@ -1,10 +1,16 @@
 # Engine API reference
 
-Every endpoint the sidecar serves, with request and response shapes.
+Every endpoint the Python sidecar serves, with request and response shapes.
+
+The sidecar's job is batch image mathematics: conform, palette extraction, and
+the sprite files on disk. It is not on the path between an agent and the canvas,
+and it holds none of the document's state. That belongs to the Rust process, and
+its tool surface is in [MCP tools](../architecture/mcp-tools.md) rather than
+here.
 
 The engine listens on a loopback port chosen at startup and announced in its
-handshake. See [IPC protocol](../architecture/ipc-protocol.md) for how the
-shell learns it.
+handshake. See [IPC protocol](../architecture/ipc-protocol.md) for how the shell
+learns it.
 
 To explore interactively, pin the port and open the generated documentation:
 
@@ -34,7 +40,7 @@ The engine generates a token at startup and prints it in the handshake:
 Send it on every authenticated call:
 
 ```bash
-curl -H "X-Bitwright-Token: $TOKEN" http://127.0.0.1:8000/v1/backends
+curl -H "X-Bitwright-Token: $TOKEN" http://127.0.0.1:8000/v1/storage
 ```
 
 | Status | Code                      | Cause                                  |
@@ -48,36 +54,30 @@ other processes on the same machine, which is what the token is for. See
 
 ## GET /health
 
-Liveness, version, and whether the selected backend can generate.
+Liveness and version, and nothing else.
 
 ```bash
 curl http://127.0.0.1:8000/health
 ```
 
 ```json
-{
-  "status": "ok",
-  "version": "0.0.3",
-  "backend": "remote",
-  "backendReady": false
-}
+{ "status": "ok", "version": "0.0.3" }
 ```
 
-| Field          | Type    | Meaning                                          |
-| -------------- | ------- | ------------------------------------------------ |
-| `status`       | string  | `ok` once the process can serve requests         |
-| `version`      | string  | Engine version                                   |
-| `backend`      | string  | The selected backend: `cuda`, `mps`, or `remote` |
-| `backendReady` | boolean | Whether that backend can generate now            |
+| Field     | Type   | Meaning                                  |
+| --------- | ------ | ---------------------------------------- |
+| `status`  | string | `ok` once the process can serve requests |
+| `version` | string | Engine version                           |
 
-`backendReady` being false is not an error. The process is up; the backend it
-holds cannot run, and `GET /v1/backends` says why.
+No engine state is read. The shell polls this while the application is still
+starting, and a probe that depended on anything the process builds would answer
+500 during exactly the window it exists to cover.
 
 ## POST /shutdown
 
 Asks the server to finish in-flight requests and exit. The shell calls this
-before terminating the process, so a generation midway through is not cut off.
-Authenticated, because an unauthorised caller could otherwise stop generation at
+before terminating the process, so a conform midway through is not cut off.
+Authenticated, because an unauthorised caller could otherwise stop the engine at
 will.
 
 ```bash
@@ -86,193 +86,145 @@ curl -X POST -H "X-Bitwright-Token: $TOKEN" http://127.0.0.1:8000/shutdown
 
 Returns `202 Accepted` with an empty body. The process exits shortly after.
 
-## GET /v1/backends
+## POST /v1/conform
 
-Every backend, its availability, and its capabilities, in preference order.
-
-```bash
-curl -H "X-Bitwright-Token: $TOKEN" http://127.0.0.1:8000/v1/backends
-```
-
-```json
-{
-  "backends": [
-    {
-      "kind": "cuda",
-      "available": false,
-      "detail": "backend.cuda.driver_missing",
-      "device": "",
-      "capabilities": ["batch", "controlnet", "ip_adapter", "lora_hotswap"],
-      "selected": false
-    },
-    {
-      "kind": "remote",
-      "available": true,
-      "detail": "",
-      "device": "https://api.example.com",
-      "capabilities": ["batch"],
-      "selected": true
-    }
-  ]
-}
-```
-
-| Field          | Type     | Meaning                                              |
-| -------------- | -------- | ---------------------------------------------------- |
-| `kind`         | string   | `cuda`, `mps`, or `remote`                           |
-| `available`    | boolean  | Can generate right now                               |
-| `detail`       | string   | Stable reason code when unavailable, empty otherwise |
-| `device`       | string   | Device or endpoint description when available        |
-| `capabilities` | string[] | Supported optional features                          |
-| `selected`     | boolean  | Currently serving generation                         |
-
-Capabilities are reported whether or not the backend is available, so the
-Settings screen can show what an engine would offer once its driver is
-installed.
-
-## POST /v1/backends/{kind}/select
-
-Switches the active backend.
+Turns an image of pixel art into pixel art: finds the grid it was drawn on,
+resolves one colour per cell, reduces to a palette, and hardens the alpha edge.
+This is the reference importer. What each step does, and when to change it, is
+in [Reference import](../guides/post-processing.md).
 
 ```bash
-curl -X POST -H "X-Bitwright-Token: $TOKEN" \
-  http://127.0.0.1:8000/v1/backends/remote/select
-```
-
-Returns the refreshed backend list, with the new selection marked.
-
-| Status | Meaning                                                    |
-| ------ | ---------------------------------------------------------- |
-| 200    | Switched                                                   |
-| 404    | `backend.unknown_kind`                                     |
-| 409    | The backend is unavailable; the reason code is in `detail` |
-
-Selecting an unavailable backend is rejected here rather than at generation
-time, so the problem is reported where the user made the choice.
-
-## POST /v1/generate
-
-Generates sprites.
-
-```bash
-curl -X POST http://127.0.0.1:8000/v1/generate \
+curl -X POST http://127.0.0.1:8000/v1/conform \
   -H "X-Bitwright-Token: $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-    "prompt": "a knight in silver armour, side view",
-    "width": 64,
-    "height": 64,
-    "seed": 42
-  }'
+  -d '{"image": "iVBORw0KGgo...", "width": 64, "height": 64}'
 ```
 
 ### Request
 
-| Field            | Type            | Default        | Range                 |
-| ---------------- | --------------- | -------------- | --------------------- |
-| `prompt`         | string          | required       | 1 to 2000 characters  |
-| `negativePrompt` | string          | `""`           | up to 2000 characters |
-| `width`          | integer         | 64             | 8 to 2048             |
-| `height`         | integer         | 64             | 8 to 2048             |
-| `steps`          | integer         | 20             | 1 to 150              |
-| `guidanceScale`  | number          | 7.0            | 0 to 30               |
-| `seed`           | integer or null | null           | 0 to 2147483647       |
-| `batchSize`      | integer         | 1              | 1 to 16               |
-| `modelId`        | string          | `sd15-base`    | a registry identifier |
-| `loraId`         | string or null  | null           | a registry identifier |
-| `postprocess`    | object          | defaults below |                       |
+| Field                 | Type            | Default  | Notes                                                   |
+| --------------------- | --------------- | -------- | ------------------------------------------------------- |
+| `image`               | string          | required | Base64 PNG, no data URL prefix                          |
+| `width`               | integer or null | null     | Cells across. `null` detects the count as well as the size |
+| `height`              | integer or null | null     | Cells down, on the same terms                           |
+| `removeBackground`    | boolean         | true     |                                                         |
+| `backgroundTolerance` | integer         | 12       | 0 to 255                                                |
+| `paletteSize`         | integer or null | 32       | 2 to 256. `null` keeps every colour the downsample produced |
+| `dither`              | string          | `none`   | `none`, `bayer2`, `bayer4`, `bayer8`, or `floydSteinberg` |
+| `alphaThreshold`      | number          | 0.5      | 0.05 to 0.95. How much of a cell must be subject for it to come out opaque |
 
-`postprocess`:
-
-| Field                 | Type            | Default | Range    |
-| --------------------- | --------------- | ------- | -------- |
-| `removeBackground`    | boolean         | true    |          |
-| `backgroundTolerance` | integer         | 12      | 0 to 255 |
-| `paletteSize`         | integer or null | 32      | 2 to 256 |
-| `dither`              | boolean         | false   |          |
-| `pixelGrid`           | integer or null | null    | 1 to 64  |
+`width` and `height` are capped at 1024 cells, which is well above anything
+anyone draws by hand and low enough that a request cannot ask the engine to
+allocate a cell grid larger than the image it came from.
 
 ### Response
 
 ```json
 {
-  "images": [{ "data": "iVBORw0KGgoAAAANSUhEUgAA...", "width": 64, "height": 64 }],
-  "backend": "remote",
-  "durationMs": 42,
+  "image": "iVBORw0KGgo...",
+  "width": 64,
+  "height": 64,
+  "palette": ["#2e2a3b", "#7a4b2e", "#c9a227"],
+  "detected": {
+    "cellWidth": 8.03,
+    "cellHeight": 8.01,
+    "phaseX": 3.2,
+    "phaseY": 0.4,
+    "confidence": 0.86
+  },
+  "durationMs": 412,
   "warnings": []
 }
 ```
 
-`data` is base64 encoded PNG bytes, with no data URL prefix.
+| Field        | Type     | Meaning                                                        |
+| ------------ | -------- | -------------------------------------------------------------- |
+| `image`      | string   | The result, base64 PNG                                         |
+| `width`      | integer  | Result width in pixels                                         |
+| `height`     | integer  | Result height in pixels                                        |
+| `palette`    | string[] | Every colour the result uses, hex, opaque pixels only, most used first |
+| `detected`   | object   | The grid the image turned out to be drawn on                   |
+| `durationMs` | integer  | How long it took                                               |
+| `warnings`   | string[] | Stable reason codes for anything the caller should know        |
 
-### Errors
+`detected` is reported because it is the one number that says whether the result
+can be trusted. `cellWidth` and `cellHeight` are source pixels per cell and are
+fractional in general; `phaseX` and `phaseY` are where the first boundary sat;
+`confidence` is the share of edge energy that lined up with the grid, taken from
+whichever axis was weaker. A confidence near zero means the image was not an
+upscaled sprite, and what came back is a resize rather than a correction.
 
-| Status | Body                                | Cause                        |
-| ------ | ----------------------------------- | ---------------------------- |
-| 422    | FastAPI validation detail           | A field is outside its range |
-| 503    | `{"code": "...", "message": "..."}` | The backend failed           |
+`palette` is empty when the result has more colours than a palette could hold,
+which happens when `paletteSize` is null.
 
-Backend codes:
+Warning codes:
 
-| Code                             | Meaning                                                     |
-| -------------------------------- | ----------------------------------------------------------- |
-| `backend.unavailable`            | The backend cannot run on this machine                      |
-| `backend.unsupported_capability` | The request needs a capability the backend lacks            |
-| `backend.remote.request_failed`  | The remote endpoint rejected the request or was unreachable |
-| `backend.error`                  | Anything else                                               |
+| Code                           | Meaning                                                  |
+| ------------------------------ | -------------------------------------------------------- |
+| `conform.grid_not_found`       | No periodicity was measurable; the image was resized     |
+| `conform.grid_anisotropic`     | The two axes disagree about the cell size                |
+| `conform.background_uncertain` | The four corners do not agree on what the background is  |
+| `conform.already_at_size`      | The image was already at the requested cell size         |
 
-A request that needs an undeclared capability is rejected before generation
-starts, so `batchSize: 4` against a backend without `batch` fails immediately
-rather than after a wait.
+## GET /v1/sprites
 
-## GET /v1/models
-
-Registered models, their licences, and whether they are cached locally.
-
-```bash
-curl -H "X-Bitwright-Token: $TOKEN" http://127.0.0.1:8000/v1/models
-```
+Every sprite written under the data root, newest first.
 
 ```json
 {
-  "models": [
+  "sprites": [
     {
-      "modelId": "sd15-base",
-      "name": "Stable Diffusion 1.5",
-      "kind": "base",
-      "licenseId": "CreativeML Open RAIL-M",
-      "licenseUrl": "https://huggingface.co/spaces/CompVis/stable-diffusion-license",
-      "commercialUse": true,
-      "sizeMb": 4200,
-      "cached": false
+      "name": "knight-idle.png",
+      "path": "C:\\Users\\me\\AppData\\Local\\studio.afterhours.bitwright\\sprites\\knight-idle.png",
+      "width": 64,
+      "height": 64,
+      "data": "iVBORw0KGgo...",
+      "modifiedAt": 1758585600.0
     }
   ]
 }
 ```
 
-| Field           | Type    | Meaning                                    |
-| --------------- | ------- | ------------------------------------------ |
-| `modelId`       | string  | Registry identifier                        |
-| `name`          | string  | Display name                               |
-| `kind`          | string  | `base`, `lora`, or `segmentation`          |
-| `licenseId`     | string  | Licence identifier or name                 |
-| `licenseUrl`    | string  | Where to read the full text                |
-| `commercialUse` | boolean | Whether the licence permits commercial use |
-| `sizeMb`        | integer | Approximate download size                  |
-| `cached`        | boolean | Already on this machine                    |
+`data` is base64 encoded PNG bytes, with no data URL prefix. `name` is the file
+name and is also the identifier the other two routes take.
 
-The licence is part of the response because the user has to see it before
-anything is downloaded. Weights are not covered by the application's own
-licence; see [MODELS.md](../../MODELS.md).
+## POST /v1/sprites/{name}/remove
+
+Deletes one sprite. Returns `204 No Content`.
+
+## POST /v1/sprites/{name}/edit
+
+Writes an edited sprite back, and returns the `SavedSprite` that resulted.
+
+| Field   | Type   | Notes                                              |
+| ------- | ------ | -------------------------------------------------- |
+| `image` | string | Base64 PNG, no data URL prefix, at least one byte  |
+
+## Storage
+
+Four routes over the data root, which is the directory that holds everything
+the application writes and the one setting a user moves when a drive fills up.
+
+| Route                     | Purpose                                                |
+| ------------------------- | ------------------------------------------------------ |
+| `GET /v1/storage`         | The root in use, and the free space on its volume      |
+| `POST /v1/storage/validate` | Check a candidate directory before committing to it  |
+| `POST /v1/storage`        | Move to a directory the user picked                    |
+| `POST /v1/storage/default`| Return to the per-user default                         |
+
+`validate` exists so that a bad choice is reported where the user made it rather
+than at the next write. The two that change the root return both the new root
+and the old one, described as it stands after the change, so the interface can
+name what was left behind: nothing is moved on the application's own initiative.
 
 ## Error shape
 
-Every backend failure returns the same body:
+Every engine failure returns the same body:
 
 ```json
 {
-  "code": "backend.cuda.driver_missing",
-  "message": "backend.cuda.driver_missing"
+  "code": "conform.grid_not_found",
+  "message": "conform.grid_not_found"
 }
 ```
 
