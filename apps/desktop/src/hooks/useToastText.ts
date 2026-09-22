@@ -30,7 +30,7 @@ export type ToastTranslator = (
  * and this hook exists for both:
  *
  * A code with no entry falls back to the generic error message rather than
- * putting a raw identifier such as `models.download_rejected` in front of the
+ * putting a raw identifier such as `storage.invalid_path` in front of the
  * user. That is the same rule `useErrorMessage` applies, generalised to a key
  * that names its own namespace, because a notification's body can come from
  * `errors` or from `common` and the caller is the one that knows which.

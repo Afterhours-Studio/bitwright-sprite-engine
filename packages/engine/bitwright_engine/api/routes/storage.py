@@ -23,8 +23,8 @@ routes do.
 
 A candidate is validated before it is accepted, and the validation writes and
 deletes a real file rather than reading a permission bit. Changing the root
-never moves what is already there: the response says what stayed at the old
-location, and the interface tells the user.
+never moves what is already there: the response describes the old location as
+it stands after the change, and the interface tells the user.
 """
 
 from __future__ import annotations
@@ -35,9 +35,14 @@ from fastapi import APIRouter, HTTPException, status
 
 from bitwright_engine.api.schemas import StorageChangeResponse, StorageInfo, StorageRootBody
 from bitwright_engine.api.state import EngineState, StateDep
-from bitwright_engine.config import get_settings
 from bitwright_engine.config.settings import default_data_root
-from bitwright_engine.config.storage import StorageError, StorageLocation, describe, validate_root
+from bitwright_engine.config.storage import (
+    SPRITES_DIRNAME,
+    StorageError,
+    StorageLocation,
+    describe,
+    validate_root,
+)
 from bitwright_engine.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -48,6 +53,12 @@ router = APIRouter(prefix="/v1/storage", tags=["storage"])
 def _to_info(location: StorageLocation) -> StorageInfo:
     """Build the wire representation of one data root.
 
+    The sprites directory is derived from the root being described rather than
+    read off the live settings, because this function also describes roots that
+    are not in force: a candidate the user is validating, and the previous root
+    in a change response. Reporting the running configuration for either would
+    name a directory that has nothing to do with the root it appears beside.
+
     Args:
         location: The described root.
 
@@ -56,14 +67,12 @@ def _to_info(location: StorageLocation) -> StorageInfo:
     """
     return StorageInfo(
         root=str(location.root),
-        models_dir=str(location.models_dir),
-        sprites_dir=str(get_settings().sprites_dir),
+        sprites_dir=str(location.root / SPRITES_DIRNAME),
         default_root=str(default_data_root()),
         is_default=location.is_default,
         free_bytes=location.free_bytes,
         total_bytes=location.total_bytes,
         used_bytes=location.used_bytes,
-        existing_models=list(location.existing_models),
     )
 
 

@@ -29,29 +29,26 @@ class StorageInfo(CamelModel):
     """One data root, as the settings screen sees it.
 
     Attributes:
-        root: The directory that holds everything the application downloads.
-        models_dir: Where weights live inside that root.
-        sprites_dir: Where generated sprites are written.
+        root: The directory that holds everything the application writes: the
+            database, the sprites, and the imported reference images.
+        sprites_dir: Where sprites are written.
         default_root: The per-user default, so the interface can offer to go
             back to it.
         is_default: Whether ``root`` is that default.
         free_bytes: Free space on the volume behind ``root``, or null when the
-            volume could not be read. The interface warns before a download
-            larger than this.
+            volume could not be read. The interface shows it, so that a volume
+            with no room left is visible before the root is adopted.
         total_bytes: Size of that volume, or null for the same reason.
-        used_bytes: Bytes already taken by models under this root.
-        existing_models: Identifiers of the models found under this root.
+        used_bytes: Bytes already taken by the files under this root.
     """
 
     root: str
-    models_dir: str
     sprites_dir: str
     default_root: str
     is_default: bool
     free_bytes: int | None
     total_bytes: int | None
     used_bytes: int
-    existing_models: list[str]
 
 
 class StorageRootBody(CamelModel):
@@ -71,11 +68,11 @@ class StorageChangeResponse(CamelModel):
     Attributes:
         current: The root now in use.
         previous: The root that was in use, described as it stands after the
-            change, so that the interface can name the models left behind.
-        data_moved: Always false. The application never moves gigabytes on its
-            own; a download that is already on disk stays where it is and is
-            fetched again if it is needed at the new location. The field exists
-            so the interface states this rather than assuming it.
+            change, so that the interface can say how much was left behind.
+        data_moved: Always false. The application never moves a user's library
+            on its own; what is already written stays where it is, and the
+            gallery will no longer find it. The field exists so the interface
+            states this rather than assuming it.
     """
 
     current: StorageInfo

@@ -293,9 +293,9 @@ export function Toast({ toast }: ToastProps): ReactElement {
               resume(toast.id);
             }}
             className={cn(
-              // Wide enough that a headline naming a model fits on one line.
-              // At 336px the text column was 236px, and "Could not download
-              // Stable Diffusion 1.5" needs about 270. Capped against the
+              // Wide enough that a headline naming a file or an asset fits on
+              // one line. At 336px the text column was 236px, and a message of
+              // the length these carry needs about 270. Capped against the
               // viewport so a narrow window cannot push it off the edge.
               'flex w-[400px] max-w-[calc(100vw-3rem)] items-start gap-3 rounded-md p-3',
               'border border-line bg-surface-float shadow-md',

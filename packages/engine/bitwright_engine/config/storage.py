@@ -14,20 +14,21 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-"""Where downloaded data lives, and whether a chosen directory can hold it.
+"""Where the application's data lives, and whether a directory can hold it.
 
-Model weights are several gigabytes each, so the directory that holds them
-cannot be nailed to whichever volume the application was installed on. A user
-whose system drive is full has to be able to point this somewhere else.
+The data root holds the SQLite database, the sprites, and the reference images
+the user imported. A library of those grows without limit, so the root cannot
+be nailed to whichever volume the application was installed on. A user whose
+system drive is full has to be able to point this somewhere else.
 
 A candidate directory is proven writable by writing a file and removing it
 again, never by reading a permission bit. A network share, a synchronised
 folder, and a read-only mount all report permissions that a write then refuses,
-and that failure would otherwise arrive four gigabytes into a download.
+and that failure would otherwise arrive halfway through saving the user's work.
 
-Nothing here moves data. Changing the root leaves what has already been
-downloaded where it is, and the caller is told what stayed behind, because
-silently moving gigabytes is not a side effect a settings screen may have.
+Nothing here moves data. Changing the root leaves what is already written where
+it is, and the caller is told how much stayed behind, because silently moving a
+user's library is not a side effect a settings screen may have.
 """
 
 from __future__ import annotations
@@ -42,9 +43,6 @@ from uuid import uuid4
 from bitwright_engine.utils.logging import get_logger
 
 logger = get_logger(__name__)
-
-MODELS_DIRNAME = "models"
-"""Subdirectory of the data root that holds cached assets."""
 
 SPRITES_DIRNAME = "sprites"
 """Subdirectory of the data root that sprites are written to."""
@@ -136,24 +134,21 @@ class StorageLocation:
     """A data root, the room left on its volume, and what is already in it.
 
     Attributes:
-        root: The directory that holds everything this application downloads.
-        models_dir: Where weights live inside that root.
+        root: The directory that holds everything this application writes: the
+            database, the sprites, and the imported reference images.
         is_default: Whether this is the per-user default location.
         free_bytes: Free space on the volume behind the root, or None when the
             volume could not be read, such as a share that has gone away.
         total_bytes: Size of that volume, or None for the same reason.
-        used_bytes: Bytes already taken by downloaded models under this root.
-        existing_models: Identifiers of the models found under this root, in
-            order. Used to tell the user what stays behind when the root moves.
+        used_bytes: Bytes already taken by the files under this root. Used to
+            tell the user how much stays behind when the root moves.
     """
 
     root: Path
-    models_dir: Path
     is_default: bool
     free_bytes: int | None
     total_bytes: int | None
     used_bytes: int
-    existing_models: tuple[str, ...]
 
 
 def installation_root() -> Path:
@@ -258,7 +253,7 @@ def probe_writable(directory: Path) -> None:
 
 
 def validate_root(raw: str | Path, *, install_root: Path | None = None) -> Path:
-    """Check that a chosen directory can hold downloaded data.
+    """Check that a chosen directory can hold the application's data.
 
     A missing directory is created, because a user who typed or picked a new
     folder expects it to be used rather than reported as an error.
@@ -323,43 +318,6 @@ def directory_size(directory: Path) -> int:
     return total
 
 
-def scan_models(models_dir: Path) -> tuple[tuple[str, ...], int]:
-    """List the models already downloaded under a root, and their size.
-
-    The layout is ``<models>/<kind>/<model id>``, which is what the downloader
-    writes. The registry is deliberately not consulted: this reports what is on
-    the disk, including entries from an older registry, and those are exactly
-    the gigabytes a user would be upset to lose track of.
-
-    Args:
-        models_dir: The models directory, which need not exist.
-
-    Returns:
-        The model identifiers found, sorted, and the bytes they occupy.
-    """
-    if not models_dir.is_dir():
-        return (), 0
-
-    names: list[str] = []
-    total = 0
-    try:
-        for kind_dir in sorted(models_dir.iterdir()):
-            # Skips the downloader's .partial directory, which holds transfers
-            # that were interrupted and are not models.
-            if not kind_dir.is_dir() or kind_dir.name.startswith("."):
-                continue
-            for model_dir in sorted(kind_dir.iterdir()):
-                if not model_dir.is_dir():
-                    continue
-                names.append(model_dir.name)
-                total += directory_size(model_dir)
-    except OSError:
-        logger.warning("cannot list the models under %s", models_dir)
-        return (), 0
-
-    return tuple(names), total
-
-
 def describe(root: Path, *, default_root: Path) -> StorageLocation:
     """Report on a data root: its room, and what is already stored in it.
 
@@ -374,16 +332,12 @@ def describe(root: Path, *, default_root: Path) -> StorageLocation:
     Returns:
         The description of that root.
     """
-    models_dir = root / MODELS_DIRNAME
     space = volume_space(root)
-    existing, used = scan_models(models_dir)
 
     return StorageLocation(
         root=root,
-        models_dir=models_dir,
         is_default=root == default_root,
         free_bytes=None if space is None else space[1],
         total_bytes=None if space is None else space[0],
-        used_bytes=used,
-        existing_models=existing,
+        used_bytes=directory_size(root),
     )

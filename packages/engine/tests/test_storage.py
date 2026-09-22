@@ -35,8 +35,8 @@ from fastapi.testclient import TestClient
 from bitwright_engine.api.routes import storage as storage_route
 from bitwright_engine.config import Settings
 from bitwright_engine.config.storage import (
-    MODELS_DIRNAME,
     PROBE_PREFIX,
+    SPRITES_DIRNAME,
     StorageCreateFailedError,
     StorageInsideInstallationError,
     StorageNotADirectoryError,
@@ -45,27 +45,26 @@ from bitwright_engine.config.storage import (
     StoragePathNotAbsoluteError,
     describe,
     installation_root,
-    scan_models,
     validate_root,
 )
 
 
-def make_model(root: Path, kind: str, model_id: str, size: int = 8) -> Path:
-    """Create a downloaded model under a data root.
+def make_sprite(root: Path, name: str, size: int = 8) -> Path:
+    """Write a sprite under a data root.
 
     Args:
         root: The data root.
-        kind: Registry kind, which is the first level of the layout.
-        model_id: Registry identifier, which is the second.
-        size: Bytes to write into the weights file.
+        name: File name of the sprite.
+        size: Bytes to write into it.
 
     Returns:
-        The model directory.
+        The sprite file.
     """
-    directory = root / MODELS_DIRNAME / kind / model_id
-    directory.mkdir(parents=True)
-    (directory / "model.safetensors").write_bytes(b"w" * size)
-    return directory
+    directory = root / SPRITES_DIRNAME
+    directory.mkdir(parents=True, exist_ok=True)
+    sprite = directory / name
+    sprite.write_bytes(b"p" * size)
+    return sprite
 
 
 def test_accepts_a_directory_that_exists(tmp_path: Path) -> None:
@@ -99,7 +98,7 @@ def test_refuses_an_empty_path(tmp_path: Path) -> None:
 
 def test_refuses_a_relative_path(tmp_path: Path) -> None:
     with pytest.raises(StoragePathNotAbsoluteError) as raised:
-        validate_root("models", install_root=tmp_path / "app")
+        validate_root("sprites", install_root=tmp_path / "app")
 
     assert raised.value.code == "storage.path_not_absolute"
 
@@ -193,63 +192,55 @@ def test_reports_the_free_space_of_the_volume(tmp_path: Path) -> None:
     assert 0 < location.free_bytes <= location.total_bytes
 
 
-def test_reports_what_is_already_downloaded(tmp_path: Path) -> None:
-    make_model(tmp_path, "base", "sd15-base", size=16)
-    make_model(tmp_path, "segmentation", "rembg-u2net", size=8)
-    (tmp_path / MODELS_DIRNAME / ".partial").mkdir()
-    (tmp_path / MODELS_DIRNAME / ".partial" / "base-sd15-base.part").write_bytes(b"x" * 4)
+def test_reports_what_is_already_stored(tmp_path: Path) -> None:
+    make_sprite(tmp_path, "hero.png", size=16)
+    make_sprite(tmp_path, "villain.png", size=8)
+    (tmp_path / "library.sqlite3").write_bytes(b"d" * 4)
 
     location = describe(tmp_path, default_root=tmp_path)
 
-    assert location.existing_models == ("sd15-base", "rembg-u2net")
-    # The interrupted transfer is not a model and is not counted as one.
-    assert location.used_bytes == 24
+    # Everything under the root counts, because everything under it is the
+    # user's library: the database as much as the sprites.
+    assert location.used_bytes == 28
     assert location.is_default is True
-    assert location.models_dir == tmp_path / MODELS_DIRNAME
 
 
 def test_reports_an_empty_root(tmp_path: Path) -> None:
     location = describe(tmp_path, default_root=tmp_path / "elsewhere")
 
-    assert location.existing_models == ()
     assert location.used_bytes == 0
     assert location.is_default is False
 
 
-def test_scanning_a_missing_models_directory_is_empty(tmp_path: Path) -> None:
-    assert scan_models(tmp_path / "nothing") == ((), 0)
+def test_reports_a_root_that_does_not_exist(tmp_path: Path) -> None:
+    # A candidate is described before it is adopted, and a directory that has
+    # not been created yet must report rather than fail.
+    location = describe(tmp_path / "nothing", default_root=tmp_path)
+
+    assert location.used_bytes == 0
 
 
-def test_the_cache_directory_follows_the_data_root(tmp_path: Path) -> None:
+def test_the_sprites_directory_follows_the_data_root(tmp_path: Path) -> None:
     settings = Settings(data_root=tmp_path / "chosen")
 
-    assert settings.cache_dir == tmp_path / "chosen" / MODELS_DIRNAME
+    assert settings.sprites_dir == tmp_path / "chosen" / SPRITES_DIRNAME
 
 
-def test_an_explicit_cache_directory_still_wins(tmp_path: Path) -> None:
-    # The documented BITWRIGHT_CACHE_DIR override has to keep working.
-    settings = Settings(data_root=tmp_path / "chosen", cache_dir=tmp_path / "elsewhere")
-
-    assert settings.cache_dir == tmp_path / "elsewhere"
-
-
-def test_use_data_root_moves_the_cache(tmp_path: Path, settings: Settings) -> None:
+def test_use_data_root_moves_the_sprites(tmp_path: Path, settings: Settings) -> None:
     settings.use_data_root(tmp_path / "moved")
 
     assert settings.data_root == tmp_path / "moved"
-    assert settings.cache_dir == tmp_path / "moved" / MODELS_DIRNAME
+    assert settings.sprites_dir == tmp_path / "moved" / SPRITES_DIRNAME
 
 
 def test_the_route_reports_the_current_location(client: TestClient, tmp_path: Path) -> None:
-    make_model(tmp_path, "base", "sd15-base", size=32)
+    make_sprite(tmp_path, "hero.png", size=32)
 
     response = client.get("/v1/storage")
 
     assert response.status_code == 200
     body = response.json()
     assert body["root"] == str(tmp_path)
-    assert body["modelsDir"] == str(tmp_path / MODELS_DIRNAME)
-    assert body["existingModels"] == ["sd15-base"]
     assert body["usedBytes"] == 32
     assert body["freeBytes"] > 0
     assert body["isDefault"] is False
@@ -267,18 +258,20 @@ def test_the_route_validates_a_candidate(client: TestClient, tmp_path: Path) -> 
 
 
 def test_the_route_refuses_a_relative_candidate(client: TestClient) -> None:
-    response = client.post("/v1/storage/validate", json={"path": "models"})
+    response = client.post("/v1/storage/validate", json={"path": "sprites"})
 
     assert response.status_code == 400
     assert response.json()["detail"] == "storage.path_not_absolute"
 
 
-def test_changing_the_root_leaves_the_old_downloads_where_they_are(
+def test_changing_the_root_leaves_the_old_sprites_where_they_are(
     client: TestClient,
     settings: Settings,
     tmp_path: Path,
 ) -> None:
-    make_model(tmp_path, "base", "sd15-base", size=64)
+    source = tmp_path / "source"
+    make_sprite(source, "hero.png", size=64)
+    settings.use_data_root(source)
     destination = tmp_path / "destination"
 
     response = client.post("/v1/storage", json={"path": str(destination)})
@@ -287,12 +280,12 @@ def test_changing_the_root_leaves_the_old_downloads_where_they_are(
     body = response.json()
     assert body["dataMoved"] is False
     assert body["current"]["root"] == str(destination)
-    assert body["current"]["existingModels"] == []
+    assert body["current"]["usedBytes"] == 0
     # The old root is reported so that the interface can say what stayed there.
-    assert body["previous"]["root"] == str(tmp_path)
-    assert body["previous"]["existingModels"] == ["sd15-base"]
-    assert (tmp_path / MODELS_DIRNAME / "base" / "sd15-base").is_dir()
-    assert settings.cache_dir == destination / MODELS_DIRNAME
+    assert body["previous"]["root"] == str(source)
+    assert body["previous"]["usedBytes"] == 64
+    assert (source / SPRITES_DIRNAME / "hero.png").is_file()
+    assert settings.sprites_dir == destination / SPRITES_DIRNAME
 
 
 def test_the_default_is_restored(
@@ -316,4 +309,38 @@ def test_the_default_is_restored(
     assert body["current"]["root"] == str(fallback)
     assert body["current"]["isDefault"] is True
     assert settings.data_root == fallback
-    assert settings.cache_dir == fallback / MODELS_DIRNAME
+    assert settings.sprites_dir == fallback / SPRITES_DIRNAME
+
+
+def test_a_described_root_names_its_own_sprites_directory(
+    client: TestClient,
+    tmp_path: Path,
+) -> None:
+    # Every root in a response has to name the sprites directory that belongs to
+    # it, not the one the process happens to be using. Two roots appear in a
+    # change response and only one of them is in force, so reading the sprites
+    # directory off the live settings would give the new root's path to the old
+    # root as well, and tell the user their work moved when it did not.
+    destination = tmp_path / "moved"
+    origin = tmp_path / "origin"
+
+    client.post("/v1/storage", json={"path": str(origin)})
+    response = client.post("/v1/storage", json={"path": str(destination)})
+
+    body = response.json()
+    assert body["current"]["spritesDir"] == str(destination / SPRITES_DIRNAME)
+    assert body["previous"]["spritesDir"] == str(origin / SPRITES_DIRNAME)
+
+
+def test_a_validated_candidate_names_its_own_sprites_directory(
+    client: TestClient,
+    tmp_path: Path,
+) -> None:
+    # A candidate is not in force at all, so this is the same fault with nothing
+    # to hide it: before the change, the live settings still point elsewhere.
+    candidate = tmp_path / "candidate"
+
+    response = client.post("/v1/storage/validate", json={"path": str(candidate)})
+
+    assert response.status_code == 200
+    assert response.json()["spritesDir"] == str(candidate / SPRITES_DIRNAME)

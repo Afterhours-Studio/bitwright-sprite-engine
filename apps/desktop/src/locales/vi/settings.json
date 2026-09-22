@@ -7,8 +7,6 @@
     "current": "Thư mục",
     "free": "Dung lượng trống",
     "used": "Đã dùng trong thư mục này",
-    "existing": "Model weights ở đây",
-    "none": "Chưa có gì",
     "unknownSpace": "Không đọc được",
     "isDefault": "Đây là thư mục mặc định, nằm trong hồ sơ người dùng của bạn.",
     "browse": "Chọn thư mục",
@@ -16,7 +14,7 @@
     "confirmTitle": "Lưu mọi thứ ở đây?",
     "confirmBody": "Từ giờ các tệp mới sẽ nằm ở đây. Những gì đã ghi ra không được di chuyển và vẫn ở chỗ cũ.",
     "confirmAction": "Dùng thư mục này",
-    "leftBehind": "Những thứ sau vẫn ở thư mục cũ và không được di chuyển: {{models}}. Chúng vẫn nằm trong {{path}}."
+    "leftBehind": "Những gì đã ghi ra vẫn ở thư mục cũ và không được di chuyển. Chúng vẫn nằm trong {{path}}."
   },
   "appearance": {
     "title": "Hiển thị",

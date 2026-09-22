@@ -7,8 +7,6 @@
     "current": "Location",
     "free": "Free space",
     "used": "Used by this folder",
-    "existing": "Model weights here",
-    "none": "Nothing yet",
     "unknownSpace": "Could not be read",
     "isDefault": "This is the default location, under your user profile.",
     "browse": "Choose a folder",
@@ -16,7 +14,7 @@
     "confirmTitle": "Keep everything here?",
     "confirmBody": "New files go here from now on. What is already written is not moved, and stays where it is.",
     "confirmAction": "Use this folder",
-    "leftBehind": "These stayed at the previous location and were not moved: {{models}}. They are still in {{path}}."
+    "leftBehind": "What was already written stayed at the previous location and was not moved. It is still in {{path}}."
   },
   "appearance": {
     "title": "Appearance",

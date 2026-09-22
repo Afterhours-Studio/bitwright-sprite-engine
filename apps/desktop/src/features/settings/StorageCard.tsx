@@ -35,9 +35,9 @@ import type { StorageInfo } from '@/types/engine';
  *
  * Choosing a folder does not apply it. The picker produces a candidate that
  * the engine has already created, proved writable, and reported the free space
- * for; a second, explicit press is what moves where gigabytes land. A change
- * this consequential is not something a single press should be able to do by
- * accident.
+ * for; a second, explicit press is what moves where the library lands. A
+ * change this consequential is not something a single press should be able to
+ * do by accident.
  *
  * Nothing is moved on disk. What is already written stays at the old
  * location, and the card says so afterwards rather than letting the user
@@ -110,13 +110,6 @@ export function StorageCard(): ReactElement {
             <dd className="text-fg-primary">
               {info === null ? '-' : formatBytes(info.usedBytes, units)}
             </dd>
-
-            <dt>{t('storage.existing')}</dt>
-            <dd className="break-all text-fg-primary">
-              {info === null || info.existingModels.length === 0
-                ? t('storage.none')
-                : info.existingModels.join(', ')}
-            </dd>
           </dl>
 
           {info?.isDefault === true && (
@@ -168,10 +161,7 @@ export function StorageCard(): ReactElement {
 
         {leftBehind !== null && (
           <p className="text-xs text-fg-secondary">
-            {t('storage.leftBehind', {
-              models: leftBehind.models.join(', '),
-              path: leftBehind.root,
-            })}
+            {t('storage.leftBehind', { path: leftBehind })}
           </p>
         )}
 

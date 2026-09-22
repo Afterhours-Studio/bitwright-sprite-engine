@@ -29,10 +29,10 @@ import os
 import sys
 from pathlib import Path
 
-from pydantic import Field, model_validator
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from bitwright_engine.config.storage import MODELS_DIRNAME, SPRITES_DIRNAME
+from bitwright_engine.config.storage import SPRITES_DIRNAME
 
 APP_ID = "studio.afterhours.bitwright"
 
@@ -56,15 +56,6 @@ def default_data_root() -> Path:
     return root / APP_ID
 
 
-def default_cache_dir() -> Path:
-    """Return the per-user cache directory for this platform.
-
-    Returns:
-        The cached-asset directory under the default data root.
-    """
-    return default_data_root() / MODELS_DIRNAME
-
-
 class Settings(BaseSettings):
     """Runtime configuration for the sidecar.
 
@@ -78,9 +69,6 @@ class Settings(BaseSettings):
             one setting the user moves when their system drive is full.
         sprites_dir: Directory sprites are written to. Derived from
             ``data_root``, so it follows the location the user chose.
-        cache_dir: Directory that holds cached assets under the data root.
-            Derived from ``data_root`` unless it is set explicitly, which keeps
-            the older ``BITWRIGHT_CACHE_DIR`` override working.
     """
 
     model_config = SettingsConfigDict(
@@ -94,7 +82,6 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     data_root: Path = Field(default_factory=default_data_root)
-    cache_dir: Path = Field(default_factory=default_cache_dir)
 
     @property
     def sprites_dir(self) -> Path:
@@ -110,21 +97,6 @@ class Settings(BaseSettings):
         """
         return self.data_root / SPRITES_DIRNAME
 
-    @model_validator(mode="after")
-    def _derive_cache_dir(self) -> Settings:
-        """Keep the cache directory under the data root unless it was set.
-
-        Moving the data root has to carry the cache with it, or the setting
-        would appear to do nothing. An explicit ``cache_dir`` still wins, so
-        the documented environment override keeps working.
-
-        Returns:
-            This settings instance.
-        """
-        if "cache_dir" not in self.model_fields_set:
-            self.cache_dir = self.data_root / MODELS_DIRNAME
-        return self
-
     def use_data_root(self, root: Path) -> None:
         """Point this process at another data root.
 
@@ -136,7 +108,6 @@ class Settings(BaseSettings):
             root: The validated directory to use from now on.
         """
         self.data_root = root
-        self.cache_dir = root / MODELS_DIRNAME
 
 
 _settings: Settings | None = None

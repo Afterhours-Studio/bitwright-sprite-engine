@@ -39,7 +39,6 @@ def settings(tmp_path: Path) -> Settings:
         host="127.0.0.1",
         port=0,
         data_root=tmp_path,
-        cache_dir=tmp_path / "models",
     )
 
 

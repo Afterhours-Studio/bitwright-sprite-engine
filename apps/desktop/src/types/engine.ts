@@ -29,17 +29,11 @@
  * is the one the user has to be able to choose.
  */
 export interface StorageInfo {
-  /** The directory that holds everything the application writes. */
-  root: string;
   /**
-   * Where model weights lived.
-   *
-   * Dead, and still on the wire. The sidecar keeps reporting it, and removing
-   * it is a coordinated change to both sides that is scheduled separately, so
-   * it is declared here rather than left for a later reader to discover as an
-   * unmodelled field.
+   * The directory that holds everything the application writes: the database,
+   * the sprites, and the imported reference images.
    */
-  modelsDir: string;
+  root: string;
   /** Where sprites are written. */
   spritesDir: string;
   /** The per-user default, so the interface can offer to go back to it. */
@@ -50,10 +44,8 @@ export interface StorageInfo {
   freeBytes: number | null;
   /** Size of that volume, or null for the same reason. */
   totalBytes: number | null;
-  /** Bytes already taken under this root. */
+  /** Bytes already taken by the files under this root. */
   usedBytes: number;
-  /** Identifiers of the model weights found under this root. See `modelsDir`. */
-  existingModels: string[];
 }
 
 /** The outcome of moving the data root, from `POST /v1/storage`. */

@@ -91,11 +91,11 @@ function filterCommands(value: string, search: string, keywords?: string[]): num
  *
  * WHAT IS IN IT, AND WHAT IS DELIBERATELY NOT
  *
- * Navigation and mode switching only. Nothing here starts a run, fetches
- * weights, or removes anything, because a palette is driven by typing and
+ * Navigation and mode switching only. Nothing here writes to a document or
+ * removes anything, because a palette is driven by typing and
  * Enter: the user commits to a row after reading one word of it, having got
  * there through a fuzzy match they did not verify. That is a fine way to change
- * screens and an unacceptable way to spend gigabytes of bandwidth or empty the
+ * screens and an unacceptable way to overwrite a layer or empty the
  * gallery. Expensive and destructive actions stay where they are, on a control
  * the user has looked at.
  *

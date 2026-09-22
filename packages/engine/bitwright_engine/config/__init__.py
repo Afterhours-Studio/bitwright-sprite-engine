@@ -19,13 +19,11 @@
 from bitwright_engine.config.settings import (
     APP_ID,
     Settings,
-    default_cache_dir,
     default_data_root,
     get_settings,
     reset_settings,
 )
 from bitwright_engine.config.storage import (
-    MODELS_DIRNAME,
     StorageError,
     StorageLocation,
     describe,
@@ -35,11 +33,9 @@ from bitwright_engine.config.storage import (
 
 __all__ = [
     "APP_ID",
-    "MODELS_DIRNAME",
     "Settings",
     "StorageError",
     "StorageLocation",
-    "default_cache_dir",
     "default_data_root",
     "describe",
     "get_settings",

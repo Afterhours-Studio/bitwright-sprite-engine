@@ -39,9 +39,9 @@ export interface ByteUnits {
 /**
  * Renders a size the way a disk reports it.
  *
- * Gigabytes once a value reaches one, megabytes below that. Model weights are
- * measured in gigabytes, so a raw `4265146304` is a number the reader has to
- * count rather than read, and so is the same figure in megabytes.
+ * Gigabytes once a value reaches one, megabytes below that. The free space on
+ * a volume runs to gigabytes, so a raw `4265146304` is a number the reader has
+ * to count rather than read, and so is the same figure in megabytes.
  *
  * @param bytes - The size to render. Negative values read as zero, since a
  *   size that went backwards is a bug upstream and not something to show.

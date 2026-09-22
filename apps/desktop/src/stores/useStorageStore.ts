@@ -15,17 +15,17 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Where downloaded data is kept.
+ * Where the application's data is kept.
  *
  * A location is never adopted by the same press that chose it. Picking a folder
  * only produces a candidate, which the engine has already checked and reported
- * the free space for; a second, explicit press is what moves where gigabytes
- * land. That is why the candidate lives here rather than as component state:
+ * the free space for; a second, explicit press is what moves where the library
+ * lands. That is why the candidate lives here rather than as component state:
  * it is a validated answer from the engine, not a string in a field.
  *
- * Nothing is ever moved on disk. After a change, `leftBehind` names the models
- * still sitting at the old location, so the interface can say so instead of
- * letting the user believe their downloads followed them.
+ * Nothing is ever moved on disk. After a change, `leftBehind` names the old
+ * location when something is still sitting in it, so the interface can say so
+ * instead of letting the user believe their sprites followed them.
  */
 
 import { create } from 'zustand';
@@ -40,21 +40,16 @@ import {
 } from '@/lib/api';
 import type { StorageInfo } from '@/types/engine';
 
-/** What stayed at a location the user moved away from. */
-export interface LeftBehind {
-  /** The location that was in use before the change. */
-  root: string;
-  /** Identifiers of the models still sitting there. */
-  models: string[];
-}
-
 interface StorageState {
   /** The location in use, or null before the engine has answered. */
   info: StorageInfo | null;
   /** A checked location awaiting confirmation, or null when none is proposed. */
   candidate: StorageInfo | null;
-  /** What stayed at the previous location after the last change, or null. */
-  leftBehind: LeftBehind | null;
+  /**
+   * The previous location, when the last change left data sitting in it. Null
+   * when nothing moved, or when the location the user left was empty.
+   */
+  leftBehind: string | null;
   /** True while a request to the engine or the picker is in flight. */
   loading: boolean;
   /** Stable reason code for the last failure, or null. */
@@ -155,10 +150,9 @@ export const useStorageStore = create<StorageState>((set, get) => {
         set({
           info: change.current,
           candidate: null,
-          leftBehind:
-            moved && change.previous.existingModels.length > 0
-              ? { root: change.previous.root, models: change.previous.existingModels }
-              : null,
+          // Only worth saying when the old location still holds something. A
+          // user who moved an empty folder has nothing to go back for.
+          leftBehind: moved && change.previous.usedBytes > 0 ? change.previous.root : null,
           loading: false,
         });
       } catch (error) {

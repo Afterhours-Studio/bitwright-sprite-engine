@@ -18,8 +18,8 @@
  * Small lists that outlive the window.
  *
  * A record of what happened is worth little if closing the application throws
- * it away: a download that failed overnight, or the notification explaining
- * why, is exactly what someone comes back to look for.
+ * it away: an export that failed, or the notification explaining why, is
+ * exactly what someone comes back to look for.
  *
  * Every access is wrapped, because storage is not always there. A private
  * window, cleared site data, or a browser configured to refuse it all make the
