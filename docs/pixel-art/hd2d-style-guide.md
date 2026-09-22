@@ -124,7 +124,9 @@ eye line          y = 14           (≈ 58% down the head, NOT the middle)
 | 64 × 96 (`hd2d-battle`) | **20 – 32** |
 | 96 × 128 | 28 – 40 |
 
-Hard ceiling: **32** for any single character at or below 64 × 96. Derek Yu notes 32 and 16 as
+Hard ceiling: **32** for any single character at or below 64 × 96 — though a tool enforcing this
+guide may set a tighter ceiling per preset (the `hd2d` preset allows **24** slots, `snes` 16).
+Derek Yu notes 32 and 16 as
 the popular working palette sizes; going above 32 on a character buys nothing and guarantees
 muddy mid-tones (§11.3).
 
@@ -140,6 +142,13 @@ A "ramp" is an ordered list of colors from darkest to lightest for one material.
 | Metal | **5** | highest contrast ramp in the sprite; needs a near-white specular and a very dark occlusion |
 | Hair | **3 – 4** | 4 only if hair is a major silhouette element |
 | Eyes / accent | **2** | one dark, one light; never ramp eyes |
+
+The **base** of a ramp is its middle step, and that is what decides which per-step bracket in
+§2.4 a pair answers to. So a 3-step ramp is one darker step and one lighter step; a 4-step
+ramp is *two* darker and one lighter; a 5-step metal ramp is two of each.
+
+Eyes are the exception to the ramp form: they are two standalone slots, not a ramp. A ramp
+is 3–5 steps, and an eye pair is neither long enough to be one nor meant to be stepped along.
 
 Total for a typical character: 4 (skin) + 3 (main cloth) + 3 (secondary cloth) + 3 (leather) +
 3 (hair) + 2 (eyes) + 1 (shared darkest outline) + 1 (shared rim) = **20 colors**. This is the
@@ -164,14 +173,38 @@ Express value as OKLCH lightness `L` in 0–1 (or HSL lightness if you must).
 Metal is metal *because* it has the widest value spread and the tightest highlight, not because
 of its hue.
 
+This table and §2.4's per-step brackets have to hold **at the same time**, and at the step
+counts §2.2 budgets they leave less room than either implies alone. Summing the per-step
+brackets across a ramp gives the spread it can reach; the overlap with the band above is the
+part of the band you can actually build:
+
+| Material | Steps | Reachable spread | Band | Usable window |
+|---|---|---|---|---|
+| Cloth | 3 | 0.17 – 0.28 | 0.18 – 0.26 | 0.18 – 0.26 |
+| Skin | 4 | 0.25 – 0.41 | 0.22 – 0.30 | **0.25 – 0.30** |
+| Leather | 3 | 0.17 – 0.28 | 0.26 – 0.34 | **0.26 – 0.28** |
+| Hair | 3 | 0.17 – 0.28 | 0.24 – 0.34 | 0.24 – 0.28 |
+| Hair | 4 | 0.25 – 0.41 | 0.24 – 0.34 | 0.25 – 0.34 |
+| Metal | 5 | 0.34 – 0.56 | 0.45 – 0.60 | 0.45 – 0.56 |
+
+Read this before choosing a base. Leather at 3 steps only reaches the bottom 0.02 of its band,
+so both of its steps have to run near the top of the per-step bracket (about −0.125 into shadow
+and +0.145 into light); a leather ramp built from mid-bracket steps lands near 0.22 and fails
+§2.3. Skin at 4 steps is the mirror case — mid-bracket steps overshoot 0.30, so its steps run
+near the *bottom* of the bracket (about −0.087 twice and +0.097). Hair is easier at 4 steps
+than at 3.
+
 ### 2.4 Hue shifting — the actual rule
 
 When you step **darker**, do all three:
 
-- **Hue → cool.** Rotate hue **+12° to +20° toward blue/violet** per step (in HSL degrees; a
-  full ramp should not rotate more than ~45° total).
+- **Hue → cool.** Rotate hue **+12° to +20° toward blue/violet** per step (in HSL degrees). The
+  rotation is budgeted per *step*, not per ramp: a 3-step ramp turns 24–40° end to end, a 4-step
+  ramp 36–60°, a 5-step metal ramp up to 80°. The old "~45° total" figure is the 3-step case and
+  does not survive a longer ramp.
 - **Saturation → up slightly** for the first shadow step (**+5 to +12 S%**), then back down for a
-  deep occlusion step. Shadows in ambient sky light are *not* desaturated grey; they are
+  deep occlusion step (OKLCH chroma: **×0.85 – ×1.12**, and that whole range is available on
+  every darker step). Shadows in ambient sky light are *not* desaturated grey; they are
   low-lightness, moderately saturated blue-violet.
 - **Lightness → down 10–18 L%** per step (OKLCH: **ΔL ≈ −0.08 to −0.13**).
 
@@ -181,28 +214,42 @@ When you step **lighter**, do all three:
 - **Saturation → down 10–18 S%** (OKLCH chroma: ×0.7 – ×0.85). Bright light washes color out.
 - **Lightness → up 12–20 L%** (OKLCH: **ΔL ≈ +0.09 to +0.15**).
 
-Worked example, blue cloth base `hsl(220, 55%, 48%)`:
+Worked example, blue cloth base `hsl(220, 55%, 48%)`. Cloth is a **3-step** ramp (§2.2), so it is
+one darker step and one lighter step. The OKLCH `L` column is the one the gates read; check the
+examples against it rather than against the HSL, which is only where the hue rotation is stated:
 
 ```
-shadow2 (occlusion)  hsl(252, 48%, 20%)   hue +32 total, S dropped at the deep end
-shadow1              hsl(238, 62%, 32%)   hue +18, S +7,  L -16
-BASE                 hsl(220, 55%, 48%)
-light1               hsl(204, 44%, 64%)   hue -16, S -11, L +16
-(rim)                shared global rim color, see 2.6
+          hex       hsl                  OKLCH L   step measured
+shadow1   #373E9A   hsl(236, 47%, 41%)   0.415     hue +15.8, chroma x0.99, dL -0.105
+BASE      #3764BE   hsl(220, 55%, 48%)   0.520
+light1    #4093CA   hsl(204, 57%, 52%)   0.636     hue -16.1, chroma x0.77, dL +0.116
+(rim)     shared global rim color, see 2.6
+
+total spread dL 0.222, inside cloth's 0.18-0.26 band
 ```
 
-Worked example, skin base `hsl(26, 52%, 68%)`:
+Cloth has no `shadow2` of its own — three steps is the whole ramp. The occlusion under a fold is
+drawn with the shared dark family (§2.6), not with a fourth cloth colour.
+
+Worked example, skin base `hsl(26, 52%, 68%)`. Skin is a **4-step** ramp: two darker steps and
+one lighter:
 
 ```
-shadow2   hsl(348, 40%, 34%)
-shadow1   hsl(  8, 52%, 50%)
-BASE      hsl( 26, 52%, 68%)
-light1    hsl( 38, 42%, 82%)
+          hex       hsl                  OKLCH L   step measured
+shadow2   #A56B74   hsl(351, 24%, 53%)   0.592     hue -18.7, chroma x1.00, dL -0.087
+shadow1   #C2877C   hsl(  9, 36%, 62%)   0.679     hue -16.7, chroma x0.99, dL -0.087
+BASE      #D8A883   hsl( 26, 52%, 68%)   0.767
+light1    #E1D1AA   hsl( 43, 48%, 77%)   0.864     hue +16.4, chroma x0.72, dL +0.097
+
+total spread dL 0.272, inside skin's 0.22-0.30 band
 ```
 
-Note skin shadows rotate toward **red/magenta**, not blue — subsurface scattering. This is the
-one documented exception to "shadows go blue." Apply the blue rule to cloth, metal, leather,
-stone; apply the red/magenta rule to skin and anything translucent (ears, fingers, thin fabric).
+Note skin shadows rotate toward **red/magenta**, not blue — the hue runs 26° → 9° → 351° going
+darker, the opposite sign to the cloth ramp above — because of subsurface scattering. This is the
+one documented exception to "shadows go blue," and it inverts the sign of the rotation in both
+directions: skin's *lighter* step rotates **+12° to +20°** where cloth's rotates −12° to −20°.
+Apply the blue rule to cloth, metal, leather, stone; apply the red/magenta rule to skin and
+anything translucent (ears, fingers, thin fabric).
 
 **Why pure black shadow and pure white highlight are wrong:**
 
@@ -217,6 +264,12 @@ stone; apply the red/magenta rule to skin and anything translucent (ears, finger
   or for nothing at all.
 - Practical floor and ceiling: **darkest color L ≈ 0.10–0.16, lightest L ≈ 0.88–0.94** in OKLCH.
   Exception: a 1-px metal specular may reach 0.97.
+- These are properties of the **whole palette**, not of any one ramp, and no single ramp reaches
+  both. Floor to ceiling is a span of at least 0.72; the widest ramp the style allows is metal at
+  0.60 (§2.3), and cloth at 0.26 is nowhere near. The two ends belong to the shared
+  `OUTLINE_DARK` and `RIM` slots of §2.6: `OUTLINE_DARK` holds the floor, `RIM` holds the ceiling,
+  and every material ramp lives between them. A ramp that tries to span the full range will fail
+  the per-step brackets above long before it arrives.
 
 ### 2.5 Value separation is non-negotiable
 
@@ -229,11 +282,21 @@ the silhouette and the major forms are still legible, the value structure is cor
 
 Every character in an HD-2D project shares:
 
-1. **`OUTLINE_DARK`** — the deepest value, used only as a *starting point* for tinted outlines
-   (§4). Typical: `hsl(250, 35%, 12%)`. Never `#000000`.
+1. **`OUTLINE_DARK`** — the deepest value in the whole palette, used only as a *starting point*
+   for tinted outlines (§4). Typical: `#0A0316` = `hsl(262, 76%, 5%)`, **OKLCH L 0.128** — inside
+   the 0.10–0.16 floor of §2.4. Never `#000000`.
 2. **`RIM`** — the backlight color, one single warm-or-cool color used on every character so all
-   sprites appear lit by the same key. Typical warm rim: `hsl(40, 70%, 82%)`; typical cool
-   moonlight rim: `hsl(205, 55%, 84%)`. Pick one per scene mood and never vary it per character.
+   sprites appear lit by the same key, and the lightest value in the palette. Typical warm rim:
+   `#F1DFBC` = `hsl(40, 65%, 84%)`, **OKLCH L 0.909**; typical cool moonlight rim: `#CBE5F9` =
+   `hsl(206, 79%, 89%)`, **OKLCH L 0.909**. Both sit inside the 0.88–0.94 ceiling. Pick one per
+   scene mood and never vary it per character.
+
+These two slots are what put the palette's darkest and lightest values where §2.4 asks for them.
+No material ramp reaches either end, so if a tool reports the palette's floor or ceiling out of
+band, it is these slots that are wrong, not the material ramps. Both are usually stored as short
+3-step families rather than lone colours — a dark family for tinted outlines and interior
+separators, a rim family so each run can taper through `RIM_SOFT` (§5.5 rule 6) — and each of
+those families obeys the same per-step brackets as any other ramp.
 
 ---
 
@@ -695,14 +758,19 @@ hue carries identity. If a swap changes lightness, it changes the perceived shap
    never break this, which is the point.
 
 ```
-source blue cloth                recolor to crimson
-L=0.22 hsl(252,48%,20%)   ->     L=0.22 hsl(342,52%,22%)
-L=0.35 hsl(238,62%,32%)   ->     L=0.35 hsl(356,64%,34%)
-L=0.54 hsl(220,55%,48%)   ->     L=0.54 hsl( 10,58%,49%)
-L=0.70 hsl(204,44%,64%)   ->     L=0.70 hsl( 26,46%,66%)
-                                  hue rotated ~+90 across the whole ramp;
-                                  L column unchanged; shift deltas preserved
+source blue cloth (§2.4)              recolor to plum
+L=0.415  #373E9A hsl(236,47%,41%) ->  L=0.415  #83213F hsl(342,60%,32%)
+L=0.520  #3764BE hsl(220,55%,48%) ->  L=0.519  #9E4377 hsl(326,40%,44%)
+L=0.636  #4093CA hsl(204,57%,52%) ->  L=0.638  #B173A7 hsl(310,28%,57%)
+                                      hue rotated +106 across the whole ramp;
+                                      L column held to 0.002; shift deltas
+                                      preserved (+16 darker, -16 lighter)
 ```
+
+The rotation is applied to every step by the same amount, which is what keeps the per-step
+deltas — not just the base hue — intact. Note that the per-step rotation stays **signed**: it is
++12° to +20° in HSL going darker whatever the new base hue is, so a recolor must be checked in
+its new position rather than assumed correct because the source was.
 
 ### 10.3 What may move and what may not
 
@@ -781,8 +849,11 @@ or `1,1,2,3,4,6`. Do not patch a jaggy with AA — AA on a bad line makes a blur
 - Greyscale the sprite and rerun the §3.4 thumbnail test. If it fails in greyscale but passed in
   color, the color is doing work the values should be doing.
 
-**Fix:** merge the redundant palette pairs, then push the extremes: darken `shadow2` and
-brighten `light1` until the L range is ≥ 0.6. Increase chroma in shadows rather than lightness.
+**Fix:** merge the redundant palette pairs, then push the extremes. The range is carried by the
+shared slots, not by one material: check that `OUTLINE_DARK` and `RIM` actually sit in their
+§2.4 bands (0.10–0.16 and 0.88–0.94) and that they are being *used*, before touching a material
+ramp — a ramp cannot be stretched past the per-step brackets of §2.4 to buy range. Where a ramp
+genuinely is flat, increase chroma in its shadows rather than lightness.
 
 ### 11.4 Inconsistent light direction
 
