@@ -20,8 +20,9 @@
 //! The frontend translates that code, so no English string from this file
 //! reaches the user.
 
+pub mod document;
+
 use std::path::Path;
-use std::process::Command as ProcessCommand;
 use std::sync::Mutex;
 
 use serde::Serialize;
@@ -112,20 +113,6 @@ pub struct PlatformInfo {
     pub system_window_controls: bool,
 }
 
-/// The result of probing for a usable GPU.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GpuReport {
-    /// Driver family found: `cuda`, `metal`, or `none`.
-    pub kind: String,
-    /// True when a GPU that the engine can use was found.
-    pub available: bool,
-    /// Stable reason code. `gpu.ok` when available.
-    pub code: String,
-    /// Device name or diagnostic detail, for logs.
-    pub detail: String,
-}
-
 /// Returns the sidecar's current status.
 ///
 /// The frontend calls this on mount, because the ready event may have fired
@@ -133,236 +120,6 @@ pub struct GpuReport {
 #[tauri::command]
 pub fn sidecar_status(manager: State<'_, SidecarManager>) -> SidecarStatus {
     manager.status()
-}
-
-/// Lists every backend, its availability, and its capabilities.
-///
-/// # Errors
-///
-/// Returns the engine's reason code when the call fails.
-#[tauri::command]
-pub async fn engine_backends<R: Runtime>(app: AppHandle<R>) -> Result<Value, CommandError> {
-    Ok(engine::call(&app, Method::Get, "/v1/backends", None).await?)
-}
-
-/// Switches the active backend.
-///
-/// The kind is put into the path, so it is checked against the known values
-/// here rather than trusted. The engine validates it again; this stops a
-/// crafted value from reaching a path it was never meant to.
-///
-/// # Errors
-///
-/// Returns `backend.unknown_kind` for an unrecognised kind, and the engine's
-/// reason code when the call fails.
-#[tauri::command]
-pub async fn engine_select_backend<R: Runtime>(
-    app: AppHandle<R>,
-    kind: String,
-) -> Result<Value, CommandError> {
-    if !matches!(kind.as_str(), "cuda" | "mps" | "remote") {
-        return Err(CommandError::new(
-            "backend.unknown_kind",
-            format!("unknown backend kind: {kind}"),
-        ));
-    }
-
-    let path = format!("/v1/backends/{kind}/select");
-    Ok(engine::call(&app, Method::Post, &path, None).await?)
-}
-
-/// Generates sprites.
-///
-/// # Errors
-///
-/// Returns the engine's reason code when generation fails.
-#[tauri::command]
-pub async fn engine_generate<R: Runtime>(
-    app: AppHandle<R>,
-    request: Value,
-) -> Result<Value, CommandError> {
-    Ok(engine::call(&app, Method::Post, "/v1/generate", Some(request)).await?)
-}
-
-/// Lists registered models with their licences and cache state.
-///
-/// # Errors
-///
-/// Returns the engine's reason code when the call fails.
-#[tauri::command]
-pub async fn engine_models<R: Runtime>(app: AppHandle<R>) -> Result<Value, CommandError> {
-    Ok(engine::call(&app, Method::Get, "/v1/models", None).await?)
-}
-
-/// Starts downloading a model's weights.
-///
-/// The engine answers immediately and fetches in the background; the frontend
-/// follows the transfer by re-reading the model list.
-///
-/// # Errors
-///
-/// Returns `models.unknown` when the id is not a plain identifier, and the
-/// engine's reason code when the call fails, including `models.unknown` for an
-/// id the registry does not hold and `models.already_downloading` when a
-/// transfer for that model is already running.
-#[tauri::command]
-pub async fn engine_download_model<R: Runtime>(
-    app: AppHandle<R>,
-    model_id: String,
-) -> Result<Value, CommandError> {
-    let path = model_action_path(&model_id, "download")?;
-    Ok(engine::call(&app, Method::Post, &path, None).await?)
-}
-
-/// Stops a download and deletes the bytes it had transferred.
-///
-/// Destructive, and deliberately distinct from pausing: what has arrived is
-/// removed, so downloading again starts from the beginning.
-///
-/// # Errors
-///
-/// Returns `models.unknown` when the id is not a plain identifier, and the
-/// engine's reason code when the call fails.
-#[tauri::command]
-pub async fn engine_cancel_download<R: Runtime>(
-    app: AppHandle<R>,
-    model_id: String,
-) -> Result<Value, CommandError> {
-    let path = model_action_path(&model_id, "cancel")?;
-    Ok(engine::call(&app, Method::Post, &path, None).await?)
-}
-
-/// Stops a download and keeps the bytes it had transferred.
-///
-/// Destroys nothing. `engine_download_model` continues from where this
-/// stopped, including after the application has been closed and reopened.
-///
-/// # Errors
-///
-/// Returns `models.unknown` when the id is not a plain identifier, and the
-/// engine's reason code when the call fails.
-#[tauri::command]
-pub async fn engine_pause_download<R: Runtime>(
-    app: AppHandle<R>,
-    model_id: String,
-) -> Result<Value, CommandError> {
-    let path = model_action_path(&model_id, "pause")?;
-    Ok(engine::call(&app, Method::Post, &path, None).await?)
-}
-
-/// Lists configured providers, the built-in catalogue, and where keys are kept.
-///
-/// No response from any provider command carries an API key. The engine accepts
-/// one and never returns it, so there is nothing here to redact.
-///
-/// # Errors
-///
-/// Returns the engine's reason code when the call fails.
-#[tauri::command]
-pub async fn engine_providers<R: Runtime>(app: AppHandle<R>) -> Result<Value, CommandError> {
-    Ok(engine::call(&app, Method::Get, "/v1/providers", None).await?)
-}
-
-/// Creates a provider, or replaces an existing one.
-///
-/// The body carries the API key on its way in. It is passed through and never
-/// logged.
-///
-/// # Errors
-///
-/// Returns the engine's reason code when the call fails.
-#[tauri::command]
-pub async fn engine_save_provider<R: Runtime>(
-    app: AppHandle<R>,
-    request: Value,
-) -> Result<Value, CommandError> {
-    Ok(engine::call(&app, Method::Post, "/v1/providers/save", Some(request)).await?)
-}
-
-/// Deletes a provider and the credential stored for it.
-///
-/// # Errors
-///
-/// Returns `backend.remote.provider_unknown` when the id is not a plain
-/// identifier, and the engine's reason code when the call fails.
-#[tauri::command]
-pub async fn engine_remove_provider<R: Runtime>(
-    app: AppHandle<R>,
-    provider_id: String,
-) -> Result<Value, CommandError> {
-    let path = provider_action_path(&provider_id, "remove")?;
-    Ok(engine::call(&app, Method::Post, &path, None).await?)
-}
-
-/// Selects the provider that serves generation.
-///
-/// # Errors
-///
-/// Returns `backend.remote.provider_unknown` when the id is not a plain
-/// identifier, and the engine's reason code when the call fails.
-#[tauri::command]
-pub async fn engine_activate_provider<R: Runtime>(
-    app: AppHandle<R>,
-    provider_id: String,
-) -> Result<Value, CommandError> {
-    let path = provider_action_path(&provider_id, "activate")?;
-    Ok(engine::call(&app, Method::Post, &path, None).await?)
-}
-
-/// Runs one connection test against a provider that is not saved yet.
-///
-/// The body carries the API key on its way in. It is passed through and never
-/// logged, and the engine does not store it.
-///
-/// # Errors
-///
-/// Returns the engine's reason code when the call fails.
-#[tauri::command]
-pub async fn engine_test_draft_provider<R: Runtime>(
-    app: AppHandle<R>,
-    request: Value,
-) -> Result<Value, CommandError> {
-    Ok(engine::call(&app, Method::Post, "/v1/providers/test", Some(request)).await?)
-}
-
-/// Runs one connection test against a stored provider.
-///
-/// Answers whether or not the endpoint did: a refused key is the result, not a
-/// failure of this call.
-///
-/// # Errors
-///
-/// Returns `backend.remote.provider_unknown` when the id is not a plain
-/// identifier, and the engine's reason code when the call fails.
-#[tauri::command]
-pub async fn engine_test_provider<R: Runtime>(
-    app: AppHandle<R>,
-    provider_id: String,
-) -> Result<Value, CommandError> {
-    let path = provider_action_path(&provider_id, "test")?;
-    Ok(engine::call(&app, Method::Post, &path, None).await?)
-}
-
-/// Builds the path for an action on one provider.
-///
-/// The id comes from the frontend and goes into a URL path, so it is checked
-/// against the shape an identifier has rather than trusted, exactly as a model
-/// id is. Provider ids are `p` followed by sixteen hex characters, which
-/// `is_plain_identifier` already accepts.
-///
-/// # Errors
-///
-/// Returns `backend.remote.provider_unknown` when the id is not a plain
-/// identifier.
-fn provider_action_path(provider_id: &str, action: &str) -> Result<String, CommandError> {
-    if !is_plain_identifier(provider_id) {
-        return Err(CommandError::new(
-            "backend.remote.provider_unknown",
-            format!("invalid provider id: {provider_id}"),
-        ));
-    }
-
-    Ok(format!("/v1/providers/{provider_id}/{action}"))
 }
 
 /// Lists the sprites already on disk, newest first.
@@ -444,7 +201,7 @@ pub async fn engine_save_sprite_edit<R: Runtime>(
 /// else, and in particular a separator or a dot segment, is not one.
 fn is_sprite_name(value: &str) -> bool {
     !value.is_empty()
-        && value.len() <= MAX_IDENTIFIER
+        && value.len() <= MAX_SPRITE_NAME
         && value.ends_with(".png")
         && value
             .trim_end_matches(".png")
@@ -465,159 +222,8 @@ pub async fn engine_conform<R: Runtime>(
     Ok(engine::call(&app, Method::Post, "/v1/conform", Some(request)).await?)
 }
 
-/// Deletes a model's weights from this machine.
-///
-/// # Errors
-///
-/// Returns `models.unknown` when the id is not a plain identifier, and the
-/// engine's reason code when the call fails.
-#[tauri::command]
-pub async fn engine_remove_model<R: Runtime>(
-    app: AppHandle<R>,
-    model_id: String,
-) -> Result<Value, CommandError> {
-    let path = model_action_path(&model_id, "remove")?;
-    Ok(engine::call(&app, Method::Post, &path, None).await?)
-}
-
-/// Builds the path for an action on one model.
-///
-/// The id comes from the frontend and goes into a URL path, so it is checked
-/// against the shape a registry id has rather than trusted, exactly as the
-/// backend kind is. The engine validates it again; this stops a crafted value
-/// from steering the request at a path that was never meant to be reachable.
-///
-/// # Errors
-///
-/// Returns `models.unknown` when the id is not a plain identifier.
-fn model_action_path(model_id: &str, action: &str) -> Result<String, CommandError> {
-    if !is_plain_identifier(model_id) {
-        return Err(CommandError::new(
-            "models.unknown",
-            format!("invalid model id: {model_id}"),
-        ));
-    }
-
-    Ok(format!("/v1/models/{model_id}/{action}"))
-}
-
-/// The longest identifier accepted. Real model and provider ids are far
-/// shorter than this.
-const MAX_IDENTIFIER: usize = 64;
-
-/// Reports whether a value is a plain identifier.
-///
-/// Registry ids are ASCII words joined by hyphens or underscores, such as
-/// `sd15-base`. Anything else, and in particular a slash, a dot, a percent
-/// escape, or a query separator, is not an id and is refused.
-fn is_plain_identifier(value: &str) -> bool {
-    !value.is_empty()
-        && value.len() <= MAX_IDENTIFIER
-        && value.chars().all(|character| {
-            character.is_ascii_alphanumeric() || character == '-' || character == '_'
-        })
-}
-
-/// The runtime builds the engine knows how to install.
-///
-/// `auto` is not a build: it asks the engine to pick whichever suits the GPU
-/// this shell probed for.
-const RUNTIME_ACCELERATORS: [&str; 4] = ["auto", "cuda", "mps", "cpu"];
-
-/// Reports whether the GPU runtime is installed, and what installing it costs.
-///
-/// The GPU probe runs here rather than in the engine. It is the shell that
-/// already knows how to ask the driver, and it does so without loading any
-/// machine learning framework, so the answer is passed along instead of being
-/// worked out a second time on the Python side.
-///
-/// # Errors
-///
-/// Returns the engine's reason code when the call fails.
-#[tauri::command]
-pub async fn engine_runtime_info<R: Runtime>(app: AppHandle<R>) -> Result<Value, CommandError> {
-    let path = format!("/v1/runtime?gpu={}", probed_gpu_kind());
-    Ok(engine::call(&app, Method::Get, &path, None).await?)
-}
-
-/// Starts installing the GPU runtime in the background.
-///
-/// The engine answers as soon as the transfer is running; the frontend follows
-/// it by re-reading the runtime state.
-///
-/// # Errors
-///
-/// Returns `runtime.unknown_variant` when the accelerator is not one of the
-/// known builds, and the engine's reason code when the call fails, including
-/// `runtime.already_installing`, `runtime.already_installed` and
-/// `runtime.insufficient_space`.
-#[tauri::command]
-pub async fn engine_runtime_install<R: Runtime>(
-    app: AppHandle<R>,
-    accelerator: String,
-) -> Result<Value, CommandError> {
-    // Checked against the known values rather than trusted, exactly as a
-    // backend kind is. The engine validates it again; neither side relies on
-    // the other's check.
-    if !is_plain_identifier(&accelerator) || !RUNTIME_ACCELERATORS.contains(&accelerator.as_str()) {
-        return Err(CommandError::new(
-            "runtime.unknown_variant",
-            format!("unknown runtime accelerator: {accelerator}"),
-        ));
-    }
-
-    let body = json!({ "accelerator": accelerator, "gpu": probed_gpu_kind() });
-    Ok(engine::call(&app, Method::Post, "/v1/runtime/install", Some(body)).await?)
-}
-
-/// Asks a running install to stop.
-///
-/// # Errors
-///
-/// Returns the engine's reason code when the call fails.
-/// Adds the pinned packages the installed runtime is missing.
-///
-/// Only the difference is fetched. A package added to the manifest after a
-/// runtime was installed would otherwise cost a full reinstall, which for this
-/// runtime is gigabytes to add megabytes.
-///
-/// # Errors
-///
-/// Returns the engine's reason code when the call fails.
-#[tauri::command]
-pub async fn engine_runtime_repair<R: Runtime>(app: AppHandle<R>) -> Result<Value, CommandError> {
-    Ok(engine::call(&app, Method::Post, "/v1/runtime/repair", None).await?)
-}
-
-#[tauri::command]
-pub async fn engine_runtime_cancel<R: Runtime>(app: AppHandle<R>) -> Result<Value, CommandError> {
-    Ok(engine::call(&app, Method::Post, "/v1/runtime/cancel", None).await?)
-}
-
-/// Deletes the installed GPU runtime.
-///
-/// # Errors
-///
-/// Returns the engine's reason code when the call fails, including
-/// `runtime.busy_installing` and `runtime.not_installed`.
-#[tauri::command]
-pub async fn engine_runtime_remove<R: Runtime>(app: AppHandle<R>) -> Result<Value, CommandError> {
-    Ok(engine::call(&app, Method::Post, "/v1/runtime/remove", None).await?)
-}
-
-/// Returns the GPU family this machine has, as a value safe to put in a URL.
-///
-/// The probe's `kind` is written by this file and is one of three words, but it
-/// is checked anyway before it is interpolated into a query string, because the
-/// rule here is that nothing reaches a URL unchecked.
-fn probed_gpu_kind() -> String {
-    let kind = probe_gpu().kind;
-    if is_plain_identifier(&kind) {
-        kind
-    } else {
-        "none".to_string()
-    }
-}
+/// Bounds sprite names before they are placed in a request URL.
+const MAX_SPRITE_NAME: usize = 64;
 
 /// The longest storage path accepted.
 ///
@@ -830,15 +436,6 @@ pub fn app_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
 
-/// Probes for a GPU the engine can use.
-///
-/// Called during startup so that a missing driver is reported as a specific
-/// message, rather than as a backend that is mysteriously unselectable.
-#[tauri::command]
-pub fn check_gpu() -> GpuReport {
-    probe_gpu()
-}
-
 /// Minimizes the main window.
 ///
 /// # Errors
@@ -953,30 +550,30 @@ pub fn open_external<R: Runtime>(app: AppHandle<R>, url: String) -> Result<(), C
 /// Registers every command with the builder.
 pub fn handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
+        document::project_list,
+        document::project_create,
+        document::project_rename,
+        document::project_delete,
+        document::asset_list,
+        document::asset_create,
+        document::asset_rename,
+        document::asset_delete,
+        document::asset_open,
+        document::document_composite,
+        document::document_read_layer,
+        document::document_write_ops,
+        document::document_undo,
+        document::document_redo,
+        document::palette_read,
+        document::palette_write,
+        document::step_state,
+        document::step_check,
+        document::step_advance,
         sidecar_status,
-        engine_backends,
-        engine_select_backend,
-        engine_generate,
-        engine_models,
-        engine_download_model,
-        engine_cancel_download,
         engine_conform,
         engine_sprites,
         engine_remove_sprite,
         engine_save_sprite_edit,
-        engine_remove_model,
-        engine_pause_download,
-        engine_providers,
-        engine_save_provider,
-        engine_remove_provider,
-        engine_activate_provider,
-        engine_test_draft_provider,
-        engine_test_provider,
-        engine_runtime_info,
-        engine_runtime_install,
-        engine_runtime_repair,
-        engine_runtime_cancel,
-        engine_runtime_remove,
         storage_info,
         storage_validate,
         storage_set_root,
@@ -985,7 +582,6 @@ pub fn handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + 
         vibrancy_state,
         platform_info,
         app_version,
-        check_gpu,
         window_minimize,
         window_toggle_maximize,
         window_is_maximized,
@@ -1011,59 +607,6 @@ pub fn current_os() -> &'static str {
     }
 }
 
-/// Probes for a GPU without loading any machine learning framework.
-///
-/// Metal is part of every macOS version the application supports, so it is
-/// reported directly. Elsewhere the NVIDIA management tool is the cheapest
-/// reliable signal that a working driver is installed; absence of it means
-/// generation will have to run remotely.
-fn probe_gpu() -> GpuReport {
-    if cfg!(target_os = "macos") {
-        return GpuReport {
-            kind: "metal".into(),
-            available: true,
-            code: "gpu.ok".into(),
-            detail: "Metal".into(),
-        };
-    }
-
-    match ProcessCommand::new("nvidia-smi")
-        .args(["--query-gpu=name", "--format=csv,noheader"])
-        .output()
-    {
-        Ok(output) if output.status.success() => {
-            let name = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if name.is_empty() {
-                GpuReport {
-                    kind: "none".into(),
-                    available: false,
-                    code: "gpu.no_device".into(),
-                    detail: "nvidia-smi reported no devices".into(),
-                }
-            } else {
-                GpuReport {
-                    kind: "cuda".into(),
-                    available: true,
-                    code: "gpu.ok".into(),
-                    detail: name,
-                }
-            }
-        }
-        Ok(output) => GpuReport {
-            kind: "none".into(),
-            available: false,
-            code: "gpu.driver_error".into(),
-            detail: String::from_utf8_lossy(&output.stderr).trim().to_string(),
-        },
-        Err(error) => GpuReport {
-            kind: "none".into(),
-            available: false,
-            code: "gpu.driver_missing".into(),
-            detail: error.to_string(),
-        },
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1073,45 +616,6 @@ mod tests {
         let info = platform_info();
         assert_eq!(info.os, current_os());
         assert_eq!(info.system_window_controls, cfg!(target_os = "macos"));
-    }
-
-    #[test]
-    fn gpu_probe_always_reports_a_code() {
-        let report = probe_gpu();
-        assert!(!report.code.is_empty());
-        assert_eq!(report.available, report.code == "gpu.ok");
-    }
-
-    #[test]
-    fn builds_a_path_for_a_registry_id() {
-        assert_eq!(
-            model_action_path("sd15-base", "download").unwrap(),
-            "/v1/models/sd15-base/download"
-        );
-        assert_eq!(
-            model_action_path("rembg_u2net", "cancel").unwrap(),
-            "/v1/models/rembg_u2net/cancel"
-        );
-        assert_eq!(
-            model_action_path("sdxl-base", "pause").unwrap(),
-            "/v1/models/sdxl-base/pause"
-        );
-    }
-
-    #[test]
-    fn refuses_an_id_that_is_not_a_plain_identifier() {
-        for id in [
-            "",
-            "../backends/cuda/select",
-            "sd15 base",
-            "sd15/base",
-            "sd15%2Fbase",
-            "sd15?x=1",
-            &"a".repeat(MAX_IDENTIFIER + 1),
-        ] {
-            let error = model_action_path(id, "download").unwrap_err();
-            assert_eq!(error.code, "models.unknown");
-        }
     }
 
     /// An absolute directory on the platform the test is running on.
@@ -1178,32 +682,6 @@ mod tests {
         assert_eq!(root_of(&outcome).as_deref(), Some(ABSOLUTE));
         assert!(root_of(&serde_json::json!({ "current": {} })).is_none());
         assert!(root_of(&serde_json::json!({})).is_none());
-    }
-
-    #[test]
-    fn the_probed_gpu_kind_is_always_safe_in_a_url() {
-        let kind = probed_gpu_kind();
-        assert!(is_plain_identifier(&kind));
-        assert!(["cuda", "metal", "none"].contains(&kind.as_str()));
-    }
-
-    #[test]
-    fn refuses_a_runtime_accelerator_that_is_not_a_known_build() {
-        for value in [
-            "",
-            "cuda; rm",
-            "../models",
-            "gpu",
-            &"a".repeat(MAX_IDENTIFIER + 1),
-        ] {
-            assert!(
-                !is_plain_identifier(value) || !RUNTIME_ACCELERATORS.contains(&value),
-                "{value} should not be accepted as a runtime accelerator"
-            );
-        }
-        for value in RUNTIME_ACCELERATORS {
-            assert!(is_plain_identifier(value));
-        }
     }
 
     #[test]

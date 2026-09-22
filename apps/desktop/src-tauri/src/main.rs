@@ -23,19 +23,16 @@
 // builds, while leaving it available in development for logs.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod commands;
+pub mod commands;
+use bitwright::{raster, store};
 mod engine;
 mod preferences;
 mod sidecar;
 
-use tauri::{Emitter, Manager, RunEvent, WebviewWindow};
+use tauri::{Manager, RunEvent, WebviewWindow};
 
-use commands::{GpuReport, VibrancyManager, VibrancyState};
+use commands::{VibrancyManager, VibrancyState};
 use sidecar::SidecarManager;
-
-/// Emitted when the GPU probe finishes, so the frontend can warn about a
-/// missing driver without blocking the first paint.
-const EVENT_GPU: &str = "startup://gpu";
 
 fn main() {
     tauri::Builder::default()
@@ -61,6 +58,15 @@ fn main() {
         .manage(VibrancyManager::default())
         .invoke_handler(commands::handler())
         .setup(|app| {
+            let root = preferences::load(app.handle())
+                .data_root
+                .map(std::path::PathBuf::from)
+                .or_else(|| std::env::var_os("BITWRIGHT_DATA_ROOT").map(std::path::PathBuf::from))
+                .unwrap_or(app.path().app_local_data_dir()?);
+            std::fs::create_dir_all(&root)?;
+            app.manage(commands::document::DocumentState::new(store::Store::open(
+                root.join("bitwright.db"),
+            )?));
             let window = app
                 .get_webview_window("main")
                 .expect("the main window is declared in tauri.conf.json");
@@ -79,19 +85,6 @@ fn main() {
                 // shows the failure with a retry rather than an empty window.
                 log::error!("could not start the sidecar: {error}");
             }
-
-            let handle = app.handle().clone();
-            tauri::async_runtime::spawn(async move {
-                let report: GpuReport = commands::check_gpu();
-                log::info!(
-                    "gpu probe: kind={} available={} code={} detail={}",
-                    report.kind,
-                    report.available,
-                    report.code,
-                    report.detail
-                );
-                let _ = handle.emit(EVENT_GPU, report);
-            });
 
             Ok(())
         })
