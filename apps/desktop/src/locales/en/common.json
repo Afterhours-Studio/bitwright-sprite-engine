@@ -52,8 +52,7 @@
     "filterFavourites": "Favourites",
     "favourite": "Favourite",
     "unfavourite": "Favourited",
-    "remove": "Remove",
-    "edit": "Edit"
+    "remove": "Remove"
   },
   "menu": {
     "label": "Menu",
@@ -98,6 +97,6 @@
       "error": "Error"
     },
     "engineFailed": "Engine problem",
-    "conformFailed": "Could not correct the sprite"
+    "documentFailed": "Could not change the sprite"
   }
 }

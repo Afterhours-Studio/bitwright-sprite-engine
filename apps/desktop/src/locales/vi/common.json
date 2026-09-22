@@ -52,8 +52,7 @@
     "filterFavourites": "Yêu thích",
     "favourite": "Yêu thích",
     "unfavourite": "Đã thích",
-    "remove": "Xoá",
-    "edit": "Sửa"
+    "remove": "Xoá"
   },
   "menu": {
     "label": "Menu",
@@ -98,6 +97,6 @@
       "error": "Lỗi"
     },
     "engineFailed": "Sự cố engine",
-    "conformFailed": "Không chỉnh được sprite"
+    "documentFailed": "Không thay đổi được sprite"
   }
 }

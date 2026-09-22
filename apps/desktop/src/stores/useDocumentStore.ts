@@ -455,7 +455,7 @@ function withStep(asset: Asset | null, state: StepState): Asset | null {
  *
  * A gate re-evaluation names the step and the report but not whether the asset
  * may advance, which only `step_state` answers, so `canAdvance` is carried
- * across rather than guessed at from `passed`.
+ * across rather than guessed at from the report's own `pass`.
  *
  * @param state - The step state as it stands, or null before one was read.
  * @param event - What the shell reported.

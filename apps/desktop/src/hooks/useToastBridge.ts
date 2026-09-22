@@ -17,7 +17,7 @@
 import { useEffect } from 'react';
 
 import { useShellStore } from '@/stores/useShellStore';
-import { useSpriteStore } from '@/stores/useSpriteStore';
+import { useDocumentStore } from '@/stores/useDocumentStore';
 import { useToastStore } from '@/stores/useToastStore';
 
 /**
@@ -27,10 +27,16 @@ import { useToastStore } from '@/stores/useToastStore';
  * WHY THIS IS A SUBSCRIBER AND NOT A CALL AT EACH SITE
  *
  * Every one of these failures is already written down. `useShellStore` keeps
- * the sidecar's reason code and the window effect's; `useSpriteStore` keeps one
- * for the last correction. They were dead ends: a code was stored and, unless
- * the user happened to be looking at the one card that renders it, nothing ever
- * said so.
+ * the sidecar's reason code and the window effect's; `useDocumentStore` keeps
+ * one for whatever command failed last. They were dead ends: a code was stored
+ * and, unless the user happened to be looking at the one card that renders it,
+ * nothing ever said so.
+ *
+ * The document's failures are also shown in place - a refused palette under the
+ * palette, a refused advance under the step rail - and that is deliberate
+ * duplication rather than an oversight. The panel says it where the decision
+ * was made, and the notification is what is still there once the panel has been
+ * scrolled past or the screen changed.
  *
  * Watching the stores rather than editing them keeps the reporting in one place
  * and keeps it out of the state. A store that raised its own toasts would have
@@ -64,11 +70,11 @@ export function useToastBridge(): void {
       }
     });
 
-    const sprite = useSpriteStore.subscribe((state, previous) => {
+    const document = useDocumentStore.subscribe((state, previous) => {
       if (state.error !== previous.error && state.error !== null) {
         notify({
           severity: 'error',
-          titleKey: 'common:notifications.conformFailed',
+          titleKey: 'common:notifications.documentFailed',
           messageKey: `errors:${state.error}`,
         });
       }
@@ -76,7 +82,7 @@ export function useToastBridge(): void {
 
     return () => {
       shell();
-      sprite();
+      document();
     };
   }, []);
 }

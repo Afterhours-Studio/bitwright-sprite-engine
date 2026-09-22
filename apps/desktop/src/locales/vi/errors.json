@@ -58,6 +58,13 @@
     "nothing_to_undo": "Không còn gì để hoàn tác trên sprite này.",
     "nothing_to_redo": "Không có gì để làm lại trên sprite này."
   },
+  "palette": {
+    "unknown_slot": "Ô màu đó không có trong sprite này.",
+    "too_many_slots": "Bảng màu có nhiều màu hơn mức phong cách của dự án cho phép.",
+    "invalid_index": "Các ô màu phải đánh số từ 1 trở lên và không được đứt quãng.",
+    "invalid_ramp": "Một dải màu bị sai: tên rỗng hoặc trùng, một ô màu xuất hiện hai lần, hoặc dải màu ghi trên ô không khớp với vị trí của nó trong dải.",
+    "rule_violation": "Bảng màu vi phạm một quy tắc của phong cách. Thường là do một dải màu chỉ đổi độ sáng: bóng phải chuyển lạnh và bớt sắc độ, còn vùng sáng phải chuyển ấm."
+  },
   "asset": {
     "invalid_kind": "Đó không phải loại sprite mà ứng dụng này tạo."
   },

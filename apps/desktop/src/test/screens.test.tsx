@@ -35,7 +35,7 @@ import { App } from '@/App';
 import i18n, { resources } from '@/lib/i18n';
 import { useGalleryStore } from '@/stores/useGalleryStore';
 import { useShellStore, type Screen, type Theme } from '@/stores/useShellStore';
-import { useSpriteStore } from '@/stores/useSpriteStore';
+import { useDocumentStore } from '@/stores/useDocumentStore';
 
 const SCREENS: Screen[] = ['editor', 'gallery', 'settings'];
 const THEMES: Theme[] = ['light', 'dark'];
@@ -49,7 +49,7 @@ beforeEach(async () => {
     sidecar: { ready: true, port: 51234, version: '0.1.0', error: '', detail: '' },
   });
   useGalleryStore.setState({ items: [], filter: 'all' });
-  useSpriteStore.getState().close();
+  useDocumentStore.getState().close();
 });
 
 describe('screens', () => {
@@ -73,7 +73,7 @@ describe('screens', () => {
 
     const main = within(screen.getByRole('main'));
 
-    expect(main.getByText('Open a sprite from the Gallery to edit it')).toBeInTheDocument();
+    expect(main.getByText('Select a sprite in the project tree to edit it')).toBeInTheDocument();
   });
 
   it('opens the screen belonging to the tab that was clicked', () => {
@@ -103,16 +103,16 @@ describe('screens', () => {
     const main = within(screen.getByRole('main'));
 
     // The editor has no heading: the selected tab is what names it, so the tab
-    // is what this reads. The tool column is checked as well, so that
-    // translated chrome around an untranslated screen would still fail. The
-    // expected text is read from the locale files rather than written here, so
-    // that translated strings live only under locales/vi. Scoped to the screen
-    // switcher, because the canvas carries a second tab strip of its own and
-    // an unscoped query would find both.
+    // is what this reads. The stage is checked as well, so that translated
+    // chrome around an untranslated screen would still fail. The expected text
+    // is read from the locale files rather than written here, so that
+    // translated strings live only under locales/vi. Scoped to the screen
+    // switcher, because the window carries other tab strips of its own and an
+    // unscoped query would find both.
     const nav = within(screen.getByRole('tablist', { name: resources.vi.common.app.name }));
     expect(nav.getByRole('tab', { selected: true })).toHaveTextContent(
       resources.vi.common.nav.editor,
     );
-    expect(main.getByText(resources.vi.editor.tools.empty)).toBeInTheDocument();
+    expect(main.getByText(resources.vi.editor.canvas.empty)).toBeInTheDocument();
   });
 });

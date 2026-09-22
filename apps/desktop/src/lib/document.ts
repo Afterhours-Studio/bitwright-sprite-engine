@@ -50,6 +50,7 @@ import type {
   RgbaImage,
   StepEvent,
   StepState,
+  Style,
   StylePreset,
   AgentActivityEvent,
   AgentSessionEvent,
@@ -133,6 +134,19 @@ export function assetDelete(id: string): Promise<ShellResult<null>> {
 /** Reads a whole document: the asset, its palette, and every layer it has. */
 export function assetOpen(id: string): Promise<ShellResult<Document>> {
   return invoke<Document>('asset_open', { id });
+}
+
+/**
+ * Reads one style: its preset, and the rules every gate is measured against.
+ *
+ * The identifier is a STYLE id, not an asset id. A project carries its default
+ * style's id and an asset may override it, so the caller resolves which of the
+ * two applies before calling this - passing an asset id here is a
+ * `document.not_found` rather than a compile error, which is why it is said
+ * twice.
+ */
+export function styleRead(id: string): Promise<ShellResult<Style>> {
+  return invoke<Style>('style_read', { id });
 }
 
 /** Composites the document to sRGB, for the canvas to draw. */

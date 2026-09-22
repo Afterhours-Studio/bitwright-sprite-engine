@@ -21,7 +21,7 @@ import { Menu, type MenuGroup } from '@/components/ui/Menu';
 import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { useWindowControls } from '@/hooks/useWindowControls';
-import { canRedo, canUndo, useCanvasStore } from '@/stores/useCanvasStore';
+import { useDocumentStore } from '@/stores/useDocumentStore';
 import { useCommandPaletteStore } from '@/stores/useCommandPaletteStore';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { useStorageStore } from '@/stores/useStorageStore';
@@ -87,17 +87,19 @@ export function TitleBar(): ReactElement {
   const storage = useStorageStore((state) => state.info);
   const refreshStorage = useStorageStore((state) => state.refresh);
   const notify = useToastStore((state) => state.notify);
-  const undo = useCanvasStore((state) => state.undo);
-  const redo = useCanvasStore((state) => state.redo);
-  const hasUndo = useCanvasStore(canUndo);
-  const hasRedo = useCanvasStore(canRedo);
+  const undo = useDocumentStore((state) => state.undo);
+  const redo = useDocumentStore((state) => state.redo);
+  const openDocument = useDocumentStore((state) => state.assetId);
 
-  // Offered only on the screen that holds the sprite. The editor has one
-  // buffer whatever is on screen, and a menu item that changes something the
-  // user cannot see is worse than one that is greyed out.
+  // Offered only on the screen that holds the sprite, and only with a document
+  // open. There is no "can undo" to ask for: the op log and its cursor live in
+  // SQLite, and the only way to learn that a boundary has been reached is to
+  // walk into it, which comes back as `document.nothing_to_undo` and is
+  // reported like any other refusal. Greying the item out on a guess would be
+  // the interface asserting something it does not know.
   const editing = screen === 'editor';
-  const undoable = editing && hasUndo;
-  const redoable = editing && hasRedo;
+  const undoable = editing && openDocument !== null;
+  const redoable = undoable;
 
   const systemControls = platform?.systemWindowControls ?? false;
 
@@ -197,10 +199,10 @@ export function TitleBar(): ReactElement {
 
     if (groupId === 'edit') {
       if (itemId === 'undo' && undoable) {
-        undo();
+        void undo();
       }
       if (itemId === 'redo' && redoable) {
-        redo();
+        void redo();
       }
       if (itemId === 'settings') {
         setScreen('settings');

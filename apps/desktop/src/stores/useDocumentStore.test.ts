@@ -106,8 +106,15 @@ const STEP: StepState = {
   canAdvance: false,
   gate: {
     step: 'flats',
-    passed: false,
-    issues: ['gate.flats_coverage'],
+    pass: false,
+    checks: [
+      {
+        name: 'material-coverage',
+        pass: false,
+        detail: '2 of 4 silhouette pixels carry a material slot',
+        hint: 'Fill the remaining pixels on the flats layer.',
+      },
+    ],
     metrics: {
       filled: 2,
       regionSizes: [2],
@@ -118,10 +125,12 @@ const STEP: StepState = {
       orphanFraction: 0,
       speckleFraction: 0,
       jaggySequences: 0,
+      horizontalChangeRate: 0,
       pillowCorrelation: 0,
       lightVectors: [],
       lightMeanDegrees: null,
       lightStdDegrees: null,
+      undirectedRegions: [],
     },
   },
 };

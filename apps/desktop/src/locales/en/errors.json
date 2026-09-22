@@ -58,6 +58,13 @@
     "nothing_to_undo": "There is nothing left to undo on this sprite.",
     "nothing_to_redo": "There is nothing to redo on this sprite."
   },
+  "palette": {
+    "unknown_slot": "That palette slot does not exist in this sprite.",
+    "too_many_slots": "The palette has more colours than this project's style allows.",
+    "invalid_index": "The slots have to be numbered from 1 upwards with no gaps.",
+    "invalid_ramp": "A ramp is wrong: a name is empty or repeated, a slot appears twice, or a slot's ramp and its position in it disagree.",
+    "rule_violation": "The palette breaks one of the style's rules. A ramp that only changes lightness is the usual cause: shadows have to move cool and lose chroma, and lights have to move warm."
+  },
   "asset": {
     "invalid_kind": "That is not a kind of sprite this application makes."
   },

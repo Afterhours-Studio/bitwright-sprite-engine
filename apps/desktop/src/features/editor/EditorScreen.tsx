@@ -28,8 +28,8 @@ import { NotificationList } from '@/components/ui/NotificationList';
 import { Toggle } from '@/components/ui/Field';
 import { NumberField } from '@/components/ui/NumberField';
 import { Pill } from '@/components/ui/Pill';
-import { SpriteCanvas } from '@/features/editor/SpriteCanvas';
-import { SpriteTools } from '@/features/editor/SpriteTools';
+import { DocumentCanvas } from '@/features/editor/canvas/DocumentCanvas';
+import { ToolPanel } from '@/features/editor/tools/ToolPanel';
 import { useToastAnchor } from '@/hooks/useToastAnchor';
 import { cn } from '@/lib/cn';
 import {
@@ -42,18 +42,7 @@ import {
   type Shape,
   type Tool,
 } from '@/stores/useEditorStore';
-import { useSpriteStore } from '@/stores/useSpriteStore';
 import { useToastStore } from '@/stores/useToastStore';
-
-/**
- * The shape the stage takes when no sprite is open.
- *
- * Sixty-four square, which is the canvas a character is drawn on and the size
- * every other asset type is a fraction or a multiple of. It stops being a
- * constant the moment a document carries its own canvas size, which is the
- * next phase of work.
- */
-const DEFAULT_CANVAS = { width: 64, height: 64 };
 
 /**
  * The editor: the sprite on the stage, its tool column beside it, and the dock
@@ -65,12 +54,11 @@ const DEFAULT_CANVAS = { width: 64, height: 64 };
  *
  * WHAT IS ON THE STAGE, AND HOW IT GOT THERE.
  *
- * A sprite opened from the gallery. Generation used to put one there; the
- * document model that replaces it - projects, assets, indexed layers driven
- * over MCP - is the next phase, and until it lands the sprites already on disk
- * are what there is to edit. The screen is written against "the sprite that is
- * open" rather than against where it came from, so gaining a document store
- * changes what fills this screen and not the screen itself.
+ * The document the project tree has open: an asset in SQLite, composited from
+ * its indexed layers by Rust. The screen is written against "the document that
+ * is open" and not against who opened it, which is what lets an agent drawing
+ * over MCP and a person drawing with a pencil arrive on the same stage by the
+ * same route.
  *
  * THE DOCK CHOOSES AND OPENS. IT DOES NOT ACT.
  *
@@ -87,8 +75,6 @@ const DEFAULT_CANVAS = { width: 64, height: 64 };
 export function EditorScreen(): ReactElement {
   const { t } = useTranslation('editor');
   const { t: tCommon } = useTranslation();
-
-  const image = useSpriteStore((state) => state.image);
 
   const tool = useEditorStore((state) => state.tool);
   const shape = useEditorStore((state) => state.shape);
@@ -139,7 +125,6 @@ export function EditorScreen(): ReactElement {
     { value: 'pencil', label: t('dock.toolPencil'), icon: <PencilIcon /> },
     { value: 'eraser', label: t('dock.toolEraser'), icon: <EraserIcon /> },
     { value: 'fill', label: t('dock.toolFill'), icon: <FillIcon /> },
-    { value: 'select', label: t('dock.toolSelect'), icon: <SelectIcon /> },
     {
       value: 'shape',
       label: shapes[shape].label,
@@ -189,16 +174,12 @@ export function EditorScreen(): ReactElement {
           shrink rather than overflowing, since a flex item's automatic minimum
           is its content. */}
       <div className="flex min-h-0 flex-1 gap-3 rounded-lg border border-line-subtle bg-surface-content p-1 shadow-sm lg:pe-3">
-        <SpriteCanvas
-          image={image ?? undefined}
-          showPixelGrid={showPixelGrid}
-          showCheckerboard={showCheckerboard}
-          requested={image ?? DEFAULT_CANVAS}
-        />
-        {/* The second column: what to do to the sprite in front of you. */}
-        <aside className="hidden min-w-56 flex-1 flex-col ps-1 lg:flex">
-          <SpriteTools />
-        </aside>
+        <DocumentCanvas />
+        {/* The second column: the palette, the layers and the step - what the
+            sprite in front of you is made of, and what it is waiting for. */}
+        <div className="hidden min-w-64 max-w-80 flex-1 flex-col ps-1 lg:flex">
+          <ToolPanel />
+        </div>
       </div>
 
       <Dock
@@ -343,9 +324,9 @@ function BellIcon(): ReactElement {
  * The tool icons.
  *
  * The set is the one every pixel editor agrees on. Aseprite, Libresprite,
- * Piskel and Pixelorama all give their primary bar a pencil, an eraser, a
- * bucket fill and a rectangular selection, and Pixelorama's shape tools are
- * exactly the four drawn here.
+ * Piskel and Pixelorama all give their primary bar a pencil, an eraser and a
+ * bucket fill, and Pixelorama's shape tools are exactly the four drawn here.
+ * There is no marquee, because no op in the write path honours a region.
  *
  * Stroked outlines on a 16 unit grid, drawn in currentColor so they follow the
  * chip's text token through hover, focus, and the chosen state.
@@ -390,24 +371,6 @@ function FillIcon(): ReactElement {
         stroke="currentColor"
         strokeWidth="1.3"
         strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-/** Marks out a region for whatever comes next. */
-function SelectIcon(): ReactElement {
-  return (
-    <svg viewBox="0 0 16 16" aria-hidden="true" className="h-4 w-4" fill="none">
-      <rect
-        x="2.6"
-        y="2.6"
-        width="10.8"
-        height="10.8"
-        rx="1.2"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeDasharray="2.6 2"
       />
     </svg>
   );

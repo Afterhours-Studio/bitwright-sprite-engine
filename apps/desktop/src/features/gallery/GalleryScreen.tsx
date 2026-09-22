@@ -17,7 +17,6 @@ import { useEffect, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/Button';
-import { useSpriteStore } from '@/stores/useSpriteStore';
 import { useShellStore } from '@/stores/useShellStore';
 import { Pill } from '@/components/ui/Pill';
 import { toDataUrl } from '@/lib/api';
@@ -25,13 +24,30 @@ import { useGalleryStore, visibleItems, type GalleryFilter } from '@/stores/useG
 
 const FILTERS: readonly GalleryFilter[] = ['all', 'favourites'];
 
-/** The gallery: every sprite in the sprites directory, newest first. */
+/**
+ * The gallery: every sprite file in the sprites directory, newest first.
+ *
+ * THERE IS NO LONGER AN EDIT BUTTON, and the reason is worth writing down
+ * rather than leaving as an absence.
+ *
+ * These are PNG files on disk, produced by the engine. A document is rows in
+ * SQLite: an asset, a palette, and a layer per role holding palette indices.
+ * Putting one of these files on the editor's stage would mean importing it -
+ * finding its grid, reducing it to a palette, and deciding which layer each
+ * pixel belongs to - and that is the `reference` step's conform pipeline, which
+ * has no Tauri command behind it yet. `commands.rs` registers `asset_*`,
+ * `document_*`, `palette_*` and `step_*`, and nothing that turns an image into
+ * a document.
+ *
+ * So the button is gone rather than left to fail. What remains is a view of
+ * what is on disk, which is still worth having and is still where an export
+ * lands; a sprite is edited by selecting an asset in the project tree, which is
+ * the way in now.
+ */
 export function GalleryScreen(): ReactElement {
   const { t } = useTranslation();
 
   const items = useGalleryStore((state) => state.items);
-  const openSprite = useSpriteStore((state) => state.open);
-  const setScreen = useShellStore((state) => state.setScreen);
   const filter = useGalleryStore((state) => state.filter);
   const setFilter = useGalleryStore((state) => state.setFilter);
   const toggleFavourite = useGalleryStore((state) => state.toggleFavourite);
@@ -105,16 +121,6 @@ export function GalleryScreen(): ReactElement {
                 {item.id}
               </p>
               <div className="flex items-center justify-between gap-2">
-                <Button
-                  variant="ghost"
-                  className="px-2 py-1 text-xs"
-                  onClick={() => {
-                    openSprite(item.image);
-                    setScreen('editor');
-                  }}
-                >
-                  {t('gallery.edit')}
-                </Button>
                 <Button
                   variant="ghost"
                   className="px-2 py-1 text-xs"

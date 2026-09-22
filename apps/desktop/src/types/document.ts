@@ -155,6 +155,38 @@ export const LAYER_ROLES: readonly { role: LayerRole; ordinal: number }[] = [
 ];
 
 /**
+ * The layer roles each step owns, in the order the step fills them.
+ *
+ * Mirrors the table in `document-model.md` §6 and the `match` on the step name
+ * in `store/workflow.rs`, which is the thing that actually decides which
+ * buffers a step's gates read.
+ *
+ * Four steps own nothing. `reference` writes to the reference table and
+ * `palette` to the palette table; `cleanup` anti-aliases the layers that
+ * already exist and `variation` forks the asset. None of the four paints a
+ * layer of its own, which is why drawing is refused while an asset sits on
+ * one of them rather than being quietly sent somewhere.
+ *
+ * Two steps own two roles. The bands are separate layers because each means
+ * one thing - `shadow-core` is the first shadow band and `shadow-deep` is
+ * occlusion - and a single layer holding both could not be regenerated
+ * without losing the other.
+ */
+export const STEP_ROLES: Readonly<Record<Step, readonly LayerRole[]>> = {
+  reference: [],
+  palette: [],
+  silhouette: ['silhouette'],
+  flats: ['flats'],
+  shadow: ['shadow-core', 'shadow-deep'],
+  light: ['light'],
+  outline: ['outline'],
+  detail: ['detail'],
+  accent: ['rim', 'accent'],
+  cleanup: [],
+  variation: [],
+};
+
+/**
  * What a ramp is made of.
  *
  * Serialised kebab-case by Rust, which is invisible here because every name is
@@ -508,6 +540,46 @@ export interface OpResult {
 }
 
 /**
+ * One measurement a gate made.
+ *
+ * `name` is a stable kebab-case check name and is the only part of this that
+ * may be matched on. `detail` and `hint` are English prose written in Rust
+ * beside the measurement that produced them, and are NOT localised: a hint
+ * that names the coordinates it found can only be assembled where the pixels
+ * were counted, and a reason code chosen here instead would have to throw
+ * those coordinates away. There are no `gate.*` reason codes any more.
+ *
+ * `hint` is present only on a check that failed, because a hint is advice
+ * about what to do next and a check that passed has nothing to advise.
+ */
+export interface GateCheck {
+  /** Stable, kebab-case, such as `single-region` or `reads-at-1x`. */
+  name: string;
+  pass: boolean;
+  /** What was measured, in prose. Not localised. */
+  detail?: string;
+  /** What to do about it, naming coordinates where it can. Not localised. */
+  hint?: string;
+}
+
+/**
+ * Where a region sits, so a report can point at the pixels to repaint rather
+ * than only saying that something is wrong.
+ *
+ * Spelled `width`/`height` rather than the `w`/`h` that {@link Rect} uses,
+ * because Rust's `RegionBounds` and Rust's `Rect` disagree about that and this
+ * mirrors the first of them.
+ */
+export interface RegionBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** Filled pixels in the region, which is not `width * height`. */
+  area: number;
+}
+
+/**
  * What the gates measured.
  *
  * Reported whether or not the gate passed, because the numbers are how a
@@ -524,22 +596,33 @@ export interface GateMetrics {
   orphanFraction: number;
   speckleFraction: number;
   jaggySequences: number;
+  /** Horizontal colour changes per filled pixel, which is how busy reads. */
+  horizontalChangeRate: number;
   pillowCorrelation: number;
   lightVectors: number[];
   lightMeanDegrees: number | null;
   lightStdDegrees: number | null;
+  /**
+   * Regions that are shaded but whose shading points nowhere.
+   *
+   * Reported rather than dropped, because a missing light vector reads as
+   * consent to every downstream check that only looks at the vectors it was
+   * given.
+   */
+  undirectedRegions: RegionBounds[];
 }
 
 /**
  * Whether the current step's work would pass.
  *
- * `issues` holds stable reason codes from the `gate.*` family, not prose, so
- * the text is chosen in the reading language rather than in Rust.
+ * Every check the step ran is reported, the ones that passed included, because
+ * a reader who can only see what broke cannot tell a gate that verified the
+ * work from one that never looked.
  */
 export interface GateReport {
   step: Step;
-  passed: boolean;
-  issues: string[];
+  pass: boolean;
+  checks: GateCheck[];
   metrics: GateMetrics;
 }
 

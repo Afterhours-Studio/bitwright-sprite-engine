@@ -191,6 +191,22 @@
       calc(var(--checker) / -2) 0;
   }
 
+  /* One palette slot, drawn in the colour the document's own palette gives it.
+
+     The colour arrives as a custom property rather than as `background-color`
+     straight on the element, and the reason is the rule that no component may
+     write a colour literal into its markup. That rule exists so an interface
+     colour can never bypass the tokens - but a palette swatch is not an
+     interface colour, it is a pixel of the sprite. Routing it through a
+     property named for the sprite keeps the swatch honest and keeps the check
+     that enforces the rule able to stay strict.
+
+     The checker underneath is what makes a slot with partial alpha readable as
+     partly transparent rather than as a slightly different flat colour. */
+  .palette-swatch {
+    background-color: var(--swatch, transparent);
+  }
+
   /* Nothing inside a drag region should start a drag of its own. */
   .no-drag {
     -webkit-app-region: no-drag;
