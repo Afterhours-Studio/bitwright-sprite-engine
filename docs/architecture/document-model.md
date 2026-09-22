@@ -274,18 +274,20 @@ exactly one layer role, which is why `layer` has a `UNIQUE (asset_id, role)`
 constraint: a step's output is a single addressable thing that can be inspected,
 regenerated or thrown away without disturbing the steps around it.
 
-| Step         | Layer role     | Ordinal | Holds                                  |
-| ------------ | -------------- | ------- | -------------------------------------- |
-| `reference`  | —              | —       | nothing; writes to the `reference` table |
-| `palette`    | —              | —       | nothing; writes to the `palette` table |
-| `silhouette` | `silhouette`   | 10      | the filled mask                        |
-| `outline`    | `outline`      | 20      | outline pixels                         |
-| `shadow`     | `shadow-core`  | 30      | the first shadow band                  |
-|              | `shadow-deep`  | 31      | occlusion and the darkest band         |
-| `light`      | `light`        | 40      | lit planes                             |
-| `rim`        | `rim`          | 50      | the backlight edge                     |
-| `detail`     | `detail`       | 60      | interior features                      |
-| `accent`     | `accent`       | 70      | the highest-contrast marks             |
+| Step         | Layer role     | Ordinal | Holds                                       |
+| ------------ | -------------- | ------- | ------------------------------------------- |
+| `reference`  | —              | —       | nothing; writes to the `reference` table    |
+| `palette`    | —              | —       | nothing; writes to the `palette` table      |
+| `silhouette` | `silhouette`   | 10      | the filled mask, one slot                   |
+| `flats`      | `flats`        | 20      | each material's base slot, unshaded         |
+| `shadow`     | `shadow-core`  | 30      | the first shadow band                       |
+|              | `shadow-deep`  | 31      | occlusion and the darkest band              |
+| `light`      | `light`        | 40      | lit planes                                  |
+| `outline`    | `outline`      | 50      | outline pixels                              |
+| `detail`     | `detail`       | 60      | interior features, folds, face              |
+| `accent`     | `rim`          | 70      | the backlight edge                          |
+|              | `accent`       | 71      | speculars and the highest-contrast marks    |
+| `cleanup`    | —              | —       | nothing; anti-aliases and despeckles in place |
 | `variation`  | —              | —       | nothing; forks the asset with a new palette |
 
 Compositing is ordinal order, low first, each layer's non-zero indices painting
@@ -293,10 +295,38 @@ over what is beneath. Opacity below 1.0 is resolved at composite time in Oklab
 and is a preview affordance — an exported sprite has no partial alpha except
 where the silhouette says so.
 
-The step order is not arbitrary and is argued in the style guide: silhouette
-before anything because it is what the eye reads first; shadow before light
-because deciding where the dark goes is deciding the form; detail late because
-detail added before the form is resolved is detail that has to be redone.
+The step order is not arbitrary. It is
+[the style guide's §9](../pixel-art/hd2d-style-guide.md), and each position in
+it is there for a reason worth restating, because the obvious orders are wrong:
+
+**Silhouette before anything**, because shape is what the viewer resolves first
+and what is hardest to change once anything is painted into it.
+
+**Flats before shading**, because the material map decides the colour-area
+proportions, and revising it after shading means redoing every shaded pixel.
+This is why flats are a layer of their own rather than more silhouette: the
+silhouette is one opaque slot answering "what shape", the flats answer "made of
+what", and the two get revised for different reasons.
+
+**Shadow before light.** The shadow shape *is* the description of the form.
+Placing light first tempts the artist, and the agent, into shading inward from
+the edge, which is pillow shading — the failure the gates spend the most effort
+detecting.
+
+**Outline after the fills it borders exist.** An outline's colour is derived
+from the fill beside it, so outlining early means guessing, and the guess is
+always flat black. This is the one place the ordering here is likely to surprise
+someone: the outline goes on late, not first.
+
+**Detail late**, because detail added before the form is resolved is detail its
+author then protects instead of fixing the form underneath it.
+
+**Rim and accents last**, because they are the highest-contrast pixels on the
+sprite and placing them last is the only way to place them where they earn it —
+and to count them against a budget.
+
+**Cleanup last of all**, because anti-aliasing is a polish pass over finished
+edges, and doing it before the edges are finished means doing it twice.
 
 ---
 

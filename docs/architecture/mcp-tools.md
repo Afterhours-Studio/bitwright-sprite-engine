@@ -277,7 +277,7 @@ These are the ones where the engine decides the colour.
 {
   "assetId": "…",
   "target": "shadow-core",      // shadow-core | shadow-deep | light | rim
-  "from": "silhouette",         // the layer whose filled area is being shaded
+  "from": "flats",              // the layer whose material slots are being shaded
   "region": { "x": 0, "y": 0, "w": 64, "h": 64 },   // optional, defaults to all
   "direction": "upper-left",    // omitted: taken from the style rules
   "depth": 1                    // how many ramp steps to move; default 1
@@ -299,7 +299,7 @@ finds out it has been painting with an unramped slot.
 ```jsonc
 {
   "assetId": "…",
-  "from": "silhouette",
+  "from": "flats",        // outline colour is derived from the fill it borders
   "mode": "selective",    // none | selective | full; default from the style
   "darken": 2             // ramp steps below the adjacent fill
 }

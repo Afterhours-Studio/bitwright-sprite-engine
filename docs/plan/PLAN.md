@@ -168,9 +168,9 @@ An asset moves through ordered steps. The agent cannot skip one, and cannot
 advance until the current step passes its gate.
 
 ```
-  reference ─► palette ─► silhouette ─► outline ─► shadow ─► light
-                                                              │
-                     variation ◄─ accent ◄─ detail ◄─ rim ◄────┘
+  reference ─► palette ─► silhouette ─► flats ─► shadow ─► light
+                                                             │
+     variation ◄─ cleanup ◄─ accent ◄─ detail ◄─ outline ◄────┘
 ```
 
 | Step       | Produces                          | Gate                                        |
@@ -178,15 +178,26 @@ advance until the current step passes its gate.
 | reference  | optional ref image, conformed     | none                                        |
 | palette    | ramps per material                | ≥ 3 steps per ramp, hue shift present       |
 | silhouette | filled mask                       | single connected region, reads at 1× scale  |
-| outline    | outline layer                     | no outline pixel outside the silhouette     |
+| flats      | each material's base slot         | no pixel of the mask left unassigned        |
 | shadow     | core and deep shadow              | one consistent light direction              |
 | light      | lit planes                        | no pillow shading, no banding               |
-| rim        | backlight edge                    | rim only on edges facing the key light      |
+| outline    | outline layer                     | no outline pixel outside the silhouette     |
 | detail     | interior features                 | no isolated single-pixel noise above budget |
-| accent     | highest-contrast marks            | accent count within budget                  |
+| accent     | rim and highest-contrast marks    | rim coverage and accent count within budget |
+| cleanup    | anti-aliased edges, no speckle    | noise below budget, outer edge untouched    |
 | variation  | recolours preserving value        | value structure unchanged                   |
 
 The gates are computed from the pixel buffer, not asserted by the agent.
+
+Two positions in that order are worth defending, because the intuitive order is
+the wrong one. **Flats are their own step**, not part of the silhouette: the
+silhouette answers "what shape" in a single slot, the flats answer "made of
+what", and revising the material map after shading means redoing every shaded
+pixel. **The outline comes late**, after the fills it borders exist, because an
+outline's colour is derived from the fill beside it — outline first and the
+agent has nothing to derive from, so it reaches for black, which is the most
+recognisable tell of amateur pixel art. The full argument is in
+[the style guide](../pixel-art/hd2d-style-guide.md).
 
 ---
 
