@@ -20,6 +20,16 @@ The plan named `routes/reference.py` for the sidecar. The existing
 image, its palette and the detected grid, and stores nothing, which is exactly
 what import needs; no second route is written.
 
+## The skill pack is served, not installed
+
+The plan had an installer copying `skills/` into a client's skills folder behind
+an **Install Skills** button. That reaches Claude Code only: Claude Desktop and
+Cursor read no such folder. The MCP server is already connected to every
+client, so it carries the manual itself: the documents are compiled into the
+binary, returned by the `read_guide` tool that every client can call, and listed
+as MCP resources for clients that browse them. There is no installer and no
+button.
+
 ## Wave A — contract (one task)
 
 **A.1** `Cargo.toml` gains `png = "0.17"` and `base64 = "0.22"` (both already in
@@ -29,11 +39,11 @@ and `reference.json`, so the three interface tasks below each own a locale file.
 
 ## Wave B — parallel
 
-| Task    | Owns                                                                                   | Builds                                                                                                                                                                            |
-| ------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **B.1** | `raster/png.rs`, its `pub mod` line in `raster/mod.rs`                                 | `decode(&[u8]) -> RgbaImage`, `encode(&RgbaImage) -> Vec<u8>`, `index(&RgbaImage, &Palette, alpha_threshold) -> IndexedBuffer` (nearest slot per opaque pixel, 0 for transparent) |
-| **B.2** | `mcp/skills.rs`, its `pub mod` line, `tauri.conf.json` (resources only)                | bundle `skills/` as a resource; status and install into Claude Code's `~/.claude/skills/bitwright-pixel-art/`; commands below                                                     |
-| **B.3** | `commands/document.rs` (two commands), `lib/document.ts`, `stores/useDocumentStore.ts` | `step_revisit(assetId, step)` and `step_advance(assetId, force)`; the store's `revisit(step)` and `advance({ force })`                                                            |
+| Task    | Owns                                                                                   | Builds                                                                                                                                                                                |
+| ------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **B.1** | `raster/png.rs`, its `pub mod` line in `raster/mod.rs`                                 | `decode(&[u8]) -> RgbaImage`, `encode(&RgbaImage) -> Vec<u8>`, `index(&RgbaImage, &Palette, alpha_threshold) -> IndexedBuffer` (nearest slot per opaque pixel, 0 for transparent)     |
+| **B.2** | `mcp/guide.rs`, `mcp/tools/guide.rs`, their module lines, `mcp/handler.rs`             | the skill pack served by the server itself: embedded in the binary, the `read_guide` tool, and `bitwright://guide/<topic>` MCP resources; the instructions send the agent to it first |
+| **B.3** | `commands/document.rs` (two commands), `lib/document.ts`, `stores/useDocumentStore.ts` | `step_revisit(assetId, step)` and `step_advance(assetId, force)`; the store's `revisit(step)` and `advance({ force })`                                                                |
 
 ## Wave C — parallel, after Wave B
 
@@ -43,7 +53,6 @@ and `reference.json`, so the three interface tasks below each own a locale file.
 | **C.2** | `mcp/tools/reference.rs`, its line in `mcp/tools/mod.rs`                                             | `read_reference`, `extract_palette` over stored references (no sidecar call, so stdio serves them too)            |
 | **C.3** | `features/editor/tools/StepRail.tsx` and its test, `locales/*/workflow.json`                         | every step listed, the current one marked; revisit an earlier step; advance; forced advance behind a confirmation |
 | **C.4** | `features/editor/reference/**`, `lib/reference.ts`, `types/reference.ts`, `locales/*/reference.json` | the reference panel: import a file, preview, detected grid and warnings, delete, apply the extracted palette      |
-| **C.5** | `features/settings/mcp/**`, `lib/mcp.ts`, `locales/*/settings.json`                                  | Install Skills in the agent connection card                                                                       |
 
 ## Wave D — integration
 
@@ -68,10 +77,6 @@ interface ReferenceSummary {
   detected: { cellWidth: number; cellHeight: number; confidence: number } | null;
   warnings: string[];                     // stable codes from conform
 }
-
-// skills (B.2 builds, C.5 uses)
-mcp_skills_status(): { installed: boolean; path: string; version: string | null }
-mcp_install_skills(): { installed: boolean; path: string; version: string | null }
 
 // workflow (B.3 builds, C.3 uses)
 step_revisit(assetId: string, step: string): StepState
