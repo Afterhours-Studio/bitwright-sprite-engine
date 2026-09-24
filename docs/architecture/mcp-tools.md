@@ -15,22 +15,21 @@ It assumes [the document model](document-model.md).
 
 ## Status
 
-Phase 2 is built, and the server registers thirty tools. Four tools in the
-catalogue need machinery that later phases build, so they are absent from
+Phase 2 and Phase 3 are built. Two tools in the catalogue, `export_png` and
+`export_sheet`, need machinery a later phase builds, so they are absent from
 `tools/list` until then; nothing answers with a placeholder.
 
 | Section               | Tools                                                                                                      | Available now | Delivered by |
 | --------------------- | ---------------------------------------------------------------------------------------------------------- | ------------- | ------------ |
 | 3. Orientation        | `list_projects`, `create_project`, `list_assets`, `create_asset`, `open_asset`, `get_style_rules`          | yes           | Phase 2      |
-| 4. Reading the canvas | `read_canvas`, `read_region`, `describe_palette`, `diff_layers`                                            | yes           | Phase 2      |
-| 4. Reading the canvas | `read_reference`                                                                                           | no            | Phase 3      |
+| 4. Reading the canvas | `read_canvas`, `read_region`, `describe_palette`, `diff_layers`, `read_reference`                          | yes           | Phase 2/3    |
 | 5. Writing            | `paste_grid`, `draw_runs`, `set_pixels`, `draw_shape`, `fill_region`, `mirror`, `translate`, `clear_layer` | yes           | Phase 2      |
 | 6. The shading tools  | `shade`, `outline`, `antialias`                                                                            | yes           | Phase 2      |
-| 7. Palette            | `set_palette`, `create_variation`                                                                          | yes           | Phase 2      |
-| 7. Palette            | `extract_palette`                                                                                          | no            | Phase 3      |
+| 7. Palette            | `set_palette`, `create_variation`, `extract_palette`                                                       | yes           | Phase 2/3    |
 | 8. The workflow       | `get_step`, `check_step`, `advance_step`, `revisit_step`                                                   | yes           | Phase 2      |
-| 9. History            | `undo`, `redo`, `read_history`                                                                             | yes           | Phase 2      |
-| 10. Export            | `export_png`, `export_sheet`                                                                               | no            | Phase 4      |
+| 9. Tilemaps           | `create_tilemap`, `read_tilemap`, `place_tiles`, `tilemap_layers`                                          | yes           | Phase 3      |
+| 10. History           | `undo`, `redo`, `read_history`                                                                             | yes           | Phase 2      |
+| 11. Export            | `export_png`, `export_sheet`                                                                               | no            | Phase 4      |
 
 The Settings panel's **Install Skills** button belongs to Phase 3 as well.
 
@@ -194,10 +193,19 @@ down from it means.
 
 ### `read_reference`
 
-`{ assetId, referenceId? }` — a conformed reference image as a grid in the
-asset's own palette, plus the conform report: the grid the importer detected,
-the palette it extracted, and any warning it raised. Defaults to the most
-recently imported reference.
+`{ assetId?, referenceId?, rulers? }` — a stored reference image indexed to
+the asset's own palette and rendered as the same kind of grid and legend
+`read_canvas` gives, plus what conforming it detected. `referenceId` defaults
+to the most recently imported reference; `rulers` defaults `true`. Returns
+`{ referenceId, name, width, height, text, detected, warnings }`, where
+`detected` and `warnings` are whatever `conform_meta` recorded (`null` and
+`[]` for a reference that predates conforming). If the asset has no palette
+yet, `text` is prefixed with a line pointing at `extract_palette` and
+`set_palette`, since every pixel would otherwise read as empty. Import
+happens elsewhere, in the window's reference panel; this tool only reads what
+the store already has. Fails `reference.none` when the asset has no reference
+image at all, and `reference.not_found` for a `referenceId` the asset does
+not have.
 
 ### `diff_layers`
 
@@ -374,10 +382,22 @@ because that is the mistake, and it is the one that makes a sprite look plastic.
 
 ### `extract_palette`
 
-`{ assetId, referenceId, maxSlots? }` — runs the reference image through the
-conform pipeline's weighted k-means in Oklab and proposes ramps grouped by
-material. Returns the proposal without applying it; the agent, or the person,
-decides.
+`{ assetId?, referenceId?, maxSlots? }` — turns a reference's colours into
+ramps, in exactly the shape `set_palette` takes. Colour comes from
+`conform_meta.palette` when the reference has one, else from the distinct
+opaque pixels of its decoded PNG, most-used first; `maxSlots` (default 32, 1
+to 62) caps how many are kept. The kept colours are grouped by Oklab hue into
+30-degree buckets — a near-neutral colour is named `neutral` instead of a hue
+bucket — any bucket left holding a single colour is folded into whichever
+remaining bucket sits nearest it in hue, and each ramp is sorted darkest slot
+first. Every ramp comes back tagged `material: "custom"`, since the grouping
+is by hue alone and knows nothing of the style's materials; `set_palette`
+still checks the result against the style when it is applied. Returns
+`{ referenceId, ramps }`. It applies nothing by itself: hand the ramps
+straight to `set_palette` — tags edited or not — to make them the asset's
+palette. Fails the same way `read_reference` does when there is no reference
+to read, plus `reference.invalid` when `conform_meta.palette` holds something
+that is not a `#RRGGBB` string.
 
 ### `create_variation`
 
@@ -432,7 +452,81 @@ there, which is the whole reason the steps are separate layers.
 
 ---
 
-## 9. History
+## 9. Tilemaps
+
+Backgrounds built from tile assets placed on a grid, rather than drawn pixel
+by pixel. A `background` asset holds at most one tilemap; the tiles it places
+are ordinary `tile` assets, drawn beforehand with the normal tools. Every tool
+but `create_tilemap` fails `tilemap.none` on a background that has no
+tilemap yet.
+
+### `create_tilemap`
+
+```jsonc
+{
+  "assetId": "…", // optional; defaults to the session's open asset
+  "tileWidth": 16,
+  "tileHeight": 16,
+  "columns": 20,
+  "rows": 12,
+}
+```
+
+Starts a tilemap on a background asset: a grid of tile-sized cells and one
+layer, named `ground`. Returns the tilemap summary — `tileWidth`,
+`tileHeight`, `columns`, `rows`, and `layers` (each with `name`, `parallax`,
+`visible`, `placed`). Fails `tilemap.exists` when the asset already has one —
+call `place_tiles` or `tilemap_layers` to edit it, or `read_tilemap` to see
+it — `tilemap.invalid_size` when a dimension is out of range, and
+`tilemap.not_background` when the asset is not a `background`.
+
+### `read_tilemap`
+
+`{ assetId?, layer? }` — a tilemap as a text grid: `.` for an empty cell, then
+`a`–`z`, `A`–`Z`, `0`–`9` for each distinct tile in the order it first
+appears, one character per cell. A legend line names each symbol
+(`a = grass (<tile asset id>)`), followed by every layer in turn — or just
+`layer`, when given — each headed `layer <name> (parallax <p>, visible|hidden):`
+and then its grid. Returns the tilemap summary plus `text`. Fails
+`tilemap.layer_not_found` for an unknown layer name, and
+`tilemap.too_many_tiles` when more distinct tiles are placed than the
+62-character set can label — call again scoped to a single layer.
+
+### `place_tiles`
+
+```jsonc
+{
+  "assetId": "…",
+  "layer": "ground",
+  "placements": [
+    { "x": 0, "y": 0, "tile": "…" }, // a tile asset's id
+    { "x": 2, "y": 1, "tile": null }, // null clears the cell
+  ],
+}
+```
+
+Places or clears tiles on one layer of a tilemap, and refreshes the open
+window. Returns `{ changed: <n>, ...tilemap summary }`. Nothing is written
+when a placement is refused: fails `tilemap.out_of_bounds` for a cell outside
+the grid, `tilemap.tile_invalid` when `tile` is not a `tile` asset in the same
+project or is not sized to the map's tile size, and `tilemap.layer_not_found`
+for an unknown layer.
+
+### `tilemap_layers`
+
+`{ assetId?, add?: { name, parallax }, remove?: name, set?: { name, parallax?, visible? } }`
+— exactly one of `add`, `remove`, or `set` per call; passing zero or more than
+one fails `args.invalid`. Layers are drawn back to front; `parallax` scales
+how fast a layer scrolls relative to the camera. Returns the tilemap summary.
+Fails `tilemap.layer_exists` adding a name already in use, `tilemap.layer_not_found`
+removing or setting one that is not there, `tilemap.last_layer` removing a
+tilemap's only remaining layer, `tilemap.invalid_layer` for a parallax outside
+0 to 4 or a name that is empty or over 40 characters, and
+`tilemap.invalid_size` adding a ninth layer.
+
+---
+
+## 10. History
 
 ### `undo` / `redo`
 
@@ -447,7 +541,7 @@ resuming a session finds out what it, or the person, last did.
 
 ---
 
-## 10. Export
+## 11. Export
 
 ### `export_png`
 
@@ -468,7 +562,7 @@ the same restriction, and returns the path plus the frame rectangles.
 
 ---
 
-## 11. Transports, sessions and trust
+## 12. Transports, sessions and trust
 
 Two transports, chosen in Settings.
 

@@ -603,6 +603,7 @@ pub fn handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + 
         crate::reference::reference_list,
         crate::reference::reference_preview,
         crate::reference::reference_delete,
+        crate::reference::reference_apply_palette,
         crate::commands::tilemap::tilemap_create,
         crate::commands::tilemap::tilemap_read,
         crate::commands::tilemap::tilemap_place,

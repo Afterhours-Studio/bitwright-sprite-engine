@@ -28,12 +28,18 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use base64::Engine as _;
 use serde::Serialize;
 use serde_json::{json, Map, Value};
-use tauri::{AppHandle, Runtime, State};
+use tauri::{AppHandle, Emitter, Runtime, State};
 use uuid::Uuid;
 
-use crate::commands::{document::DocumentState, CommandError};
+use crate::commands::{
+    document::{notify_changed, DocumentState, PaletteEvent, EVENT_PALETTE},
+    CommandError,
+};
 use crate::engine::{self, Method};
-use crate::store::models::{AssetId, Reference};
+use crate::mcp::error::ToolError;
+use crate::raster::Palette;
+use crate::store::models::{AssetId, OpResult, Reference};
+use crate::store::Store;
 
 /// The largest file the shell will read. Anything bigger is almost certainly
 /// the wrong file, and reading it would block the shell for seconds.
@@ -149,6 +155,10 @@ fn worker_failed(error: impl std::fmt::Display) -> CommandError {
 
 fn app_failed(error: crate::store::AppError) -> CommandError {
     CommandError::new(error.code, error.detail)
+}
+
+fn tool_failed(error: ToolError) -> CommandError {
+    CommandError::new(error.code, format!("{}: {}", error.message, error.hint))
 }
 
 fn now_millis() -> i64 {
@@ -412,6 +422,66 @@ pub async fn reference_delete(
     Ok(())
 }
 
+/// Turns a reference's colours into a palette, checks it against the asset's
+/// style, and writes it — the part of `reference_apply_palette` that only
+/// touches the store, so it runs the same under a test as under the window.
+fn apply_reference_palette(
+    store: &mut Store,
+    asset_id: AssetId,
+    reference_id: Uuid,
+    max_slots: u8,
+) -> Result<(Palette, OpResult), CommandError> {
+    let reference = store
+        .reference_read(asset_id, reference_id)
+        .map_err(app_failed)?;
+    let rules = store.asset_rules(asset_id).map_err(app_failed)?;
+    let ramps = crate::mcp::tools::reference::extracted_ramps(&reference, max_slots as usize)
+        .map_err(tool_failed)?;
+    let ramps: Vec<_> = serde_json::from_value(ramps).map_err(|error| {
+        CommandError::new(
+            "reference.invalid_ramp",
+            format!("extract_palette produced ramps set_palette cannot read: {error}"),
+        )
+    })?;
+    let palette = crate::mcp::tools::palette::build_palette(&ramps).map_err(tool_failed)?;
+    crate::mcp::tools::palette::check_palette(&palette, &rules).map_err(tool_failed)?;
+    store.palette_write(asset_id, palette).map_err(app_failed)
+}
+
+/// Extracts the reference's colours into ramps and makes them the asset's
+/// palette in one step, the way a person would after eyeballing `extract_palette`
+/// and handing its ramps straight to `set_palette`.
+///
+/// # Errors
+///
+/// Returns `store.lock_failed` when the store is poisoned, the store's reason
+/// code when the asset or reference is missing, and `palette.rule_violation`
+/// (or another `args.invalid`/`palette.*` code) when the extracted ramps do
+/// not pass the asset's style rules.
+#[tauri::command]
+pub async fn reference_apply_palette<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, DocumentState>,
+    asset_id: AssetId,
+    reference_id: Uuid,
+    max_slots: Option<u8>,
+) -> Result<Palette, CommandError> {
+    let max_slots = max_slots.unwrap_or(32);
+    let store = state.store();
+    let (palette, op) = tauri::async_runtime::spawn_blocking(move || {
+        let mut store = store.lock().map_err(|_| lock_failed())?;
+        apply_reference_palette(&mut store, asset_id, reference_id, max_slots)
+    })
+    .await
+    .map_err(worker_failed)??;
+
+    // Like a palette written by hand: the history moves, and the palette
+    // panel reloads.
+    notify_changed(&app, &state, asset_id, &op);
+    let _ = app.emit(EVENT_PALETTE, PaletteEvent { asset_id });
+    Ok(palette)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -524,5 +594,112 @@ mod tests {
         let error = read_file(env!("CARGO_MANIFEST_DIR")).unwrap_err();
         let error = serde_json::to_value(&error).unwrap();
         assert_eq!(error["code"], "reference.unreadable");
+    }
+
+    // -----------------------------------------------------------------
+    // apply_reference_palette
+    // -----------------------------------------------------------------
+
+    /// A conformed PNG the size of the test asset, one `colours` entry per
+    /// pixel in a single row — enough for `extracted_ramps` to read the
+    /// colours back in the same order they were given, without a
+    /// `conform_meta.palette` hint.
+    fn conformed_png(colours: &[[u8; 4]]) -> Vec<u8> {
+        let mut data = Vec::with_capacity(colours.len() * 4);
+        for rgba in colours {
+            data.extend_from_slice(rgba);
+        }
+        let image = crate::raster::RgbaImage {
+            width: colours.len() as u16,
+            height: 1,
+            data,
+        };
+        crate::raster::png::encode(&image).expect("a small RGBA image encodes")
+    }
+
+    /// A project, a character asset the size of `colours`, and a stored
+    /// reference conformed to it.
+    fn setup_with_reference(colours: &[[u8; 4]]) -> (Store, AssetId, Uuid) {
+        let mut store = Store::memory().unwrap();
+        let project = store.project_create("demo", "hd2d").unwrap();
+        let asset = store
+            .asset_create(project.id, "hero", "character", colours.len() as u16, 1)
+            .unwrap();
+        let reference_id = Uuid::now_v7();
+        store
+            .reference_write(Reference {
+                id: reference_id,
+                asset_id: asset.id,
+                name: "sheet".to_string(),
+                source_png: conformed_png(colours),
+                conformed: Some(conformed_png(colours)),
+                conform_meta: None,
+                created_at: 1_700_000_000_000,
+            })
+            .unwrap();
+        (store, asset.id, reference_id)
+    }
+
+    /// Three 3-step ramps, one per RGB primary's neighbourhood (blue, green,
+    /// amber), each built to the hd2d style guide's §2.4 step-lightness,
+    /// hue-shift and chroma-shift bounds for a non-skin material, and placed
+    /// so the darkest slot of the blue ramp sits at the value floor and the
+    /// lightest slot of the amber ramp sits at the value ceiling. Together
+    /// they pass the hd2d gate as a whole the way palette.rs's own
+    /// documented example does with seven ramps — no single 3-4 step ramp
+    /// can span the floor to the ceiling on its own at the style's own
+    /// per-step budget.
+    const PASSING_RAMPS: [[u8; 4]; 9] = [
+        [0x00, 0x04, 0x25, 255],
+        [0x00, 0x1E, 0x46, 255],
+        [0x10, 0x40, 0x5C, 255],
+        [0x31, 0x50, 0x22, 255],
+        [0x52, 0x6D, 0x34, 255],
+        [0x80, 0x8D, 0x5D, 255],
+        [0xBB, 0x8D, 0x52, 255],
+        [0xE7, 0xA7, 0x83, 255],
+        [0xFF, 0xC9, 0xBF, 255],
+    ];
+
+    /// A flat grey ramp: same lightness step, no hue shift, which the hd2d
+    /// style gate refuses.
+    const GREY_RAMP: [[u8; 4]; 4] = [
+        [0x30, 0x30, 0x30, 255],
+        [0x60, 0x60, 0x60, 255],
+        [0x90, 0x90, 0x90, 255],
+        [0xC0, 0xC0, 0xC0, 255],
+    ];
+
+    #[test]
+    fn a_passing_reference_becomes_the_assets_palette() {
+        let (mut store, asset_id, reference_id) = setup_with_reference(&PASSING_RAMPS);
+        let (palette, _) = apply_reference_palette(&mut store, asset_id, reference_id, 32)
+            .unwrap_or_else(|error| panic!("expected the reference's colours to pass: {error:?}"));
+        assert_eq!(palette.slots.len(), 9);
+        assert_eq!(palette.ramps.len(), 3);
+        let hexes: Vec<String> = palette
+            .slots
+            .iter()
+            .map(|slot| hex_of_test(&slot.rgba))
+            .collect();
+        for rgba in &PASSING_RAMPS {
+            let hex = hex_of_test(rgba);
+            assert!(hexes.contains(&hex), "missing {hex} in {hexes:?}");
+        }
+        // The write actually landed on the asset, not just in the return value.
+        let document = store.asset_open(asset_id).unwrap();
+        assert_eq!(document.palette.slots.len(), 9);
+    }
+
+    #[test]
+    fn a_flat_ramp_is_refused_as_a_rule_violation() {
+        let (mut store, asset_id, reference_id) = setup_with_reference(&GREY_RAMP);
+        let error = apply_reference_palette(&mut store, asset_id, reference_id, 32).unwrap_err();
+        let error = serde_json::to_value(&error).unwrap();
+        assert_eq!(error["code"], "palette.rule_violation");
+    }
+
+    fn hex_of_test(rgba: &[u8; 4]) -> String {
+        format!("#{:02X}{:02X}{:02X}", rgba[0], rgba[1], rgba[2])
     }
 }

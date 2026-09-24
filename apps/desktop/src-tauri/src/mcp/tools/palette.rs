@@ -96,7 +96,10 @@ fn resolve_asset(session: &Session, asset_id_arg: Option<&str>) -> Result<AssetI
 /// Runs the structural and style checks a palette must pass, in the order the
 /// two kinds of fault deserve: a malformed palette is an error, an unfinished
 /// one is a rule violation with the measurements that failed.
-fn check_palette(palette: &Palette, rules: &crate::raster::StyleRules) -> Result<(), ToolError> {
+pub(crate) fn check_palette(
+    palette: &Palette,
+    rules: &crate::raster::StyleRules,
+) -> Result<(), ToolError> {
     palette
         .validate(rules)
         .map_err(|error| ToolError::from(AppError::from(error)))?;
@@ -136,7 +139,7 @@ struct SetPaletteArgs {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct RampArg {
+pub(crate) struct RampArg {
     name: String,
     material: String,
     slots: Vec<String>,
@@ -173,7 +176,7 @@ fn set_palette_schema() -> Value {
 /// than 62 slots; the style ceiling may be lower still.
 const SLOT_CEILING: usize = 62;
 
-fn build_palette(ramps: &[RampArg]) -> Result<Palette, ToolError> {
+pub(crate) fn build_palette(ramps: &[RampArg]) -> Result<Palette, ToolError> {
     if ramps.is_empty() {
         return Err(ToolError::new(
             "args.invalid",
