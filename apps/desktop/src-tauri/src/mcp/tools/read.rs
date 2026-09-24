@@ -194,7 +194,7 @@ fn read_canvas_schema() -> Value {
                 "required": ["x", "y", "w", "h"],
                 "additionalProperties": false
             },
-            "rulers": { "type": "boolean" }
+            "rulers": { "type": "boolean", "default": true }
         },
         "additionalProperties": false
     })
@@ -221,7 +221,7 @@ struct ReadCanvasArgs {
 fn read_canvas(host: &dyn DocumentHost, session: &Session, args: Value) -> ToolResult {
     let args: ReadCanvasArgs = parse(args)?;
     let id = resolve_asset(session, args.asset_id.as_deref())?;
-    let show_rulers = args.rulers.unwrap_or(false);
+    let show_rulers = args.rulers.unwrap_or(true);
     let role_val = args.layer.as_deref().map(role).transpose()?;
     let region = args.region;
     let (document, buffer) = with_store(host, |store| {
@@ -270,7 +270,7 @@ fn read_region_schema() -> Value {
             "y": { "type": "integer", "minimum": 0 },
             "w": { "type": "integer", "minimum": 1 },
             "h": { "type": "integer", "minimum": 1 },
-            "rulers": { "type": "boolean" }
+            "rulers": { "type": "boolean", "default": true }
         },
         "required": ["x", "y", "w", "h"],
         "additionalProperties": false
@@ -292,7 +292,7 @@ struct ReadRegionArgs {
 fn read_region(host: &dyn DocumentHost, session: &Session, args: Value) -> ToolResult {
     let args: ReadRegionArgs = parse(args)?;
     let id = resolve_asset(session, args.asset_id.as_deref())?;
-    let show_rulers = args.rulers.unwrap_or(false);
+    let show_rulers = args.rulers.unwrap_or(true);
     let role_val = args.layer.as_deref().map(role).transpose()?;
     let (document, buffer) = with_store(host, |store| {
         let document = store.asset_open(id)?;
@@ -407,7 +407,7 @@ fn diff_layers_schema() -> Value {
             "assetId": { "type": "string", "format": "uuid" },
             "a": { "type": "string" },
             "b": { "type": "string" },
-            "rulers": { "type": "boolean" }
+            "rulers": { "type": "boolean", "default": true }
         },
         "required": ["a", "b"],
         "additionalProperties": false
@@ -428,7 +428,7 @@ fn diff_layers(host: &dyn DocumentHost, session: &Session, args: Value) -> ToolR
     let id = resolve_asset(session, args.asset_id.as_deref())?;
     let role_a = role(&args.a)?;
     let role_b = role(&args.b)?;
-    let show_rulers = args.rulers.unwrap_or(false);
+    let show_rulers = args.rulers.unwrap_or(true);
     let (document, buf_a, buf_b) = with_store(host, |store| {
         let document = store.asset_open(id)?;
         let trans = || {
@@ -802,6 +802,112 @@ mod tests {
             assert!(
                 !line.contains(" | "),
                 "bare rows should not have ' | ': {line}"
+            );
+        }
+    }
+
+    /// The catalogue says rulers are on by default "because a model counting
+    /// unaided to column 37 on row 41 will miss". A grid with rulers has a
+    /// column-ruler line (six leading spaces) and `NNN | ` row labels.
+    fn assert_rulers_present(text: &str, ctx: &str) {
+        assert!(
+            text.lines().any(|l| l.starts_with("      ")),
+            "rulers must default to on, no column ruler line in: {text}\n({ctx})"
+        );
+        assert!(
+            text.contains("  0 | "),
+            "rulers must default to on, no row label in: {text}\n({ctx})"
+        );
+    }
+
+    fn assert_rulers_absent(text: &str, ctx: &str) {
+        assert!(
+            !text.lines().any(|l| l.starts_with("      ")),
+            "rulers=false must drop the column ruler line: {text}\n({ctx})"
+        );
+        assert!(
+            !text.contains(" | "),
+            "rulers=false must drop the row labels: {text}\n({ctx})"
+        );
+    }
+
+    #[test]
+    fn read_canvas_defaults_to_rulers_on() {
+        let (host, session) = setup();
+        let id = create_asset(&host);
+        session.set_current_asset(id);
+        {
+            let arc = host.store();
+            let mut store = arc.lock().unwrap();
+            set_pixel(&mut store, id, "flats", 0, 0, 1);
+        }
+        let with_default = super::read_canvas(&host, &session, json!({})).unwrap();
+        assert_rulers_present(with_default["text"].as_str().unwrap(), "read_canvas");
+
+        let explicit_off = super::read_canvas(&host, &session, json!({ "rulers": false })).unwrap();
+        assert_rulers_absent(explicit_off["text"].as_str().unwrap(), "read_canvas");
+    }
+
+    #[test]
+    fn read_region_defaults_to_rulers_on() {
+        let (host, session) = setup();
+        let id = create_asset(&host);
+        session.set_current_asset(id);
+        {
+            let arc = host.store();
+            let mut store = arc.lock().unwrap();
+            set_pixel(&mut store, id, "flats", 0, 0, 1);
+        }
+        let with_default =
+            super::read_region(&host, &session, json!({ "x": 0, "y": 0, "w": 4, "h": 2 })).unwrap();
+        assert_rulers_present(with_default["text"].as_str().unwrap(), "read_region");
+
+        let explicit_off = super::read_region(
+            &host,
+            &session,
+            json!({ "x": 0, "y": 0, "w": 4, "h": 2, "rulers": false }),
+        )
+        .unwrap();
+        assert_rulers_absent(explicit_off["text"].as_str().unwrap(), "read_region");
+    }
+
+    #[test]
+    fn diff_layers_defaults_to_rulers_on() {
+        let (host, session) = setup();
+        let id = create_asset(&host);
+        session.set_current_asset(id);
+        {
+            let arc = host.store();
+            let mut store = arc.lock().unwrap();
+            set_pixel(&mut store, id, "flats", 0, 0, 1);
+            set_pixel(&mut store, id, "outline", 0, 0, 2);
+        }
+        let with_default =
+            super::diff_layers(&host, &session, json!({ "a": "flats", "b": "outline" })).unwrap();
+        assert_rulers_present(with_default["text"].as_str().unwrap(), "diff_layers");
+        assert_eq!(with_default["differing"], 1);
+
+        let explicit_off = super::diff_layers(
+            &host,
+            &session,
+            json!({ "a": "flats", "b": "outline", "rulers": false }),
+        )
+        .unwrap();
+        assert_rulers_absent(explicit_off["text"].as_str().unwrap(), "diff_layers");
+        assert_eq!(explicit_off["differing"], 1);
+    }
+
+    #[test]
+    fn every_read_schema_advertises_the_rulers_default() {
+        for schema in [
+            super::read_canvas_schema(),
+            super::read_region_schema(),
+            super::diff_layers_schema(),
+        ] {
+            assert_eq!(
+                schema["properties"]["rulers"]["default"],
+                serde_json::json!(true),
+                "the rulers property must advertise its default: {schema}"
             );
         }
     }
