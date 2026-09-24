@@ -61,7 +61,14 @@ export const MCP_EVENTS = {
   session: 'agent://session',
   activity: 'agent://activity',
   changed: 'document://changed',
+  opened: 'document://opened',
 } as const;
+
+/** What the agent asked for when it called `open_asset`. */
+export interface DocumentOpenedEvent {
+  /** The asset to bring up in the window. */
+  assetId: string;
+}
 
 /**
  * Reports what the server is doing, and what a client needs to join it.
@@ -152,4 +159,17 @@ export function onDocumentChanged(
   handler: (event: DocumentChangedEvent) => void,
 ): Promise<UnlistenFn> {
   return on<DocumentChangedEvent>(MCP_EVENTS.changed, handler);
+}
+
+/**
+ * Subscribes to the agent asking for an asset to be brought up.
+ *
+ * The event is a request rather than a command the shell can carry out on its
+ * own: the asset may belong to a project the window is not showing, and only
+ * the webview knows which project that is.
+ */
+export function onDocumentOpened(
+  handler: (event: DocumentOpenedEvent) => void,
+): Promise<UnlistenFn> {
+  return on<DocumentOpenedEvent>(MCP_EVENTS.opened, handler);
 }

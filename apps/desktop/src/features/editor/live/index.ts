@@ -24,4 +24,4 @@
  */
 
 export { default as AgentActivityIndicator } from '@/features/editor/live/AgentActivityIndicator';
-export { useLiveRefresh } from '@/features/editor/live/useLiveRefresh';
+export { useAgentOpen } from '@/features/editor/live/useAgentOpen';

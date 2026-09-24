@@ -20,6 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { Card } from '@/components/ui/Card';
 import { Select } from '@/components/ui/Select';
 import { StorageCard } from '@/features/settings/StorageCard';
+import McpCard from '@/features/settings/mcp/McpCard';
 import { useErrorMessage } from '@/hooks/useErrorMessage';
 import { LANGUAGES, setLanguage, type Language } from '@/lib/i18n';
 import { THEMES, useShellStore, type Theme } from '@/stores/useShellStore';
@@ -55,6 +56,8 @@ export function SettingsScreen(): ReactElement {
       </header>
 
       <StorageCard />
+
+      <McpCard />
 
       <Card title={t('appearance.title')} description={t('appearance.description')}>
         <div className="grid grid-cols-2 gap-3">

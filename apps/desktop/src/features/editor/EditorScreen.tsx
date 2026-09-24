@@ -29,6 +29,7 @@ import { Toggle } from '@/components/ui/Field';
 import { NumberField } from '@/components/ui/NumberField';
 import { Pill } from '@/components/ui/Pill';
 import { DocumentCanvas } from '@/features/editor/canvas/DocumentCanvas';
+import { AgentActivityIndicator } from '@/features/editor/live';
 import { ToolPanel } from '@/features/editor/tools/ToolPanel';
 import { useToastAnchor } from '@/hooks/useToastAnchor';
 import { cn } from '@/lib/cn';
@@ -191,6 +192,7 @@ export function EditorScreen(): ReactElement {
             onValueChange={setTool}
           />
         }
+        leadingRail={<AgentActivityIndicator />}
         trailingRail={
           <DockPopover
             triggerLabel={bellLabel}

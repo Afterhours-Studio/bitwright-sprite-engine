@@ -17,6 +17,7 @@
 import type { ReactElement } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { EditorScreen } from '@/features/editor/EditorScreen';
+import { useAgentOpen } from '@/features/editor/live';
 import { GalleryScreen } from '@/features/gallery/GalleryScreen';
 import { SettingsScreen } from '@/features/settings/SettingsScreen';
 import { useShellBootstrap } from '@/hooks/useShellBootstrap';
@@ -25,6 +26,7 @@ import { useShellStore } from '@/stores/useShellStore';
 /** The application root: bootstrap the shell, then render the current screen. */
 export function App(): ReactElement {
   useShellBootstrap();
+  useAgentOpen();
   const screen = useShellStore((state) => state.screen);
 
   return (

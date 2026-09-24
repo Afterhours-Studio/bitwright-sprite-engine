@@ -182,6 +182,7 @@ describe('MCP_EVENTS', () => {
       session: 'agent://session',
       activity: 'agent://activity',
       changed: 'document://changed',
+      opened: 'document://opened',
     });
   });
 
