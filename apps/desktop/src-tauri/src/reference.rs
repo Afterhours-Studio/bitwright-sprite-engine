@@ -218,6 +218,38 @@ fn conform_meta(response: &Value, width: u32, height: u32) -> Value {
     Value::Object(meta)
 }
 
+/// Opens the system's own file picker for an image to import as a reference.
+///
+/// The path it returns is what `reference_import` reads; the webview never
+/// reads the file itself.
+///
+/// # Errors
+///
+/// Returns `reference.picker_failed` when the dialog could not be shown, or was
+/// closed in a way that lost its answer.
+#[tauri::command]
+pub async fn reference_pick_file<R: Runtime>(
+    app: AppHandle<R>,
+) -> Result<Option<String>, CommandError> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+    // The callback form, not the blocking one: on macOS and Linux the dialog
+    // has to run on the main thread, and a command never does.
+    app.dialog()
+        .file()
+        .add_filter("Image", &["png", "jpg", "jpeg", "webp", "gif", "bmp"])
+        .pick_file(move |picked| {
+            let _ = sender.send(picked);
+        });
+    let picked = receiver.await.map_err(|error| {
+        CommandError::new("reference.picker_failed", format!("no answer: {error}"))
+    })?;
+    Ok(picked
+        .and_then(|file| file.into_path().ok())
+        .map(|path| path.display().to_string()))
+}
+
 /// Imports a picture the person picked and stores it on the asset.
 ///
 /// # Errors

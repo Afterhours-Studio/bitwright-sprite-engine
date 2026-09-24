@@ -597,6 +597,7 @@ pub fn handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + 
         crate::mcp::clients::mcp_client_register,
         crate::mcp::clients::mcp_client_unregister,
         crate::mcp::clients::mcp_manual_config,
+        crate::reference::reference_pick_file,
         crate::reference::reference_import,
         crate::reference::reference_list,
         crate::reference::reference_preview,
