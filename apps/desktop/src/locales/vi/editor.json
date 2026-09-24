@@ -112,5 +112,9 @@
     "checkVerified": "đã xác nhận",
     "check": "Kiểm tra ngay",
     "advance": "Sang bước sau"
+  },
+  "live": {
+    "drawing": "Agent đang vẽ · {{tool}}",
+    "connected": "Agent đã kết nối"
   }
 }

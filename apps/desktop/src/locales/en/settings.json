@@ -30,5 +30,49 @@
     "copyright": "Copyright (C) 2026 Afterhours Studio",
     "repository": "Source code",
     "appVersion": "Application version"
+  },
+  "mcp": {
+    "title": "Agent connection",
+    "description": "Connect AI agents to draw in the open document.",
+    "transport": {
+      "label": "Transport",
+      "http": "HTTP Local",
+      "off": "Off"
+    },
+    "status": {
+      "running": "Running",
+      "stopped": "Stopped"
+    },
+    "token": {
+      "label": "Bearer token",
+      "reveal": "Reveal",
+      "hide": "Hide",
+      "regenerate": "Regenerate"
+    },
+    "sessions": {
+      "label": "Sessions",
+      "empty": "No sessions connected.",
+      "connected": "connected {{minutes}} min ago",
+      "tool": "Last tool: {{tool}}"
+    },
+    "clients": {
+      "label": "Client configuration",
+      "detected": "Detected",
+      "notFound": "Not found",
+      "registered": "Registered",
+      "register": "Register",
+      "remove": "Remove",
+      "configureAll": "Configure all detected clients"
+    },
+    "manual": {
+      "label": "Manual configuration",
+      "description": "Paste this into your client's configuration file."
+    },
+    "copy": {
+      "label": "Copy",
+      "copied": "Copied",
+      "failed": "Failed"
+    },
+    "unavailable": "The MCP connection is available in the desktop application."
   }
 }

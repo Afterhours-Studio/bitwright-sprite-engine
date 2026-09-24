@@ -30,5 +30,49 @@
     "copyright": "Copyright (C) 2026 Afterhours Studio",
     "repository": "Mã nguồn",
     "appVersion": "Phiên bản ứng dụng"
+  },
+  "mcp": {
+    "title": "Kết nối agent",
+    "description": "Kết nối AI agent để vẽ trong tài liệu đang mở.",
+    "transport": {
+      "label": "Phương thức",
+      "http": "HTTP cục bộ",
+      "off": "Tắt"
+    },
+    "status": {
+      "running": "Đang chạy",
+      "stopped": "Đã dừng"
+    },
+    "token": {
+      "label": "Token xác thực",
+      "reveal": "Hiện",
+      "hide": "Ẩn",
+      "regenerate": "Tạo lại"
+    },
+    "sessions": {
+      "label": "Phiên kết nối",
+      "empty": "Chưa có phiên kết nối nào.",
+      "connected": "kết nối {{minutes}} phút trước",
+      "tool": "Công cụ cuối: {{tool}}"
+    },
+    "clients": {
+      "label": "Cấu hình client",
+      "detected": "Đã tìm thấy",
+      "notFound": "Không tìm thấy",
+      "registered": "Đã đăng ký",
+      "register": "Đăng ký",
+      "remove": "Xóa",
+      "configureAll": "Cấu hình tất cả client đã tìm thấy"
+    },
+    "manual": {
+      "label": "Cấu hình thủ công",
+      "description": "Dán nội dung này vào file cấu hình của client."
+    },
+    "copy": {
+      "label": "Sao chép",
+      "copied": "Đã sao chép",
+      "failed": "Thất bại"
+    },
+    "unavailable": "Kết nối MCP chỉ khả dụng trong ứng dụng desktop."
   }
 }

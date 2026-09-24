@@ -112,5 +112,9 @@
     "checkVerified": "verified",
     "check": "Check now",
     "advance": "Advance"
+  },
+  "live": {
+    "drawing": "Agent drawing · {{tool}}",
+    "connected": "Agent connected"
   }
 }
