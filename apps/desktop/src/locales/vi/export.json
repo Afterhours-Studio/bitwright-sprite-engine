@@ -1,1 +1,14 @@
-{ "title": "Xuất ảnh" }
+{
+  "title": "Xuất ảnh",
+  "folder": "Thư mục",
+  "noFolder": "Chưa chọn thư mục",
+  "chooseFolder": "Chọn thư mục",
+  "scale": "Tỷ lệ",
+  "pattern": "Mẫu tên tệp",
+  "patternHint": "{project}, {asset}, {kind} và {scale} sẽ được thay bằng dự án, tài sản, loại của nó và tỷ lệ.",
+  "overwrite": "Ghi đè tệp đã có",
+  "export": "Xuất",
+  "exporting": "Đang xuất…",
+  "success": "Đã ghi {{path}} ({{width}} × {{height}})",
+  "existsHint": "Chọn \"Ghi đè tệp đã có\" để thay thế tệp đó."
+}

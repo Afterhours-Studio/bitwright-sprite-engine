@@ -1,1 +1,14 @@
-{ "title": "Export" }
+{
+  "title": "Export",
+  "folder": "Folder",
+  "noFolder": "No folder chosen",
+  "chooseFolder": "Choose folder",
+  "scale": "Scale",
+  "pattern": "File name pattern",
+  "patternHint": "{project}, {asset}, {kind} and {scale} are replaced with the project, the asset, its kind and the scale.",
+  "overwrite": "Overwrite existing file",
+  "export": "Export",
+  "exporting": "Exporting…",
+  "success": "Wrote {{path}} ({{width}} × {{height}})",
+  "existsHint": "Tick \"Overwrite existing file\" to replace it."
+}
