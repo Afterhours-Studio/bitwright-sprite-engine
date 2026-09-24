@@ -23,9 +23,12 @@ pub mod models;
 mod workflow;
 pub use models::*;
 
-use crate::raster::{IndexedBuffer, Layer, LayerRole, Palette, StyleRules, Tilemap, LAYER_ROLES};
+use crate::raster::{
+    IndexedBuffer, Layer, LayerRole, Palette, RgbaImage, StyleRules, Tilemap, LAYER_ROLES,
+};
 use rusqlite::{params, Connection, OptionalExtension, Row};
 use serde::{de::DeserializeOwned, Serialize};
+use std::collections::HashMap;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
@@ -445,6 +448,31 @@ impl Store {
         Ok(serde_json::from_str(&data)?)
     }
 
+    /// The asset's layers composited through its palette, as RGBA.
+    pub fn asset_composite(&self, id: AssetId) -> Result<RgbaImage> {
+        let document = self.asset_open(id)?;
+        Ok(crate::raster::composite(
+            document.asset.width,
+            document.asset.height,
+            &document.layers,
+            &document.palette,
+        )?)
+    }
+
+    /// A background's tilemap rendered from its tiles' composites: the whole
+    /// map, or one layer of it.
+    pub fn tilemap_render(&self, id: AssetId, layer: Option<&str>) -> Result<RgbaImage> {
+        let map = self.tilemap_read(id)?;
+        let mut tiles = HashMap::new();
+        for tile in map.tile_ids() {
+            tiles.insert(tile, self.asset_composite(AssetId(tile))?);
+        }
+        Ok(match layer {
+            Some(layer) => map.render_layer(layer, &tiles)?,
+            None => map.render(&tiles)?,
+        })
+    }
+
     pub fn tilemap_write(&mut self, id: AssetId, map: &Tilemap) -> Result<Tilemap> {
         let asset = self.asset_read(id)?;
         if asset.kind != "background" {
@@ -696,6 +724,31 @@ mod tests {
             .unwrap();
         let error = store.tilemap_read(background.id).unwrap_err();
         assert_eq!(error.code, "tilemap.none");
+    }
+
+    #[test]
+    fn a_tilemap_renders_from_its_tiles_composites() {
+        let (mut store, project) = store();
+        let background = store
+            .asset_create(project, "hills", "background", 64, 48)
+            .unwrap();
+        let tile = store
+            .asset_create(project, "grass", "tile", 16, 16)
+            .unwrap();
+        store
+            .tilemap_write(background.id, &one_tile(tile.id.0))
+            .unwrap();
+        let image = store.tilemap_render(background.id, None).unwrap();
+        assert_eq!((image.width, image.height), (64, 48));
+        let layer = store.tilemap_render(background.id, Some("ground")).unwrap();
+        assert_eq!(layer.data, image.data);
+        assert_eq!(
+            store
+                .tilemap_render(background.id, Some("sky"))
+                .unwrap_err()
+                .code,
+            "tilemap.layer_not_found"
+        );
     }
 
     #[test]

@@ -92,8 +92,13 @@ tilemap_tiles(assetId): TileAsset[]            // the project's tile assets that
 tilemap_preview(assetId, layer?): string        // data:image/png;base64, the render (or one layer's)
 ```
 
-Each write emits the existing `document://changed` event for the asset with
-an empty `roles` list, so an open view reloads.
+Each write emits `tilemap://changed` with `{ assetId }`, so an open view
+reloads. It is its own event rather than `document://changed`, whose `seq`
+orders op-log writes, which a tilemap write is not.
+
+The store also offers `asset_composite(id) -> RgbaImage` and
+`tilemap_render(id, layer: Option<&str>) -> RgbaImage` (the map rendered from
+its tiles' composites), which the commands, the tools and export share.
 
 ### MCP tools (`mcp/tools/tilemap.rs`)
 
