@@ -57,12 +57,12 @@ tagged.
 
 Goal: production quality: complete, consistent, documented.
 
-| Task | What                                                                                               |
-| ---- | -------------------------------------------------------------------------------------------------- |
-| P.1  | i18n sweep: every visible string in English and Vietnamese, no key missing in either               |
-| P.2  | Test sweep: every command, tool and store action covered; the contrast check passes                |
-| P.3  | README: install, configure (MCP clients, sidecar), run, build; docs brought up to date              |
-| P.4  | No TODO, mock or hardcoded value left; CHANGELOG rewritten for what the application is now          |
+| Task | What                                                                                       |
+| ---- | ------------------------------------------------------------------------------------------ |
+| P.1  | i18n sweep: every visible string in English and Vietnamese, no key missing in either       |
+| P.2  | Test sweep: every command, tool and store action covered; the contrast check passes        |
+| P.3  | README: install, configure (MCP clients, sidecar), run, build; docs brought up to date     |
+| P.4  | No TODO, mock or hardcoded value left; CHANGELOG rewritten for what the application is now |
 
 Exit criteria: the completion conditions — every feature in this plan, the
 full gate green, no TODO, mock or hardcoded value, a README that matches the
