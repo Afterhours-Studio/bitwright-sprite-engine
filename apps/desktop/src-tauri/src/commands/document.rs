@@ -106,6 +106,9 @@ impl DocumentState {
             pending: Arc::new(Mutex::new(Pending::default())),
         }
     }
+    pub fn store(&self) -> Arc<Mutex<Store>> {
+        self.store.clone()
+    }
 }
 
 async fn run<T: Send + 'static>(
@@ -125,7 +128,7 @@ async fn run<T: Send + 'static>(
     .map_err(|e| AppError::new("store.worker_failed", e.to_string()))?
 }
 
-fn changed<R: Runtime>(app: &AppHandle<R>, state: &DocumentState, id: AssetId, result: &OpResult) {
+pub fn notify_changed<R: Runtime>(app: &AppHandle<R>, state: &DocumentState, id: AssetId, result: &OpResult) {
     let mut pending = state.pending.lock().unwrap_or_else(|e| e.into_inner());
     if !pending.push(id, result) {
         return;
@@ -171,7 +174,7 @@ pub async fn write_ops<R: Runtime>(
 ) -> Result<OpResult> {
     let state = app.state::<DocumentState>();
     let result = run(&state, move |store| store.write_ops(asset_id, ops, &actor)).await?;
-    changed(app, &state, asset_id, &result);
+    notify_changed(app, &state, asset_id, &result);
     Ok(result)
 }
 
@@ -255,7 +258,7 @@ pub async fn asset_rename<R: Runtime>(
         Ok((asset, seq))
     })
     .await?;
-    changed(
+    notify_changed(
         &app,
         &state,
         id,
@@ -338,7 +341,7 @@ async fn travel<R: Runtime>(
         Ok((result, before.palette != after.palette, gate))
     })
     .await?;
-    changed(app, state, id, &result);
+    notify_changed(app, state, id, &result);
     if palette_changed {
         emit(app, EVENT_PALETTE, PaletteEvent { asset_id: id });
     }
@@ -378,7 +381,7 @@ pub async fn palette_write<R: Runtime>(
     palette: Palette,
 ) -> Result<Palette> {
     let (palette, result) = run(&state, move |s| s.palette_write(asset_id, palette)).await?;
-    changed(&app, &state, asset_id, &result);
+    notify_changed(&app, &state, asset_id, &result);
     emit(&app, EVENT_PALETTE, PaletteEvent { asset_id });
     Ok(palette)
 }
@@ -403,7 +406,7 @@ pub async fn step_advance<R: Runtime>(
     asset_id: AssetId,
 ) -> Result<StepState> {
     let (step, result) = run(&state, move |s| s.step_advance(asset_id)).await?;
-    changed(&app, &state, asset_id, &result);
+    notify_changed(&app, &state, asset_id, &result);
     step_event(&app, asset_id, step.gate.clone());
     Ok(step)
 }

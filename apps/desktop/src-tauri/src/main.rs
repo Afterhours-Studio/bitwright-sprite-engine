@@ -26,6 +26,8 @@
 pub mod commands;
 use bitwright::{raster, store};
 mod engine;
+#[allow(dead_code)] // wired into the window and the command handler by Phase 2 wave C
+mod mcp;
 mod preferences;
 mod sidecar;
 
