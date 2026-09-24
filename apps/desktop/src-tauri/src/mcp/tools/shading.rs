@@ -46,7 +46,7 @@ fn with_tool_store<T>(
             "Try the call again; the lock will have been released.",
         )
     })?;
-    let value = work(&mut store).map_err(ToolError::from)?;
+    let value = work(&mut store)?;
     Ok(value)
 }
 

@@ -354,17 +354,17 @@ pub fn router(
 
 /// Refuses browser origins and anything without the right bearer token.
 async fn guard(State(token): State<String>, request: Request, next: Next) -> Response {
-    if let Err(response) = authorize(request.headers(), &token) {
-        return response;
+    if let Err(status) = authorize(request.headers(), &token) {
+        return status.into_response();
     }
 
     next.run(request).await
 }
 
 /// The decision the guard makes, split out so it can be tested directly.
-fn authorize(headers: &HeaderMap, token: &str) -> Result<(), Response> {
+fn authorize(headers: &HeaderMap, token: &str) -> Result<(), StatusCode> {
     if headers.contains_key(header::ORIGIN) {
-        return Err((StatusCode::FORBIDDEN, "browser origins are not allowed").into_response());
+        return Err(StatusCode::FORBIDDEN);
     }
 
     let presented = headers
@@ -374,7 +374,7 @@ fn authorize(headers: &HeaderMap, token: &str) -> Result<(), Response> {
 
     match presented {
         Some(presented) if config::token_matches(token, presented) => Ok(()),
-        _ => Err((StatusCode::UNAUTHORIZED, "a bearer token is required").into_response()),
+        _ => Err(StatusCode::UNAUTHORIZED),
     }
 }
 
@@ -466,15 +466,15 @@ mod tests {
             ("authorization", &bearer),
         ]);
 
-        let response = authorize(&headers, &token).expect_err("an origin is refused");
-        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        let status = authorize(&headers, &token).expect_err("an origin is refused");
+        assert_eq!(status, StatusCode::FORBIDDEN);
     }
 
     #[test]
     fn a_missing_token_is_unauthorized() {
         let token = config::new_token();
-        let response = authorize(&HeaderMap::new(), &token).expect_err("a token is required");
-        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        let status = authorize(&HeaderMap::new(), &token).expect_err("a token is required");
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
     }
 
     #[test]
@@ -483,8 +483,8 @@ mod tests {
         let bearer = format!("Bearer {}", config::new_token());
         let headers = headers_with(&[("authorization", &bearer)]);
 
-        let response = authorize(&headers, &token).expect_err("a wrong token is refused");
-        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        let status = authorize(&headers, &token).expect_err("a wrong token is refused");
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
     }
 
     #[test]
@@ -492,8 +492,8 @@ mod tests {
         let token = config::new_token();
         let headers = headers_with(&[("authorization", &token)]);
 
-        let response = authorize(&headers, &token).expect_err("the scheme is required");
-        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        let status = authorize(&headers, &token).expect_err("the scheme is required");
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
     }
 
     #[test]

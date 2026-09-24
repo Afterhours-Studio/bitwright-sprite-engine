@@ -809,10 +809,7 @@ fn jaggies(buffer: &IndexedBuffer) -> usize {
     while let Some((&start, _)) = edges.first_key_value() {
         let mut current = start;
         let mut runs: Vec<(u8, usize)> = Vec::new();
-        loop {
-            let Some(out) = edges.get_mut(&current) else {
-                break;
-            };
+        while let Some(out) = edges.get_mut(&current) {
             let previous = runs.last().map(|r| r.0);
             let chosen = out
                 .iter()

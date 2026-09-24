@@ -59,7 +59,7 @@ fn crop(
         return Err(ToolError::new(
             "bounds.outside",
             "region has zero width or height",
-            &format!(
+            format!(
                 "w and h must be positive; the canvas is {}x{}.",
                 buffer.width, buffer.height
             ),
@@ -71,7 +71,7 @@ fn crop(
         return Err(ToolError::new(
             "bounds.outside",
             "region extends past the canvas edge",
-            &format!(
+            format!(
                 "The canvas is {}x{}; stay inside those bounds.",
                 buffer.width, buffer.height
             ),
@@ -614,8 +614,7 @@ mod tests {
         let text = result["text"].as_str().unwrap();
         let first_data_line = text
             .lines()
-            .filter(|l| !l.starts_with("legend") && !l.is_empty())
-            .next()
+            .find(|l| !l.starts_with("legend") && !l.is_empty())
             .unwrap();
         assert_eq!(
             first_data_line.chars().next().unwrap(),
@@ -643,8 +642,7 @@ mod tests {
         let text = result["text"].as_str().unwrap();
         let first_data_line = text
             .lines()
-            .filter(|l| !l.starts_with("legend") && !l.is_empty())
-            .next()
+            .find(|l| !l.starts_with("legend") && !l.is_empty())
             .unwrap();
         assert_eq!(
             first_data_line.chars().next().unwrap(),
@@ -673,8 +671,7 @@ mod tests {
         let text = result["text"].as_str().unwrap();
         let first_data_line = text
             .lines()
-            .filter(|l| !l.starts_with("legend") && !l.is_empty())
-            .next()
+            .find(|l| !l.starts_with("legend") && !l.is_empty())
             .unwrap();
         assert_eq!(
             first_data_line.chars().next().unwrap(),
@@ -1091,8 +1088,7 @@ mod tests {
         let text = result["text"].as_str().unwrap();
         let first_data_line = text
             .lines()
-            .filter(|l| !l.starts_with("legend") && !l.is_empty())
-            .next()
+            .find(|l| !l.starts_with("legend") && !l.is_empty())
             .unwrap();
         assert_eq!(
             first_data_line.chars().next().unwrap(),
@@ -1123,8 +1119,7 @@ mod tests {
         let text = result["text"].as_str().unwrap();
         let first_data_line = text
             .lines()
-            .filter(|l| !l.starts_with("legend") && !l.is_empty())
-            .next()
+            .find(|l| !l.starts_with("legend") && !l.is_empty())
             .unwrap();
         assert_eq!(
             first_data_line.chars().next().unwrap(),

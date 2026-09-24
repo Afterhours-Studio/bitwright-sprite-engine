@@ -877,7 +877,7 @@ mod tests {
 
     #[test]
     fn project_rules_returns_project_style_rules() {
-        let (mut store, project) = store();
+        let (store, project) = store();
         let rules = store.project_rules(project).unwrap();
         assert_eq!(rules.max_slots, 24);
     }

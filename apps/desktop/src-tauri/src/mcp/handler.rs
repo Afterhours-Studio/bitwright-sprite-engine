@@ -78,9 +78,10 @@ impl ServerHandler for BitwrightServer {
         _request: Option<PaginatedRequestParams>,
         _context: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, ErrorData> {
-        let mut result = ListToolsResult::default();
-        result.tools = tool_list();
-        Ok(result)
+        Ok(ListToolsResult {
+            tools: tool_list(),
+            ..Default::default()
+        })
     }
 
     async fn call_tool(
