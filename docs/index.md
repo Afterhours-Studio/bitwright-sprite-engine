@@ -20,21 +20,21 @@ phase it belongs to.
 
 ## Where to start
 
-| If you want to                     | Read                                                          |
-| ---------------------------------- | ------------------------------------------------------------- |
-| Know what the project is now       | [The plan](plan/PLAN.md)                                      |
-| Install the application            | [Installation](getting-started/installation.md)               |
-| Check your machine can run it      | [System requirements](getting-started/system-requirements.md) |
-| Draw your first sprite             | [Quick start](getting-started/quick-start.md)                 |
-| Bring existing art in              | [Reference import](guides/post-processing.md)                 |
-| Understand how it fits together    | [Architecture overview](architecture/overview.md)             |
-| Know what an agent can call        | [MCP tools](architecture/mcp-tools.md)                        |
-| Know what a document is made of    | [Document model](architecture/document-model.md)              |
-| Build from source                  | [Development setup](development/setup.md)                     |
-| Translate the interface            | [Internationalization](development/i18n.md)                   |
-| Change how it looks                | [Design system](development/design-system.md)                 |
-| Configure the engine               | [Configuration](reference/configuration.md)                   |
-| Call the engine API                | [API reference](reference/api.md)                             |
+| If you want to                  | Read                                                          |
+| ------------------------------- | ------------------------------------------------------------- |
+| Know what the project is now    | [The plan](plan/PLAN.md)                                      |
+| Install the application         | [Installation](getting-started/installation.md)               |
+| Check your machine can run it   | [System requirements](getting-started/system-requirements.md) |
+| Draw your first sprite          | [Quick start](getting-started/quick-start.md)                 |
+| Bring existing art in           | [Reference import](guides/post-processing.md)                 |
+| Understand how it fits together | [Architecture overview](architecture/overview.md)             |
+| Know what an agent can call     | [MCP tools](architecture/mcp-tools.md)                        |
+| Know what a document is made of | [Document model](architecture/document-model.md)              |
+| Build from source               | [Development setup](development/setup.md)                     |
+| Translate the interface         | [Internationalization](development/i18n.md)                   |
+| Change how it looks             | [Design system](development/design-system.md)                 |
+| Configure the engine            | [Configuration](reference/configuration.md)                   |
+| Call the engine API             | [API reference](reference/api.md)                             |
 
 ## Sections
 

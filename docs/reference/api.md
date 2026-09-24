@@ -102,15 +102,15 @@ curl -X POST http://127.0.0.1:8000/v1/conform \
 
 ### Request
 
-| Field                 | Type            | Default  | Notes                                                   |
-| --------------------- | --------------- | -------- | ------------------------------------------------------- |
-| `image`               | string          | required | Base64 PNG, no data URL prefix                          |
-| `width`               | integer or null | null     | Cells across. `null` detects the count as well as the size |
-| `height`              | integer or null | null     | Cells down, on the same terms                           |
-| `removeBackground`    | boolean         | true     |                                                         |
-| `backgroundTolerance` | integer         | 12       | 0 to 255                                                |
-| `paletteSize`         | integer or null | 32       | 2 to 256. `null` keeps every colour the downsample produced |
-| `dither`              | string          | `none`   | `none`, `bayer2`, `bayer4`, `bayer8`, or `floydSteinberg` |
+| Field                 | Type            | Default  | Notes                                                                      |
+| --------------------- | --------------- | -------- | -------------------------------------------------------------------------- |
+| `image`               | string          | required | Base64 PNG, no data URL prefix                                             |
+| `width`               | integer or null | null     | Cells across. `null` detects the count as well as the size                 |
+| `height`              | integer or null | null     | Cells down, on the same terms                                              |
+| `removeBackground`    | boolean         | true     |                                                                            |
+| `backgroundTolerance` | integer         | 12       | 0 to 255                                                                   |
+| `paletteSize`         | integer or null | 32       | 2 to 256. `null` keeps every colour the downsample produced                |
+| `dither`              | string          | `none`   | `none`, `bayer2`, `bayer4`, `bayer8`, or `floydSteinberg`                  |
 | `alphaThreshold`      | number          | 0.5      | 0.05 to 0.95. How much of a cell must be subject for it to come out opaque |
 
 `width` and `height` are capped at 1024 cells, which is well above anything
@@ -137,15 +137,15 @@ allocate a cell grid larger than the image it came from.
 }
 ```
 
-| Field        | Type     | Meaning                                                        |
-| ------------ | -------- | -------------------------------------------------------------- |
-| `image`      | string   | The result, base64 PNG                                         |
-| `width`      | integer  | Result width in pixels                                         |
-| `height`     | integer  | Result height in pixels                                        |
+| Field        | Type     | Meaning                                                                |
+| ------------ | -------- | ---------------------------------------------------------------------- |
+| `image`      | string   | The result, base64 PNG                                                 |
+| `width`      | integer  | Result width in pixels                                                 |
+| `height`     | integer  | Result height in pixels                                                |
 | `palette`    | string[] | Every colour the result uses, hex, opaque pixels only, most used first |
-| `detected`   | object   | The grid the image turned out to be drawn on                   |
-| `durationMs` | integer  | How long it took                                               |
-| `warnings`   | string[] | Stable reason codes for anything the caller should know        |
+| `detected`   | object   | The grid the image turned out to be drawn on                           |
+| `durationMs` | integer  | How long it took                                                       |
+| `warnings`   | string[] | Stable reason codes for anything the caller should know                |
 
 `detected` is reported because it is the one number that says whether the result
 can be trusted. `cellWidth` and `cellHeight` are source pixels per cell and are
@@ -159,12 +159,12 @@ which happens when `paletteSize` is null.
 
 Warning codes:
 
-| Code                           | Meaning                                                  |
-| ------------------------------ | -------------------------------------------------------- |
-| `conform.grid_not_found`       | No periodicity was measurable; the image was resized     |
-| `conform.grid_anisotropic`     | The two axes disagree about the cell size                |
-| `conform.background_uncertain` | The four corners do not agree on what the background is  |
-| `conform.already_at_size`      | The image was already at the requested cell size         |
+| Code                           | Meaning                                                 |
+| ------------------------------ | ------------------------------------------------------- |
+| `conform.grid_not_found`       | No periodicity was measurable; the image was resized    |
+| `conform.grid_anisotropic`     | The two axes disagree about the cell size               |
+| `conform.background_uncertain` | The four corners do not agree on what the background is |
+| `conform.already_at_size`      | The image was already at the requested cell size        |
 
 ## GET /v1/sprites
 
@@ -196,21 +196,21 @@ Deletes one sprite. Returns `204 No Content`.
 
 Writes an edited sprite back, and returns the `SavedSprite` that resulted.
 
-| Field   | Type   | Notes                                              |
-| ------- | ------ | -------------------------------------------------- |
-| `image` | string | Base64 PNG, no data URL prefix, at least one byte  |
+| Field   | Type   | Notes                                             |
+| ------- | ------ | ------------------------------------------------- |
+| `image` | string | Base64 PNG, no data URL prefix, at least one byte |
 
 ## Storage
 
 Four routes over the data root, which is the directory that holds everything
 the application writes and the one setting a user moves when a drive fills up.
 
-| Route                     | Purpose                                                |
-| ------------------------- | ------------------------------------------------------ |
-| `GET /v1/storage`         | The root in use, and the free space on its volume      |
-| `POST /v1/storage/validate` | Check a candidate directory before committing to it  |
-| `POST /v1/storage`        | Move to a directory the user picked                    |
-| `POST /v1/storage/default`| Return to the per-user default                         |
+| Route                       | Purpose                                             |
+| --------------------------- | --------------------------------------------------- |
+| `GET /v1/storage`           | The root in use, and the free space on its volume   |
+| `POST /v1/storage/validate` | Check a candidate directory before committing to it |
+| `POST /v1/storage`          | Move to a directory the user picked                 |
+| `POST /v1/storage/default`  | Return to the per-user default                      |
 
 `validate` exists so that a bad choice is reported where the user made it rather
 than at the next write. The two that change the root return both the new root

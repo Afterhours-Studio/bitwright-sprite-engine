@@ -203,8 +203,8 @@ pub struct Ramp {
 }
 ```
 
-A ramp is the unit the shading tools work in. When the agent says *this region
-takes core shadow*, the engine looks up which ramp the region's base slot
+A ramp is the unit the shading tools work in. When the agent says _this region
+takes core shadow_, the engine looks up which ramp the region's base slot
 belongs to and steps down it. That is the mechanism behind the rule that the
 engine chooses colours and the agent chooses places — the agent never names a
 hex value, and so can never invent a muddy one.
@@ -214,35 +214,35 @@ against:
 
 ```jsonc
 {
-  "maxSlots": 24,                  // hard ceiling on palette size
+  "maxSlots": 24, // hard ceiling on palette size
   "rampSteps": { "min": 3, "max": 5 },
 
   // Per ramp step, in HSL degrees, positive rotating toward blue/violet.
   // Darker steps rotate cool and gain a little chroma before losing it at
   // the deepest step; lighter steps rotate warm and lose chroma.
   "hueShift": {
-    "darkerHueDeg":      [12, 20],
+    "darkerHueDeg": [12, 20],
     "darkerChromaFactor": [0.85, 1.12],
-    "darkerDeltaL":      [-0.13, -0.08],   // OKLCH
-    "lighterHueDeg":     [-20, -12],
-    "lighterChromaFactor": [0.70, 0.85],
-    "lighterDeltaL":     [0.09, 0.15]
+    "darkerDeltaL": [-0.13, -0.08], // OKLCH
+    "lighterHueDeg": [-20, -12],
+    "lighterChromaFactor": [0.7, 0.85],
+    "lighterDeltaL": [0.09, 0.15],
   },
 
   // Skin, and anything translucent, rotates toward red/magenta in shadow
   // rather than toward blue. Subsurface scattering; the one exception.
   "warmShadowMaterials": ["skin"],
 
-  "valueFloor":   [0.10, 0.16],   // darkest slot, OKLCH L
-  "valueCeiling": [0.88, 0.94],   // lightest slot, excepting a 1px specular
-  "minEdgeDeltaL": 0.07,          // two touching slots that must read apart
+  "valueFloor": [0.1, 0.16], // darkest slot, OKLCH L
+  "valueCeiling": [0.88, 0.94], // lightest slot, excepting a 1px specular
+  "minEdgeDeltaL": 0.07, // two touching slots that must read apart
 
-  "outline": "selective",         // 'none' | 'selective' | 'full'
-  "outlineCoverage": [0.60, 0.75],
+  "outline": "selective", // 'none' | 'selective' | 'full'
+  "outlineCoverage": [0.6, 0.75],
   "lightDirection": "upper-left",
-  "rimCoverage": [0.15, 0.25],    // fraction of perimeter
-  "noiseBudget": 0.02,            // max fraction of isolated single pixels
-  "canvas": { "width": 48, "height": 64 }
+  "rimCoverage": [0.15, 0.25], // fraction of perimeter
+  "noiseBudget": 0.02, // max fraction of isolated single pixels
+  "canvas": { "width": 48, "height": 64 },
 }
 ```
 
@@ -274,21 +274,21 @@ exactly one layer role, which is why `layer` has a `UNIQUE (asset_id, role)`
 constraint: a step's output is a single addressable thing that can be inspected,
 regenerated or thrown away without disturbing the steps around it.
 
-| Step         | Layer role     | Ordinal | Holds                                       |
-| ------------ | -------------- | ------- | ------------------------------------------- |
-| `reference`  | —              | —       | nothing; writes to the `reference` table    |
-| `palette`    | —              | —       | nothing; writes to the `palette` table      |
-| `silhouette` | `silhouette`   | 10      | the filled mask, one slot                   |
-| `flats`      | `flats`        | 20      | each material's base slot, unshaded         |
-| `shadow`     | `shadow-core`  | 30      | the first shadow band                       |
-|              | `shadow-deep`  | 31      | occlusion and the darkest band              |
-| `light`      | `light`        | 40      | lit planes                                  |
-| `outline`    | `outline`      | 50      | outline pixels                              |
-| `detail`     | `detail`       | 60      | interior features, folds, face              |
-| `accent`     | `rim`          | 70      | the backlight edge                          |
-|              | `accent`       | 71      | speculars and the highest-contrast marks    |
-| `cleanup`    | —              | —       | nothing; anti-aliases and despeckles in place |
-| `variation`  | —              | —       | nothing; forks the asset with a new palette |
+| Step         | Layer role    | Ordinal | Holds                                         |
+| ------------ | ------------- | ------- | --------------------------------------------- |
+| `reference`  | —             | —       | nothing; writes to the `reference` table      |
+| `palette`    | —             | —       | nothing; writes to the `palette` table        |
+| `silhouette` | `silhouette`  | 10      | the filled mask, one slot                     |
+| `flats`      | `flats`       | 20      | each material's base slot, unshaded           |
+| `shadow`     | `shadow-core` | 30      | the first shadow band                         |
+|              | `shadow-deep` | 31      | occlusion and the darkest band                |
+| `light`      | `light`       | 40      | lit planes                                    |
+| `outline`    | `outline`     | 50      | outline pixels                                |
+| `detail`     | `detail`      | 60      | interior features, folds, face                |
+| `accent`     | `rim`         | 70      | the backlight edge                            |
+|              | `accent`      | 71      | speculars and the highest-contrast marks      |
+| `cleanup`    | —             | —       | nothing; anti-aliases and despeckles in place |
+| `variation`  | —             | —       | nothing; forks the asset with a new palette   |
 
 Compositing is ordinal order, low first, each layer's non-zero indices painting
 over what is beneath. Opacity below 1.0 is resolved at composite time in Oklab
@@ -308,7 +308,7 @@ This is why flats are a layer of their own rather than more silhouette: the
 silhouette is one opaque slot answering "what shape", the flats answer "made of
 what", and the two get revised for different reasons.
 
-**Shadow before light.** The shadow shape *is* the description of the form.
+**Shadow before light.** The shadow shape _is_ the description of the form.
 Placing light first tempts the artist, and the agent, into shading inward from
 the edge, which is pillow shading — the failure the gates spend the most effort
 detecting.
@@ -421,13 +421,13 @@ wrong the moment an asset is opened after being undone and closed.
 
 The renderer does not poll. Rust emits, the renderer listens.
 
-| Event                 | Payload                                | When                                    |
-| --------------------- | -------------------------------------- | --------------------------------------- |
-| `document://changed`  | `{ assetId, roles[], seq }`            | after any write, from either actor      |
-| `document://palette`  | `{ assetId }`                          | palette edited                          |
-| `document://step`     | `{ assetId, step, gate }`              | step advanced or gate re-evaluated      |
-| `agent://activity`    | `{ sessionId, tool, assetId }`         | an MCP tool call started                |
-| `agent://session`     | `{ sessionId, state }`                 | MCP client connected or disconnected    |
+| Event                | Payload                        | When                                 |
+| -------------------- | ------------------------------ | ------------------------------------ |
+| `document://changed` | `{ assetId, roles[], seq }`    | after any write, from either actor   |
+| `document://palette` | `{ assetId }`                  | palette edited                       |
+| `document://step`    | `{ assetId, step, gate }`      | step advanced or gate re-evaluated   |
+| `agent://activity`   | `{ sessionId, tool, assetId }` | an MCP tool call started             |
+| `agent://session`    | `{ sessionId, state }`         | MCP client connected or disconnected |
 
 `document://changed` names the layer roles that moved rather than carrying
 pixels, so the renderer re-composites only what changed and a fast agent cannot

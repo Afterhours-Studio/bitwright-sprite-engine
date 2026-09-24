@@ -18,7 +18,7 @@ draws needs no conforming; it writes palette indices into an indexed buffer and
 is correct when it is written.
 
 Conform survives because the problem was never about generated images
-specifically. It is about *any* image that arrives from outside: a screenshot, a
+specifically. It is about _any_ image that arrives from outside: a screenshot, a
 painted mock-up, a sprite someone scaled up for a store page, a photograph of a
 sketch on paper. Each of those is a picture of pixel art, with exactly the
 defects described below, and each is something a person wants to hand an agent
@@ -994,10 +994,10 @@ Sub-tabs, not a second column. Three reasons:
 
 The tabs:
 
-| Tab            | Contents                                                                                                                                  |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| **Import**     | The conform controls described below, and the detected-grid readout                                                                      |
-| **Colour**     | Foreground/background swatches with a swap, a saturation-value field with a hue slider, a hex field, a recent strip, and the palette grid |
+| Tab        | Contents                                                                                                                                  |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Import** | The conform controls described below, and the detected-grid readout                                                                       |
+| **Colour** | Foreground/background swatches with a swap, a saturation-value field with a hue slider, a hex field, a recent strip, and the palette grid |
 
 Two, not the three that were asked for. **Brush size and shape go in the dock,
 beside the tool selector**, because that is where every editor puts them and
@@ -1065,12 +1065,12 @@ or Edit menu at least as much as it belongs in a bar.
 
 ## Small windows
 
-| Content width | Behaviour                                                                                                                               |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| 1200 and up   | Everything as drawn above                                                                                                               |
-| 1024 to 1200  | Rail collapses to a 28-pixel tab on the stage's trailing edge and slides over the stage when opened                                     |
-| 960 to 1024   | Rail hidden; the 1:1 view and the source move into a dock popover, and the step rail collapses to the current step alone               |
-| Below 960     | Does not occur; `minWidth` is 960                                                                                                       |
+| Content width | Behaviour                                                                                                                |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 1200 and up   | Everything as drawn above                                                                                                |
+| 1024 to 1200  | Rail collapses to a 28-pixel tab on the stage's trailing edge and slides over the stage when opened                      |
+| 960 to 1024   | Rail hidden; the 1:1 view and the source move into a dock popover, and the step rail collapses to the current step alone |
+| Below 960     | Does not occur; `minWidth` is 960                                                                                        |
 
 The right panel stays at 320 throughout. It is the only fixed thing, and a panel
 that changes width as the window changes is a panel whose contents reflow, which
@@ -1078,28 +1078,28 @@ at this size means the parameter grid dropping from two columns to one and back.
 
 ## Where each capability lives
 
-| Capability                   | Home                          | Why                                                               |
-| ---------------------------- | ----------------------------- | ----------------------------------------------------------------- |
-| Tool selection               | Dock, lead cluster            | Already built. Selection, not action                              |
-| Shape variant                | Dock popover                  | Already built                                                     |
-| Brush size and shape         | Dock popover                  | Property of the tool; sits beside it, as in every editor          |
-| Pixel-perfect toggle         | Dock, brush popover           | A brush setting                                                   |
-| Foreground/background colour | Right panel, Colour tab       | Needs a two-dimensional field; too large for a popover            |
-| Palette grid                 | Right panel, Colour tab       | Must be visible while drawing                                     |
-| Eyedropper                   | Dock tool, plus `Alt` held    | The held-`Alt` shortcut is what people actually use               |
-| Pixel grid on/off            | Dock popover, and View menu   | A view setting; the menu is where a new user looks                |
-| Zoom                         | Stage overlay, plus keyboard  | Belongs to the thing being zoomed                                 |
-| Pan                          | Stage, space-drag             | No control needed                                                 |
-| 1:1 preview                  | Rail                          | Must be visible _while_ editing, so not a mode                    |
-| Compare with source          | Rail                          | Same                                                              |
-| Conform settings             | Right panel, Import tab       | Ten controls; too many for a popover                              |
-| Conform action               | Right panel, and dock popover | Reachable from where the hand is, without a one-press dock action |
-| Revert to source             | Rail, on the Source cell      | Next to the thing it reverts to                                   |
-| Import a palette             | Right panel, Colour tab       | Rare, and needs a file dialog                                     |
-| Import a reference           | Right panel, Import tab       | Where its settings are, and it opens a file dialog                |
-| Layer and step selection     | Dock popover, and the step rail | A layer is picked constantly; a step is advanced rarely          |
-| Undo/redo                    | Edit menu, `Ctrl+Z`/`Ctrl+Y`  | The menu items already exist                                      |
-| Export the sprite            | File menu                     | Not a dock action; it opens a file dialog                         |
+| Capability                   | Home                            | Why                                                               |
+| ---------------------------- | ------------------------------- | ----------------------------------------------------------------- |
+| Tool selection               | Dock, lead cluster              | Already built. Selection, not action                              |
+| Shape variant                | Dock popover                    | Already built                                                     |
+| Brush size and shape         | Dock popover                    | Property of the tool; sits beside it, as in every editor          |
+| Pixel-perfect toggle         | Dock, brush popover             | A brush setting                                                   |
+| Foreground/background colour | Right panel, Colour tab         | Needs a two-dimensional field; too large for a popover            |
+| Palette grid                 | Right panel, Colour tab         | Must be visible while drawing                                     |
+| Eyedropper                   | Dock tool, plus `Alt` held      | The held-`Alt` shortcut is what people actually use               |
+| Pixel grid on/off            | Dock popover, and View menu     | A view setting; the menu is where a new user looks                |
+| Zoom                         | Stage overlay, plus keyboard    | Belongs to the thing being zoomed                                 |
+| Pan                          | Stage, space-drag               | No control needed                                                 |
+| 1:1 preview                  | Rail                            | Must be visible _while_ editing, so not a mode                    |
+| Compare with source          | Rail                            | Same                                                              |
+| Conform settings             | Right panel, Import tab         | Ten controls; too many for a popover                              |
+| Conform action               | Right panel, and dock popover   | Reachable from where the hand is, without a one-press dock action |
+| Revert to source             | Rail, on the Source cell        | Next to the thing it reverts to                                   |
+| Import a palette             | Right panel, Colour tab         | Rare, and needs a file dialog                                     |
+| Import a reference           | Right panel, Import tab         | Where its settings are, and it opens a file dialog                |
+| Layer and step selection     | Dock popover, and the step rail | A layer is picked constantly; a step is advanced rarely           |
+| Undo/redo                    | Edit menu, `Ctrl+Z`/`Ctrl+Y`    | The menu items already exist                                      |
+| Export the sprite            | File menu                       | Not a dock action; it opens a file dialog                         |
 
 Two things push against the dock rule and are called out rather than hidden:
 
@@ -1179,7 +1179,7 @@ fails CI on GPL, AGPL, SSPL and BUSL. Against that:
 
 | Dependency       | Licence               | Verdict                                                                                                                                                                                                                                                                                                                                                                                   |
 | ---------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **NumPy**        | BSD-3-Clause          | **Required.** Compatible. Was only in the `cuda` and `mps` extras; promoted to a base dependency when those extras were deleted, since conform is the engine's whole job. Adds roughly 20 MB to the PyInstaller bundle.                                                                                                                                      |
+| **NumPy**        | BSD-3-Clause          | **Required.** Compatible. Was only in the `cuda` and `mps` extras; promoted to a base dependency when those extras were deleted, since conform is the engine's whole job. Adds roughly 20 MB to the PyInstaller bundle.                                                                                                                                                                   |
 | Pillow           | MIT-CMU               | Already present. Unchanged.                                                                                                                                                                                                                                                                                                                                                               |
 | SciPy            | BSD-3-Clause          | **Not needed.** Only wanted for `signal.find_peaks`, which the DFT approach replaces. Would add 40 MB or more to the bundle. Do not add it.                                                                                                                                                                                                                                               |
 | OpenCV           | Apache-2.0            | **Not needed.** Only wanted for Canny and Hough. Very large. Do not add it.                                                                                                                                                                                                                                                                                                               |

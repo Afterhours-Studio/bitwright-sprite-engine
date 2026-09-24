@@ -4,12 +4,12 @@ Getting a working build of all three parts, and the commands to run each one.
 
 ## Prerequisites
 
-| Tool    | Version       | Why                                      |
-| ------- | ------------- | ---------------------------------------- |
-| Node.js | 20 or later   | Frontend and tooling                     |
-| Rust    | Stable        | The shell, the document store, MCP       |
-| Python  | 3.11 or later | The sidecar: conform, palettes, export   |
-| Git     | Any recent    | Source control                           |
+| Tool    | Version       | Why                                    |
+| ------- | ------------- | -------------------------------------- |
+| Node.js | 20 or later   | Frontend and tooling                   |
+| Rust    | Stable        | The shell, the document store, MCP     |
+| Python  | 3.11 or later | The sidecar: conform, palettes, export |
+| Git     | Any recent    | Source control                         |
 
 Rust is the one to install first. It carries the window, the SQLite store, the
 raster core and the MCP server, which is most of the application; see

@@ -36,10 +36,10 @@ when you want the interactive documentation at a known address.
 
 ### Storage
 
-| Setting       | Environment variable    | Default             | Meaning                               |
-| ------------- | ----------------------- | ------------------- | ------------------------------------- |
+| Setting       | Environment variable    | Default             | Meaning                                       |
+| ------------- | ----------------------- | ------------------- | --------------------------------------------- |
 | `data_root`   | `BITWRIGHT_DATA_ROOT`   | Per platform, below | Where everything the application writes lives |
-| `sprites_dir` | `BITWRIGHT_SPRITES_DIR` | `data_root/sprites` | Where exported sprites are written    |
+| `sprites_dir` | `BITWRIGHT_SPRITES_DIR` | `data_root/sprites` | Where exported sprites are written            |
 
 Default data root:
 
@@ -107,9 +107,9 @@ described in
 
 The engine takes one argument, which the shell always passes:
 
-| Argument             | Meaning                                                                    |
-| -------------------- | -------------------------------------------------------------------------- |
-| `--parent-pid <pid>` | Exit when this process exits, so that a crash leaves no orphan behind      |
+| Argument             | Meaning                                                               |
+| -------------------- | --------------------------------------------------------------------- |
+| `--parent-pid <pid>` | Exit when this process exits, so that a crash leaves no orphan behind |
 
 There is no way to set the authentication token. It is generated on each start
 and printed in the handshake, so that it cannot be weakened by configuration.

@@ -10,7 +10,7 @@ Bitwright generates an image that needs conforming; the pixels an agent writes
 are palette indices and are correct by construction. Conform survives because
 the problem it solves turned out not to be about generated images at all. Any
 picture that arrives from outside — a screenshot, a mock-up someone painted, a
-sprite scaled up for a store page, a photograph of a sketch — is an image *of*
+sprite scaled up for a store page, a photograph of a sketch — is an image _of_
 pixel art rather than pixel art, and conform is what turns it into the second
 thing.
 

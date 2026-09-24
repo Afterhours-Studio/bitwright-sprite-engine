@@ -130,8 +130,8 @@ the other.
 
 ### Where the engine decides, not the agent
 
-Shading colours are computed, not chosen. The agent says *this region takes core
-shadow, light from the upper left*; the engine resolves which palette ramp step
+Shading colours are computed, not chosen. The agent says _this region takes core
+shadow, light from the upper left_; the engine resolves which palette ramp step
 that is. Letting a model pick hex values by hand is where AI pixel art turns
 muddy, and it is the single biggest lever on output quality.
 
@@ -149,13 +149,13 @@ as an ordinary 32×32 canvas. This is also how the art is actually made.
 
 Canvas size follows the asset type:
 
-| Asset type | Canvas             | Drawn as                     |
-| ---------- | ------------------ | ---------------------------- |
-| Character  | 48–64              | full grid                    |
-| Prop, item | 16–32              | full grid                    |
-| Tile       | 16 or 32           | full grid, edge-match checks |
-| Tileset    | N tiles            | per tile, plus autotile rules |
-| Background | tilemap ≥ 20×12    | tile placement, parallax layers |
+| Asset type | Canvas          | Drawn as                        |
+| ---------- | --------------- | ------------------------------- |
+| Character  | 48–64           | full grid                       |
+| Prop, item | 16–32           | full grid                       |
+| Tile       | 16 or 32        | full grid, edge-match checks    |
+| Tileset    | N tiles         | per tile, plus autotile rules   |
+| Background | tilemap ≥ 20×12 | tile placement, parallax layers |
 
 `read_region(x, y, w, h)` exists for every canvas, so a large one is always
 inspectable in pieces.
@@ -173,19 +173,19 @@ advance until the current step passes its gate.
      variation ◄─ cleanup ◄─ accent ◄─ detail ◄─ outline ◄────┘
 ```
 
-| Step       | Produces                          | Gate                                        |
-| ---------- | --------------------------------- | ------------------------------------------- |
-| reference  | optional ref image, conformed     | none                                        |
-| palette    | ramps per material                | ≥ 3 steps per ramp, hue shift present       |
-| silhouette | filled mask                       | single connected region, reads at 1× scale  |
-| flats      | each material's base slot         | no pixel of the mask left unassigned        |
-| shadow     | core and deep shadow              | one consistent light direction              |
-| light      | lit planes                        | no pillow shading, no banding               |
-| outline    | outline layer                     | no outline pixel outside the silhouette     |
-| detail     | interior features                 | no isolated single-pixel noise above budget |
-| accent     | rim and highest-contrast marks    | rim coverage and accent count within budget |
-| cleanup    | anti-aliased edges, no speckle    | noise below budget, outer edge untouched    |
-| variation  | recolours preserving value        | value structure unchanged                   |
+| Step       | Produces                       | Gate                                        |
+| ---------- | ------------------------------ | ------------------------------------------- |
+| reference  | optional ref image, conformed  | none                                        |
+| palette    | ramps per material             | ≥ 3 steps per ramp, hue shift present       |
+| silhouette | filled mask                    | single connected region, reads at 1× scale  |
+| flats      | each material's base slot      | no pixel of the mask left unassigned        |
+| shadow     | core and deep shadow           | one consistent light direction              |
+| light      | lit planes                     | no pillow shading, no banding               |
+| outline    | outline layer                  | no outline pixel outside the silhouette     |
+| detail     | interior features              | no isolated single-pixel noise above budget |
+| accent     | rim and highest-contrast marks | rim coverage and accent count within budget |
+| cleanup    | anti-aliased edges, no speckle | noise below budget, outer edge untouched    |
+| variation  | recolours preserving value     | value structure unchanged                   |
 
 The gates are computed from the pixel buffer, not asserted by the agent.
 
@@ -215,7 +215,7 @@ op_log ── every mutation, ordered, replayable
 ```
 
 Everything lives in one SQLite file under the user's data root. Saving is
-implicit and continuous — the document *is* the database row. Exporting to PNG
+implicit and continuous — the document _is_ the database row. Exporting to PNG
 is a separate, explicit action with a folder picker, exactly as a user expects
 "Save As" to behave and nothing like it expects "Save" to behave.
 
@@ -233,61 +233,61 @@ passes.
 
 Remove diffusion entirely and leave a compiling, passing, smaller application.
 
-| Task     | Scope                                                                                                                                     | Owns                                          |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| **0.1**  | Delete Python diffusion: `backends/`, `models/`, `runtime/`, `providers/`, `pipeline/generator.py`, `camera.py`, `styles.py`, their routes, schemas and tests. Rewire `api/state.py`, `api/server.py`, `routes/__init__.py`. Drop `keyring` and the `cuda`/`mps` extras. | `packages/engine/**`                          |
-| **0.2**  | Delete generation UI: generate screen, parameter panel, preview rail, provider/runtime/engine settings cards, engine status, and their stores and hooks. Rewire `App.tsx`, tabs, command palette entries, locale files. | `apps/desktop/src/**`                         |
-| **0.3**  | Delete Rust runtime/model/provider commands; keep sidecar spawn, preferences, window controls.                                             | `apps/desktop/src-tauri/src/**`               |
-| **0.4**  | Rewrite `docs/index.md`, retire the diffusion guides and ADRs, add ADR-0012 (pivot) and ADR-0013 (Rust MCP, sidecar survives).             | `docs/**` except `docs/plan`, `docs/pixel-art` |
+| Task    | Scope                                                                                                                                                                                                                                                                    | Owns                                           |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| **0.1** | Delete Python diffusion: `backends/`, `models/`, `runtime/`, `providers/`, `pipeline/generator.py`, `camera.py`, `styles.py`, their routes, schemas and tests. Rewire `api/state.py`, `api/server.py`, `routes/__init__.py`. Drop `keyring` and the `cuda`/`mps` extras. | `packages/engine/**`                           |
+| **0.2** | Delete generation UI: generate screen, parameter panel, preview rail, provider/runtime/engine settings cards, engine status, and their stores and hooks. Rewire `App.tsx`, tabs, command palette entries, locale files.                                                  | `apps/desktop/src/**`                          |
+| **0.3** | Delete Rust runtime/model/provider commands; keep sidecar spawn, preferences, window controls.                                                                                                                                                                           | `apps/desktop/src-tauri/src/**`                |
+| **0.4** | Rewrite `docs/index.md`, retire the diffusion guides and ADRs, add ADR-0012 (pivot) and ADR-0013 (Rust MCP, sidecar survives).                                                                                                                                           | `docs/**` except `docs/plan`, `docs/pixel-art` |
 
 0.1 through 0.4 run in parallel; they share no file.
 
 ### Phase 1 — Document model and canvas
 
-| Task    | Scope                                                                                   | Owns                                   |
-| ------- | --------------------------------------------------------------------------------------- | -------------------------------------- |
-| **1.0** | Write the schema and IPC contract both sides code against. Blocks the rest of the phase. | `docs/architecture/document-model.md`  |
-| **1.1** | SQLite store: migrations, project/style/asset/document CRUD, op log.                     | `src-tauri/src/store/**`               |
-| **1.2** | Raster core: indexed buffers, layers, composite, the op set, gate computations.          | `src-tauri/src/raster/**`              |
-| **1.3** | Tauri commands exposing 1.1 and 1.2, plus change events.                                 | `src-tauri/src/commands/document.rs`   |
+| Task    | Scope                                                                                    | Owns                                                                                       |
+| ------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| **1.0** | Write the schema and IPC contract both sides code against. Blocks the rest of the phase. | `docs/architecture/document-model.md`                                                      |
+| **1.1** | SQLite store: migrations, project/style/asset/document CRUD, op log.                     | `src-tauri/src/store/**`                                                                   |
+| **1.2** | Raster core: indexed buffers, layers, composite, the op set, gate computations.          | `src-tauri/src/raster/**`                                                                  |
+| **1.3** | Tauri commands exposing 1.1 and 1.2, plus change events.                                 | `src-tauri/src/commands/document.rs`                                                       |
 | **1.4** | TS types and stores for project, asset, document, layer, palette.                        | `src/types/document.ts`, `src/stores/useDocumentStore.ts`, `src/stores/useProjectStore.ts` |
-| **1.5** | Project sidebar: tree, create, rename, delete, select.                                   | `src/features/projects/**`             |
-| **1.6** | Canvas: indexed rendering, layer compositing, zoom, pan, grid overlay, paint tools.      | `src/features/editor/canvas/**`        |
-| **1.7** | Right-hand tool panel and palette editor.                                                | `src/features/editor/tools/**`         |
+| **1.5** | Project sidebar: tree, create, rename, delete, select.                                   | `src/features/projects/**`                                                                 |
+| **1.6** | Canvas: indexed rendering, layer compositing, zoom, pan, grid overlay, paint tools.      | `src/features/editor/canvas/**`                                                            |
+| **1.7** | Right-hand tool panel and palette editor.                                                | `src/features/editor/tools/**`                                                             |
 
 1.1–1.3 are Rust and sequential within themselves; 1.4–1.7 are TS and parallel
 once 1.0 lands.
 
 ### Phase 2 — MCP
 
-| Task    | Scope                                                                                          | Owns                                 |
-| ------- | ---------------------------------------------------------------------------------------------- | ------------------------------------ |
-| **2.0** | Write the tool catalogue: every MCP tool, its schema, its errors. Blocks the phase.            | `docs/architecture/mcp-tools.md`     |
-| **2.1** | `rmcp` server, streamable HTTP transport, loopback bind, token, session lifecycle.             | `src-tauri/src/mcp/server.rs`        |
-| **2.2** | Stdio transport via `--mcp-stdio`.                                                             | `src-tauri/src/mcp/stdio.rs`         |
-| **2.3** | Tool implementations over the Phase 1 store and raster core.                                   | `src-tauri/src/mcp/tools/**`         |
-| **2.4** | Client detection and config writing for Claude Code, Claude Desktop, Cursor; register and unregister. | `src-tauri/src/mcp/clients.rs`       |
-| **2.5** | Settings UI: transport picker, port, session status, Configure All Detected Clients, per-client rows, manual config, Install Skills. | `src/features/settings/mcp/**`       |
-| **2.6** | Live sync: MCP mutation to renderer, throttled, with an agent-activity indicator.               | `src/features/editor/live/**`        |
+| Task    | Scope                                                                                                                                | Owns                             |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------- |
+| **2.0** | Write the tool catalogue: every MCP tool, its schema, its errors. Blocks the phase.                                                  | `docs/architecture/mcp-tools.md` |
+| **2.1** | `rmcp` server, streamable HTTP transport, loopback bind, token, session lifecycle.                                                   | `src-tauri/src/mcp/server.rs`    |
+| **2.2** | Stdio transport via `--mcp-stdio`.                                                                                                   | `src-tauri/src/mcp/stdio.rs`     |
+| **2.3** | Tool implementations over the Phase 1 store and raster core.                                                                         | `src-tauri/src/mcp/tools/**`     |
+| **2.4** | Client detection and config writing for Claude Code, Claude Desktop, Cursor; register and unregister.                                | `src-tauri/src/mcp/clients.rs`   |
+| **2.5** | Settings UI: transport picker, port, session status, Configure All Detected Clients, per-client rows, manual config, Install Skills. | `src/features/settings/mcp/**`   |
+| **2.6** | Live sync: MCP mutation to renderer, throttled, with an agent-activity indicator.                                                    | `src/features/editor/live/**`    |
 
 ### Phase 3 — Workflow and skills
 
-| Task    | Scope                                                              | Owns                               |
-| ------- | ------------------------------------------------------------------ | ---------------------------------- |
-| **3.1** | Step state machine and gate evaluation.                            | `src-tauri/src/workflow/**`        |
-| **3.2** | HD-2D skill pack, and the installer behind Install Skills.         | `skills/**`, `src-tauri/src/mcp/skills.rs` |
+| Task    | Scope                                                              | Owns                                                                          |
+| ------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| **3.1** | Step state machine and gate evaluation.                            | `src-tauri/src/workflow/**`                                                   |
+| **3.2** | HD-2D skill pack, and the installer behind Install Skills.         | `skills/**`, `src-tauri/src/mcp/skills.rs`                                    |
 | **3.3** | Reference import: conform through the sidecar, palette extraction. | `src/features/editor/reference/**`, `packages/engine/.../routes/reference.py` |
-| **3.4** | Workflow UI: step rail, gate results, advance and revisit.         | `src/features/editor/workflow/**`  |
+| **3.4** | Workflow UI: step rail, gate results, advance and revisit.         | `src/features/editor/workflow/**`                                             |
 
 ### Phase 4 — Assets, export, polish
 
-| Task    | Scope                                                     | Owns                                  |
-| ------- | --------------------------------------------------------- | ------------------------------------- |
-| **4.1** | Tile, tileset, tilemap and parallax background support.   | `src-tauri/src/raster/tilemap.rs`, `src/features/editor/tilemap/**` |
-| **4.2** | Export: PNG, sheet, folder picker, naming.                | `src-tauri/src/export.rs`, `src/features/editor/export/**` |
-| **4.3** | i18n sweep, English and Vietnamese.                       | `src/locales/**`                      |
-| **4.4** | README, docs, screenshots.                                | `README.md`, `docs/**`                |
-| **4.5** | Test sweep and contrast check.                            | `**/*.test.ts`, `**/*.test.tsx`, `packages/engine/tests/**` |
+| Task    | Scope                                                   | Owns                                                                |
+| ------- | ------------------------------------------------------- | ------------------------------------------------------------------- |
+| **4.1** | Tile, tileset, tilemap and parallax background support. | `src-tauri/src/raster/tilemap.rs`, `src/features/editor/tilemap/**` |
+| **4.2** | Export: PNG, sheet, folder picker, naming.              | `src-tauri/src/export.rs`, `src/features/editor/export/**`          |
+| **4.3** | i18n sweep, English and Vietnamese.                     | `src/locales/**`                                                    |
+| **4.4** | README, docs, screenshots.                              | `README.md`, `docs/**`                                              |
+| **4.5** | Test sweep and contrast check.                          | `**/*.test.ts`, `**/*.test.tsx`, `packages/engine/tests/**`         |
 
 ---
 

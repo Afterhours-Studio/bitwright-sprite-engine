@@ -11,14 +11,14 @@ needs a graphics card, and nothing is downloaded after installation.
 
 ## Every platform
 
-| Item                | Minimum                                          |
-| ------------------- | ------------------------------------------------ |
-| Disk, application   | 120 MB                                           |
-| Disk, your projects | Megabytes. A 64 by 64 indexed document is tiny   |
-| Memory              | 4 GB                                             |
-| GPU                 | None. The canvas renders on the processor        |
-| Display             | 960 by 600, which is the minimum window size     |
-| Network             | None, unless an MCP client you use needs one     |
+| Item                | Minimum                                        |
+| ------------------- | ---------------------------------------------- |
+| Disk, application   | 120 MB                                         |
+| Disk, your projects | Megabytes. A 64 by 64 indexed document is tiny |
+| Memory              | 4 GB                                           |
+| GPU                 | None. The canvas renders on the processor      |
+| Display             | 960 by 600, which is the minimum window size   |
+| Network             | None, unless an MCP client you use needs one   |
 
 The disk figure for projects deserves the emphasis it gets. A document's pixels
 are palette indices, one byte each, so a 64 by 64 layer is four kilobytes and a

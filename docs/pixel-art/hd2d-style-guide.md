@@ -12,15 +12,15 @@ order, then execute the **Checklist per step** at the end. §11 is the self-revi
 
 ## 0. What "HD-2D" means mechanically
 
-HD-2D (term coined and trademarked by Square Enix for *Octopath Traveler*) is SNES-era sprite
+HD-2D (term coined and trademarked by Square Enix for _Octopath Traveler_) is SNES-era sprite
 work composited into a 3D scene with modern real-time lighting, depth of field, bloom and
-tilt-shift. For a *sprite artist* this has three concrete consequences:
+tilt-shift. For a _sprite artist_ this has three concrete consequences:
 
 1. **The sprite is a billboard in a lit 3D world.** It will sit on top of backgrounds whose
    color you do not control and cannot predict. Therefore: no anti-aliasing on the outer
    silhouette, and no transparency-dependent edge tricks (§6).
 2. **Light in the scene is warm and directional; ambient fill is cool.** Sprites are painted
-   with baked lighting that must *agree* with the scene light, so light direction is a hard
+   with baked lighting that must _agree_ with the scene light, so light direction is a hard
    global constant per project (§5).
 3. **Rim light / backlight is the signature.** The engine's rim-light pass finds the outermost
    lit pixels of the sprite and brightens them. You bake an equivalent rim into the art so the
@@ -35,16 +35,16 @@ at roughly 2–4× the linear resolution.
 
 ### 1.1 Reference sprite sizes
 
-| Source | Sprite | Size (px) |
-|---|---|---|
-| Final Fantasy VI (SNES) | field/battle character | **16 × 24** |
-| Chrono Trigger (SNES) | field character | ~**16 × 24** (taller frames up to ~16 × 32 for tall cast) |
-| Secret of Mana (SNES) | field character | ~**24 × 32** |
-| Radiant Historia (DS) | field character | **22 × 33** (~2× the area of FFVI) |
-| HD-2D (Octopath / Triangle Strategy / DQIII HD-2D) | field character | roughly **2–4× SNES linear** |
+| Source                                             | Sprite                 | Size (px)                                                 |
+| -------------------------------------------------- | ---------------------- | --------------------------------------------------------- |
+| Final Fantasy VI (SNES)                            | field/battle character | **16 × 24**                                               |
+| Chrono Trigger (SNES)                              | field character        | ~**16 × 24** (taller frames up to ~16 × 32 for tall cast) |
+| Secret of Mana (SNES)                              | field character        | ~**24 × 32**                                              |
+| Radiant Historia (DS)                              | field character        | **22 × 33** (~2× the area of FFVI)                        |
+| HD-2D (Octopath / Triangle Strategy / DQIII HD-2D) | field character        | roughly **2–4× SNES linear**                              |
 
 Square Enix has not published exact shipped sprite dimensions for the HD-2D games. What is
-documented and reliable is the *relationship*: HD-2D characters are drawn at notably higher
+documented and reliable is the _relationship_: HD-2D characters are drawn at notably higher
 resolution than the SNES sprites they homage, with far more palette entries, then rendered
 with sub-pixel-free nearest-neighbour scaling into a high-res 3D scene.
 
@@ -53,14 +53,14 @@ with sub-pixel-free nearest-neighbour scaling into a high-res 3D scene.
 Pick one tier and stay on it for the whole cast. Mixing tiers across a party is the single most
 visible consistency failure.
 
-| Tier | Canvas | Character occupies | Use for |
-|---|---|---|---|
-| `snes` | 32 × 48 | 28 × 44 | retro-faithful field sprite |
-| `hd2d-field` | **48 × 64** | 42 × 60 | default HD-2D overworld character |
-| `hd2d-battle` | **64 × 96** | 56 × 90 | battle-side / hero sprite, more detail budget |
-| `hd2d-large` | 96 × 128 | 84 × 120 | boss, mount, key NPC |
+| Tier          | Canvas      | Character occupies | Use for                                       |
+| ------------- | ----------- | ------------------ | --------------------------------------------- |
+| `snes`        | 32 × 48     | 28 × 44            | retro-faithful field sprite                   |
+| `hd2d-field`  | **48 × 64** | 42 × 60            | default HD-2D overworld character             |
+| `hd2d-battle` | **64 × 96** | 56 × 90            | battle-side / hero sprite, more detail budget |
+| `hd2d-large`  | 96 × 128    | 84 × 120           | boss, mount, key NPC                          |
 
-Always use **even** canvas dimensions so the vertical centerline falls on a pixel *boundary*,
+Always use **even** canvas dimensions so the vertical centerline falls on a pixel _boundary_,
 not a pixel. A sprite facing the viewer is then symmetric about columns `W/2 - 1` and `W/2`.
 
 ### 1.3 Occupancy and margin rules
@@ -82,12 +82,12 @@ not a pixel. A sprite facing the viewer is then symmetric about columns `W/2 - 1
 
 Measure in **heads**: total body height ÷ head height (crown to chin, excluding hair volume).
 
-| Style | Heads | Head height on 48×64 | Notes |
-|---|---|---|---|
-| Super-deformed / classic SNES chibi | **2.0 – 2.5** | 24 – 30 px | FFVI field style; head reads as 1/3 to 1/2 of the sprite |
-| **HD-2D standard** | **3.0 – 4.0** | **15 – 20 px** | Octopath/Triangle Strategy range; still stylized, readable face |
-| Semi-realistic | 5.0 – 6.0 | 10 – 12 px | loses face readability below 12 px head at these canvases |
-| Realistic | 7.0 – 8.0 | n/a | do not use below 96 px sprite height |
+| Style                               | Heads         | Head height on 48×64 | Notes                                                           |
+| ----------------------------------- | ------------- | -------------------- | --------------------------------------------------------------- |
+| Super-deformed / classic SNES chibi | **2.0 – 2.5** | 24 – 30 px           | FFVI field style; head reads as 1/3 to 1/2 of the sprite        |
+| **HD-2D standard**                  | **3.0 – 4.0** | **15 – 20 px**       | Octopath/Triangle Strategy range; still stylized, readable face |
+| Semi-realistic                      | 5.0 – 6.0     | 10 – 12 px           | loses face readability below 12 px head at these canvases       |
+| Realistic                           | 7.0 – 8.0     | n/a                  | do not use below 96 px sprite height                            |
 
 Derived rules for the **3.5-head HD-2D default** on a 48 × 64 canvas (60 px of character):
 
@@ -117,12 +117,12 @@ eye line          y = 14           (≈ 58% down the head, NOT the middle)
 
 ### 2.1 Total colors
 
-| Canvas tier | Total unique colors (excl. transparent) |
-|---|---|
-| 32 × 48 | **8 – 12** |
-| 48 × 64 (`hd2d-field`) | **14 – 22** |
-| 64 × 96 (`hd2d-battle`) | **20 – 32** |
-| 96 × 128 | 28 – 40 |
+| Canvas tier             | Total unique colors (excl. transparent) |
+| ----------------------- | --------------------------------------- |
+| 32 × 48                 | **8 – 12**                              |
+| 48 × 64 (`hd2d-field`)  | **14 – 22**                             |
+| 64 × 96 (`hd2d-battle`) | **20 – 32**                             |
+| 96 × 128                | 28 – 40                                 |
 
 Hard ceiling: **32** for any single character at or below 64 × 96 — though a tool enforcing this
 guide may set a tighter ceiling per preset (the `hd2d` preset allows **24** slots, `snes` 16).
@@ -134,18 +134,18 @@ muddy mid-tones (§11.3).
 
 A "ramp" is an ordered list of colors from darkest to lightest for one material. Budget:
 
-| Material | Ramp steps | Notes |
-|---|---|---|
-| Skin | **4** | shadow, base, light, (rim reuses the global rim color) |
-| Cloth / fabric | **3** | low contrast; fabric absorbs light |
-| Leather | **3** | one narrow specular pixel run allowed |
-| Metal | **5** | highest contrast ramp in the sprite; needs a near-white specular and a very dark occlusion |
-| Hair | **3 – 4** | 4 only if hair is a major silhouette element |
-| Eyes / accent | **2** | one dark, one light; never ramp eyes |
+| Material       | Ramp steps | Notes                                                                                      |
+| -------------- | ---------- | ------------------------------------------------------------------------------------------ |
+| Skin           | **4**      | shadow, base, light, (rim reuses the global rim color)                                     |
+| Cloth / fabric | **3**      | low contrast; fabric absorbs light                                                         |
+| Leather        | **3**      | one narrow specular pixel run allowed                                                      |
+| Metal          | **5**      | highest contrast ramp in the sprite; needs a near-white specular and a very dark occlusion |
+| Hair           | **3 – 4**  | 4 only if hair is a major silhouette element                                               |
+| Eyes / accent  | **2**      | one dark, one light; never ramp eyes                                                       |
 
 The **base** of a ramp is its middle step, and that is what decides which per-step bracket in
 §2.4 a pair answers to. So a 3-step ramp is one darker step and one lighter step; a 4-step
-ramp is *two* darker and one lighter; a 5-step metal ramp is two of each.
+ramp is _two_ darker and one lighter; a 5-step metal ramp is two of each.
 
 Eyes are the exception to the ramp form: they are two standalone slots, not a ramp. A ramp
 is 3–5 steps, and an eye pair is neither long enough to be one nor meant to be stepped along.
@@ -155,22 +155,22 @@ Total for a typical character: 4 (skin) + 3 (main cloth) + 3 (secondary cloth) +
 canonical `hd2d-field` budget.
 
 **Share aggressively.** The darkest step of the leather ramp and the darkest step of the hair
-ramp should usually be the *same color*. Every shared color you find is budget freed for a
+ramp should usually be the _same color_. Every shared color you find is budget freed for a
 material that needs contrast (metal).
 
 ### 2.3 Contrast per material (value spread)
 
 Express value as OKLCH lightness `L` in 0–1 (or HSL lightness if you must).
 
-| Material | ΔL from darkest to lightest step |
-|---|---|
-| Cloth (matte) | 0.18 – 0.26 |
-| Skin | 0.22 – 0.30 |
-| Leather | 0.26 – 0.34 |
-| Hair | 0.24 – 0.34 |
-| Metal | **0.45 – 0.60** |
+| Material      | ΔL from darkest to lightest step |
+| ------------- | -------------------------------- |
+| Cloth (matte) | 0.18 – 0.26                      |
+| Skin          | 0.22 – 0.30                      |
+| Leather       | 0.26 – 0.34                      |
+| Hair          | 0.24 – 0.34                      |
+| Metal         | **0.45 – 0.60**                  |
 
-Metal is metal *because* it has the widest value spread and the tightest highlight, not because
+Metal is metal _because_ it has the widest value spread and the tightest highlight, not because
 of its hue.
 
 This table and §2.4's per-step brackets have to hold **at the same time**, and at the step
@@ -178,20 +178,20 @@ counts §2.2 budgets they leave less room than either implies alone. Summing the
 brackets across a ramp gives the spread it can reach; the overlap with the band above is the
 part of the band you can actually build:
 
-| Material | Steps | Reachable spread | Band | Usable window |
-|---|---|---|---|---|
-| Cloth | 3 | 0.17 – 0.28 | 0.18 – 0.26 | 0.18 – 0.26 |
-| Skin | 4 | 0.25 – 0.41 | 0.22 – 0.30 | **0.25 – 0.30** |
-| Leather | 3 | 0.17 – 0.28 | 0.26 – 0.34 | **0.26 – 0.28** |
-| Hair | 3 | 0.17 – 0.28 | 0.24 – 0.34 | 0.24 – 0.28 |
-| Hair | 4 | 0.25 – 0.41 | 0.24 – 0.34 | 0.25 – 0.34 |
-| Metal | 5 | 0.34 – 0.56 | 0.45 – 0.60 | 0.45 – 0.56 |
+| Material | Steps | Reachable spread | Band        | Usable window   |
+| -------- | ----- | ---------------- | ----------- | --------------- |
+| Cloth    | 3     | 0.17 – 0.28      | 0.18 – 0.26 | 0.18 – 0.26     |
+| Skin     | 4     | 0.25 – 0.41      | 0.22 – 0.30 | **0.25 – 0.30** |
+| Leather  | 3     | 0.17 – 0.28      | 0.26 – 0.34 | **0.26 – 0.28** |
+| Hair     | 3     | 0.17 – 0.28      | 0.24 – 0.34 | 0.24 – 0.28     |
+| Hair     | 4     | 0.25 – 0.41      | 0.24 – 0.34 | 0.25 – 0.34     |
+| Metal    | 5     | 0.34 – 0.56      | 0.45 – 0.60 | 0.45 – 0.56     |
 
 Read this before choosing a base. Leather at 3 steps only reaches the bottom 0.02 of its band,
 so both of its steps have to run near the top of the per-step bracket (about −0.125 into shadow
 and +0.145 into light); a leather ramp built from mid-bracket steps lands near 0.22 and fails
 §2.3. Skin at 4 steps is the mirror case — mid-bracket steps overshoot 0.30, so its steps run
-near the *bottom* of the bracket (about −0.087 twice and +0.097). Hair is easier at 4 steps
+near the _bottom_ of the bracket (about −0.087 twice and +0.097). Hair is easier at 4 steps
 than at 3.
 
 ### 2.4 Hue shifting — the actual rule
@@ -199,12 +199,12 @@ than at 3.
 When you step **darker**, do all three:
 
 - **Hue → cool.** Rotate hue **+12° to +20° toward blue/violet** per step (in HSL degrees). The
-  rotation is budgeted per *step*, not per ramp: a 3-step ramp turns 24–40° end to end, a 4-step
+  rotation is budgeted per _step_, not per ramp: a 3-step ramp turns 24–40° end to end, a 4-step
   ramp 36–60°, a 5-step metal ramp up to 80°. The old "~45° total" figure is the 3-step case and
   does not survive a longer ramp.
 - **Saturation → up slightly** for the first shadow step (**+5 to +12 S%**), then back down for a
   deep occlusion step (OKLCH chroma: **×0.85 – ×1.12**, and that whole range is available on
-  every darker step). Shadows in ambient sky light are *not* desaturated grey; they are
+  every darker step). Shadows in ambient sky light are _not_ desaturated grey; they are
   low-lightness, moderately saturated blue-violet.
 - **Lightness → down 10–18 L%** per step (OKLCH: **ΔL ≈ −0.08 to −0.13**).
 
@@ -247,7 +247,7 @@ total spread dL 0.272, inside skin's 0.22-0.30 band
 Note skin shadows rotate toward **red/magenta**, not blue — the hue runs 26° → 9° → 351° going
 darker, the opposite sign to the cloth ramp above — because of subsurface scattering. This is the
 one documented exception to "shadows go blue," and it inverts the sign of the rotation in both
-directions: skin's *lighter* step rotates **+12° to +20°** where cloth's rotates −12° to −20°.
+directions: skin's _lighter_ step rotates **+12° to +20°** where cloth's rotates −12° to −20°.
 Apply the blue rule to cloth, metal, leather, stone; apply the red/magenta rule to skin and
 anything translucent (ears, fingers, thin fabric).
 
@@ -255,7 +255,7 @@ anything translucent (ears, fingers, thin fabric).
 
 - `#000000` has zero hue information, so it kills the material identity of whatever it shades —
   black shadow on leather and black shadow on cloth are the same pixel, and the sprite flattens.
-- Real shadows are lit by *bounced ambient light* (sky, ground, nearby surfaces). They always
+- Real shadows are lit by _bounced ambient light_ (sky, ground, nearby surfaces). They always
   carry that ambient's hue. A shadow with no hue reads as a hole, not a surface.
 - `#000000` also destroys your remaining value range: once you are at 0 you cannot place a
   deeper occlusion, so the deepest crevices and the ordinary shadows collapse into one value.
@@ -273,7 +273,7 @@ anything translucent (ears, fingers, thin fabric).
 
 ### 2.5 Value separation is non-negotiable
 
-Any two colors that touch on an edge you want to *read* must differ by **ΔL ≥ 0.07** (OKLCH).
+Any two colors that touch on an edge you want to _read_ must differ by **ΔL ≥ 0.07** (OKLCH).
 Two colors that differ only in hue at the same lightness will visually merge at sprite scale —
 this is the main cause of "muddy" sprites (§11.3). Convert the finished sprite to greyscale: if
 the silhouette and the major forms are still legible, the value structure is correct.
@@ -282,7 +282,7 @@ the silhouette and the major forms are still legible, the value structure is cor
 
 Every character in an HD-2D project shares:
 
-1. **`OUTLINE_DARK`** — the deepest value in the whole palette, used only as a *starting point*
+1. **`OUTLINE_DARK`** — the deepest value in the whole palette, used only as a _starting point_
    for tinted outlines (§4). Typical: `#0A0316` = `hsl(262, 76%, 5%)`, **OKLCH L 0.128** — inside
    the 0.10–0.16 floor of §2.4. Never `#000000`.
 2. **`RIM`** — the backlight color, one single warm-or-cool color used on every character so all
@@ -411,7 +411,7 @@ Light from top-left.  '.' = transparent  'o' = tinted outline  '=' = dropped (li
 ### 4.4 Interior outlines and separators
 
 - Use an **interior separator** (1 px of the darker ramp step, not `OUTLINE_DARK`) only where
-  two forms of *similar value* overlap and would otherwise merge: arm over torso, belt over
+  two forms of _similar value_ overlap and would otherwise merge: arm over torso, belt over
   tunic, hair over shoulder.
 - If the two forms already differ by **ΔL ≥ 0.10**, do **not** draw a separator. The value
   difference is the separator. Adding a line there is "over-outlining" and produces the
@@ -480,8 +480,8 @@ flat, six looks dirty.
 
 ### 5.5 Rim light / backlight — the HD-2D signature
 
-The rim (backlight, edge light) is a thin bright band on the edges of the sprite *facing away
-from the key light*, produced in-engine by a secondary light behind the subject. It is what
+The rim (backlight, edge light) is a thin bright band on the edges of the sprite _facing away
+from the key light_, produced in-engine by a secondary light behind the subject. It is what
 lifts an HD-2D sprite off its background. Bake it.
 
 **Placement rules:**
@@ -558,18 +558,18 @@ are forbidden in the sprite's edge ring.
 
 ### 6.3 How to place AA pixels
 
-The rule from the sources: *the longer the segment, the longer the AA*. A stair-step line is a
+The rule from the sources: _the longer the segment, the longer the AA_. A stair-step line is a
 sequence of runs; AA pixels go **at the ends of each run, in the corner of the step**, using an
 intermediate value.
 
 Number of AA pixels per corner, by run length:
 
-| Run length | AA pixels per corner | Shades |
-|---|---|---|
-| 1–2 px | 0 (do not AA) | — |
-| 3–4 px | 1 | 1 intermediate |
-| 5–8 px | 2 | 2 intermediates (or 1 repeated) |
-| 9+ px | 3 | 2–3 intermediates, tapering |
+| Run length | AA pixels per corner | Shades                          |
+| ---------- | -------------------- | ------------------------------- |
+| 1–2 px     | 0 (do not AA)        | —                               |
+| 3–4 px     | 1                    | 1 intermediate                  |
+| 5–8 px     | 2                    | 2 intermediates (or 1 repeated) |
+| 9+ px      | 3                    | 2–3 intermediates, tapering     |
 
 The AA color must be an **existing palette color** whose lightness sits between the two it
 joins — ideally the ramp step between them. Do not average RGB; averaged colors are muddy
@@ -593,7 +593,7 @@ Left: acceptable, clean.   Middle: 1-2 px at each      Right: destroys the
 ```
 
 Run lengths in the left column **decrease monotonically** (4,3,2,1) — that is a clean curve.
-If they go 4,2,3,1 you have jaggies (§11.2) and you must fix the *line*, not AA over it.
+If they go 4,2,3,1 you have jaggies (§11.2) and you must fix the _line_, not AA over it.
 
 ### 6.4 The mandatory exception list
 
@@ -612,7 +612,7 @@ Do not AA:
 ### 7.1 Banding
 
 **Definition:** two or more color boundaries running parallel to each other and to the outline,
-with uniform band thickness, so the eye locks onto the *lines between the colors* instead of the
+with uniform band thickness, so the eye locks onto the _lines between the colors_ instead of the
 form. Derek Yu: it "draws the eye by reinforcing the theoretical grid."
 
 The specific pixel pattern to detect: a run of pixels of color A adjacent, along its whole
@@ -643,7 +643,7 @@ BANDING on a diagonal (bad)     FIXED (good)
 2. Band thickness must **vary** along its length — thin where the form turns fast, thick where
    it turns slowly.
 3. Never place a shadow band that exactly mirrors the outline at a constant 1–2 px offset. That
-   is simultaneously banding *and* pillow shading.
+   is simultaneously banding _and_ pillow shading.
 4. Ramp steps do not all have to appear in every cross-section. Skipping a step
    (`base → shadow2` directly in a hard crease) is correct and breaks the band.
 
@@ -688,7 +688,7 @@ dither-free.
 
 Permitted uses, in order of acceptability:
 
-1. **Texture, not gradient.** Rough stone, dirt, fur, rust, burlap — where the noise *is* the
+1. **Texture, not gradient.** Rough stone, dirt, fur, rust, burlap — where the noise _is_ the
    material. Apply within a single band, not across a band boundary.
 2. **Transparency / ethereal effects.** Ghosts, smoke, magic auras, fading edges — a 50%
    checkerboard is the standard tool.
@@ -723,16 +723,16 @@ Rules when you do dither:
 
 Execute in this order. Do not proceed to step N+1 until step N passes its checks.
 
-| # | Step | What you place | Why here |
-|---|---|---|---|
-| 1 | **Silhouette** | One opaque color, full character mass | Shape is what the viewer resolves first and what is hardest to change later. Everything downstream is painted *into* this mask. |
-| 2 | **Base flats** | Each material's `base` color, no shading | Establishes the material map and the color-area proportions. Cheap to revise; revising it after shading means redoing all shading. |
-| 3 | **Core shadow** | `shadow1` on every form's away-from-key side | Shadow before light: the shadow shape *is* the form description. Placing light first tempts you into pillow shading because you shade inward from the edge. |
-| 4 | **Light** | `light1` on the toward-key side, small and decisive | Light areas should be smaller than shadow areas (≈ 25% light / 40% base / 35% shadow by pixel count). Placed after shadow so you can see how much value range is left. |
-| 5 | **Outline pass** | Tinted selective outline; drop it on lit arcs | The outline color depends on the fill it borders, which only exists after steps 2–4. Outlining first forces you to guess and produces flat black. |
-| 6 | **Detail** | `shadow2` AO, cast shadows, small features, interior separators, folds, straps, face | Detail must be subordinate to the big read. Adding it earlier means you protect it and refuse to fix the form. |
-| 7 | **Accents / rim** | Specular pixels, eye highlights, `RIM` runs, emissive accents | Highest-contrast pixels go last so you can place them exactly where they add the most and count them (rim coverage 15–25%, specular ≤ 6 px). |
-| 8 | **AA + cleanup** | Interior AA, orphan-pixel removal, palette audit | AA is a polish operation over finished edges; doing it earlier means re-doing it. |
+| #   | Step              | What you place                                                                       | Why here                                                                                                                                                               |
+| --- | ----------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Silhouette**    | One opaque color, full character mass                                                | Shape is what the viewer resolves first and what is hardest to change later. Everything downstream is painted _into_ this mask.                                        |
+| 2   | **Base flats**    | Each material's `base` color, no shading                                             | Establishes the material map and the color-area proportions. Cheap to revise; revising it after shading means redoing all shading.                                     |
+| 3   | **Core shadow**   | `shadow1` on every form's away-from-key side                                         | Shadow before light: the shadow shape _is_ the form description. Placing light first tempts you into pillow shading because you shade inward from the edge.            |
+| 4   | **Light**         | `light1` on the toward-key side, small and decisive                                  | Light areas should be smaller than shadow areas (≈ 25% light / 40% base / 35% shadow by pixel count). Placed after shadow so you can see how much value range is left. |
+| 5   | **Outline pass**  | Tinted selective outline; drop it on lit arcs                                        | The outline color depends on the fill it borders, which only exists after steps 2–4. Outlining first forces you to guess and produces flat black.                      |
+| 6   | **Detail**        | `shadow2` AO, cast shadows, small features, interior separators, folds, straps, face | Detail must be subordinate to the big read. Adding it earlier means you protect it and refuse to fix the form.                                                         |
+| 7   | **Accents / rim** | Specular pixels, eye highlights, `RIM` runs, emissive accents                        | Highest-contrast pixels go last so you can place them exactly where they add the most and count them (rim coverage 15–25%, specular ≤ 6 px).                           |
+| 8   | **AA + cleanup**  | Interior AA, orphan-pixel removal, palette audit                                     | AA is a polish operation over finished edges; doing it earlier means re-doing it.                                                                                      |
 
 Rationale in one line: **each step constrains the next, and each step is cheap to redo only
 while the later steps do not exist.**
@@ -752,7 +752,7 @@ hue carries identity. If a swap changes lightness, it changes the perceived shap
 2. For each ramp, record the OKLCH lightness of each step: `L0 < L1 < L2 < L3`.
 3. Build the replacement ramp with **the same L values (±0.02)**, changing only hue `H` and
    chroma `C`.
-4. Preserve the *hue-shift deltas*, not just the base hue. If the source ramp rotated +16°
+4. Preserve the _hue-shift deltas_, not just the base hue. If the source ramp rotated +16°
    toward blue per shadow step, the recolor must also rotate ≈ +16° from its new base.
 5. Re-check §2.5: every adjacent-color boundary must still have ΔL ≥ 0.07. A hue-only swap can
    never break this, which is the point.
@@ -775,6 +775,7 @@ its new position rather than assumed correct because the source was.
 ### 10.3 What may move and what may not
 
 **May move freely:**
+
 - Main cloth hue — any rotation.
 - Secondary cloth / trim hue.
 - Hair hue (within believable range, or fully free for fantasy casts).
@@ -782,6 +783,7 @@ its new position rather than assumed correct because the source was.
 - Accent / gem hue.
 
 **May move within limits:**
+
 - Skin: hue may move **±25°** around 20–35° (and toward 0–15° for deeper tones); chroma may
   change; **lightness may change but must move the entire ramp together**, keeping ΔL between
   steps. Never desaturate skin to grey.
@@ -789,6 +791,7 @@ its new position rather than assumed correct because the source was.
   reading as metal.
 
 **Must not move:**
+
 - `OUTLINE_DARK` lightness. The outline may take on the new hue tint (§4.2) but the darkest
   value in the sprite stays the darkest value.
 - `RIM` — it is the scene light, shared by all characters. Changing it per character breaks the
@@ -813,6 +816,7 @@ Each heuristic is computable from the RGBA pixel buffer. Run all of them in step
 **Symptom:** isolated single pixels of a color surrounded by a different color; speckle.
 
 **Detect:** for every pixel `p`, count its 8-neighbours with the same color `n(p)`.
+
 - `n(p) == 0` → **orphan**. Fail if orphan count > **2% of filled pixels**, or > 6 pixels total
   on `hd2d-field`.
 - `n(p) <= 1` on more than **6%** of filled pixels → the sprite is speckled.
@@ -828,6 +832,7 @@ grow it into a 2×1 or 2×2 cluster instead of deleting it. Minimum meaningful m
 `4,3,2,1`. The line looks chewed.
 
 **Detect:** trace each contiguous outline edge into a run-length sequence. Flag when:
+
 - the sequence is non-monotonic over a span of 4+ runs (up-down-up), or
 - a run of length 1 appears between two runs of length ≥ 3, or
 - the same run length repeats > 5 times then jumps by > 2 (an abrupt kink).
@@ -841,6 +846,7 @@ or `1,1,2,3,4,6`. Do not patch a jaggy with AA — AA on a bad line makes a blur
 **Symptom:** the sprite looks grey/brown and flat; forms don't separate.
 
 **Detect:**
+
 - Compute the OKLCH lightness histogram of all filled pixels. If **> 55%** of pixels fall within
   a 0.15-wide L window, the sprite is value-compressed.
 - Compute total L range (max − min). If **< 0.55**, contrast is too low.
@@ -851,7 +857,7 @@ or `1,1,2,3,4,6`. Do not patch a jaggy with AA — AA on a bad line makes a blur
 
 **Fix:** merge the redundant palette pairs, then push the extremes. The range is carried by the
 shared slots, not by one material: check that `OUTLINE_DARK` and `RIM` actually sit in their
-§2.4 bands (0.10–0.16 and 0.88–0.94) and that they are being *used*, before touching a material
+§2.4 bands (0.10–0.16 and 0.88–0.94) and that they are being _used_, before touching a material
 ramp — a ramp cannot be stretched past the per-step brackets of §2.4 to buy range. Where a ramp
 genuinely is flat, increase chroma in its shadows rather than lightness.
 
@@ -874,6 +880,7 @@ a mistake.
 **Symptom:** buttons, buckles, fingers, embroidery — all illegible, all noisy.
 
 **Detect:**
+
 - Count distinct connected components of each non-base color. If any color has **> 8 components**
   on a 48 × 64 sprite, detail is fragmenting.
 - Count components with area **≤ 2 px**. If > 10% of components, over-detailed.
@@ -891,6 +898,7 @@ sprite** (face, head, shoulders), because that is where the viewer looks.
 **Symptom:** the sprite reads as a blob, or sinks into the background.
 
 **Detect:**
+
 - Run the §3.4 perimeter²/area test on the alpha mask: target **18–28**.
 - Compute solidity = `filled_area / convex_hull_area`. Below **0.55** the shape is spindly;
   above **0.88** it has no negative space and no interesting protrusions. Target **0.62–0.82**.
@@ -904,24 +912,24 @@ arm and torso, and increase rim coverage on the top and upper-back edges.
 
 ### 11.7 Quick numeric summary of all thresholds
 
-| Metric | Target |
-|---|---|
-| Palette size (48×64) | 14–22, hard max 32 |
-| Orphan pixels | ≤ 2% of filled, ≤ 6 absolute |
-| Pixels with ≤ 1 like-neighbour | ≤ 6% |
-| OKLCH L range | ≥ 0.55, ideally ≥ 0.60 |
-| Pixels within any 0.15 L window | ≤ 55% |
-| Palette pairs with ΔL<0.05 and ΔH<20° | 0 |
-| `shadow2` (AO) coverage | ≤ 8% of filled, hard fail > 12% |
-| Light/base/shadow pixel split | ≈ 25 / 40 / 35 |
-| Rim coverage of perimeter | 15–25%, fail > 35% |
-| Outline coverage of perimeter | 60–75% |
-| Horizontal color-change rate | 0.22–0.38 |
-| Perimeter² / area (alpha mask) | 18–28 |
-| Solidity | 0.62–0.82 |
-| Light-vector circular std dev | ≤ 35° |
+| Metric                                | Target                           |
+| ------------------------------------- | -------------------------------- |
+| Palette size (48×64)                  | 14–22, hard max 32               |
+| Orphan pixels                         | ≤ 2% of filled, ≤ 6 absolute     |
+| Pixels with ≤ 1 like-neighbour        | ≤ 6%                             |
+| OKLCH L range                         | ≥ 0.55, ideally ≥ 0.60           |
+| Pixels within any 0.15 L window       | ≤ 55%                            |
+| Palette pairs with ΔL<0.05 and ΔH<20° | 0                                |
+| `shadow2` (AO) coverage               | ≤ 8% of filled, hard fail > 12%  |
+| Light/base/shadow pixel split         | ≈ 25 / 40 / 35                   |
+| Rim coverage of perimeter             | 15–25%, fail > 35%               |
+| Outline coverage of perimeter         | 60–75%                           |
+| Horizontal color-change rate          | 0.22–0.38                        |
+| Perimeter² / area (alpha mask)        | 18–28                            |
+| Solidity                              | 0.62–0.82                        |
+| Light-vector circular std dev         | ≤ 35°                            |
 | Lightness ↔ edge-distance correlation | r ≤ 0.6 (above = pillow shading) |
-| Alpha values used | only 0 and 255 |
+| Alpha values used                     | only 0 and 255                   |
 
 ---
 
@@ -931,6 +939,7 @@ Terse, machine-followable. Each item has an explicit pass condition. Do not adva
 step while any item in the current step fails.
 
 ### Step 0 — Setup
+
 1. Choose a tier from §1.2. Record `W`, `H`, contact row. PASS: `W` and `H` are even.
 2. Declare the key light vector `L = (−0.55, −0.75, +0.36)` and the shared `OUTLINE_DARK` and
    `RIM` colors. PASS: all three are written down before any pixel is placed.
@@ -938,6 +947,7 @@ step while any item in the current step fails.
    PASS: crown, chin, shoulder, waist, hip, knee, sole rows all assigned.
 
 ### Step 1 — Silhouette
+
 1. Fill the character mass in a single opaque color. No other color exists on the canvas.
    PASS: exactly 1 non-transparent color present.
 2. Verify occupancy: bbox height ≥ 0.85·H, bbox width in [0.45·W, 0.75·W]. PASS/FAIL numeric.
@@ -953,6 +963,7 @@ step while any item in the current step fails.
 10. Solidity check. PASS: 0.62–0.82.
 
 ### Step 2 — Base flats
+
 1. Assign each material its `base` color only. PASS: number of colors == number of materials,
    and no shading colors present.
 2. Verify every material's `base` differs from every adjacent material's `base` by ΔL ≥ 0.07.
@@ -963,6 +974,7 @@ step while any item in the current step fails.
 5. Greyscale the flats. PASS: major forms (head, torso, arms, legs, weapon) are still separable.
 
 ### Step 3 — Core shadow
+
 1. For each form > 6×6 px, fill the side facing away from `L` with that material's `shadow1`.
    PASS: every such form has shadow pixels.
 2. Shadow boundaries must follow form cross-sections, not the outline offset. Run the pillow
@@ -975,6 +987,7 @@ step while any item in the current step fails.
 7. Forms < 4×4 px received no shadow. PASS: 0 violations.
 
 ### Step 4 — Light
+
 1. Apply `light1` to toward-key surfaces only. PASS: all light pixels lie on the upper-left side
    of their form's centroid.
 2. Light pixel share ≈ 25% ±8. PASS/FAIL. Light must be LESS than shadow share.
@@ -985,6 +998,7 @@ step while any item in the current step fails.
 6. Each material now shows exactly its budgeted band count (§2.2). PASS/FAIL per material.
 
 ### Step 5 — Outline pass
+
 1. For each perimeter pixel, compute `outline = mix(adjacent_fill_shadow, OUTLINE_DARK, t)`
    with `t = 0.75` shadow side, `0.45` perpendicular. PASS: no perimeter pixel is
    `OUTLINE_DARK` unmixed, and none is `#000000`.
@@ -999,6 +1013,7 @@ step while any item in the current step fails.
    PASS: no intermediate alpha.
 
 ### Step 6 — Detail
+
 1. Place `shadow2` AO only at: under-chin, under-brim, under-belt, neckline, armpit, limb gaps,
    contact row. PASS: `shadow2` ≤ 8% of filled pixels (hard fail > 12%).
 2. Place 2–4 cast shadows in `shadow1`, offset (+1,+2) from their casters. PASS: count in [2,4].
@@ -1013,6 +1028,7 @@ step while any item in the current step fails.
    never crossing the silhouette. PASS/FAIL; default is 0 dither pixels.
 
 ### Step 7 — Accents and rim
+
 1. Specular: ≤ 6 pixels total, only on metal/glass/eye, max L 0.97. PASS/FAIL.
 2. Rim: place `RIM` on outermost pixels of the upper-RIGHT arc and crown (opposite the key).
    PASS: 0 rim pixels on the key-lit side.
@@ -1025,6 +1041,7 @@ step while any item in the current step fails.
 9. Rim color is identical across every sprite in the project. PASS/FAIL.
 
 ### Step 8 — AA and cleanup
+
 1. Outer silhouette AA: NONE. PASS: alpha set is exactly {0, 255}, and no perimeter pixel is a
    blend of the fill and nothing.
 2. Interior AA only, only on curves and shallow diagonals, only at run corners, counts per §6.3.
@@ -1069,5 +1086,5 @@ step while any item in the current step fails.
 - [Pixel Beef devlog — adding light and depth to a pixel art game](https://pixel-beef.itch.io/xdasher/devlog/192949/4-things-we-did-to-add-light-and-depth-to-our-pixel-art-game) — rim-light shader on sprite outermost pixels for depth.
 - [Manabit — Hue Shifting](https://manabit.app/tutorials/hue-shifting/) and [Pixel-Editor — Color Theory for Pixel Art](https://www.pixel-editor.com/articles/color-theory-for-pixel-art) — per-step hue rotation of ~15°, ≤ ~45° across a ramp, saturation up into shadow / down into highlight.
 
-*Pixel Logic (Michafrar) was not directly consulted; the outlining, AA and banding rules here are
-synthesized from the freely available sources listed above.*
+_Pixel Logic (Michafrar) was not directly consulted; the outlining, AA and banding rules here are
+synthesized from the freely available sources listed above._
