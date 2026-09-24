@@ -1,1 +1,30 @@
-{ "title": "Bản đồ ô" }
+{
+  "title": "Bản đồ ô",
+  "cell": "Ô ({{x}}, {{y}})",
+  "create": {
+    "heading": "Chưa có bản đồ ô",
+    "body": "Tạo bản đồ để bắt đầu đặt ô lên nền này.",
+    "tileSize": "Kích thước ô",
+    "columns": "Số cột",
+    "rows": "Số hàng",
+    "submit": "Tạo"
+  },
+  "tiles": {
+    "title": "Ô vật liệu",
+    "eraser": "Tẩy",
+    "empty": "Chưa có ô vật liệu nào phù hợp với bản đồ này."
+  },
+  "layers": {
+    "title": "Lớp",
+    "parallax": "Thị sai",
+    "parallaxFor": "Thị sai của {{name}}",
+    "visible": "Hiển thị",
+    "visibleFor": "Hiện {{name}}",
+    "remove": "Xoá",
+    "name": "Tên",
+    "add": "Thêm lớp"
+  },
+  "preview": {
+    "title": "Xem trước"
+  }
+}

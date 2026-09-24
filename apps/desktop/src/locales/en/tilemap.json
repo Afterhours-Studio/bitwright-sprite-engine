@@ -1,1 +1,30 @@
-{ "title": "Tilemap" }
+{
+  "title": "Tilemap",
+  "cell": "Cell ({{x}}, {{y}})",
+  "create": {
+    "heading": "No tilemap yet",
+    "body": "Create a map to start placing tiles on this background.",
+    "tileSize": "Tile size",
+    "columns": "Columns",
+    "rows": "Rows",
+    "submit": "Create"
+  },
+  "tiles": {
+    "title": "Tiles",
+    "eraser": "Eraser",
+    "empty": "No tile assets fit this map yet."
+  },
+  "layers": {
+    "title": "Layers",
+    "parallax": "Parallax",
+    "parallaxFor": "Parallax for {{name}}",
+    "visible": "Visible",
+    "visibleFor": "Show {{name}}",
+    "remove": "Remove",
+    "name": "Name",
+    "add": "Add layer"
+  },
+  "preview": {
+    "title": "Preview"
+  }
+}
