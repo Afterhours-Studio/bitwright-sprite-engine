@@ -56,7 +56,6 @@ vi.mock('@/lib/api', async () => {
 function info(root: string, overrides: Partial<StorageInfo> = {}): StorageInfo {
   return {
     root,
-    spritesDir: `${root}/sprites`,
     defaultRoot: 'C:/Users/dev/AppData/bitwright',
     isDefault: root === 'C:/Users/dev/AppData/bitwright',
     freeBytes: 1_000_000,
