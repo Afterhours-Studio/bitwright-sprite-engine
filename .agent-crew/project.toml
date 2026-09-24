@@ -3,7 +3,7 @@
 branch = "main"                              # tasks land here, one commit each
 worktrees = "../bitwright-crew"              # task worktrees: ../bitwright-crew/<task>
 # Heavy ignored directories linked into every worktree instead of rebuilt.
-shared = ["node_modules", "apps/desktop/node_modules", "apps/desktop/src-tauri/target", "packages/engine/.venv"]
+shared = ["node_modules", "apps/desktop/node_modules", "apps/desktop/src-tauri/target", "apps/desktop/src-tauri/binaries", "packages/engine/.venv"]
 checks = ["text", "strays", "rust-modules"]
 ignore_strays = []
 max_steps = 25
