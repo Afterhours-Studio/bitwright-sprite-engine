@@ -40,6 +40,7 @@ vi.mock('@/lib/document', () => ({
   stepState: vi.fn(),
   stepCheck: vi.fn(),
   stepAdvance: vi.fn(),
+  stepRevisit: vi.fn(),
   onDocumentChanged: vi.fn(),
   onPaletteChanged: vi.fn(),
   onStepChanged: vi.fn(),
@@ -283,6 +284,68 @@ describe('useDocumentStore', () => {
 
     const state = useDocumentStore.getState();
     expect(state.error).toBe('step.gate_failed');
+    expect(state.step?.step).toBe('flats');
+    expect(state.asset?.step).toBe('flats');
+  });
+
+  it('advances without forcing when no option is given', async () => {
+    vi.mocked(documents.stepAdvance).mockResolvedValue({ ok: true, value: STEP });
+
+    await useDocumentStore.getState().open('asset-1');
+    await useDocumentStore.getState().advance();
+
+    expect(documents.stepAdvance).toHaveBeenCalledWith('asset-1', false);
+  });
+
+  it('passes a forced advance to the shell', async () => {
+    const advanced: StepState = {
+      ...STEP,
+      step: 'shadow',
+      canAdvance: true,
+      gate: { ...STEP.gate, step: 'shadow', pass: true },
+    };
+    vi.mocked(documents.stepAdvance).mockResolvedValue({ ok: true, value: advanced });
+
+    await useDocumentStore.getState().open('asset-1');
+    await useDocumentStore.getState().advance({ force: true });
+
+    expect(documents.stepAdvance).toHaveBeenCalledWith('asset-1', true);
+    const state = useDocumentStore.getState();
+    expect(state.step?.step).toBe('shadow');
+    expect(state.asset?.step).toBe('shadow');
+    expect(state.gate?.step).toBe('shadow');
+  });
+
+  it('revisits an earlier step and records why a refusal failed', async () => {
+    const revisited: StepState = {
+      ...STEP,
+      step: 'silhouette',
+      gate: { ...STEP.gate, step: 'silhouette' },
+    };
+    vi.mocked(documents.stepRevisit).mockResolvedValue({ ok: true, value: revisited });
+
+    await useDocumentStore.getState().open('asset-1');
+    await useDocumentStore.getState().revisit('silhouette');
+
+    expect(documents.stepRevisit).toHaveBeenCalledWith('asset-1', 'silhouette');
+    const state = useDocumentStore.getState();
+    expect(state.step?.step).toBe('silhouette');
+    expect(state.asset?.step).toBe('silhouette');
+    expect(state.gate?.step).toBe('silhouette');
+    expect(state.error).toBeNull();
+  });
+
+  it('records why a revisit was refused and leaves the step where it was', async () => {
+    vi.mocked(documents.stepRevisit).mockResolvedValue({
+      ok: false,
+      error: { code: 'step.not_found', detail: 'nope' },
+    });
+
+    await useDocumentStore.getState().open('asset-1');
+    await useDocumentStore.getState().revisit('nope');
+
+    const state = useDocumentStore.getState();
+    expect(state.error).toBe('step.not_found');
     expect(state.step?.step).toBe('flats');
     expect(state.asset?.step).toBe('flats');
   });

@@ -409,11 +409,25 @@ pub async fn step_advance<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, DocumentState>,
     asset_id: AssetId,
+    force: bool,
 ) -> Result<StepState> {
-    let (step, result) = run(&state, move |s| s.step_advance(asset_id)).await?;
+    let (step, result) = run(&state, move |s| s.step_advance_as(asset_id, "user", force)).await?;
     notify_changed(&app, &state, asset_id, &result);
     step_event(&app, asset_id, step.gate.clone());
     Ok(step)
+}
+#[tauri::command]
+pub async fn step_revisit<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, DocumentState>,
+    asset_id: AssetId,
+    step: String,
+) -> Result<StepState> {
+    let (state_after, result) =
+        run(&state, move |s| s.step_revisit(asset_id, &step, "user")).await?;
+    notify_changed(&app, &state, asset_id, &result);
+    step_event(&app, asset_id, state_after.gate.clone());
+    Ok(state_after)
 }
 
 #[cfg(test)]

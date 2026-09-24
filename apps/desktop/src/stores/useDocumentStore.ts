@@ -59,6 +59,7 @@ import {
   paletteWrite,
   stepAdvance,
   stepCheck,
+  stepRevisit,
   stepState,
 } from '@/lib/document';
 import type {
@@ -112,7 +113,9 @@ interface DocumentState {
   /** Re-evaluates the current step's gates without advancing. */
   check: () => Promise<void>;
   /** Advances to the next step, which fails unless the gate passes. */
-  advance: () => Promise<void>;
+  advance: (options?: { force?: boolean }) => Promise<void>;
+  /** Returns the workflow to a step, which fails unless the move is allowed. */
+  revisit: (step: string) => Promise<void>;
   /**
    * Applies one change event: re-reads the roles it names, and nothing else.
    *
@@ -303,13 +306,13 @@ export const useDocumentStore = create<DocumentState>((set, get) => {
       set({ gate: report.value, loading: false });
     },
 
-    advance: async () => {
+    advance: async (options?: { force?: boolean }) => {
       const assetId = openAsset();
       if (assetId === null) {
         return;
       }
       set({ loading: true, error: null });
-      const advanced = await stepAdvance(assetId);
+      const advanced = await stepAdvance(assetId, options?.force ?? false);
       if (!advanced.ok) {
         // A refused advance is the ordinary outcome of a gate that did not
         // pass, so the reason code is recorded and the step is left where it
@@ -321,6 +324,27 @@ export const useDocumentStore = create<DocumentState>((set, get) => {
         step: advanced.value,
         gate: advanced.value.gate,
         asset: withStep(get().asset, advanced.value),
+        loading: false,
+      });
+    },
+
+    revisit: async (step: string) => {
+      const assetId = openAsset();
+      if (assetId === null) {
+        return;
+      }
+      set({ loading: true, error: null });
+      const revisited = await stepRevisit(assetId, step);
+      if (!revisited.ok) {
+        // As with an advance, a refused revisit is a decision about the
+        // workflow rather than a broken document, so the step stays put.
+        fail(revisited.error.code);
+        return;
+      }
+      set({
+        step: revisited.value,
+        gate: revisited.value.gate,
+        asset: withStep(get().asset, revisited.value),
         loading: false,
       });
     },

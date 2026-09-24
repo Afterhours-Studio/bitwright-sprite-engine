@@ -209,8 +209,13 @@ export function stepCheck(assetId: string): Promise<ShellResult<GateReport>> {
 }
 
 /** Advances to the next step, which fails unless the current gate passes. */
-export function stepAdvance(assetId: string): Promise<ShellResult<StepState>> {
-  return invoke<StepState>('step_advance', { assetId });
+export function stepAdvance(assetId: string, force = false): Promise<ShellResult<StepState>> {
+  return invoke<StepState>('step_advance', { assetId, force });
+}
+
+/** Returns the workflow to an earlier step, so its gates are re-checked from there. */
+export function stepRevisit(assetId: string, step: string): Promise<ShellResult<StepState>> {
+  return invoke<StepState>('step_revisit', { assetId, step });
 }
 
 /**

@@ -570,6 +570,7 @@ pub fn handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + 
         document::step_state,
         document::step_check,
         document::step_advance,
+        document::step_revisit,
         sidecar_status,
         engine_conform,
         engine_sprites,
