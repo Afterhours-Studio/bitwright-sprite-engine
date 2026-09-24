@@ -1,3 +1,23 @@
 {
-  "title": "Ảnh tham chiếu"
+  "title": "Ảnh tham chiếu",
+  "noDocument": "Mở một asset để đưa vào ảnh tham chiếu.",
+  "empty": "Chưa có ảnh tham chiếu nào.",
+  "import": "Nhập ảnh",
+  "importing": "Đang nhập…",
+  "previewAlt": "Xem trước {{name}}",
+  "size": "{{width}} × {{height}}",
+  "grid": "Lưới {{width}} × {{height}} (độ tin cậy {{confidence}}%)",
+  "noGrid": "Không phát hiện lưới",
+  "applyPalette": "Áp dụng bảng màu",
+  "delete": "Xoá",
+  "deleteTitle": "Xoá ảnh tham chiếu này?",
+  "deleteBody": "\"{{name}}\" sẽ bị xoá. Không thể hoàn tác.",
+  "warnings": {
+    "conform": {
+      "already_at_size": "Ảnh đã đúng kích thước của asset.",
+      "background_uncertain": "Không xác định được màu nền.",
+      "grid_anisotropic": "Các ô lưới phát hiện được không vuông.",
+      "grid_not_found": "Không phát hiện được lưới trong ảnh."
+    }
+  }
 }

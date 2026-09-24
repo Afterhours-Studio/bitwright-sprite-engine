@@ -1,3 +1,23 @@
 {
-  "title": "Reference"
+  "title": "Reference",
+  "noDocument": "Open an asset to bring in a reference.",
+  "empty": "No references yet.",
+  "import": "Import",
+  "importing": "Importing…",
+  "previewAlt": "Preview of {{name}}",
+  "size": "{{width}} × {{height}}",
+  "grid": "Grid {{width}} × {{height}} ({{confidence}}% confidence)",
+  "noGrid": "No grid detected",
+  "applyPalette": "Apply palette",
+  "delete": "Delete",
+  "deleteTitle": "Delete this reference?",
+  "deleteBody": "\"{{name}}\" will be removed. This cannot be undone.",
+  "warnings": {
+    "conform": {
+      "already_at_size": "The picture was already the asset's size.",
+      "background_uncertain": "Could not tell which colour is the background.",
+      "grid_anisotropic": "The detected grid cells are not square.",
+      "grid_not_found": "No grid could be detected in the picture."
+    }
+  }
 }
