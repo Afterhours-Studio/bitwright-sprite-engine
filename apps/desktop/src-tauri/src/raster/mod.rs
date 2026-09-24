@@ -23,6 +23,7 @@ pub mod gates;
 pub mod grid;
 pub mod ops;
 pub mod palette;
+pub mod png;
 pub mod shading;
 
 pub use document_ops::Op;
