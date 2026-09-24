@@ -43,6 +43,8 @@ pub trait DocumentHost: Send + Sync {
     /// Bring it up in the window.
     fn opened(&self, asset: AssetId);
     fn activity(&self, session: &str, tool: &str, asset: AssetId);
+    /// After a tilemap write, so an open view reloads.
+    fn tilemap_changed(&self, asset: AssetId);
 }
 
 /// Takes the lock the store is held behind and runs one unit of work on it.
@@ -116,6 +118,16 @@ impl<R: Runtime> DocumentHost for TauriHost<R> {
     fn activity(&self, session: &str, tool: &str, asset: AssetId) {
         document::agent_activity(&self.app, session.to_owned(), tool.to_owned(), asset);
     }
+
+    fn tilemap_changed(&self, asset: AssetId) {
+        if self
+            .app
+            .emit("tilemap://changed", serde_json::json!({ "assetId": asset }))
+            .is_err()
+        {
+            log::warn!("failed to emit tilemap://changed for {asset:?}");
+        }
+    }
 }
 
 /// The host for stdio and for tests: it drives the document and tells nobody.
@@ -141,6 +153,7 @@ impl DocumentHost for HeadlessHost {
     fn step_changed(&self, _asset: AssetId, _gate: &GateReport) {}
     fn opened(&self, _asset: AssetId) {}
     fn activity(&self, _session: &str, _tool: &str, _asset: AssetId) {}
+    fn tilemap_changed(&self, _asset: AssetId) {}
 }
 
 #[cfg(test)]
