@@ -1,0 +1,16 @@
+# Agent Crew project settings for Bitwright. Commit this file.
+
+branch = "main"                              # tasks land here, one commit each
+worktrees = "../bitwright-crew"              # task worktrees: ../bitwright-crew/<task>
+# Heavy ignored directories linked into every worktree instead of rebuilt.
+shared = ["node_modules", "apps/desktop/node_modules", "apps/desktop/src-tauri/target", "packages/engine/.venv"]
+checks = ["text", "strays", "rust-modules"]
+ignore_strays = []
+max_steps = 25
+
+[verify]
+# Each prints only failures and ends with RESULT: PASS or RESULT: FAIL.
+rust = "powershell -NoProfile -ExecutionPolicy Bypass -File .agent-crew/verify.ps1 -Rust"
+ts = "powershell -NoProfile -ExecutionPolicy Bypass -File .agent-crew/verify.ps1 -Ts"
+docs = "powershell -NoProfile -ExecutionPolicy Bypass -File .agent-crew/verify.ps1 -Docs"
+all = "powershell -NoProfile -ExecutionPolicy Bypass -File .agent-crew/verify.ps1 -Rust -Ts -Docs"
