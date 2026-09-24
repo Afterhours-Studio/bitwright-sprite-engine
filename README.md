@@ -1,6 +1,6 @@
 # Bitwright - Sprite Engine
 
-Cross-platform sprite generation engine for pixel art games.
+Agent-driven pixel art editor for games.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://github.com/Afterhours-Studio/bitwright-sprite-engine/blob/main/LICENSE)
 [![CI](https://github.com/Afterhours-Studio/bitwright-sprite-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/Afterhours-Studio/bitwright-sprite-engine/actions/workflows/ci.yml)
@@ -8,25 +8,13 @@ Cross-platform sprite generation engine for pixel art games.
 [![Release](https://img.shields.io/github/v/release/Afterhours-Studio/bitwright-sprite-engine?include_prereleases&sort=semver)](https://github.com/Afterhours-Studio/bitwright-sprite-engine/releases)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)](https://github.com/Afterhours-Studio/bitwright-sprite-engine/blob/main/docs/getting-started/system-requirements.md)
 
-Bitwright is a desktop application that generates pixel art character sprites
-with a diffusion model. Generation runs on a local GPU, or through a remote
-inference API, whichever you choose in Settings.
-
-![The Generate screen in dark mode](docs/assets/screenshots/generate-dark.png)
-
-<details>
-<summary><b>More screenshots</b></summary>
-
-|          | Dark                                              | Light                                              |
-| -------- | ------------------------------------------------- | -------------------------------------------------- |
-| Generate | [view](docs/assets/screenshots/generate-dark.png) | [view](docs/assets/screenshots/generate-light.png) |
-| Gallery  | [view](docs/assets/screenshots/gallery-dark.png)  | [view](docs/assets/screenshots/gallery-light.png)  |
-| Settings | [view](docs/assets/screenshots/settings-dark.png) | [view](docs/assets/screenshots/settings-light.png) |
-
-Captured on Windows 11. The backends are stubs in this release, so the canvas
-shows the empty state rather than a generated sprite.
-
-</details>
+Bitwright is a desktop pixel art editor whose canvas an MCP client — an AI agent
+— drives. The document is indexed: every pixel is a palette slot, so a layer
+reads back as text and an agent can see exactly what it drew. Layers are the
+workflow steps of a sprite — silhouette, flats, shadow-core, shadow-deep, light,
+outline, detail, rim, accent — and each step has a gate measured from the pixels
+rather than asserted by the agent. The engine chooses the shading colours; the
+agent places them.
 
 ## Table of contents
 
@@ -42,22 +30,51 @@ shows the empty state rather than a generated sprite.
 
 ## Features
 
-- Generates pixel art sprites from a text prompt.
-- Runs on your own GPU or through a remote API. You choose; the application
-  never falls back to a remote service on its own.
-- NVIDIA (CUDA), Apple Silicon (Metal), and remote HTTP endpoints.
-- Post-processing built for sprites: background removal, palette quantization,
-  pixel grid snapping, and sprite sheet packing.
-- Engines declare what they support, and the interface disables the rest, so an
-  option is never offered that was always going to fail.
+- An MCP client drives the canvas, and you watch it draw. The editor shows
+  "Agent drawing · <tool>" while a tool call is in flight, and an `open_asset`
+  call switches the window to the asset the agent is working on.
+- Indexed document: pixels are palette slots, so a 64 by 64 layer reads back as
+  sixty-four lines of sixty-four characters with rulers, and an agent can count
+  to the pixel it means.
+- Layers are the workflow steps. Each step writes its own layer, so revising the
+  shading does not destroy the detail pass.
+- Gates are computed from the pixel buffer. A silhouette that is two
+  disconnected regions does not pass, whatever the agent says about it.
+- The engine chooses shading colours; the agent places them. No tool accepts a
+  hex value for shading.
+- The MCP server runs inside the application, with two transports: **HTTP
+  Local**, a loopback endpoint with a bearer token, and **stdio**, for clients
+  that spawn the process themselves.
+- Settings → **Agent connection** card: transport, status, URL with copy, token
+  (masked, with Reveal, Copy and Regenerate), connected sessions, one row per
+  client (Claude Code, Claude Desktop, Cursor) with Register and Remove,
+  **Configure all detected clients**, and **Manual configuration** — a JSON
+  snippet for any other client.
+- Client configuration is written for Claude Code (`~/.claude.json`), Cursor
+  (`~/.cursor/mcp.json`) and Claude Desktop (`claude_desktop_config.json`,
+  stdio). Only the `mcpServers.bitwright` key is written, a `.bak` is kept, and
+  invalid JSON is never overwritten.
+- You can draw too. The tool panel has pencil, fill, line and shape tools, and
+  your strokes and the agent's tool calls end in the same buffer and the same
+  undo history.
 - Windows, macOS, and Linux, from one codebase.
 - English and Vietnamese, with a translation system that fails the build when a
   key is missing from either.
 - Dark and light themes, with contrast and elevation verified in CI rather than
   by eye.
-- No telemetry. Prompts stay on the machine unless you select a remote engine.
-- The engine is authenticated and loopback only, so no other process on the
-  machine can drive it, and a web page cannot reach it through DNS rebinding.
+- No telemetry. The MCP server never reaches the network, never runs commands,
+  and reads or writes no files but the document store.
+- The HTTP transport is authenticated and loopback only, so no other process on
+  the machine can drive it, and a web page cannot reach it through DNS
+  rebinding. Requests carrying an `Origin` header are refused with 403, and a
+  wrong or missing token is 401.
+
+Thirty tools are registered today, listed in
+[the MCP tool catalogue](docs/architecture/mcp-tools.md). Four are not:
+`read_reference` and `extract_palette` arrive with reference import in Phase 3,
+and `export_png` and `export_sheet` arrive with export in Phase 4. A tool whose
+machinery does not exist yet is absent from `tools/list` rather than answered
+with a placeholder.
 
 ## Installation
 
@@ -87,9 +104,6 @@ Applications.
 The first launch is blocked, because pre-1.0 builds are not notarised. Open
 **System Settings**, then **Privacy & Security**, and choose **Open Anyway**.
 
-Local generation needs Apple Silicon. An Intel Mac runs the application against
-a remote API.
-
 </details>
 
 <details>
@@ -116,45 +130,52 @@ sudo dnf install webkit2gtk4.1         # Fedora
 
 </details>
 
-No model weights are included in any download. The first generation fetches the
-model you selected, under its own licence. See [MODELS.md](MODELS.md).
-
 ## Quick start
 
-1. Open **Settings**, then **Engine**. Every engine is listed with its
-   availability, and an unavailable one says why. Press **Use this engine** on
-   the one you want.
-2. Open **Generate** and write a prompt:
+1. Open **Settings**, then **Agent connection**. Leave the transport at **HTTP
+   Local**: it binds a loopback port and issues a token, so the client has to be
+   on this machine.
+2. Press **Configure all detected clients**. Bitwright looks for Claude Code,
+   Claude Desktop and Cursor, writes the server entry into each one's
+   configuration, and lists what it found. Each client has its own row with
+   **Register** and **Remove**. If your client is not one of the three, **Manual
+   configuration** on the same card is the JSON snippet to paste in yourself.
+3. Restart the client so it picks up the new server. The connected sessions list
+   on the card turns over when it connects. A client that spawns the process
+   itself uses stdio instead — `bitwright --mcp-stdio` — and carries no token,
+   because the spawning process is the trust boundary.
+4. In your client, ask the agent to open an asset and draw it:
 
    ```
-   a knight in silver armour, side view, idle pose
+   Open the "knight" asset in my "Verdance" project in Bitwright and draw it:
+   a knight in plate armour, side view, idle.
    ```
 
-3. Leave the size at 64 by 64 and the post-processing at its defaults.
-4. Press **Generate**.
+The agent works through the ordered steps, and each step writes its own layer.
+Watch the canvas while this happens: a tool call reaches the window as a direct
+event, so the sprite appears as it is drawn rather than arriving finished.
 
-The first run on a local engine downloads the model, which is several gigabytes.
-The result appears on the checkerboard canvas, which shows which pixels are
-transparent.
-
-To iterate, note the seed of a result you like, put it in the **Seed** field,
-and change one parameter at a time.
+Saving is implicit. The document is a row in a SQLite file under your data root,
+and there is no save button because there is nothing to save. Export is the
+explicit action, and it is Phase 4.
 
 More in [the quick start guide](docs/getting-started/quick-start.md).
 
 ## Configuration
 
-Most settings are in the application. The engine also reads environment
-variables, each prefixed `BITWRIGHT_`.
+Most settings are in the application. The data root can also be set with an
+environment variable.
 
-| Setting   | Variable              | Default      | Meaning                               |
-| --------- | --------------------- | ------------ | ------------------------------------- |
-| Data root | `BITWRIGHT_DATA_ROOT` | per platform | Where projects and sprites are kept   |
-| Port      | `BITWRIGHT_PORT`      | `0`          | Engine port. Zero asks for a free one |
-| Log level | `BITWRIGHT_LOG_LEVEL` | `INFO`       | Engine log level                      |
+| Setting   | Variable              | Default                 | Meaning                                      |
+| --------- | --------------------- | ----------------------- | -------------------------------------------- |
+| Data root | `BITWRIGHT_DATA_ROOT` | platform local app-data | Where `bitwright.db` and `mcp.json` are kept |
+| Log level | `BITWRIGHT_LOG_LEVEL` | `INFO`                  | Sidecar log level                            |
 
-Full list, and the generation parameters, in
-[the configuration reference](docs/reference/configuration.md).
+The data root holds `bitwright.db` — projects, assets and the op log — and
+`mcp.json`, which records the transport, the port and the token. The port is
+kept between runs when it is free.
+
+Full list in [the configuration reference](docs/reference/configuration.md).
 
 ## Development
 
@@ -230,13 +251,10 @@ Installers land in `apps/desktop/src-tauri/target/release/bundle/`.
 ```
 apps/desktop/            React frontend and the Tauri shell
   src/                   Components, features, stores, hooks, locales
-  src-tauri/             Rust: window, decorations, sidecar lifecycle
-packages/engine/         Python engine, run as a sidecar process
+  src-tauri/             Rust: window, store, raster core, MCP server
+packages/engine/         Python sidecar, kept for conform (reference import)
   bitwright_engine/
     api/                 FastAPI application, routes, schemas
-    backends/            The backend interface and its implementations
-    pipeline/            Generation and post-processing
-    models/              Model registry and download cache
 docs/                    Guides, architecture, decision records
 scripts/                 Setup, sidecar build, contrast and licence checks
 ```
@@ -245,44 +263,47 @@ scripts/                 Setup, sidecar build, contrast and licence checks
 
 ## Architecture
 
-Three processes, each in the language that suits its job:
+The application is two processes — the Rust shell and the Python sidecar — and
+the agent is a client of the shell:
 
 ```
-React (webview)  --Tauri IPC-->  Rust shell  --spawn-->  Python sidecar
-       |                                                       |
-       +-------------------- loopback HTTP --------------------+
+React (webview)   --Tauri IPC-->   Rust shell   --loopback HTTP-->   Python sidecar
+                                     |   (store, raster core,          (conform only,
+                                     |    MCP server)                   reference import)
+                        loopback HTTP / stdio
+                                     |
+                              MCP client (agent)
 ```
 
-The Rust shell owns the window, the custom decorations, the platform background
-effect, and the lifetime of the sidecar. The Python sidecar owns model loading,
-generation, and post-processing, and exposes them over a loopback HTTP API. The
-frontend talks to Rust about the window and to the sidecar about generation.
+The Rust shell owns the window, the document store, the raster core and the MCP
+server. The frontend talks to Rust over Tauri IPC for the document and the
+window. The MCP server exposes the tool catalogue over loopback HTTP at
+`http://127.0.0.1:<port>/mcp` with a bearer token, or over stdio when a client
+spawns the process with `bitwright --mcp-stdio`; the spawning process is the
+trust boundary there, so stdio carries no token.
 
-Every backend answers the same three questions, and nothing else in the
-application knows how generation works: whether it can run here, what optional
-features it supports, and how to generate.
+The shell spawns the Python sidecar at startup. The sidecar serves conform —
+reference import — only, over its own authenticated loopback API; every other
+tool is answered by the Rust shell itself.
 
-Details in [the architecture overview](docs/architecture/overview.md), and the
-reasoning in [the decision records](docs/architecture/decisions/0001-record-architecture-decisions.md).
+Details in [the architecture overview](docs/architecture/overview.md), the tool
+catalogue in [the MCP tools](docs/architecture/mcp-tools.md), and the reasoning
+in [the decision records](docs/architecture/decisions/0001-record-architecture-decisions.md).
 
 ## Roadmap
 
-- [x] Backend abstraction with capability negotiation
-- [x] CUDA, Apple Silicon, and remote API backends
-- [x] Python sidecar with lifecycle management and graceful shutdown
-- [x] Custom window decorations and platform background effects
-- [x] Colour token system with contrast checks in CI
-- [x] English and Vietnamese, with build-time parity checks
-- [x] Token authentication on the engine, and no direct webview access to it
-- [x] Orphan protection, so a crashed shell cannot leave the GPU held
-- [ ] Real diffusion pipelines behind the backend stubs
-- [ ] Model downloading, with the licence shown before the fetch
-- [ ] ControlNet pose control
-- [ ] IP-Adapter reference images
-- [ ] Animation frames from a single reference sprite
-- [ ] Sprite sheet export with engine-specific metadata
-- [ ] A persistent gallery, with tags and search
-- [ ] Signed and notarised builds
+- [x] Phase 0 — Demolition and foundations: the diffusion generator deleted,
+      the pivot recorded
+- [x] Phase 1 — Document model and canvas: the SQLite store, the raster core,
+      IPC, the project tree, the canvas and the paint tools
+- [x] Phase 2 — MCP: the server, both transports, the tools, client
+      configuration, live sync
+- [ ] Phase 3 — Workflow and skills: the step rail and gate results in the
+      interface, the HD-2D skill pack and its installer, reference import
+- [ ] Phase 4 — Assets, export, polish: tile and tilemap backgrounds, PNG and
+      sheet export, the i18n sweep, these documents and their screenshots
+
+The phases, and what each one contains, are in [the plan](docs/plan/PLAN.md).
 
 ## Contributing
 
@@ -304,11 +325,6 @@ Licensed under the GNU Affero General Public License v3.0 only.
 
 Copyright (C) 2026 Afterhours Studio. See [LICENSE](LICENSE) for the full text
 and [NOTICE](NOTICE) for the notice.
-
-Machine learning model weights are **not** part of this program and are not
-covered by the AGPL. They are downloaded at first use and remain under their own
-licences, some of which restrict how the output may be used. Read
-[MODELS.md](MODELS.md) before generating anything you intend to ship.
 
 Third party dependencies and their licences are listed in
 [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md), and checked in CI.

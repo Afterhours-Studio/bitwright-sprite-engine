@@ -17,14 +17,14 @@ Paths below are relative to `apps/desktop/src-tauri/src/` for Rust and
 
 ## Scope moved out of Phase 2
 
-Three tools in the catalogue need machinery that later phases build, and are
+Four tools in the catalogue need machinery that later phases build, and are
 registered by those phases rather than stubbed here:
 
-| Tool                     | Needs                                        | Registered by |
-| ------------------------ | -------------------------------------------- | ------------- |
-| `read_reference`         | conformed references from the sidecar        | 3.3           |
-| `extract_palette`        | the sidecar's weighted k-means               | 3.3           |
-| `export_png`, `export_sheet` | the export root and writer               | 4.2           |
+| Tool                         | Needs                                 | Registered by |
+| ---------------------------- | ------------------------------------- | ------------- |
+| `read_reference`             | conformed references from the sidecar | 3.3           |
+| `extract_palette`            | the sidecar's weighted k-means        | 3.3           |
+| `export_png`, `export_sheet` | the export root and writer            | 4.2           |
 
 The Settings panel's **Install Skills** button belongs to 3.2 for the same
 reason. A tool that is not registered is absent from `tools/list`; nothing in
@@ -120,15 +120,15 @@ Every task here owns only the files listed. Tool tasks test against
 `HeadlessHost` over `Store::memory()`, in a `#[cfg(test)]` module in the file
 they own.
 
-| Task | Owns | Builds |
-| ---- | ---- | ------ |
-| **B.1** | `mcp/tools/orientation.rs` | `list_projects`, `create_project`, `list_assets`, `create_asset`, `open_asset`, `get_style_rules` |
-| **B.2** | `mcp/grid.rs`, `mcp/tools/read.rs` | the grid text codec (slot ↔ character, legend, rulers); `read_canvas`, `read_region`, `describe_palette`, `diff_layers` |
-| **B.3** | `mcp/tools/write.rs` | `paste_grid`, `draw_runs`, `set_pixels` (512 cap), `draw_shape`, `fill_region`, `mirror`, `translate`, `clear_layer`, each behind `guard_step` with `force` |
-| **B.4** | `mcp/tools/shading.rs`, `mcp/tools/palette.rs` | `shade`, `outline`, `antialias`; `set_palette` (hex in, rules checked, `palette.rule_violation` naming the ramp), `create_variation` |
-| **B.5** | `mcp/tools/workflow.rs`, `mcp/tools/history.rs`, `store/workflow.rs` | `get_step`, `check_step`, `advance_step` (forced advances recorded), `revisit_step` (with `Store::step_revisit`); `undo`/`redo` with `count`, `read_history` |
-| **B.6** | `mcp/server.rs`, `mcp/stdio.rs`, `mcp/config.rs`, and their three `pub mod` lines in `mcp/mod.rs` | streamable HTTP on loopback, bearer token, `Origin` refused, a `Session` per MCP session, `agent://session` events; stdio over `HeadlessHost`; persisted port and token; the Tauri commands below |
-| **B.7** | `mcp/clients.rs`, and its `pub mod` line in `mcp/mod.rs` | detection and config writing for Claude Code, Claude Desktop and Cursor; register, unregister, manual snippet; the Tauri commands below |
+| Task    | Owns                                                                                              | Builds                                                                                                                                                                                                                                                                  |
+| ------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **B.1** | `mcp/tools/orientation.rs`                                                                        | `list_projects`, `create_project`, `list_assets`, `create_asset`, `open_asset`, `get_style_rules`                                                                                                                                                                       |
+| **B.2** | `mcp/grid.rs`, `mcp/tools/read.rs`                                                                | the grid text codec (slot ↔ character, legend, rulers); `read_canvas`, `read_region`, `describe_palette`, `diff_layers`                                                                                                                                                 |
+| **B.3** | `mcp/tools/write.rs`                                                                              | `paste_grid`, `draw_runs`, `set_pixels` (512 cap), `draw_shape`, `fill_region`, `mirror`, `translate`, `clear_layer`, each behind `guard_step` with `force`                                                                                                             |
+| **B.4** | `mcp/tools/shading.rs`, `mcp/tools/palette.rs`                                                    | `shade`, `outline`, `antialias`; `set_palette` (hex in, rules checked, `palette.rule_violation` naming the ramp), `create_variation`                                                                                                                                    |
+| **B.5** | `mcp/tools/workflow.rs`, `mcp/tools/history.rs`, `store/workflow.rs`                              | `get_step`, `check_step`, `advance_step` (forced advances recorded), `revisit_step` (with `Store::step_revisit`); `undo`/`redo` with `count`, `read_history`                                                                                                            |
+| **B.6** | `mcp/server.rs`, `mcp/stdio.rs`, `mcp/config.rs`, and their three `pub mod` lines in `mcp/mod.rs` | streamable HTTP on loopback, bearer token, `Origin` refused, a `Session` per MCP session, `agent://session` events; stdio over `HeadlessHost`; persisted port and token; the Tauri commands below                                                                       |
+| **B.7** | `mcp/clients.rs`, and its `pub mod` line in `mcp/mod.rs`                                          | detection and config writing for Claude Code, Claude Desktop and Cursor; register, unregister, manual snippet; the Tauri commands below                                                                                                                                 |
 | **B.8** | `features/settings/mcp/**`, `features/editor/live/**`, `types/mcp.ts`, `lib/mcp.ts`, `locales/**` | the Settings panel: transport, port, token, session list, per-client rows, Configure All Detected Clients, manual config; the agent-activity indicator and throttled refresh on `document://changed` and `agent://*`; every string both need, in English and Vietnamese |
 
 B.1–B.5 depend only on A.1. B.6 depends on A.1 and serves whatever
@@ -192,3 +192,25 @@ findings. Findings go back to the author, and the pair repeat until the reviewer
 has nothing. Then the gate is run and read: `cargo build`, `cargo test`,
 `npm run typecheck`, `npm run lint`, `npm run test`, `pytest`. Phase 3 starts
 when all of them pass on the integrated branch.
+
+---
+
+## Status
+
+Phase 2 is complete. The `rmcp` server runs inside the application over two
+transports — loopback HTTP with a bearer token, and stdio via `--mcp-stdio` —
+and registers the thirty tools of the catalogue. The Settings **Agent
+connection** card, client detection and configuration writing, and the live sync
+are built.
+
+Four tools moved out of the phase, as recorded in
+[Scope moved out of Phase 2](#scope-moved-out-of-phase-2), and are registered by
+the phases that build their machinery:
+
+- `read_reference` and `extract_palette` — Phase 3, reference import.
+- `export_png` and `export_sheet` — Phase 4, export.
+- The **Install Skills** button — Phase 3, the skill pack.
+
+`useLiveRefresh` was dropped: the events are already coalesced per frame in
+`commands/document.rs`, so a second throttling layer in the renderer would only
+add latency.

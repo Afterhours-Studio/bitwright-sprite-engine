@@ -13,6 +13,29 @@ It assumes [the document model](document-model.md).
 
 ---
 
+## Status
+
+Phase 2 is built, and the server registers thirty tools. Four tools in the
+catalogue need machinery that later phases build, so they are absent from
+`tools/list` until then; nothing answers with a placeholder.
+
+| Section               | Tools                                                                                                      | Available now | Delivered by |
+| --------------------- | ---------------------------------------------------------------------------------------------------------- | ------------- | ------------ |
+| 3. Orientation        | `list_projects`, `create_project`, `list_assets`, `create_asset`, `open_asset`, `get_style_rules`          | yes           | Phase 2      |
+| 4. Reading the canvas | `read_canvas`, `read_region`, `describe_palette`, `diff_layers`                                            | yes           | Phase 2      |
+| 4. Reading the canvas | `read_reference`                                                                                           | no            | Phase 3      |
+| 5. Writing            | `paste_grid`, `draw_runs`, `set_pixels`, `draw_shape`, `fill_region`, `mirror`, `translate`, `clear_layer` | yes           | Phase 2      |
+| 6. The shading tools  | `shade`, `outline`, `antialias`                                                                            | yes           | Phase 2      |
+| 7. Palette            | `set_palette`, `create_variation`                                                                          | yes           | Phase 2      |
+| 7. Palette            | `extract_palette`                                                                                          | no            | Phase 3      |
+| 8. The workflow       | `get_step`, `check_step`, `advance_step`, `revisit_step`                                                   | yes           | Phase 2      |
+| 9. History            | `undo`, `redo`, `read_history`                                                                             | yes           | Phase 2      |
+| 10. Export            | `export_png`, `export_sheet`                                                                               | no            | Phase 4      |
+
+The Settings panel's **Install Skills** button belongs to Phase 3 as well.
+
+---
+
 ## 1. The shape of the API, and why
 
 An agent drawing a sprite is not an agent calling `set_pixel` four thousand
@@ -32,8 +55,8 @@ one pixel. Forcing either to impersonate the other wastes tokens and invites
 mistakes.
 
 **Colour is the engine's decision, placement is the agent's.** No tool accepts a
-hex value for shading. The agent says *this region takes core shadow with light
-from the upper left*; the engine resolves which ramp step that is. This is the
+hex value for shading. The agent says _this region takes core shadow with light
+from the upper left_; the engine resolves which ramp step that is. This is the
 single largest lever on output quality, because choosing hex values by hand is
 where model-drawn pixel art turns muddy.
 
@@ -64,19 +87,19 @@ count alone catches the common failure of a write that silently did nothing.
 hint is written for a model: it says what to do instead, not merely what went
 wrong.
 
-| Code                      | Means                                                   |
-| ------------------------- | ------------------------------------------------------- |
-| `asset.not_found`         | no such asset id                                        |
-| `asset.not_open`          | the tool needs an open asset and none is open           |
-| `layer.unknown_role`      | role is not one of the workflow roles                   |
-| `layer.locked`            | the layer is locked in the interface                    |
-| `step.wrong`              | this layer does not belong to the current step          |
-| `step.gate_failed`        | `advance_step` refused; the report says why             |
-| `slot.out_of_range`       | slot number is not in the palette                       |
-| `bounds.outside`          | coordinates fall outside the canvas                     |
-| `grid.size_mismatch`      | pasted grid is not the size the target expects          |
-| `grid.bad_character`      | a character in the grid maps to no slot                 |
-| `palette.rule_violation`  | the write breaks the style's palette rules              |
+| Code                     | Means                                          |
+| ------------------------ | ---------------------------------------------- |
+| `asset.not_found`        | no such asset id                               |
+| `asset.not_open`         | the tool needs an open asset and none is open  |
+| `layer.unknown_role`     | role is not one of the workflow roles          |
+| `layer.locked`           | the layer is locked in the interface           |
+| `step.wrong`             | this layer does not belong to the current step |
+| `step.gate_failed`       | `advance_step` refused; the report says why    |
+| `slot.out_of_range`      | slot number is not in the palette              |
+| `bounds.outside`         | coordinates fall outside the canvas            |
+| `grid.size_mismatch`     | pasted grid is not the size the target expects |
+| `grid.bad_character`     | a character in the grid maps to no slot        |
+| `palette.rule_violation` | the write breaks the style's palette rules     |
 
 ---
 
@@ -101,9 +124,9 @@ Defaults to `hd2d`. Returns the project.
 {
   "projectId": "…",
   "name": "sofia-idle-south",
-  "kind": "character",      // character | prop | tile | tileset | background
-  "width": 64,              // optional; defaults come from the style preset
-  "height": 64
+  "kind": "character", // character | prop | tile | tileset | background
+  "width": 64, // optional; defaults come from the style preset
+  "height": 64,
 }
 ```
 
@@ -133,9 +156,9 @@ failing them.
 ```jsonc
 {
   "assetId": "…",
-  "layer": "silhouette",   // omit for the flattened composite
-  "region": { "x": 0, "y": 0, "w": 64, "h": 64 },   // optional
-  "rulers": true            // default true
+  "layer": "silhouette", // omit for the flattened composite
+  "region": { "x": 0, "y": 0, "w": 64, "h": 64 }, // optional
+  "rulers": true, // default true
 }
 ```
 
@@ -194,13 +217,12 @@ an earlier step is legitimate, and doing it by accident is not.
 
 ```jsonc
 {
-  "assetId": "…", "layer": "silhouette",
-  "x": 0, "y": 0,
-  "rows": [
-    "..........AAAAAAAA..............",
-    "........AAAAAAAAAAAA............"
-  ],
-  "mode": "replace"        // replace | over   (over keeps existing non-zero)
+  "assetId": "…",
+  "layer": "silhouette",
+  "x": 0,
+  "y": 0,
+  "rows": ["..........AAAAAAAA..............", "........AAAAAAAAAAAA............"],
+  "mode": "replace", // replace | over   (over keeps existing non-zero)
 }
 ```
 
@@ -211,11 +233,12 @@ tile.
 
 ```jsonc
 {
-  "assetId": "…", "layer": "shadow-core",
+  "assetId": "…",
+  "layer": "shadow-core",
   "runs": [
     { "y": 28, "x0": 10, "x1": 17, "slot": 2 },
-    { "y": 29, "x0": 8,  "x1": 19, "slot": 2 }
-  ]
+    { "y": 29, "x0": 8, "x1": 19, "slot": 2 },
+  ],
 }
 ```
 
@@ -232,12 +255,14 @@ pixels per call; past that, the agent wanted `paste_grid` or `draw_runs`.
 
 ```jsonc
 {
-  "assetId": "…", "layer": "detail",
-  "shape": "line",          // line | rect | ellipse | curve
-  "from": { "x": 12, "y": 20 }, "to": { "x": 30, "y": 34 },
+  "assetId": "…",
+  "layer": "detail",
+  "shape": "line", // line | rect | ellipse | curve
+  "from": { "x": 12, "y": 20 },
+  "to": { "x": 30, "y": 34 },
   "slot": 5,
   "fill": false,
-  "pixelPerfect": true       // drop redundant corner pixels on diagonals
+  "pixelPerfect": true, // drop redundant corner pixels on diagonals
 }
 ```
 
@@ -276,13 +301,13 @@ These are the ones where the engine decides the colour.
 ```jsonc
 {
   "assetId": "…",
-  "target": "shadow-core",      // shadow-core | shadow-deep | light | rim
-                                // the target layer IS the band; there is no
-                                // second argument that can contradict it
-  "from": "flats",              // the layer whose material slots are being shaded
-  "region": { "x": 0, "y": 0, "w": 64, "h": 64 },   // optional, defaults to all
-  "direction": "upper-left",    // omitted: taken from the style rules
-  "depth": 1                    // how many ramp steps to move; default 1
+  "target": "shadow-core", // shadow-core | shadow-deep | light | rim
+  // the target layer IS the band; there is no
+  // second argument that can contradict it
+  "from": "flats", // the layer whose material slots are being shaded
+  "region": { "x": 0, "y": 0, "w": 64, "h": 64 }, // optional, defaults to all
+  "direction": "upper-left", // omitted: taken from the style rules
+  "depth": 1, // how many ramp steps to move; default 1
 }
 ```
 
@@ -301,9 +326,9 @@ finds out it has been painting with an unramped slot.
 ```jsonc
 {
   "assetId": "…",
-  "from": "flats",        // outline colour is derived from the fill it borders
-  "mode": "selective",    // none | selective | full; default from the style
-  "darken": 2             // ramp steps below the adjacent fill
+  "from": "flats", // outline colour is derived from the fill it borders
+  "mode": "selective", // none | selective | full; default from the style
+  "darken": 2, // ramp steps below the adjacent fill
 }
 ```
 
@@ -331,11 +356,13 @@ existed to remove.
 {
   "assetId": "…",
   "ramps": [
-    { "name": "skin",  "material": "skin",
-      "slots": ["#5C3B2E", "#8A5B41", "#C08A63", "#E8BC94"] },
-    { "name": "cloth-red", "material": "cloth",
-      "slots": ["#5A1720", "#8E2430", "#C33A42", "#E2645F"] }
-  ]
+    { "name": "skin", "material": "skin", "slots": ["#5C3B2E", "#8A5B41", "#C08A63", "#E8BC94"] },
+    {
+      "name": "cloth-red",
+      "material": "cloth",
+      "slots": ["#5A1720", "#8E2430", "#C33A42", "#E2645F"],
+    },
+  ],
 }
 ```
 
@@ -376,11 +403,14 @@ stands.
   "step": "silhouette",
   "pass": false,
   "checks": [
-    { "name": "single-region", "pass": false,
+    {
+      "name": "single-region",
+      "pass": false,
       "detail": "3 disconnected regions; largest is 812px, others 4px and 2px",
-      "hint": "Remove the stray pixels at (51,12) and (9,44), or connect them." },
-    { "name": "reads-at-1x", "pass": true }
-  ]
+      "hint": "Remove the stray pixels at (51,12) and (9,44), or connect them.",
+    },
+    { "name": "reads-at-1x", "pass": true },
+  ],
 }
 ```
 
