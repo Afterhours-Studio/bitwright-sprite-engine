@@ -23,7 +23,7 @@ pub mod models;
 mod workflow;
 pub use models::*;
 
-use crate::raster::{IndexedBuffer, Layer, LayerRole, Palette, StyleRules, LAYER_ROLES};
+use crate::raster::{IndexedBuffer, Layer, LayerRole, Palette, StyleRules, Tilemap, LAYER_ROLES};
 use rusqlite::{params, Connection, OptionalExtension, Row};
 use serde::{de::DeserializeOwned, Serialize};
 use std::path::Path;
@@ -431,6 +431,50 @@ impl Store {
         self.reference_read(id, reference)?;
         self.commit(id, history::Mutation::Reference(None, reference), "user")
     }
+    pub fn tilemap_read(&self, id: AssetId) -> Result<Tilemap> {
+        self.asset_read(id)?;
+        let data: Option<String> = self
+            .connection
+            .query_row(
+                "SELECT data FROM tilemap WHERE asset_id=?1",
+                [id.0.to_string()],
+                |r| r.get(0),
+            )
+            .optional()?;
+        let data = data.ok_or_else(|| AppError::new("tilemap.none", id.0.to_string()))?;
+        Ok(serde_json::from_str(&data)?)
+    }
+
+    pub fn tilemap_write(&mut self, id: AssetId, map: &Tilemap) -> Result<Tilemap> {
+        let asset = self.asset_read(id)?;
+        if asset.kind != "background" {
+            return Err(AppError::new("tilemap.not_background", asset.kind));
+        }
+        map.validate()?;
+        for tile in map.tile_ids() {
+            let valid = match self.asset_read(AssetId(tile)) {
+                Ok(t) => {
+                    t.kind == "tile"
+                        && t.project_id == asset.project_id
+                        && t.width == map.tile_width
+                        && t.height == map.tile_height
+                }
+                // Only a missing tile is the caller's mistake; any other
+                // failure is the store's and keeps its own code.
+                Err(error) if error.code == "document.not_found" => false,
+                Err(error) => return Err(error),
+            };
+            if !valid {
+                return Err(AppError::new("tilemap.tile_invalid", tile.to_string()));
+            }
+        }
+        self.connection.execute(
+            "INSERT INTO tilemap(asset_id,data,updated_at) VALUES(?1,?2,?3)
+             ON CONFLICT(asset_id) DO UPDATE SET data=excluded.data, updated_at=excluded.updated_at",
+            params![id.0.to_string(), json(map)?, now()],
+        )?;
+        self.tilemap_read(id)
+    }
 }
 
 fn project_row(r: &Row<'_>) -> rusqlite::Result<Project> {
@@ -582,6 +626,93 @@ mod tests {
         let mut store = Store::memory().unwrap();
         let project = store.project_create("project", "hd2d").unwrap();
         (store, project.id)
+    }
+
+    fn one_tile(tile: Uuid) -> Tilemap {
+        let mut map = Tilemap::new(16, 16, 4, 3).unwrap();
+        map.place(
+            "ground",
+            &[crate::raster::Placement {
+                x: 1,
+                y: 2,
+                tile: Some(tile),
+            }],
+        )
+        .unwrap();
+        map
+    }
+
+    #[test]
+    fn a_tilemap_is_written_and_read_back() {
+        let (mut store, project) = store();
+        let background = store
+            .asset_create(project, "hills", "background", 64, 48)
+            .unwrap();
+        let tile = store
+            .asset_create(project, "grass", "tile", 16, 16)
+            .unwrap();
+        let map = one_tile(tile.id.0);
+        let written = store.tilemap_write(background.id, &map).unwrap();
+        assert_eq!(written, map);
+        assert_eq!(store.tilemap_read(background.id).unwrap(), map);
+    }
+
+    #[test]
+    fn a_tilemap_is_refused_on_a_non_background_asset() {
+        let (mut store, project) = store();
+        let hero = store
+            .asset_create(project, "hero", "character", 16, 16)
+            .unwrap();
+        let map = Tilemap::new(16, 16, 4, 3).unwrap();
+        let error = store.tilemap_write(hero.id, &map).unwrap_err();
+        assert_eq!(error.code, "tilemap.not_background");
+    }
+
+    #[test]
+    fn a_tilemap_refuses_tiles_it_cannot_use() {
+        let (mut store, project) = store();
+        let background = store
+            .asset_create(project, "hills", "background", 64, 48)
+            .unwrap();
+        let elsewhere = store.project_create("other", "hd2d").unwrap();
+        let foreign = store
+            .asset_create(elsewhere.id, "grass", "tile", 16, 16)
+            .unwrap();
+        let prop = store.asset_create(project, "rock", "prop", 16, 16).unwrap();
+        let large = store.asset_create(project, "big", "tile", 32, 32).unwrap();
+        for wrong in [foreign.id, prop.id, large.id] {
+            let error = store
+                .tilemap_write(background.id, &one_tile(wrong.0))
+                .unwrap_err();
+            assert_eq!(error.code, "tilemap.tile_invalid");
+        }
+    }
+
+    #[test]
+    fn reading_a_missing_tilemap_says_so() {
+        let (mut store, project) = store();
+        let background = store
+            .asset_create(project, "hills", "background", 64, 48)
+            .unwrap();
+        let error = store.tilemap_read(background.id).unwrap_err();
+        assert_eq!(error.code, "tilemap.none");
+    }
+
+    #[test]
+    fn deleting_the_asset_deletes_its_tilemap() {
+        let (mut store, project) = store();
+        let background = store
+            .asset_create(project, "hills", "background", 64, 48)
+            .unwrap();
+        store
+            .tilemap_write(background.id, &Tilemap::new(16, 16, 4, 3).unwrap())
+            .unwrap();
+        store.asset_delete(background.id).unwrap();
+        let rows: i64 = store
+            .connection
+            .query_row("SELECT COUNT(*) FROM tilemap", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(rows, 0);
     }
 
     #[test]

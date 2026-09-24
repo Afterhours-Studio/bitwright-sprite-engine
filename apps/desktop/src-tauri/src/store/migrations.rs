@@ -20,7 +20,7 @@
 use super::{AppError, Result};
 use rusqlite::Connection;
 
-pub const VERSION: i64 = 3;
+pub const VERSION: i64 = 4;
 
 pub fn migrate(connection: &mut Connection) -> Result<()> {
     connection.pragma_update(None, "foreign_keys", "ON")?;
@@ -97,6 +97,16 @@ pub fn migrate(connection: &mut Connection) -> Result<()> {
                     )?;
                 }
             }
+            // Tilemaps live in their own table, one row per background asset,
+            // rather than as another `layer.buffer`, because a tilemap is a
+            // grid of tile ids and per-layer parallax, not indexed pixels.
+            4 => transaction.execute_batch(
+                "CREATE TABLE tilemap (
+                     asset_id TEXT PRIMARY KEY REFERENCES asset(id) ON DELETE CASCADE,
+                     data     TEXT NOT NULL,
+                     updated_at INTEGER NOT NULL
+                 );",
+            )?,
             _ => {
                 return Err(AppError::new(
                     "store.migration_missing",

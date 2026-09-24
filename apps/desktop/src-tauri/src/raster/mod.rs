@@ -25,11 +25,13 @@ pub mod ops;
 pub mod palette;
 pub mod png;
 pub mod shading;
+pub mod tilemap;
 
 pub use document_ops::Op;
 pub use palette::{Canvas, Material, Palette, PaletteSlot, Ramp, RampSteps, StyleRules};
 use serde::{Deserialize, Deserializer, Serialize};
 pub use shading::Direction;
+pub use tilemap::{Placement, Tilemap, TilemapLayer};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
