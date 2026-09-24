@@ -21,15 +21,19 @@ import enCommon from '@/locales/en/common.json';
 import enEditor from '@/locales/en/editor.json';
 import enErrors from '@/locales/en/errors.json';
 import enProjects from '@/locales/en/projects.json';
+import enExport from '@/locales/en/export.json';
 import enReference from '@/locales/en/reference.json';
 import enSettings from '@/locales/en/settings.json';
+import enTilemap from '@/locales/en/tilemap.json';
 import enWorkflow from '@/locales/en/workflow.json';
 import viCommon from '@/locales/vi/common.json';
 import viEditor from '@/locales/vi/editor.json';
 import viErrors from '@/locales/vi/errors.json';
 import viProjects from '@/locales/vi/projects.json';
+import viExport from '@/locales/vi/export.json';
 import viReference from '@/locales/vi/reference.json';
 import viSettings from '@/locales/vi/settings.json';
+import viTilemap from '@/locales/vi/tilemap.json';
 import viWorkflow from '@/locales/vi/workflow.json';
 
 /** Languages the application ships. Adding one is documented in docs/development/i18n.md. */
@@ -46,8 +50,10 @@ export const NAMESPACES = [
   'common',
   'editor',
   'projects',
+  'export',
   'reference',
   'settings',
+  'tilemap',
   'workflow',
   'errors',
 ] as const;
@@ -67,8 +73,10 @@ export const resources = {
     common: enCommon,
     editor: enEditor,
     projects: enProjects,
+    export: enExport,
     reference: enReference,
     settings: enSettings,
+    tilemap: enTilemap,
     workflow: enWorkflow,
     errors: enErrors,
   },
@@ -76,8 +84,10 @@ export const resources = {
     common: viCommon,
     editor: viEditor,
     projects: viProjects,
+    export: viExport,
     reference: viReference,
     settings: viSettings,
+    tilemap: viTilemap,
     workflow: viWorkflow,
     errors: viErrors,
   },

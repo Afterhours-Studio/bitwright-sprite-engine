@@ -27,8 +27,10 @@ import type common from '@/locales/en/common.json';
 import type editor from '@/locales/en/editor.json';
 import type errors from '@/locales/en/errors.json';
 import type projects from '@/locales/en/projects.json';
+import type exportNamespace from '@/locales/en/export.json';
 import type reference from '@/locales/en/reference.json';
 import type settings from '@/locales/en/settings.json';
+import type tilemap from '@/locales/en/tilemap.json';
 import type workflow from '@/locales/en/workflow.json';
 
 declare module 'i18next' {
@@ -38,8 +40,10 @@ declare module 'i18next' {
       common: typeof common;
       editor: typeof editor;
       projects: typeof projects;
+      export: typeof exportNamespace;
       reference: typeof reference;
       settings: typeof settings;
+      tilemap: typeof tilemap;
       workflow: typeof workflow;
       errors: typeof errors;
     };
