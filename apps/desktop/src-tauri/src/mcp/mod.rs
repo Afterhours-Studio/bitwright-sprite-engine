@@ -19,6 +19,7 @@
 pub mod clients;
 pub mod config;
 pub mod error;
+pub mod guide;
 pub mod handler;
 pub mod host;
 pub mod server;

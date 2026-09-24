@@ -30,6 +30,7 @@ use crate::store::{Asset, AssetId, OpResult};
 use serde::de::DeserializeOwned;
 use uuid::Uuid;
 
+pub mod guide;
 pub mod history;
 pub mod orientation;
 pub mod palette;
@@ -55,7 +56,8 @@ pub struct ToolSpec {
 
 /// Every tool the server offers, in catalogue order.
 pub fn catalogue() -> Vec<ToolSpec> {
-    let mut tools = orientation::tools();
+    let mut tools = guide::tools();
+    tools.extend(orientation::tools());
     tools.extend(read::tools());
     tools.extend(write::tools());
     tools.extend(shading::tools());
