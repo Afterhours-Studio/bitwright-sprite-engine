@@ -22,13 +22,19 @@
  * drops the `detail` and the `hint`, leaving the artist told that something is
  * wrong and not told what. Those two strings are the only part of the report
  * that names coordinates, so losing them costs everything the gate measured.
+ *
+ * It is also the screen where a person can go back or push through, so the
+ * other half of these tests is about the two confirmations that guard those:
+ * revisiting a done step keeps every layer, and forcing an advance past a
+ * gate that has not passed is recorded, and both say so before they act.
  */
 
-import { render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { StepRail } from '@/features/editor/tools/StepRail';
 import { useDocumentStore } from '@/stores/useDocumentStore';
+import { STEPS } from '@/types/document';
 import type { GateCheck, GateMetrics, GateReport, StepState } from '@/types/document';
 
 /** Metrics the silhouette gate would have reported alongside its checks. */
@@ -88,6 +94,7 @@ beforeEach(() => {
     gate: null,
     loading: false,
     error: null,
+    revisit: vi.fn(),
   });
 });
 
@@ -150,5 +157,123 @@ describe('StepRail', () => {
     render(<StepRail />);
 
     expect(screen.getByText('No sprite is open.')).toBeInTheDocument();
+  });
+
+  it('lists all 11 steps and marks the current one', () => {
+    open({ step: 'flats', pass: true, checks: [CLEAN], metrics: METRICS }, true);
+
+    render(<StepRail />);
+
+    // The rail's own ordered list, scoped so the check rows below it cannot
+    // answer for the steps.
+    const list = screen.getByRole('list');
+    expect(within(list).getAllByRole('listitem')).toHaveLength(STEPS.length);
+    expect(within(list).getByText('Flats')).toHaveAttribute('aria-current', 'step');
+  });
+
+  it('makes a done step a button and leaves an ahead step plain text', () => {
+    open({ step: 'flats', pass: true, checks: [CLEAN], metrics: METRICS }, true);
+
+    render(<StepRail />);
+
+    // "Reference" and "Palette" precede "Flats" in STEPS, so they are done.
+    expect(screen.getByRole('button', { name: 'Revisit Reference' })).toBeInTheDocument();
+    // "Shadow" comes after "Flats", so it is ahead and not a button.
+    expect(screen.queryByRole('button', { name: /Shadow/ })).not.toBeInTheDocument();
+    expect(screen.getByText('Shadow')).toBeInTheDocument();
+  });
+
+  it('asks first before revisiting a done step, and cancel calls nothing', () => {
+    const revisit = vi.fn();
+    open({ step: 'flats', pass: true, checks: [CLEAN], metrics: METRICS }, true);
+    useDocumentStore.setState({ revisit });
+
+    render(<StepRail />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Revisit Reference' }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(revisit).not.toHaveBeenCalled();
+    // `getByRole` excludes `aria-hidden` elements by default, so a dialog that
+    // has been dismissed but not unmounted no longer turns up here.
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('revisits the chosen step once confirmed', () => {
+    const revisit = vi.fn();
+    open({ step: 'flats', pass: true, checks: [CLEAN], metrics: METRICS }, true);
+    useDocumentStore.setState({ revisit });
+
+    render(<StepRail />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Revisit Reference' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Revisit' }));
+
+    expect(revisit).toHaveBeenCalledWith('reference');
+  });
+
+  it('offers a forced advance only while the gate fails and the step is not the last', () => {
+    open({ step: 'silhouette', pass: false, checks: [BROKEN], metrics: METRICS }, false);
+
+    render(<StepRail />);
+
+    expect(screen.getByRole('button', { name: 'Advance anyway' })).toBeInTheDocument();
+  });
+
+  it('offers no forced advance once the gate has passed', () => {
+    open({ step: 'silhouette', pass: true, checks: [CLEAN], metrics: METRICS }, true);
+
+    render(<StepRail />);
+
+    expect(screen.queryByRole('button', { name: 'Advance anyway' })).not.toBeInTheDocument();
+  });
+
+  it('offers no forced advance before the gate has been checked', () => {
+    // Right after a revisit the new step has no report yet: there is no
+    // failing gate to override, so forcing would skip a gate nobody ran.
+    const step: StepState = {
+      assetId: 'asset-1',
+      step: 'silhouette',
+      canAdvance: false,
+      gate: { step: 'silhouette', pass: false, checks: [], metrics: METRICS },
+    };
+    useDocumentStore.setState({
+      assetId: 'asset-1',
+      step,
+      gate: null,
+      loading: false,
+      error: null,
+    });
+
+    render(<StepRail />);
+
+    expect(screen.queryByRole('button', { name: 'Advance anyway' })).not.toBeInTheDocument();
+  });
+
+  it('offers no forced advance on the last step', () => {
+    open({ step: 'variation', pass: false, checks: [BROKEN], metrics: METRICS }, false);
+
+    render(<StepRail />);
+
+    expect(screen.queryByRole('button', { name: 'Advance anyway' })).not.toBeInTheDocument();
+  });
+
+  it('forces an advance once confirmed, listing the failing checks first', () => {
+    const advance = vi.fn();
+    open({ step: 'silhouette', pass: false, checks: [BROKEN], metrics: METRICS }, false);
+    useDocumentStore.setState({ advance });
+
+    render(<StepRail />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Advance anyway' }));
+    const dialog = screen.getByRole('dialog');
+    // Named where the reader will see them: inside the confirmation, not only
+    // in the report behind it.
+    expect(within(dialog).getByText('single-region')).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Advance anyway' }));
+
+    expect(advance).toHaveBeenCalledWith({ force: true });
   });
 });

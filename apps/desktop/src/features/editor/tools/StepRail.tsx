@@ -33,24 +33,30 @@
  * removed is not a hint. The check's `name`, the step's name and everything
  * this component says in its own voice do go through the locale files.
  *
- * THERE IS NO "GO BACK A STEP" BUTTON. `revisit_step` is in the MCP catalogue
- * and there is no Tauri command behind it: `commands.rs` registers
- * `step_state`, `step_check` and `step_advance`, and nothing that moves an
- * asset backwards. A button wired to a command that is not registered fails at
- * the press with a missing-command error, which is worse than not offering it,
- * so the rail offers what the shell can actually do. Revisiting an earlier
- * layer without moving the step is what the layer list's override is for.
+ * THE RAIL OFFERS BOTH WAYS THROUGH A GATE THAT DOES NOT PASS. Every step
+ * already done is a button that opens a confirmation and, on Revisit, calls
+ * `revisit(step)`; going back moves nothing but the current step, so every
+ * layer painted since stays exactly as it was, which the confirmation says in
+ * full rather than asking "are you sure?" of a reader who does not yet know
+ * what is at stake. A step still ahead is not a button, because `step_revisit`
+ * only ever moves backward and pressing it on a step not yet reached would
+ * either fail or lie. Separately, while the gate has not passed and the step
+ * is not the last one, a second button offers to advance anyway; it also
+ * confirms first, naming the checks that failed, because `step_advance(true)`
+ * is recorded as forced and a person should know that before they choose it,
+ * not discover it later reading the sprite's history.
  */
 
-import type { ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/Button';
+import { Dialog } from '@/components/ui/Dialog';
 import { useWorkflowLabels } from '@/features/editor/labels';
 import { useErrorMessage } from '@/hooks/useErrorMessage';
 import { cn } from '@/lib/cn';
 import { useDocumentStore } from '@/stores/useDocumentStore';
-import { STEPS, type GateCheck } from '@/types/document';
+import { STEPS, type GateCheck, type Step } from '@/types/document';
 
 /** The reason codes a refused advance comes back with. */
 const STEP_CODE = 'step.';
@@ -62,6 +68,7 @@ const STEP_CODE = 'step.';
  */
 export function StepRail(): ReactElement {
   const { t } = useTranslation('editor');
+  const { t: tw } = useTranslation('workflow');
   const labels = useWorkflowLabels();
   const translateError = useErrorMessage();
 
@@ -71,6 +78,10 @@ export function StepRail(): ReactElement {
   const error = useDocumentStore((state) => state.error);
   const check = useDocumentStore((state) => state.check);
   const advance = useDocumentStore((state) => state.advance);
+  const revisit = useDocumentStore((state) => state.revisit);
+
+  const [revisitTarget, setRevisitTarget] = useState<Step | null>(null);
+  const [forcing, setForcing] = useState(false);
 
   if (step === null) {
     return <p className="text-xs text-fg-secondary">{t('step.noDocument')}</p>;
@@ -80,6 +91,11 @@ export function StepRail(): ReactElement {
   const failed = gate === null ? [] : gate.checks.filter((entry) => !entry.pass);
   const passed = gate === null ? [] : gate.checks.filter((entry) => entry.pass);
   const refusal = error !== null && error.startsWith(STEP_CODE) ? translateError(error) : null;
+  const isLastStep = position === STEPS.length - 1;
+  // Only a gate that ran and failed can be forced past. With no report yet (as
+  // right after a revisit) there is nothing to override, so nothing is offered.
+  const gateFailed = gate !== null && !gate.pass;
+  const offerForce = gateFailed && !isLastStep;
 
   return (
     <div className="flex flex-col gap-2">
@@ -89,6 +105,40 @@ export function StepRail(): ReactElement {
           {t('step.position', { position: position + 1, of: STEPS.length })}
         </span>
       </div>
+
+      <ol className="flex flex-col gap-0.5">
+        {STEPS.map((entry, index) => {
+          const state = index < position ? 'done' : index === position ? 'current' : 'ahead';
+          const label = labels.step[entry];
+          return (
+            <li key={entry}>
+              {state === 'done' ? (
+                <button
+                  type="button"
+                  className="text-[11px] text-fg-secondary underline-offset-2 hover:underline"
+                  aria-label={tw('revisitStep', { step: label })}
+                  onClick={() => {
+                    setRevisitTarget(entry);
+                  }}
+                >
+                  {label}
+                </button>
+              ) : (
+                <span
+                  aria-current={state === 'current' ? 'step' : undefined}
+                  className={cn(
+                    'text-[11px]',
+                    state === 'current' && 'font-medium text-fg-primary',
+                    state === 'ahead' && 'opacity-60',
+                  )}
+                >
+                  {label}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
 
       <p className="text-sm font-medium text-fg-primary">{labels.step[step.step]}</p>
       {/* What the step expects, before the report about whether it got it. The
@@ -153,6 +203,18 @@ export function StepRail(): ReactElement {
         >
           {t('step.advance')}
         </Button>
+        {offerForce && (
+          <Button
+            variant="ghost"
+            className="px-2 py-1 text-[11px]"
+            disabled={loading}
+            onClick={() => {
+              setForcing(true);
+            }}
+          >
+            {tw('forceAdvance')}
+          </Button>
+        )}
       </div>
 
       {refusal !== null && (
@@ -160,6 +222,50 @@ export function StepRail(): ReactElement {
           {refusal}
         </p>
       )}
+
+      <Dialog
+        open={revisitTarget !== null}
+        title={tw('revisitTitle')}
+        confirmLabel={tw('revisitConfirm')}
+        onDismiss={() => {
+          setRevisitTarget(null);
+        }}
+        onConfirm={() => {
+          if (revisitTarget !== null) {
+            void revisit(revisitTarget);
+          }
+          setRevisitTarget(null);
+        }}
+      >
+        <p className="text-xs text-fg-secondary">{tw('revisitBody')}</p>
+      </Dialog>
+
+      <Dialog
+        open={forcing}
+        title={tw('forceAdvanceTitle')}
+        confirmLabel={tw('forceAdvanceConfirm')}
+        onDismiss={() => {
+          setForcing(false);
+        }}
+        onConfirm={() => {
+          void advance({ force: true });
+          setForcing(false);
+        }}
+      >
+        {forcing && (
+          <>
+            <p className="text-xs text-fg-secondary">{tw('forceAdvanceBody')}</p>
+            <ul className="list-disc ps-4 text-xs text-fg-primary">
+              {failed.map((entry) => (
+                <li key={entry.name} className="font-mono">
+                  {entry.name}
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-fg-secondary">{tw('forceAdvanceNote')}</p>
+          </>
+        )}
+      </Dialog>
     </div>
   );
 }

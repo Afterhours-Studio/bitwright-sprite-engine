@@ -1,3 +1,12 @@
 {
-  "title": "Workflow"
+  "title": "Workflow",
+  "revisitStep": "Revisit {{step}}",
+  "revisitTitle": "Revisit this step?",
+  "revisitBody": "Going back keeps every layer exactly as it is; only the current step moves. Nothing is deleted or repainted.",
+  "revisitConfirm": "Revisit",
+  "forceAdvance": "Advance anyway",
+  "forceAdvanceTitle": "Advance without passing the gate?",
+  "forceAdvanceBody": "These checks have not passed:",
+  "forceAdvanceNote": "The advance is recorded as forced, on the record for anyone reading this sprite's history.",
+  "forceAdvanceConfirm": "Advance anyway"
 }

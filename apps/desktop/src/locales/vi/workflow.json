@@ -1,3 +1,12 @@
 {
-  "title": "Quy trình"
+  "title": "Quy trình",
+  "revisitStep": "Quay lại {{step}}",
+  "revisitTitle": "Quay lại bước này?",
+  "revisitBody": "Quay lại giữ nguyên mọi lớp; chỉ bước hiện tại thay đổi. Không có gì bị xóa hay vẽ lại.",
+  "revisitConfirm": "Quay lại",
+  "forceAdvance": "Vẫn tiến tới",
+  "forceAdvanceTitle": "Tiến tới mà không vượt qua cổng kiểm tra?",
+  "forceAdvanceBody": "Các kiểm tra sau chưa đạt:",
+  "forceAdvanceNote": "Bước tiến này sẽ được ghi lại là bị ép buộc, lưu trong lịch sử của sprite để ai đọc cũng thấy.",
+  "forceAdvanceConfirm": "Vẫn tiến tới"
 }
