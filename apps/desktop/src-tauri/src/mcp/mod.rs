@@ -16,7 +16,12 @@
 
 //! The MCP server: the tool surface an agent draws through.
 
+pub mod clients;
+pub mod config;
 pub mod error;
+pub mod handler;
 pub mod host;
+pub mod server;
 pub mod session;
+pub mod stdio;
 pub mod tools;
