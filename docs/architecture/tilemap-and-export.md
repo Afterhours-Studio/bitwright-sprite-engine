@@ -53,6 +53,9 @@ impl Tilemap {
 }
 ```
 
+The rendered map is at most 4096 pixels on each side (`MAX_SIDE`), so a map
+that passes every bound can still be rendered in memory.
+
 Error codes (`RasterError`): `tilemap.invalid_size`, `tilemap.invalid_layer`,
 `tilemap.layer_exists`, `tilemap.layer_not_found`, `tilemap.last_layer`,
 `tilemap.out_of_bounds`, `tilemap.tile_missing`, `tilemap.tile_size`
