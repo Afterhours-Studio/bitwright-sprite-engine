@@ -42,6 +42,10 @@ agent places them.
   disconnected regions does not pass, whatever the agent says about it.
 - The engine chooses shading colours; the agent places them. No tool accepts a
   hex value for shading.
+- The step rail shows every step of the workflow with the current one marked.
+  Revisiting a step that already passed only moves you back to it — nothing is
+  erased, every layer stays — and forcing an advance past one that failed its
+  gate is recorded in the op log as forced. Both ask for confirmation first.
 - The MCP server runs inside the application, with two transports: **HTTP
   Local**, a loopback endpoint with a bearer token, and **stdio**, for clients
   that spawn the process themselves.
@@ -54,6 +58,23 @@ agent places them.
   (`~/.cursor/mcp.json`) and Claude Desktop (`claude_desktop_config.json`,
   stdio). Only the `mcpServers.bitwright` key is written, a `.bak` is kept, and
   invalid JSON is never overwritten.
+- The drawing manual is served by the server itself, over `read_guide` and the
+  `bitwright://guide/*` resources, so an agent reads the same manual whatever
+  client it runs in rather than one baked into a system prompt that drifts from
+  the tools.
+- References: import a picture with the system file dialog, and the sidecar
+  conforms it to the sprite's size, finding its grid, reducing its palette and
+  hardening its alpha. Inspect the detected grid, the palette and any warnings,
+  then apply the palette to the asset. `read_reference` and `extract_palette`
+  give an agent the same picture and the same palette.
+- Tilemaps: a background is a grid of tile assets across up to eight parallax
+  layers, laid out in the tilemap editor or by an agent with `create_tilemap`,
+  `read_tilemap`, `place_tiles` and `tilemap_layers`.
+- Export: a sprite, a sheet of sprites, or a background to PNG at a scale.
+  Exporting from the editor writes into a folder you pick; `export_png` and
+  `export_sheet` let an agent export too, always into
+  `<data root>/exports/<safe project name>-<last 8 hex characters of the
+project id>/`, since a tool call cannot pick a folder of its own.
 - You can draw too. The tool panel has pencil, fill, line and shape tools, and
   your strokes and the agent's tool calls end in the same buffer and the same
   undo history.
@@ -69,12 +90,11 @@ agent places them.
   rebinding. Requests carrying an `Origin` header are refused with 403, and a
   wrong or missing token is 401.
 
-Thirty tools are registered today, listed in
-[the MCP tool catalogue](docs/architecture/mcp-tools.md). Four are not:
-`read_reference` and `extract_palette` arrive with reference import in Phase 3,
-and `export_png` and `export_sheet` arrive with export in Phase 4. A tool whose
-machinery does not exist yet is absent from `tools/list` rather than answered
-with a placeholder.
+Thirty-nine tools are registered, every one of them answering for real, listed
+in [the MCP tool catalogue](docs/architecture/mcp-tools.md). A tool whose
+machinery does not exist is absent from `tools/list` rather than answered with
+a placeholder — that is why the catalogue only grows as a phase ships, never
+shrinks.
 
 ## Installation
 
@@ -111,14 +131,14 @@ The first launch is blocked, because pre-1.0 builds are not notarised. Open
 
 ```bash
 # AppImage
-chmod +x Bitwright_0.0.3_amd64.AppImage
-./Bitwright_0.0.3_amd64.AppImage
+chmod +x Bitwright_0.2.0_amd64.AppImage
+./Bitwright_0.2.0_amd64.AppImage
 
 # Debian and Ubuntu
-sudo apt install ./bitwright_0.0.3_amd64.deb
+sudo apt install ./bitwright_0.2.0_amd64.deb
 
 # Fedora
-sudo dnf install ./bitwright-0.0.3-1.x86_64.rpm
+sudo dnf install ./bitwright-0.2.0-1.x86_64.rpm
 ```
 
 If the window does not open, install the WebKit runtime:
@@ -157,14 +177,16 @@ event, so the sprite appears as it is drawn rather than arriving finished.
 
 Saving is implicit. The document is a row in a SQLite file under your data root,
 and there is no save button because there is nothing to save. Export is the
-explicit action, and it is Phase 4.
+explicit action: choose **Export**, pick a folder, and Bitwright writes PNGs.
 
 More in [the quick start guide](docs/getting-started/quick-start.md).
 
 ## Configuration
 
 Most settings are in the application. The data root can also be set with an
-environment variable.
+environment variable, and the MCP transport and its port are chosen from
+Settings → **Agent connection**; the token there is generated for you, and the
+card lets you reveal it, copy it or regenerate it, rather than set it.
 
 | Setting   | Variable              | Default                 | Meaning                                      |
 | --------- | --------------------- | ----------------------- | -------------------------------------------- |
@@ -174,6 +196,18 @@ environment variable.
 The data root holds `bitwright.db` — projects, assets and the op log — and
 `mcp.json`, which records the transport, the port and the token. The port is
 kept between runs when it is free.
+
+Export from the editor writes into whatever folder you pick with the system
+dialog. An agent exporting through MCP cannot pick a folder — `export_png` and
+`export_sheet` take no path — so their files always land under
+`<data root>/exports/<safe project name>-<last 8 hex characters of the project
+id>/`, one subfolder per project, which keeps a tool call from ever writing
+anywhere else on disk.
+
+A client that spawns Bitwright itself — rather than connecting to the HTTP
+transport — runs it with `bitwright --mcp-stdio`, which serves MCP over
+standard input and output instead of opening a window, and carries no token
+because the spawning process is the trust boundary.
 
 Full list in [the configuration reference](docs/reference/configuration.md).
 
@@ -292,18 +326,17 @@ in [the decision records](docs/architecture/decisions/0001-record-architecture-d
 
 ## Roadmap
 
-- [x] Phase 0 — Demolition and foundations: the diffusion generator deleted,
-      the pivot recorded
-- [x] Phase 1 — Document model and canvas: the SQLite store, the raster core,
-      IPC, the project tree, the canvas and the paint tools
-- [x] Phase 2 — MCP: the server, both transports, the tools, client
-      configuration, live sync
-- [ ] Phase 3 — Workflow and skills: the step rail and gate results in the
-      interface, the HD-2D skill pack and its installer, reference import
-- [ ] Phase 4 — Assets, export, polish: tile and tilemap backgrounds, PNG and
-      sheet export, the i18n sweep, these documents and their screenshots
+- [x] Phase 1 — Foundations: the indexed document, the drawing workflow's state
+      machine, and the MCP server an agent draws through
+- [x] Phase 2 — Features: the step rail, the reference panel, tilemaps and
+      export, both in the editor and over MCP — version `0.2.0`
+- [ ] Phase 3 — Finish, in progress: an i18n sweep so no visible string is
+      missing from either locale, a test sweep so every command, tool and store
+      action is covered, this README and the rest of the documentation brought
+      up to date, and no TODO, mock or hardcoded value left before `1.0.0`
 
-The phases, and what each one contains, are in [the plan](docs/plan/PLAN.md).
+The phases, what each one delivers, and the exit criteria for each are in
+[the plan](docs/PLAN.md).
 
 ## Contributing
 

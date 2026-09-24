@@ -36,10 +36,9 @@ when you want the interactive documentation at a known address.
 
 ### Storage
 
-| Setting       | Environment variable    | Default             | Meaning                                       |
-| ------------- | ----------------------- | ------------------- | --------------------------------------------- |
-| `data_root`   | `BITWRIGHT_DATA_ROOT`   | Per platform, below | Where everything the application writes lives |
-| `sprites_dir` | `BITWRIGHT_SPRITES_DIR` | `data_root/sprites` | Where exported sprites are written            |
+| Setting     | Environment variable  | Default             | Meaning                                       |
+| ----------- | --------------------- | ------------------- | --------------------------------------------- |
+| `data_root` | `BITWRIGHT_DATA_ROOT` | Per platform, below | Where everything the application writes lives |
 
 Default data root:
 
@@ -50,8 +49,11 @@ Default data root:
 | Linux    | `$XDG_DATA_HOME/studio.afterhours.bitwright`, or `~/.local/share/...` |
 
 The database that holds every project, asset, document and op log entry lives
-under that root, and so do exported sprites. `sprites_dir` follows `data_root`
-unless it is set explicitly, in which case the explicit value wins.
+under that root, as `bitwright.db`. Exported PNGs live there too, under
+`exports/<project name>/`; that folder is owned by the Rust shell rather than
+the sidecar, since export never goes through the engine. An agent exporting
+through MCP cannot name a folder of its own — `export_png` and `export_sheet`
+always write into it.
 
 Move the root from Settings, under Storage location, or by setting
 `BITWRIGHT_DATA_ROOT`. Changing the location never moves what is already there:

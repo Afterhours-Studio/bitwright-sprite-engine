@@ -6,13 +6,12 @@ agent in a canvas you are watching.
 This assumes Bitwright is installed. If it is not, see
 [Installation](installation.md).
 
-**Where this stands.** Phases 0 to 2 are built: the document store and the
-canvas, the paint tools, the workflow steps and their gates, the MCP server with
-both transports, the client configuration and the live sync. Reference import is
-Phase 3, and export and tilemap backgrounds are Phase 4, so step 3 and step 6
-below describe what is coming rather than what a release does today, as does the
-Background row of the table in step 1. Everything else here works. The phases
-are listed in [the plan](../plan/PLAN.md).
+**Where this stands.** Everything below works today, at version `0.2.0`: the
+document store and the canvas, the paint tools, the workflow steps and their
+gates, the MCP server with both transports, the client configuration, the live
+sync, reference import, tilemap backgrounds and export. What remains is
+finishing work — an i18n sweep, a test sweep, and these documents — tracked as
+Phase 3 in [the plan](../PLAN.md).
 
 ## 1. Make a project
 
@@ -33,7 +32,7 @@ inside it. An asset has a type, and the type picks the canvas:
 
 A background is a tilemap rather than one enormous canvas, because a 320 by 180
 image is 57,600 characters to read back and a 20 by 12 grid of tile ids is 240.
-That is also how the art is actually made. Tilemap backgrounds are Phase 4.
+That is also how the art is actually made.
 
 ## 2. Connect an agent
 
@@ -73,7 +72,7 @@ Import one under **Reference**. The image goes through conform, which finds the
 pixel grid it actually has, reduces it to one colour per cell, and extracts a
 palette. What comes back is an indexed image and a list of colours that the
 agent can read and work from. [Reference import](../guides/post-processing.md)
-explains each step and when to change its settings. Reference import is Phase 3.
+explains each step and when to change its settings.
 
 ## 4. Ask for the sprite
 
@@ -136,13 +135,16 @@ Saving is implicit and continuous: the document is a row in a SQLite file under
 your data root, and there is no save button because there is nothing to save.
 
 Export is the explicit action. Choose **Export**, pick a folder, and Bitwright
-writes PNGs — one per asset, or a packed sheet with the rectangle of every frame
-reported alongside it, so an importer knows exactly where each one landed.
-Export is Phase 4.
+writes PNGs — one per asset, or a packed sheet with every sprite laid out left
+to right, wrapping to a new row after `columns`. An agent exports the same way
+through `export_png` and `export_sheet`; either one, on success, reports the
+path it wrote along with the image's width and height. An agent's export
+cannot pick a folder of its own — its files always go under the exports folder
+in the data root.
 
 ## Next
 
 - [Reference import](../guides/post-processing.md) — what conform does to an
   imported image, and when to change it.
 - [Architecture overview](../architecture/overview.md) — what is doing the work.
-- [The plan](../plan/PLAN.md) — what is built and what is scheduled.
+- [The plan](../PLAN.md) — what is built and what is scheduled.

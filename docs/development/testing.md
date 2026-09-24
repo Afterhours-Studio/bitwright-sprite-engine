@@ -38,7 +38,6 @@ pytest -v                  # verbose
 | --------------------- | --------------------------------------------------- |
 | `test_conform.py`     | Grid detection, the modal vote, palettes, clean-up  |
 | `test_postprocess.py` | Background removal, quantization, grid packing      |
-| `test_sprites.py`     | Listing, removing and writing back a saved sprite   |
 | `test_storage.py`     | The data root: validation, switching, defaults      |
 | `test_security.py`    | The token, and the refusal of a request with Origin |
 | `test_watchdog.py`    | Exiting when the parent process is gone             |

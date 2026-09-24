@@ -11,13 +11,13 @@ than a round trip through this process.
 
 ## Layout
 
-| Path | Contents |
-| --- | --- |
-| `bitwright_engine/api/` | FastAPI application, routes, and schemas |
-| `bitwright_engine/pipeline/conform/` | Grid detection, palette reduction, modal downsampling, dithering |
-| `bitwright_engine/pipeline/postprocess/` | Background removal, quantization, grid snapping, sheet packing |
-| `bitwright_engine/config/` | Settings, read from the environment |
-| `bitwright_engine/utils/` | Logging, colour maths, and image helpers |
+| Path                                     | Contents                                                         |
+| ---------------------------------------- | ---------------------------------------------------------------- |
+| `bitwright_engine/api/`                  | FastAPI application, routes, and schemas                         |
+| `bitwright_engine/pipeline/conform/`     | Grid detection, palette reduction, modal downsampling, dithering |
+| `bitwright_engine/pipeline/postprocess/` | Background removal, quantization, grid snapping                  |
+| `bitwright_engine/config/`               | Settings, read from the environment                              |
+| `bitwright_engine/utils/`                | Logging, colour maths, and image helpers                         |
 
 ## Install
 
@@ -47,7 +47,7 @@ The process binds a free loopback port, prints a handshake line on standard
 output, and then serves:
 
 ```json
-{"event": "ready", "port": 51234, "token": "3Qq7...", "version": "0.0.3"}
+{ "event": "ready", "port": 51234, "token": "3Qq7...", "version": "0.2.0" }
 ```
 
 The token authenticates every route except `/health`, and goes in the
@@ -66,15 +66,15 @@ With a fixed port, the interactive API documentation is at
 
 ## Endpoints
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| GET | `/health` | Liveness and version. No token |
-| POST | `/v1/conform` | Conform an image into real pixel art |
-| GET | `/v1/sprites` | Sprites on disk, newest first |
-| POST | `/v1/sprites/{name}/edit` | Write a painted sprite beside its source |
-| POST | `/v1/sprites/{name}/remove` | Delete one sprite |
-| GET | `/v1/storage` | The data root in use, and its free space |
-| POST | `/v1/storage` | Adopt a new data root |
+| Method | Path                   | Purpose                                             |
+| ------ | ---------------------- | --------------------------------------------------- |
+| GET    | `/health`              | Liveness and version. No token                      |
+| POST   | `/shutdown`            | Finish in-flight requests, then exit                |
+| POST   | `/v1/conform`          | Conform an image into real pixel art                |
+| GET    | `/v1/storage`          | The data root in use, and its free space            |
+| POST   | `/v1/storage/validate` | Check a candidate directory before committing to it |
+| POST   | `/v1/storage`          | Adopt a new data root                               |
+| POST   | `/v1/storage/default`  | Return to the per-user default                      |
 
 Full reference: [docs/reference/api.md](../../docs/reference/api.md).
 

@@ -2,11 +2,10 @@
 
 Every endpoint the Python sidecar serves, with request and response shapes.
 
-The sidecar's job is batch image mathematics: conform, palette extraction, and
-the sprite files on disk. It is not on the path between an agent and the canvas,
-and it holds none of the document's state. That belongs to the Rust process, and
-its tool surface is in [MCP tools](../architecture/mcp-tools.md) rather than
-here.
+The sidecar's job is batch image mathematics: conform and palette extraction. It
+is not on the path between an agent and the canvas, and it holds none of the
+document's state. That belongs to the Rust process, and its tool surface is in
+[MCP tools](../architecture/mcp-tools.md) rather than here.
 
 The engine listens on a loopback port chosen at startup and announced in its
 handshake. See [IPC protocol](../architecture/ipc-protocol.md) for how the shell
@@ -34,7 +33,7 @@ BITWRIGHT_PORT=8000 bitwright-engine
 The engine generates a token at startup and prints it in the handshake:
 
 ```json
-{ "event": "ready", "port": 51234, "token": "3Qq7...", "version": "0.0.3" }
+{ "event": "ready", "port": 51234, "token": "3Qq7...", "version": "0.2.0" }
 ```
 
 Send it on every authenticated call:
@@ -61,7 +60,7 @@ curl http://127.0.0.1:8000/health
 ```
 
 ```json
-{ "status": "ok", "version": "0.0.3" }
+{ "status": "ok", "version": "0.2.0" }
 ```
 
 | Field     | Type   | Meaning                                  |
@@ -165,40 +164,6 @@ Warning codes:
 | `conform.grid_anisotropic`     | The two axes disagree about the cell size               |
 | `conform.background_uncertain` | The four corners do not agree on what the background is |
 | `conform.already_at_size`      | The image was already at the requested cell size        |
-
-## GET /v1/sprites
-
-Every sprite written under the data root, newest first.
-
-```json
-{
-  "sprites": [
-    {
-      "name": "knight-idle.png",
-      "path": "C:\\Users\\me\\AppData\\Local\\studio.afterhours.bitwright\\sprites\\knight-idle.png",
-      "width": 64,
-      "height": 64,
-      "data": "iVBORw0KGgo...",
-      "modifiedAt": 1758585600.0
-    }
-  ]
-}
-```
-
-`data` is base64 encoded PNG bytes, with no data URL prefix. `name` is the file
-name and is also the identifier the other two routes take.
-
-## POST /v1/sprites/{name}/remove
-
-Deletes one sprite. Returns `204 No Content`.
-
-## POST /v1/sprites/{name}/edit
-
-Writes an edited sprite back, and returns the `SavedSprite` that resulted.
-
-| Field   | Type   | Notes                                             |
-| ------- | ------ | ------------------------------------------------- |
-| `image` | string | Base64 PNG, no data URL prefix, at least one byte |
 
 ## Storage
 

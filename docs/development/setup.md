@@ -146,7 +146,7 @@ It prints a handshake naming the port it bound and the token that
 authenticates callers:
 
 ```json
-{ "event": "ready", "port": 51234, "token": "3Qq7...", "version": "0.0.3" }
+{ "event": "ready", "port": 51234, "token": "3Qq7...", "version": "0.2.0" }
 ```
 
 Health needs no token; everything else does:

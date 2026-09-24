@@ -20,15 +20,16 @@ real; nothing here is a placeholder.
 
 | Section               | Tools                                                                                                      | Available now | Delivered by |
 | --------------------- | ---------------------------------------------------------------------------------------------------------- | ------------- | ------------ |
-| 3. Orientation        | `list_projects`, `create_project`, `list_assets`, `create_asset`, `open_asset`, `get_style_rules`          | yes           | Phase 2      |
-| 4. Reading the canvas | `read_canvas`, `read_region`, `describe_palette`, `diff_layers`, `read_reference`                          | yes           | Phase 2/3    |
-| 5. Writing            | `paste_grid`, `draw_runs`, `set_pixels`, `draw_shape`, `fill_region`, `mirror`, `translate`, `clear_layer` | yes           | Phase 2      |
-| 6. The shading tools  | `shade`, `outline`, `antialias`                                                                            | yes           | Phase 2      |
-| 7. Palette            | `set_palette`, `create_variation`, `extract_palette`                                                       | yes           | Phase 2/3    |
-| 8. The workflow       | `get_step`, `check_step`, `advance_step`, `revisit_step`                                                   | yes           | Phase 2      |
-| 9. Tilemaps           | `create_tilemap`, `read_tilemap`, `place_tiles`, `tilemap_layers`                                          | yes           | Phase 3      |
-| 10. Export            | `export_png`, `export_sheet`                                                                               | yes           | Phase 4      |
-| 11. History           | `undo`, `redo`, `read_history`                                                                             | yes           | Phase 2      |
+| 3. The guide          | `read_guide`                                                                                               | yes           | Phase 1      |
+| 4. Orientation        | `list_projects`, `create_project`, `list_assets`, `create_asset`, `open_asset`, `get_style_rules`          | yes           | Phase 2      |
+| 5. Reading the canvas | `read_canvas`, `read_region`, `describe_palette`, `diff_layers`, `read_reference`                          | yes           | Phase 2/3    |
+| 6. Writing            | `paste_grid`, `draw_runs`, `set_pixels`, `draw_shape`, `fill_region`, `mirror`, `translate`, `clear_layer` | yes           | Phase 2      |
+| 7. The shading tools  | `shade`, `outline`, `antialias`                                                                            | yes           | Phase 2      |
+| 8. Palette            | `set_palette`, `create_variation`, `extract_palette`                                                       | yes           | Phase 2/3    |
+| 9. The workflow       | `get_step`, `check_step`, `advance_step`, `revisit_step`                                                   | yes           | Phase 2      |
+| 10. Tilemaps          | `create_tilemap`, `read_tilemap`, `place_tiles`, `tilemap_layers`                                          | yes           | Phase 3      |
+| 11. Export            | `export_png`, `export_sheet`                                                                               | yes           | Phase 4      |
+| 12. History           | `undo`, `redo`, `read_history`                                                                             | yes           | Phase 2      |
 
 The Settings panel's **Install Skills** button belongs to Phase 3 as well.
 
@@ -101,7 +102,29 @@ wrong.
 
 ---
 
-## 3. Orientation
+## 3. The guide
+
+### `read_guide`
+
+`{ topic?: string }` — `topic` is one of `overview` (the default), `workflow`,
+`palette`, `recipes` or `troubleshooting`. Returns `{ topic, title, text,
+topics }`: the requested document's text, and the full topic list so an agent
+that wants another one does not have to guess the name.
+
+This is the operating manual — how to draw a sprite here, step by step, with
+the palette rules, recipes and fixes for failed gates — served by the server
+itself rather than baked into a system prompt that drifts from the tools. An
+agent reads `overview` before its first drawing call, then the topic a step or
+a failed gate names. The same text is also published as `bitwright://guide/*`
+resources, for a client that prefers resources to a tool call; `read_guide`
+is the one door every client can use, which is why it is first in the
+catalogue.
+
+An unknown topic returns `args.invalid` with a hint naming the real ones.
+
+---
+
+## 4. Orientation
 
 ### `list_projects`
 
@@ -147,7 +170,7 @@ failing them.
 
 ---
 
-## 4. Reading the canvas
+## 5. Reading the canvas
 
 ### `read_canvas`
 
@@ -214,7 +237,7 @@ silhouette" without reading both and comparing by eye.
 
 ---
 
-## 5. Writing
+## 6. Writing
 
 Every write takes `assetId` and `layer`, and every write refuses a layer that
 does not belong to the current step unless `force: true` is passed — revisiting
@@ -299,7 +322,7 @@ canvas are lost and the response says how many.
 
 ---
 
-## 6. The shading tools
+## 7. The shading tools
 
 These are the ones where the engine decides the colour.
 
@@ -355,7 +378,7 @@ existed to remove.
 
 ---
 
-## 7. Palette
+## 8. Palette
 
 ### `set_palette`
 
@@ -406,7 +429,7 @@ preserved by construction, since not one pixel moves.
 
 ---
 
-## 8. The workflow
+## 9. The workflow
 
 ### `get_step`
 
@@ -451,7 +474,7 @@ there, which is the whole reason the steps are separate layers.
 
 ---
 
-## 9. Tilemaps
+## 10. Tilemaps
 
 Backgrounds built from tile assets placed on a grid, rather than drawn pixel
 by pixel. A `background` asset holds at most one tilemap; the tiles it places
@@ -525,7 +548,7 @@ tilemap's only remaining layer, `tilemap.invalid_layer` for a parallax outside
 
 ---
 
-## 10. Export
+## 11. Export
 
 Writes a PNG to disk: a background asset's tilemap render, or any other
 kind's layer composite. An agent cannot choose where the file lands — every
@@ -590,7 +613,7 @@ on.
 
 ---
 
-## 11. History
+## 12. History
 
 ### `undo` / `redo`
 
@@ -605,7 +628,7 @@ resuming a session finds out what it, or the person, last did.
 
 ---
 
-## 12. Transports, sessions and trust
+## 13. Transports, sessions and trust
 
 Two transports, chosen in Settings.
 

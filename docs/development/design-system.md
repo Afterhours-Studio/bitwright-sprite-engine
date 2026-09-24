@@ -163,8 +163,8 @@ primary button, and the single most important value on a screen. Used for
 decoration it stops reading as a state.
 
 The sliding indicator behind the selected tab is the accent. A secondary row of
-pills, the gallery filters and the engine buttons in Settings, takes
-`--surface-anchor` instead, so that only one thing on screen is yellow.
+pills, the brush shape picker in the dock and the engine buttons in Settings,
+takes `--surface-anchor` instead, so that only one thing on screen is yellow.
 
 Two details are easy to get wrong:
 
@@ -341,7 +341,7 @@ English one and the geometry is therefore not knowable before layout. See
 
 Per-screen tools live in a floating pill along the bottom of the content area,
 on `--surface-anchor` with `--fg-on-anchor`. A screen with no tools renders no
-dock, so only Generate has one.
+dock, so only Editor has one.
 
 The dock is not a status bar, and there is no status bar. Engine name and
 readiness are a control in the title bar instead, which reports the state and
