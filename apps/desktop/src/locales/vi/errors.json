@@ -82,5 +82,43 @@
     "worker_failed": "Tiến trình cơ sở dữ liệu dừng trước khi trả lời.",
     "migration_missing": "Cơ sở dữ liệu cũ hơn bản dựng này và không có đường nâng cấp tới nó.",
     "newer_schema": "Cơ sở dữ liệu được ghi bởi một bản dựng mới hơn bản này."
+  },
+  "reference": {
+    "invalid": "Không đọc được ảnh tham chiếu đó.",
+    "invalid_buffer": "Ảnh tham chiếu đã chuẩn hóa không phải là ảnh cùng kích thước với sprite.",
+    "invalid_owner": "Ảnh tham chiếu đó thuộc về một sprite khác.",
+    "invalid_ramp": "Không thể chuyển màu của ảnh tham chiếu thành các dải màu.",
+    "none": "Sprite này chưa có ảnh tham chiếu. Hãy nhập một ảnh trước.",
+    "not_conformed": "Ảnh tham chiếu đó được lưu mà không có bản đã chuẩn hóa.",
+    "not_found": "Ảnh tham chiếu đó không còn tồn tại.",
+    "picker_failed": "Không mở được hộp thoại chọn tệp.",
+    "too_large": "Tệp đó lớn hơn 20 MB, quá lớn để làm ảnh tham chiếu.",
+    "unreadable": "Không đọc được tệp đó như một ảnh."
+  },
+  "tilemap": {
+    "exists": "Nền này đã có bản đồ ô.",
+    "invalid_layer": "Một lớp cần tên dài từ 1 đến 40 ký tự và độ thị sai từ 0 đến 4.",
+    "invalid_size": "Ô phải từ 8 đến 64 điểm ảnh, bản đồ từ 1 đến 256 ô mỗi chiều và tối đa 4096 điểm ảnh mỗi chiều, với 1 đến 8 lớp.",
+    "last_layer": "Bản đồ ô luôn giữ ít nhất một lớp.",
+    "layer_exists": "Đã có một lớp trùng tên.",
+    "layer_not_found": "Lớp đó không còn tồn tại.",
+    "none": "Nền này chưa có bản đồ ô.",
+    "not_background": "Chỉ tài sản nền mới chứa được bản đồ ô.",
+    "out_of_bounds": "Ô đó nằm ngoài bản đồ.",
+    "tile_invalid": "Không đặt được ô đó: nó phải là tài sản ô của dự án này, đúng kích thước ô của bản đồ.",
+    "tile_missing": "Một ô đã đặt không còn tồn tại.",
+    "tile_size": "Một ô đã đặt không đúng kích thước ô của bản đồ.",
+    "too_many_tiles": "Bản đồ dùng nhiều loại ô hơn mức có thể hiển thị cùng lúc."
+  },
+  "export": {
+    "empty": "Không có gì để xuất.",
+    "exists": "Đã có một tệp trùng tên ở đó.",
+    "failed": "Việc xuất ảnh chưa hoàn tất.",
+    "invalid_pattern": "Tên tệp bị rỗng sau khi điền các biến.",
+    "invalid_scale": "Chọn tỉ lệ từ 1 đến 16 sao cho ảnh không vượt quá 8192 điểm ảnh mỗi chiều.",
+    "mixed_projects": "Một trang sprite chỉ chứa được sprite của cùng một dự án.",
+    "mixed_sizes": "Một trang sprite cần mọi sprite có cùng kích thước.",
+    "no_directory": "Thư mục đó không tồn tại.",
+    "write_failed": "Không ghi được tệp. Hãy kiểm tra thư mục có quyền ghi và ổ đĩa chưa đầy."
   }
 }

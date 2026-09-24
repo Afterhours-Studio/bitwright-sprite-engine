@@ -82,5 +82,43 @@
     "worker_failed": "The database worker stopped before it answered.",
     "migration_missing": "The database is older than this build and has no upgrade path to it.",
     "newer_schema": "The database was written by a newer build than this one."
+  },
+  "reference": {
+    "invalid": "That reference could not be read.",
+    "invalid_buffer": "The conformed reference is not an image the size of the sprite.",
+    "invalid_owner": "That reference belongs to another sprite.",
+    "invalid_ramp": "The reference's colours could not be turned into ramps.",
+    "none": "This sprite has no reference image yet. Import one first.",
+    "not_conformed": "That reference was stored without a conformed image.",
+    "not_found": "That reference no longer exists.",
+    "picker_failed": "The file picker could not be opened.",
+    "too_large": "That file is larger than 20 MB, which is too large for a reference.",
+    "unreadable": "That file could not be read as an image."
+  },
+  "tilemap": {
+    "exists": "This background already has a tilemap.",
+    "invalid_layer": "A layer needs a name of 1 to 40 characters and a parallax from 0 to 4.",
+    "invalid_size": "Tiles must be 8 to 64 pixels, the map 1 to 256 tiles a side and at most 4096 pixels a side, with 1 to 8 layers.",
+    "last_layer": "A tilemap keeps at least one layer.",
+    "layer_exists": "A layer with that name already exists.",
+    "layer_not_found": "That layer no longer exists.",
+    "none": "This background has no tilemap yet.",
+    "not_background": "Only a background asset can hold a tilemap.",
+    "out_of_bounds": "That cell is outside the map.",
+    "tile_invalid": "That tile cannot be placed: it must be a tile asset of this project, the map's tile size.",
+    "tile_missing": "A placed tile no longer exists.",
+    "tile_size": "A placed tile is not the map's tile size.",
+    "too_many_tiles": "The map uses more distinct tiles than can be shown at once."
+  },
+  "export": {
+    "empty": "There is nothing to export.",
+    "exists": "A file with that name is already there.",
+    "failed": "The export did not finish.",
+    "invalid_pattern": "The file name is empty once its placeholders are filled in.",
+    "invalid_scale": "Choose a scale from 1 to 16 that keeps the image within 8192 pixels a side.",
+    "mixed_projects": "A sheet can only hold sprites from one project.",
+    "mixed_sizes": "A sheet needs every sprite to be the same size.",
+    "no_directory": "That folder does not exist.",
+    "write_failed": "The file could not be written. Check the folder is writable and the drive is not full."
   }
 }
