@@ -27,7 +27,9 @@ import type common from '@/locales/en/common.json';
 import type editor from '@/locales/en/editor.json';
 import type errors from '@/locales/en/errors.json';
 import type projects from '@/locales/en/projects.json';
+import type reference from '@/locales/en/reference.json';
 import type settings from '@/locales/en/settings.json';
+import type workflow from '@/locales/en/workflow.json';
 
 declare module 'i18next' {
   interface CustomTypeOptions {
@@ -36,7 +38,9 @@ declare module 'i18next' {
       common: typeof common;
       editor: typeof editor;
       projects: typeof projects;
+      reference: typeof reference;
       settings: typeof settings;
+      workflow: typeof workflow;
       errors: typeof errors;
     };
     returnNull: false;

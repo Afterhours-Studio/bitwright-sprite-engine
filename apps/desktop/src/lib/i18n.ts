@@ -21,12 +21,16 @@ import enCommon from '@/locales/en/common.json';
 import enEditor from '@/locales/en/editor.json';
 import enErrors from '@/locales/en/errors.json';
 import enProjects from '@/locales/en/projects.json';
+import enReference from '@/locales/en/reference.json';
 import enSettings from '@/locales/en/settings.json';
+import enWorkflow from '@/locales/en/workflow.json';
 import viCommon from '@/locales/vi/common.json';
 import viEditor from '@/locales/vi/editor.json';
 import viErrors from '@/locales/vi/errors.json';
 import viProjects from '@/locales/vi/projects.json';
+import viReference from '@/locales/vi/reference.json';
 import viSettings from '@/locales/vi/settings.json';
+import viWorkflow from '@/locales/vi/workflow.json';
 
 /** Languages the application ships. Adding one is documented in docs/development/i18n.md. */
 export const LANGUAGES = ['en', 'vi'] as const;
@@ -38,7 +42,15 @@ export type Language = (typeof LANGUAGES)[number];
 export const DEFAULT_LANGUAGE: Language = 'en';
 
 /** Namespaces, one file per locale. */
-export const NAMESPACES = ['common', 'editor', 'projects', 'settings', 'errors'] as const;
+export const NAMESPACES = [
+  'common',
+  'editor',
+  'projects',
+  'reference',
+  'settings',
+  'workflow',
+  'errors',
+] as const;
 
 /** A translation namespace. */
 export type Namespace = (typeof NAMESPACES)[number];
@@ -55,14 +67,18 @@ export const resources = {
     common: enCommon,
     editor: enEditor,
     projects: enProjects,
+    reference: enReference,
     settings: enSettings,
+    workflow: enWorkflow,
     errors: enErrors,
   },
   vi: {
     common: viCommon,
     editor: viEditor,
     projects: viProjects,
+    reference: viReference,
     settings: viSettings,
+    workflow: viWorkflow,
     errors: viErrors,
   },
 } as const;

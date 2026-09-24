@@ -39,6 +39,10 @@ rmcp = { version = "2.2.0", features = ["server", "macros", "transport-io", "tra
 axum = { version = "0.8.4", default-features = false, features = ["tokio", "http1"] }
 dirs = "7.0.0"
 rand = "0.9.5"
+# Imported references are decoded, and exports encoded, in the shell; the
+# webview only ever receives a finished PNG as base64.
+png = "0.17"
+base64 = "0.22"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-window-state = "2"
