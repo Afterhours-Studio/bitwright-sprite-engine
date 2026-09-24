@@ -60,3 +60,16 @@ first step, before the asset has a palette to index it against, and both the
 reference panel and `read_reference` need the colours. It is therefore kept
 as a PNG at the asset's size; `read_reference` indexes it against the palette
 when it is read.
+
+## 2026-09-24 — Rust and multi-file tasks go to Claude subagents in the crew's worktrees
+
+Calibration and the first waves measured it: `qwen3.8-flash` passes
+TypeScript and docs probes but not Rust, and on multi-file tasks both
+workers behind the router spend their step budget reading files the prompt
+did not inline, then stop without writing. `claude-sonnet-5` behind the
+router also hits a per-minute rate limit when several workers run at once.
+So a Rust task, or one spanning several new files, is written by a Claude
+subagent working in the same task worktree Agent Crew creates (with its
+shared build directories), under the same file ownership, verify command
+and review. Crew workers keep the small, fully specified tasks. The cost is
+the same account either way: the router's Sonnet is that subscription.
