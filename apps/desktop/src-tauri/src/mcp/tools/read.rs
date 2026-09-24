@@ -105,7 +105,12 @@ fn slot_char(slot: u8) -> Result<char, ToolError> {
 /// canvas column divisible by 5). Row labels are `y0 + row`. The body rows come
 /// from `grid::render`, so this shares the one grid alphabet. Without rulers
 /// this is identical to `grid::render`.
-fn render_at(buffer: &IndexedBuffer, x0: u16, y0: u16, rulers: bool) -> Result<String, ToolError> {
+pub(crate) fn render_at(
+    buffer: &IndexedBuffer,
+    x0: u16,
+    y0: u16,
+    rulers: bool,
+) -> Result<String, ToolError> {
     let body = grid::render(buffer, false).map_err(|e| ToolError::from(AppError::from(e)))?;
     if !rulers {
         return Ok(body);
@@ -142,7 +147,7 @@ fn render_at(buffer: &IndexedBuffer, x0: u16, y0: u16, rulers: bool) -> Result<S
 ///
 /// Format: `"legend: "`, then for every slot present in ascending order
 /// `<char>=<index> <name>` separated by two spaces, then `.=transparent`.
-fn legend(buffer: &IndexedBuffer, palette: &Palette) -> Result<String, ToolError> {
+pub(crate) fn legend(buffer: &IndexedBuffer, palette: &Palette) -> Result<String, ToolError> {
     let mut present: Vec<u8> = buffer
         .data
         .iter()

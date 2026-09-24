@@ -35,6 +35,7 @@ pub mod history;
 pub mod orientation;
 pub mod palette;
 pub mod read;
+pub mod reference;
 pub mod shading;
 pub mod workflow;
 pub mod write;
@@ -62,6 +63,7 @@ pub fn catalogue() -> Vec<ToolSpec> {
     tools.extend(write::tools());
     tools.extend(shading::tools());
     tools.extend(palette::tools());
+    tools.extend(reference::tools());
     tools.extend(workflow::tools());
     tools.extend(history::tools());
     tools
