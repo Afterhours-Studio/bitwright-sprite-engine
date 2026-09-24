@@ -30,6 +30,7 @@ use crate::store::{Asset, AssetId, OpResult};
 use serde::de::DeserializeOwned;
 use uuid::Uuid;
 
+pub mod export;
 pub mod guide;
 pub mod history;
 pub mod orientation;
@@ -66,6 +67,7 @@ pub fn catalogue() -> Vec<ToolSpec> {
     tools.extend(palette::tools());
     tools.extend(reference::tools());
     tools.extend(tilemap::tools());
+    tools.extend(export::tools());
     tools.extend(workflow::tools());
     tools.extend(history::tools());
     tools
