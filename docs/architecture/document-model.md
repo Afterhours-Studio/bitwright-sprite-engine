@@ -102,7 +102,7 @@ CREATE TABLE reference (
     asset_id     TEXT NOT NULL REFERENCES asset(id) ON DELETE CASCADE,
     name         TEXT NOT NULL,
     source_png   BLOB NOT NULL,              -- the image as imported, untouched
-    conformed    BLOB,                       -- indexed result of conform, may be null
+    conformed    BLOB,                       -- PNG at the asset's size, the result of conform; may be null
     conform_meta TEXT,                       -- JSON: detected grid, palette, warnings
     created_at   INTEGER NOT NULL
 );

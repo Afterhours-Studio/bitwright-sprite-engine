@@ -417,15 +417,21 @@ fn apply(c: &Connection, id: AssetId, mutation: &Mutation) -> Result<(Mutation, 
                         "reference belongs to another asset",
                     ));
                 }
-                if let Some(pixels) = &reference.conformed {
-                    if pixels.iter().any(|slot| *slot > 62)
-                        || pixels.len()
-                            != usize::from(document.asset.width)
-                                * usize::from(document.asset.height)
-                    {
+                // The conformed image is kept as a PNG, not as slots: a
+                // reference is imported at the first step, before the asset
+                // has a palette to index it against. It must be the asset's
+                // own size, or it would misalign against every layer.
+                if let Some(png) = &reference.conformed {
+                    let fits = crate::raster::png::decode(png)
+                        .map(|image| {
+                            image.width == document.asset.width
+                                && image.height == document.asset.height
+                        })
+                        .unwrap_or(false);
+                    if !fits {
                         return Err(AppError::new(
                             "reference.invalid_buffer",
-                            "conformed reference must match the asset dimensions",
+                            "the conformed reference must be a PNG the size of the asset",
                         ));
                     }
                 }

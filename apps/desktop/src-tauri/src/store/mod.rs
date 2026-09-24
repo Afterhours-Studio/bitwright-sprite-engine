@@ -1019,12 +1019,20 @@ mod tests {
         let other = store
             .asset_create(project, "villain", "prop", 2, 2)
             .unwrap();
+        let png = |width: u16, height: u16| {
+            crate::raster::png::encode(&RgbaImage {
+                width,
+                height,
+                data: vec![255; usize::from(width) * usize::from(height) * 4],
+            })
+            .unwrap()
+        };
         let reference = Reference {
             id: Uuid::now_v7(),
             asset_id: asset.id,
             name: "photo".into(),
             source_png: vec![1, 2, 3],
-            conformed: Some(vec![0; 4]),
+            conformed: Some(png(2, 2)),
             conform_meta: None,
             created_at: now(),
         };
@@ -1036,7 +1044,13 @@ mod tests {
         // against every layer it is compared with.
         let mut ragged = reference.clone();
         ragged.id = Uuid::now_v7();
-        ragged.conformed = Some(vec![0; 9]);
+        ragged.conformed = Some(png(3, 3));
+        assert_eq!(
+            store.reference_write(ragged.clone()).unwrap_err().code,
+            "reference.invalid_buffer"
+        );
+        // Nor may it be anything but a PNG.
+        ragged.conformed = Some(vec![0; 16]);
         assert_eq!(
             store.reference_write(ragged).unwrap_err().code,
             "reference.invalid_buffer"

@@ -50,3 +50,13 @@ The pool now also holds `claude-sonnet-5` as a writer. With two families
 answering, every review names a model from the other family than the one that
 wrote the task (`crew review --model ...`, `crew run --role reviewer --model
 ...`), which gives a real second opinion without changing the pool's roles.
+
+## 2026-09-24 — A conformed reference is stored as a PNG, not as palette slots
+
+The document model said the conformed reference was "indexed", and the store
+checked it as a slot buffer, while the import stored the PNG the sidecar
+returns, so every real import was refused. A reference is imported at the
+first step, before the asset has a palette to index it against, and both the
+reference panel and `read_reference` need the colours. It is therefore kept
+as a PNG at the asset's size; `read_reference` indexes it against the palette
+when it is read.
