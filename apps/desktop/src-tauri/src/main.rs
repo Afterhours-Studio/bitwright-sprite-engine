@@ -26,6 +26,7 @@
 pub mod commands;
 use bitwright::{raster, store};
 mod engine;
+mod export;
 mod mcp;
 mod preferences;
 mod reference;
