@@ -378,17 +378,32 @@ impl Store {
             .ok_or_else(|| AppError::new("document.layer_not_found", role.0))
     }
     pub fn palette_write(&mut self, id: AssetId, palette: Palette) -> Result<(Palette, OpResult)> {
-        let result = self.commit(id, history::Mutation::Palette(palette), "user")?;
+        self.palette_write_as(id, palette, "user")
+    }
+    /// Records who wrote the palette: the op log carries the actor, so a
+    /// palette set by an agent reads back as that agent's write.
+    pub fn palette_write_as(
+        &mut self,
+        id: AssetId,
+        palette: Palette,
+        actor: &str,
+    ) -> Result<(Palette, OpResult)> {
+        let result = self.commit(id, history::Mutation::Palette(palette), actor)?;
         Ok((self.palette_read(id)?, result))
     }
     pub fn palette_delete(&mut self, id: AssetId) -> Result<OpResult> {
         self.commit(id, history::Mutation::Palette(Palette::default()), "user")
     }
     pub fn layer_write(&mut self, id: AssetId, layer: Layer) -> Result<OpResult> {
+        self.layer_write_as(id, layer, "user")
+    }
+    /// Records who wrote the layer, so a layer painted by an agent reads back
+    /// in the op log as that agent's write rather than the person's.
+    pub fn layer_write_as(&mut self, id: AssetId, layer: Layer, actor: &str) -> Result<OpResult> {
         self.commit(
             id,
             history::Mutation::Layer(Some(layer.clone()), layer.role),
-            "user",
+            actor,
         )
     }
     pub fn layer_delete(&mut self, id: AssetId, role: LayerRole) -> Result<OpResult> {
@@ -768,6 +783,49 @@ mod tests {
             "palette.unknown_slot"
         );
         assert_eq!(store.palette_read(asset.id).unwrap().slots.len(), 1);
+    }
+
+    #[test]
+    fn a_write_records_the_actor_it_was_given() {
+        let (mut store, project) = store();
+        let asset = store.asset_create(project, "hero", "prop", 4, 4).unwrap();
+        let palette = Palette {
+            slots: vec![PaletteSlot {
+                index: 1,
+                rgba: [10, 20, 30, 255],
+                name: None,
+                ramp: None,
+                step: None,
+            }],
+            ramps: vec![],
+        };
+
+        store
+            .palette_write_as(asset.id, palette.clone(), "agent:palette-bot")
+            .unwrap();
+        let layer = store.layer_read(asset.id, LayerRole("flats")).unwrap();
+        store
+            .layer_write_as(asset.id, layer.clone(), "agent:painter")
+            .unwrap();
+
+        let log = store.op_log(asset.id).unwrap();
+        let palette_op = log
+            .iter()
+            .find(|op| op.kind == "palette_write")
+            .expect("the palette write is in the log");
+        assert_eq!(palette_op.actor, "agent:palette-bot");
+        let layer_op = log
+            .iter()
+            .find(|op| op.kind == "layer_write")
+            .expect("the layer write is in the log");
+        assert_eq!(layer_op.actor, "agent:painter");
+
+        // The plain writers keep recording the person using the editor.
+        store.palette_write(asset.id, palette).unwrap();
+        store.layer_write(asset.id, layer).unwrap();
+        let log = store.op_log(asset.id).unwrap();
+        assert_eq!(log[log.len() - 2].actor, "user");
+        assert_eq!(log[log.len() - 1].actor, "user");
     }
 
     #[test]

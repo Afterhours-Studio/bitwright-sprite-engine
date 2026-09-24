@@ -246,7 +246,8 @@ fn set_palette(host: &dyn DocumentHost, session: &Session, args: Value) -> ToolR
     let palette = build_palette(&args.ramps)?;
     let rules = with_store(host, |store| store.asset_rules(asset))?;
     check_palette(&palette, &rules)?;
-    let (stored, op) = with_store(host, |store| store.palette_write(asset, palette))?;
+    let actor = session.actor();
+    let (stored, op) = with_store(host, |store| store.palette_write_as(asset, palette, &actor))?;
     host.palette_changed(asset);
     let slots = stored
         .slots
@@ -366,6 +367,7 @@ fn create_variation(host: &dyn DocumentHost, session: &Session, args: Value) -> 
     let mut palette = source.palette.clone();
     recolour(&mut palette, &args.remap)?;
     check_palette(&palette, &rules)?;
+    let actor = session.actor();
     let created = with_store(host, |store| {
         let created = store.asset_create(
             source.asset.project_id,
@@ -374,7 +376,7 @@ fn create_variation(host: &dyn DocumentHost, session: &Session, args: Value) -> 
             source.asset.width,
             source.asset.height,
         )?;
-        store.palette_write(created.id, palette)?;
+        store.palette_write_as(created.id, palette, &actor)?;
         let target = store.asset_open(created.id)?;
         for layer in &source.layers {
             if let Some(mut copy) = target
@@ -384,7 +386,7 @@ fn create_variation(host: &dyn DocumentHost, session: &Session, args: Value) -> 
                 .cloned()
             {
                 copy.buffer = layer.buffer.clone();
-                store.layer_write(created.id, copy)?;
+                store.layer_write_as(created.id, copy, &actor)?;
             }
         }
         Ok(created)
@@ -422,6 +424,7 @@ pub fn tools() -> Vec<ToolSpec> {
 mod tests {
     use super::*;
     use crate::mcp::host::HeadlessHost;
+    use crate::mcp::tools::call;
     use crate::store::Store;
 
     const SKIN: [&str; 4] = ["#5C3B2E", "#8A5B41", "#C08A63", "#E8BC94"];
@@ -590,6 +593,62 @@ mod tests {
         assert_eq!(
             source_document.palette.slots[6].rgba,
             [0x50, 0x9B, 0xC1, 255]
+        );
+    }
+
+    #[test]
+    fn a_palette_write_through_the_tool_records_the_agent_as_its_author() {
+        let (host, session, asset) = setup();
+        call(&host, &session, "set_palette", example_palette(&asset)).unwrap();
+        let store = host.store();
+        let store = store.lock().unwrap();
+        let log = store.op_log(asset).unwrap();
+        let last = log.last().expect("the palette write is logged");
+        assert_eq!(last.kind, "palette_write");
+        assert!(
+            last.actor.starts_with("agent:"),
+            "an agent's write must not be blamed on the person: {}",
+            last.actor
+        );
+        assert_eq!(last.actor, session.actor());
+    }
+
+    #[test]
+    fn a_variation_fork_records_the_agent_as_the_author_of_its_writes() {
+        let (host, session, asset) = setup();
+        call(&host, &session, "set_palette", example_palette(&asset)).unwrap();
+        let recoloured = ["#447648", "#69945F", "#9AB485"];
+        let swapped = ["#3E4991", "#406EB3", "#509BC1"];
+        let result = call(
+            &host,
+            &session,
+            "create_variation",
+            json!({
+                "assetId": asset.0.to_string(),
+                "name": "hero_variant",
+                "remap": [
+                    { "ramp": "cloth-blue", "to": recoloured },
+                    { "ramp": "cloth-green", "to": swapped },
+                ],
+            }),
+        )
+        .unwrap();
+        let created = asset_id(result["asset"]["id"].as_str().unwrap()).unwrap();
+        let store = host.store();
+        let store = store.lock().unwrap();
+        let log = store.op_log(created).unwrap();
+        let writes: Vec<&str> = log
+            .iter()
+            .filter(|op| op.kind == "palette_write" || op.kind == "layer_write")
+            .map(|op| op.actor.as_str())
+            .collect();
+        assert!(
+            writes.iter().all(|actor| actor.starts_with("agent:")),
+            "every write of the fork belongs to the agent: {writes:?}"
+        );
+        assert!(
+            writes.iter().any(|actor| *actor == session.actor()),
+            "the fork's palette is the agent's own write"
         );
     }
 
