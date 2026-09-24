@@ -31,7 +31,9 @@ real; nothing here is a placeholder.
 | 11. Export            | `export_png`, `export_sheet`                                                                               | yes           | Phase 4      |
 | 12. History           | `undo`, `redo`, `read_history`                                                                             | yes           | Phase 2      |
 
-The Settings panel's **Install Skills** button belongs to Phase 3 as well.
+There is no skills installer: the drawing manual is served by the server itself,
+through `read_guide` and the `bitwright://guide/*` resources, so every client
+connected over MCP has it.
 
 ---
 
