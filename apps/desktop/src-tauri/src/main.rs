@@ -28,6 +28,7 @@ use bitwright::{raster, store};
 mod engine;
 mod mcp;
 mod preferences;
+mod reference;
 mod sidecar;
 
 use std::process::ExitCode;
