@@ -218,11 +218,14 @@ impl Store {
 }
 
 fn validate_actor(actor: &str) -> Result<()> {
-    if actor != "user"
-        && (!actor.starts_with("agent:")
-            || actor.len() <= 6
-            || actor.len() > 256
-            || actor.chars().any(char::is_control))
+    // A forced advance records the actor as "<actor> (forced)"; strip that
+    // suffix before validating the underlying actor.
+    let base = actor.strip_suffix(" (forced)").unwrap_or(actor);
+    if base != "user"
+        && (!base.starts_with("agent:")
+            || base.len() <= 6
+            || base.len() > 256
+            || base.chars().any(char::is_control))
     {
         return Err(AppError::new(
             "document.invalid_actor",
@@ -611,5 +614,23 @@ mod tests {
             assert_eq!(s.asset_read(id).unwrap().name, "new");
         }
         std::fs::remove_file(path).unwrap();
+    }
+    #[test]
+    fn validate_actor_accepts_user_and_forced_actors() {
+        assert!(validate_actor("user").is_ok());
+        assert!(validate_actor("user (forced)").is_ok());
+        assert!(validate_actor("agent:s-1").is_ok());
+        assert!(validate_actor("agent:s-1 (forced)").is_ok());
+    }
+    #[test]
+    fn validate_actor_rejects_unknown_and_malformed_actors() {
+        assert_eq!(
+            validate_actor("someone").unwrap_err().code,
+            "document.invalid_actor"
+        );
+        assert_eq!(
+            validate_actor("agent:").unwrap_err().code,
+            "document.invalid_actor"
+        );
     }
 }

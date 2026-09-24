@@ -128,7 +128,12 @@ async fn run<T: Send + 'static>(
     .map_err(|e| AppError::new("store.worker_failed", e.to_string()))?
 }
 
-pub fn notify_changed<R: Runtime>(app: &AppHandle<R>, state: &DocumentState, id: AssetId, result: &OpResult) {
+pub fn notify_changed<R: Runtime>(
+    app: &AppHandle<R>,
+    state: &DocumentState,
+    id: AssetId,
+    result: &OpResult,
+) {
     let mut pending = state.pending.lock().unwrap_or_else(|e| e.into_inner());
     if !pending.push(id, result) {
         return;

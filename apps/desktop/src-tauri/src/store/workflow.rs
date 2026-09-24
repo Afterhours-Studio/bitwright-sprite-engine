@@ -742,8 +742,19 @@ impl Store {
         })
     }
     pub fn step_advance(&mut self, id: AssetId) -> Result<(StepState, OpResult)> {
+        self.step_advance_as(id, "user", false)
+    }
+
+    /// Advances as `actor`. With `force`, a failing gate is overridden, and
+    /// the op log records it: the actor is written as "<actor> (forced)".
+    pub fn step_advance_as(
+        &mut self,
+        id: AssetId,
+        actor: &str,
+        force: bool,
+    ) -> Result<(StepState, OpResult)> {
         let state = self.step_state(id)?;
-        if !state.gate.pass {
+        if !state.gate.pass && !force {
             return Err(AppError::new(
                 "step.gate_failed",
                 state.gate.failures().join(", "),
@@ -756,7 +767,41 @@ impl Store {
         let next = STEPS
             .get(position + 1)
             .ok_or_else(|| AppError::new("step.complete", "the final step has no successor"))?;
-        let result = self.commit(id, Mutation::Step((*next).into()), "user")?;
+        let actual_actor = if force {
+            format!("{actor} (forced)")
+        } else {
+            actor.to_string()
+        };
+        let result = self.commit(id, Mutation::Step((*next).into()), &actual_actor)?;
+        Ok((self.step_state(id)?, result))
+    }
+
+    /// Moves back to an earlier step. Nothing is erased.
+    pub fn step_revisit(
+        &mut self,
+        id: AssetId,
+        step: &str,
+        actor: &str,
+    ) -> Result<(StepState, OpResult)> {
+        let state = self.step_state(id)?;
+        let current_pos = STEPS
+            .iter()
+            .position(|s| *s == state.step)
+            .ok_or_else(|| AppError::new("document.invalid_step", &state.step))?;
+        let target_pos = STEPS
+            .iter()
+            .position(|s| *s == step)
+            .ok_or_else(|| AppError::new("document.invalid_step", step))?;
+        if target_pos >= current_pos {
+            return Err(AppError::new(
+                "document.invalid_step",
+                format!(
+                    "cannot revisit step {step}; the asset is already at step {}",
+                    state.step
+                ),
+            ));
+        }
+        let result = self.commit(id, Mutation::Step(step.to_string()), actor)?;
         Ok((self.step_state(id)?, result))
     }
 }
@@ -1574,5 +1619,95 @@ BBCDCBB.BBBDDDD";
         assert!(store
             .commit(id, Mutation::Step("sketching".into()), "user")
             .is_err());
+    }
+
+    // ---- step_advance_as / step_revisit ----
+
+    #[test]
+    fn step_advance_as_advances_with_the_given_actor() {
+        let (mut store, id) = asset("reference", &[("silhouette", BLANK)]);
+        let (state, _) = store.step_advance_as(id, "agent:s-1", false).unwrap();
+        assert_eq!(state.step, "palette");
+        let log = store.op_log(id).unwrap();
+        let last = log.last().unwrap();
+        assert_eq!(last.actor, "agent:s-1");
+        assert_eq!(last.kind, "step_advance");
+    }
+
+    #[test]
+    fn step_advance_as_with_force_overrides_a_failing_gate() {
+        let (mut store, id) = asset("silhouette", &[("silhouette", SPLIT)]);
+        assert!(!store.step_state(id).unwrap().gate.pass);
+        let (state, _) = store.step_advance_as(id, "agent:s-2", true).unwrap();
+        assert_eq!(state.step, "flats");
+        let log = store.op_log(id).unwrap();
+        let last = log.last().unwrap();
+        assert_eq!(last.actor, "agent:s-2 (forced)");
+    }
+
+    #[test]
+    fn step_advance_as_user_with_force_records_the_forced_actor() {
+        let (mut store, id) = asset("silhouette", &[("silhouette", SPLIT)]);
+        assert!(!store.step_state(id).unwrap().gate.pass);
+        let (state, _) = store.step_advance_as(id, "user", true).unwrap();
+        assert_eq!(state.step, "flats");
+        let log = store.op_log(id).unwrap();
+        let last = log.last().unwrap();
+        assert_eq!(last.actor, "user (forced)");
+        assert_eq!(last.kind, "step_advance");
+    }
+
+    #[test]
+    fn step_advance_as_without_force_refuses_a_failing_gate() {
+        let (mut store, id) = asset("silhouette", &[("silhouette", SPLIT)]);
+        let err = store.step_advance_as(id, "agent:s-3", false).unwrap_err();
+        assert_eq!(err.code, "step.gate_failed");
+        assert_eq!(store.asset_read(id).unwrap().step, "silhouette");
+    }
+
+    #[test]
+    fn step_advance_delegates_to_step_advance_as() {
+        let (mut store, id) = asset("reference", &[("silhouette", BLANK)]);
+        let (state, _) = store.step_advance(id).unwrap();
+        assert_eq!(state.step, "palette");
+        let log = store.op_log(id).unwrap();
+        let last = log.last().unwrap();
+        assert_eq!(last.actor, "user");
+    }
+
+    #[test]
+    fn step_revisit_moves_to_an_earlier_step() {
+        let (mut store, id) = asset("silhouette", &[("silhouette", BLANK)]);
+        let (state, _) = store.step_revisit(id, "reference", "agent:s-4").unwrap();
+        assert_eq!(state.step, "reference");
+        let log = store.op_log(id).unwrap();
+        let last = log.last().unwrap();
+        assert_eq!(last.actor, "agent:s-4");
+        assert_eq!(last.kind, "step_advance");
+    }
+
+    #[test]
+    fn step_revisit_to_the_current_step_is_refused() {
+        let (mut store, id) = asset("silhouette", &[("silhouette", BLANK)]);
+        let err = store
+            .step_revisit(id, "silhouette", "agent:s-5")
+            .unwrap_err();
+        assert_eq!(err.code, "document.invalid_step");
+        assert!(err.detail.contains("already at step"));
+    }
+
+    #[test]
+    fn step_revisit_to_a_later_step_is_refused() {
+        let (mut store, id) = asset("reference", &[("silhouette", BLANK)]);
+        let err = store.step_revisit(id, "palette", "agent:s-6").unwrap_err();
+        assert_eq!(err.code, "document.invalid_step");
+        assert!(err.detail.contains("already at step"));
+    }
+
+    #[test]
+    fn step_revisit_to_an_unknown_step_is_refused() {
+        let (mut store, id) = asset("reference", &[("silhouette", BLANK)]);
+        let err = store.step_revisit(id, "bogus", "agent:s-7").unwrap_err();
+        assert_eq!(err.code, "document.invalid_step");
     }
 }
