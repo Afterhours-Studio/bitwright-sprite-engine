@@ -24,13 +24,13 @@ import { useWindowControls } from '@/hooks/useWindowControls';
 import { useDocumentStore } from '@/stores/useDocumentStore';
 import { useCommandPaletteStore } from '@/stores/useCommandPaletteStore';
 import { useEditorStore } from '@/stores/useEditorStore';
-import { useStorageStore } from '@/stores/useStorageStore';
 import { useToastStore } from '@/stores/useToastStore';
 import { ApiError } from '@/lib/api';
+import { exportDirectory } from '@/lib/export';
 import { appVersion, openDirectory, openExternal } from '@/lib/tauri';
 import { useShellStore, type Screen } from '@/stores/useShellStore';
 
-const SCREENS: readonly Screen[] = ['editor', 'gallery', 'settings'];
+const SCREENS: readonly Screen[] = ['editor', 'settings'];
 
 /**
  * The window's own title bar, drawn because the system decorations are off.
@@ -84,8 +84,6 @@ export function TitleBar(): ReactElement {
   const setShowPixelGrid = useEditorStore((state) => state.setShowPixelGrid);
   const showCheckerboard = useEditorStore((state) => state.showCheckerboard);
   const setShowCheckerboard = useEditorStore((state) => state.setShowCheckerboard);
-  const storage = useStorageStore((state) => state.info);
-  const refreshStorage = useStorageStore((state) => state.refresh);
   const notify = useToastStore((state) => state.notify);
   const undo = useDocumentStore((state) => state.undo);
   const redo = useDocumentStore((state) => state.redo);
@@ -109,8 +107,7 @@ export function TitleBar(): ReactElement {
       label: t('menu.file'),
       items: [
         { id: 'editor', label: t('menu.editor'), accelerator: 'Ctrl+E' },
-        { id: 'gallery', label: t('menu.gallery'), accelerator: 'Ctrl+G' },
-        { id: 'sprites-folder', label: t('menu.spritesFolder') },
+        { id: 'exports-folder', label: t('menu.exportsFolder') },
         { id: 'quit', label: t('menu.quit'), accelerator: 'Alt+F4' },
       ],
     },
@@ -146,21 +143,21 @@ export function TitleBar(): ReactElement {
   ];
 
   /**
-   * Opens the directory sprites are written to.
+   * Opens the directory exports are written to.
    *
-   * The storage report is what knows where they are, and it is loaded when the
-   * settings screen is first opened rather than at startup, so it may not be
-   * there yet when someone reaches for this on a fresh launch.
+   * `export_directory` derives the path from the data root and creates the
+   * folder if it does not exist yet, so this works before anything has been
+   * exported.
    */
-  const openSpritesFolder = async (): Promise<void> => {
-    const info = storage ?? (await refreshStorage().then(() => useStorageStore.getState().info));
-    if (info === null) {
-      notify({ severity: 'warning', messageKey: 'errors:shell.no_storage_info' });
+  const openExportsFolder = async (): Promise<void> => {
+    const directory = await exportDirectory();
+    if (!directory.ok) {
+      notify({ severity: 'warning', messageKey: `errors:${directory.error.code}` });
       return;
     }
 
     try {
-      await openDirectory(info.spritesDir);
+      await openDirectory(directory.value);
     } catch (error) {
       notify({
         severity: 'warning',
@@ -186,11 +183,8 @@ export function TitleBar(): ReactElement {
       if (itemId === 'editor') {
         setScreen('editor');
       }
-      if (itemId === 'gallery') {
-        setScreen('gallery');
-      }
-      if (itemId === 'sprites-folder') {
-        void openSpritesFolder();
+      if (itemId === 'exports-folder') {
+        void openExportsFolder();
       }
       if (itemId === 'quit') {
         void close();

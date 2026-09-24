@@ -902,7 +902,7 @@ At 1200 pixels of content width and above:
 
 ```
 +---------------------------------------------------------------------------+
-| title bar: menu, back/forward, name, [Editor|Gallery|Settings], agent      |
+| title bar: menu, back/forward, name, [Editor|Settings], agent              |
 +---------------------------------------------------------------------------+
 |                                              |          |                 |
 |  STAGE                                       |  RAIL    |  RIGHT PANEL    |

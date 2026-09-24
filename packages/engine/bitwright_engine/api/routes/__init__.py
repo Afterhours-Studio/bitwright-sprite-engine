@@ -23,7 +23,7 @@ liveness. Everything else is authenticated.
 
 from fastapi import APIRouter
 
-from bitwright_engine.api.routes import conform, health, sprites, storage
+from bitwright_engine.api.routes import conform, health, storage
 
 health_router = APIRouter()
 health_router.include_router(health.router)
@@ -31,7 +31,6 @@ health_router.include_router(health.router)
 protected_router = APIRouter()
 protected_router.include_router(health.shutdown_router)
 protected_router.include_router(conform.router)
-protected_router.include_router(sprites.router)
 protected_router.include_router(storage.router)
 
 __all__ = ["health_router", "protected_router"]

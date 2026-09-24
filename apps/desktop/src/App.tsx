@@ -18,7 +18,6 @@ import type { ReactElement } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { EditorScreen } from '@/features/editor/EditorScreen';
 import { useAgentOpen } from '@/features/editor/live';
-import { GalleryScreen } from '@/features/gallery/GalleryScreen';
 import { SettingsScreen } from '@/features/settings/SettingsScreen';
 import { useShellBootstrap } from '@/hooks/useShellBootstrap';
 import { useShellStore } from '@/stores/useShellStore';
@@ -32,7 +31,6 @@ export function App(): ReactElement {
   return (
     <AppShell>
       {screen === 'editor' && <EditorScreen />}
-      {screen === 'gallery' && <GalleryScreen />}
       {screen === 'settings' && <SettingsScreen />}
     </AppShell>
   );

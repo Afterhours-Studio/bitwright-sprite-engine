@@ -37,7 +37,6 @@ from bitwright_engine.api.schemas import StorageChangeResponse, StorageInfo, Sto
 from bitwright_engine.api.state import EngineState, StateDep
 from bitwright_engine.config.settings import default_data_root
 from bitwright_engine.config.storage import (
-    SPRITES_DIRNAME,
     StorageError,
     StorageLocation,
     describe,
@@ -53,12 +52,6 @@ router = APIRouter(prefix="/v1/storage", tags=["storage"])
 def _to_info(location: StorageLocation) -> StorageInfo:
     """Build the wire representation of one data root.
 
-    The sprites directory is derived from the root being described rather than
-    read off the live settings, because this function also describes roots that
-    are not in force: a candidate the user is validating, and the previous root
-    in a change response. Reporting the running configuration for either would
-    name a directory that has nothing to do with the root it appears beside.
-
     Args:
         location: The described root.
 
@@ -67,7 +60,6 @@ def _to_info(location: StorageLocation) -> StorageInfo:
     """
     return StorageInfo(
         root=str(location.root),
-        sprites_dir=str(location.root / SPRITES_DIRNAME),
         default_root=str(default_data_root()),
         is_default=location.is_default,
         free_bytes=location.free_bytes,
@@ -172,9 +164,9 @@ def validate(body: StorageRootBody) -> StorageInfo:
 def change(body: StorageRootBody, state: StateDep) -> StorageChangeResponse:
     """Adopt a new data root for this process.
 
-    Nothing is moved. Sprites already on disk stay at the old location, where
-    the gallery will no longer find them, which is why the previous location is
-    described in the response rather than quietly forgotten.
+    Nothing is moved. Sprites already on disk stay at the old location, which
+    is why the previous location is described in the response rather than
+    quietly forgotten.
 
     The choice lives only in this process. The sidecar is spawned fresh on each
     launch, so the shell writes the same path into its own preferences and

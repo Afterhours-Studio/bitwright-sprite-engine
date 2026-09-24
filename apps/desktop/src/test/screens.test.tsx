@@ -34,12 +34,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { App } from '@/App';
 import i18n, { resources } from '@/lib/i18n';
-import { useGalleryStore } from '@/stores/useGalleryStore';
 import { useShellStore, type Screen, type Theme } from '@/stores/useShellStore';
 import { useDocumentStore } from '@/stores/useDocumentStore';
 import type { Asset } from '@/types/document';
 
-const SCREENS: Screen[] = ['editor', 'gallery', 'settings'];
+const SCREENS: Screen[] = ['editor', 'settings'];
 const THEMES: Theme[] = ['light', 'dark'];
 
 /** Inline colour written by a component, rather than taken from a token. */
@@ -73,7 +72,6 @@ beforeEach(async () => {
   useShellStore.setState({
     sidecar: { ready: true, port: 51234, version: '0.1.0', error: '', detail: '' },
   });
-  useGalleryStore.setState({ items: [], filter: 'all' });
   useDocumentStore.getState().close();
 });
 
@@ -105,19 +103,19 @@ describe('screens', () => {
     useShellStore.getState().setScreen('editor');
     render(<App />);
 
-    const gallery = screen.getByRole('tab', { name: 'Gallery' });
-    expect(gallery).toHaveAttribute('aria-selected', 'false');
+    const settings = screen.getByRole('tab', { name: 'Settings' });
+    expect(settings).toHaveAttribute('aria-selected', 'false');
 
-    fireEvent.click(gallery);
+    fireEvent.click(settings);
 
     const main = within(screen.getByRole('main'));
 
     // Both the tab and the content area are checked. A tab that reports the
     // change while the content area still shows the previous screen is the
     // failure worth catching, and only the second assertion would see it.
-    expect(gallery).toHaveAttribute('aria-selected', 'true');
-    expect(main.getByRole('heading', { level: 1, name: 'Gallery' })).toBeInTheDocument();
-    expect(main.getByText('Nothing here yet')).toBeInTheDocument();
+    expect(settings).toHaveAttribute('aria-selected', 'true');
+    expect(main.getByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument();
+    expect(main.getByText('Storage Location')).toBeInTheDocument();
   });
 
   it('translates the interface when the language changes', async () => {

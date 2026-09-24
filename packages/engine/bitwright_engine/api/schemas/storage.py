@@ -31,7 +31,6 @@ class StorageInfo(CamelModel):
     Attributes:
         root: The directory that holds everything the application writes: the
             database, the sprites, and the imported reference images.
-        sprites_dir: Where sprites are written.
         default_root: The per-user default, so the interface can offer to go
             back to it.
         is_default: Whether ``root`` is that default.
@@ -43,7 +42,6 @@ class StorageInfo(CamelModel):
     """
 
     root: str
-    sprites_dir: str
     default_root: str
     is_default: bool
     free_bytes: int | None
@@ -70,9 +68,8 @@ class StorageChangeResponse(CamelModel):
         previous: The root that was in use, described as it stands after the
             change, so that the interface can say how much was left behind.
         data_moved: Always false. The application never moves a user's library
-            on its own; what is already written stays where it is, and the
-            gallery will no longer find it. The field exists so the interface
-            states this rather than assuming it.
+            on its own; what is already written stays where it is. The field
+            exists so the interface states this rather than assuming it.
     """
 
     current: StorageInfo

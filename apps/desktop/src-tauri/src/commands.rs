@@ -123,93 +123,6 @@ pub fn sidecar_status(manager: State<'_, SidecarManager>) -> SidecarStatus {
     manager.status()
 }
 
-/// Lists the sprites already on disk, newest first.
-///
-/// # Errors
-///
-/// Returns the engine's reason code when the call fails.
-#[tauri::command]
-pub async fn engine_sprites<R: Runtime>(app: AppHandle<R>) -> Result<Value, CommandError> {
-    Ok(engine::call(&app, Method::Get, "/v1/sprites", None).await?)
-}
-
-/// Deletes one sprite from disk.
-///
-/// # Errors
-///
-/// Returns `sprites.unknown` when the name is not a plain file name, and the
-/// engine's reason code when the call fails.
-#[tauri::command]
-pub async fn engine_remove_sprite<R: Runtime>(
-    app: AppHandle<R>,
-    name: String,
-) -> Result<Value, CommandError> {
-    // A sprite is named by its file, which is generated rather than typed, so
-    // it is checked the same way an identifier is before it reaches a URL.
-    if !is_sprite_name(&name) {
-        return Err(CommandError::new(
-            "sprites.unknown",
-            format!("invalid sprite name: {name}"),
-        ));
-    }
-
-    Ok(engine::call(
-        &app,
-        Method::Post,
-        &format!("/v1/sprites/{name}/remove"),
-        None,
-    )
-    .await?)
-}
-
-/// Writes a painted sprite beside the one it was painted from.
-///
-/// `name` is the sprite that was painted on, not the file to write. The engine
-/// derives the edited copy's name from a file it already owns, so no name that
-/// arrives here decides where the bytes land; this check is the same one
-/// deleting a sprite makes, and for the same reason.
-///
-/// # Errors
-///
-/// Returns `sprites.unknown` when the name is not a plain sprite file name,
-/// and the engine's reason code when the call fails.
-#[tauri::command]
-pub async fn engine_save_sprite_edit<R: Runtime>(
-    app: AppHandle<R>,
-    name: String,
-    image: String,
-) -> Result<Value, CommandError> {
-    if !is_sprite_name(&name) {
-        return Err(CommandError::new(
-            "sprites.unknown",
-            format!("invalid sprite name: {name}"),
-        ));
-    }
-
-    let body = json!({ "image": image });
-    Ok(engine::call(
-        &app,
-        Method::Post,
-        &format!("/v1/sprites/{name}/edit"),
-        Some(body),
-    )
-    .await?)
-}
-
-/// Reports whether a value is a sprite file name.
-///
-/// The generated names are digits, hyphens and the `.png` suffix. Anything
-/// else, and in particular a separator or a dot segment, is not one.
-fn is_sprite_name(value: &str) -> bool {
-    !value.is_empty()
-        && value.len() <= MAX_SPRITE_NAME
-        && value.ends_with(".png")
-        && value
-            .trim_end_matches(".png")
-            .chars()
-            .all(|character| character.is_ascii_alphanumeric() || character == '-')
-}
-
 /// Corrects one sprite that already exists.
 ///
 /// # Errors
@@ -222,9 +135,6 @@ pub async fn engine_conform<R: Runtime>(
 ) -> Result<Value, CommandError> {
     Ok(engine::call(&app, Method::Post, "/v1/conform", Some(request)).await?)
 }
-
-/// Bounds sprite names before they are placed in a request URL.
-const MAX_SPRITE_NAME: usize = 64;
 
 /// The longest storage path accepted.
 ///
@@ -574,9 +484,6 @@ pub fn handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + 
         document::step_revisit,
         sidecar_status,
         engine_conform,
-        engine_sprites,
-        engine_remove_sprite,
-        engine_save_sprite_edit,
         storage_info,
         storage_validate,
         storage_set_root,

@@ -34,8 +34,6 @@ export interface StorageInfo {
    * the sprites, and the imported reference images.
    */
   root: string;
-  /** Where sprites are written. */
-  spritesDir: string;
   /** The per-user default, so the interface can offer to go back to it. */
   defaultRoot: string;
   /** Whether `root` is that default. */
@@ -135,33 +133,4 @@ export interface ConformResponse {
   durationMs: number;
   /** Stable reason codes for anything the user should know. */
   warnings: string[];
-}
-
-/** One sprite already written to disk. */
-export interface SavedSprite {
-  /** File name, which is also its identifier. */
-  name: string;
-  /** Full path, for showing where it lives. */
-  path: string;
-  width: number;
-  height: number;
-  /** PNG bytes, base64 encoded, with no data URL prefix. */
-  data: string;
-  /** When it was written, as a Unix timestamp. */
-  modifiedAt: number;
-}
-
-/** Every sprite on disk, newest first. */
-export interface SpriteListResponse {
-  sprites: SavedSprite[];
-}
-
-/** One sprite as the interface carries it. */
-export interface SpriteImage {
-  /** Where the sprite was written, or an empty string when it could not be. */
-  path: string;
-  /** PNG bytes, base64 encoded, with no data URL prefix. */
-  data: string;
-  width: number;
-  height: number;
 }

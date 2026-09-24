@@ -36,7 +36,6 @@ from bitwright_engine.api.routes import storage as storage_route
 from bitwright_engine.config import Settings
 from bitwright_engine.config.storage import (
     PROBE_PREFIX,
-    SPRITES_DIRNAME,
     StorageCreateFailedError,
     StorageInsideInstallationError,
     StorageNotADirectoryError,
@@ -60,9 +59,8 @@ def make_sprite(root: Path, name: str, size: int = 8) -> Path:
     Returns:
         The sprite file.
     """
-    directory = root / SPRITES_DIRNAME
-    directory.mkdir(parents=True, exist_ok=True)
-    sprite = directory / name
+    root.mkdir(parents=True, exist_ok=True)
+    sprite = root / name
     sprite.write_bytes(b"p" * size)
     return sprite
 
@@ -220,17 +218,10 @@ def test_reports_a_root_that_does_not_exist(tmp_path: Path) -> None:
     assert location.used_bytes == 0
 
 
-def test_the_sprites_directory_follows_the_data_root(tmp_path: Path) -> None:
-    settings = Settings(data_root=tmp_path / "chosen")
-
-    assert settings.sprites_dir == tmp_path / "chosen" / SPRITES_DIRNAME
-
-
-def test_use_data_root_moves_the_sprites(tmp_path: Path, settings: Settings) -> None:
+def test_use_data_root_repoints_the_process(tmp_path: Path, settings: Settings) -> None:
     settings.use_data_root(tmp_path / "moved")
 
     assert settings.data_root == tmp_path / "moved"
-    assert settings.sprites_dir == tmp_path / "moved" / SPRITES_DIRNAME
 
 
 def test_the_route_reports_the_current_location(client: TestClient, tmp_path: Path) -> None:
@@ -284,8 +275,8 @@ def test_changing_the_root_leaves_the_old_sprites_where_they_are(
     # The old root is reported so that the interface can say what stayed there.
     assert body["previous"]["root"] == str(source)
     assert body["previous"]["usedBytes"] == 64
-    assert (source / SPRITES_DIRNAME / "hero.png").is_file()
-    assert settings.sprites_dir == destination / SPRITES_DIRNAME
+    assert (source / "hero.png").is_file()
+    assert settings.data_root == destination
 
 
 def test_the_default_is_restored(
@@ -309,38 +300,3 @@ def test_the_default_is_restored(
     assert body["current"]["root"] == str(fallback)
     assert body["current"]["isDefault"] is True
     assert settings.data_root == fallback
-    assert settings.sprites_dir == fallback / SPRITES_DIRNAME
-
-
-def test_a_described_root_names_its_own_sprites_directory(
-    client: TestClient,
-    tmp_path: Path,
-) -> None:
-    # Every root in a response has to name the sprites directory that belongs to
-    # it, not the one the process happens to be using. Two roots appear in a
-    # change response and only one of them is in force, so reading the sprites
-    # directory off the live settings would give the new root's path to the old
-    # root as well, and tell the user their work moved when it did not.
-    destination = tmp_path / "moved"
-    origin = tmp_path / "origin"
-
-    client.post("/v1/storage", json={"path": str(origin)})
-    response = client.post("/v1/storage", json={"path": str(destination)})
-
-    body = response.json()
-    assert body["current"]["spritesDir"] == str(destination / SPRITES_DIRNAME)
-    assert body["previous"]["spritesDir"] == str(origin / SPRITES_DIRNAME)
-
-
-def test_a_validated_candidate_names_its_own_sprites_directory(
-    client: TestClient,
-    tmp_path: Path,
-) -> None:
-    # A candidate is not in force at all, so this is the same fault with nothing
-    # to hide it: before the change, the live settings still point elsewhere.
-    candidate = tmp_path / "candidate"
-
-    response = client.post("/v1/storage/validate", json={"path": str(candidate)})
-
-    assert response.status_code == 200
-    assert response.json()["spritesDir"] == str(candidate / SPRITES_DIRNAME)

@@ -57,7 +57,7 @@ two kinds of work want different homes.
               |   watches --parent-pid                     |
               |                                            |
               |   FastAPI  /health  /v1/conform            |
-              |            /v1/sprites  /v1/storage        |
+              |            /v1/storage                     |
               |                                            |
               |   conform: grid detection (DFT),           |
               |   modal downsample, weighted k-means in    |

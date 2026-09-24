@@ -206,8 +206,8 @@ export interface DockProps {
  * --surface-anchor, a near-black slab used nowhere else in the application,
  * which read as a control panel borrowed from another product.
  *
- * A screen with no shortcuts renders no dock. Gallery and Settings have none,
- * and an empty bar on those screens was pure furniture.
+ * A screen with no shortcuts renders no dock. Settings has none, and an empty
+ * bar on that screen was pure furniture.
  *
  * THE ROW IS THREE COLUMNS, NOT A FLEX ROW WITH SPACE BETWEEN.
  *

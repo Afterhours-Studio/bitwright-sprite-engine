@@ -29,7 +29,7 @@ import { create } from 'zustand';
 import type { PlatformInfo, SidecarStatus, VibrancyState } from '@/lib/tauri';
 
 /** The screens the application has. */
-export type Screen = 'editor' | 'gallery' | 'settings';
+export type Screen = 'editor' | 'settings';
 
 /** What the user chose. Dark is the default. */
 export type Theme = 'dark' | 'light' | 'system';

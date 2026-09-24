@@ -5,7 +5,6 @@
   },
   "nav": {
     "editor": "Editor",
-    "gallery": "Gallery",
     "settings": "Settings"
   },
   "window": {
@@ -41,19 +40,6 @@
     "megabytes": "MB",
     "gigabytes": "GB"
   },
-  "empty": {
-    "title": "Nothing here yet",
-    "description": "Sprites appear here once there are some in the sprites folder."
-  },
-  "gallery": {
-    "title": "Gallery",
-    "subtitle": "Every sprite in the sprites folder, newest first",
-    "filterAll": "All",
-    "filterFavourites": "Favourites",
-    "favourite": "Favourite",
-    "unfavourite": "Favourited",
-    "remove": "Remove"
-  },
   "menu": {
     "label": "Menu",
     "file": "File",
@@ -62,8 +48,7 @@
     "quit": "Quit",
     "search": "Search",
     "editor": "Editor",
-    "gallery": "Gallery",
-    "spritesFolder": "Open Sprites Folder",
+    "exportsFolder": "Open Exports Folder",
     "settings": "Settings",
     "commandPalette": "Command Palette",
     "pixelGrid": "Pixel Grid",

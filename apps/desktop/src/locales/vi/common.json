@@ -5,7 +5,6 @@
   },
   "nav": {
     "editor": "Trình vẽ",
-    "gallery": "Thư viện",
     "settings": "Cài đặt"
   },
   "window": {
@@ -41,19 +40,6 @@
     "megabytes": "MB",
     "gigabytes": "GB"
   },
-  "empty": {
-    "title": "Chưa có gì ở đây",
-    "description": "Sprite sẽ xuất hiện ở đây khi thư mục sprite có tệp."
-  },
-  "gallery": {
-    "title": "Thư viện",
-    "subtitle": "Mọi sprite trong thư mục sprite, mới nhất trước",
-    "filterAll": "Tất cả",
-    "filterFavourites": "Yêu thích",
-    "favourite": "Yêu thích",
-    "unfavourite": "Đã thích",
-    "remove": "Xoá"
-  },
   "menu": {
     "label": "Menu",
     "file": "Tệp",
@@ -62,8 +48,7 @@
     "quit": "Thoát",
     "search": "Tìm kiếm",
     "editor": "Trình vẽ",
-    "gallery": "Thư viện",
-    "spritesFolder": "Mở thư mục sprite",
+    "exportsFolder": "Mở thư mục xuất",
     "settings": "Cài đặt",
     "commandPalette": "Bảng lệnh",
     "pixelGrid": "Lưới pixel",

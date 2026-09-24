@@ -32,8 +32,6 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from bitwright_engine.config.storage import SPRITES_DIRNAME
-
 APP_ID = "studio.afterhours.bitwright"
 
 
@@ -67,8 +65,6 @@ class Settings(BaseSettings):
         log_level: Minimum log level.
         data_root: Directory that holds everything this application writes. The
             one setting the user moves when their system drive is full.
-        sprites_dir: Directory sprites are written to. Derived from
-            ``data_root``, so it follows the location the user chose.
     """
 
     model_config = SettingsConfigDict(
@@ -82,20 +78,6 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     data_root: Path = Field(default_factory=default_data_root)
-
-    @property
-    def sprites_dir(self) -> Path:
-        """Return where sprites are written.
-
-        Derived rather than stored, so moving the data root moves this with
-        it. A sprite is small, but it is what the user came for, and putting it
-        anywhere other than the location they deliberately chose is the kind of
-        surprise a settings screen may not spring on them.
-
-        Returns:
-            The directory. It may not exist yet.
-        """
-        return self.data_root / SPRITES_DIRNAME
 
     def use_data_root(self, root: Path) -> None:
         """Point this process at another data root.

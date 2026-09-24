@@ -109,27 +109,24 @@ The frontend calls these through `invoke`. The set is deliberately small: a
 command is a fixed method and a fixed path, so a compromised page cannot aim a
 request at an endpoint that was never meant to be reachable.
 
-| Command                   | Returns         | Purpose                                               |
-| ------------------------- | --------------- | ----------------------------------------------------- |
-| `sidecar_status`          | `SidecarStatus` | Current status, for the initial poll                  |
-| `engine_conform`          | JSON            | Import a reference image through the conform pipeline |
-| `engine_sprites`          | JSON            | List sprites written under the data root              |
-| `engine_remove_sprite`    | JSON            | Delete one                                            |
-| `engine_save_sprite_edit` | JSON            | Write an edited sprite back                           |
-| `storage_info`            | JSON            | Where the data root is, and how much space it has     |
-| `storage_validate`        | JSON            | Check a candidate root before committing to it        |
-| `storage_set_root`        | JSON            | Move the data root                                    |
-| `storage_reset_root`      | JSON            | Return to the platform default                        |
-| `storage_pick_directory`  | JSON            | Open the system folder picker                         |
-| `vibrancy_state`          | `VibrancyState` | Whether a background effect applied                   |
-| `platform_info`           | `PlatformInfo`  | Operating system, and who draws the window buttons    |
-| `app_version`             | `string`        | Version, for the about panel                          |
-| `window_minimize`         | -               | Minimize                                              |
-| `window_toggle_maximize`  | `boolean`       | Maximize or restore, returning the new state          |
-| `window_is_maximized`     | `boolean`       | Current maximized state                               |
-| `window_close`            | -               | Close, which quits                                    |
-| `open_directory`          | -               | Reveal a folder in the system file manager            |
-| `open_external`           | -               | Open a URL in the system browser                      |
+| Command                  | Returns         | Purpose                                               |
+| ------------------------ | --------------- | ----------------------------------------------------- |
+| `sidecar_status`         | `SidecarStatus` | Current status, for the initial poll                  |
+| `engine_conform`         | JSON            | Import a reference image through the conform pipeline |
+| `storage_info`           | JSON            | Where the data root is, and how much space it has     |
+| `storage_validate`       | JSON            | Check a candidate root before committing to it        |
+| `storage_set_root`       | JSON            | Move the data root                                    |
+| `storage_reset_root`     | JSON            | Return to the platform default                        |
+| `storage_pick_directory` | JSON            | Open the system folder picker                         |
+| `vibrancy_state`         | `VibrancyState` | Whether a background effect applied                   |
+| `platform_info`          | `PlatformInfo`  | Operating system, and who draws the window buttons    |
+| `app_version`            | `string`        | Version, for the about panel                          |
+| `window_minimize`        | -               | Minimize                                              |
+| `window_toggle_maximize` | `boolean`       | Maximize or restore, returning the new state          |
+| `window_is_maximized`    | `boolean`       | Current maximized state                               |
+| `window_close`           | -               | Close, which quits                                    |
+| `open_directory`         | -               | Reveal a folder in the system file manager            |
+| `open_external`          | -               | Open a URL in the system browser                      |
 
 The document commands that Phase 1 adds — create, open, mutate and read back a
 document and its layers — are specified in

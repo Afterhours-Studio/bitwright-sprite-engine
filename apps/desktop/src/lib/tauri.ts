@@ -26,13 +26,7 @@
 import { invoke as tauriInvoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
-import type {
-  ConformResponse,
-  SavedSprite,
-  SpriteListResponse,
-  StorageChange,
-  StorageInfo,
-} from '@/types/engine';
+import type { ConformResponse, StorageChange, StorageInfo } from '@/types/engine';
 
 /** A failed command, carrying a code the `errors` namespace can translate. */
 export interface ShellError {
@@ -150,30 +144,6 @@ export async function on<T>(event: string, handler: (payload: T) => void): Promi
 /** Returns the sidecar's current status. */
 export function sidecarStatus(): Promise<ShellResult<SidecarStatus>> {
   return invoke<SidecarStatus>('sidecar_status');
-}
-
-/** Lists the sprites already on disk, newest first. */
-export function engineSprites(): Promise<ShellResult<SpriteListResponse>> {
-  return invoke<SpriteListResponse>('engine_sprites');
-}
-
-/** Deletes one sprite from disk. */
-export function engineRemoveSprite(name: string): Promise<ShellResult<null>> {
-  return invoke<null>('engine_remove_sprite', { name });
-}
-
-/**
- * Writes a painted sprite beside the one it was painted from.
- *
- * `name` identifies the sprite that was painted on, not the file to write:
- * the engine derives the edited copy's name from a file it already owns, so
- * nothing the webview sends decides where the bytes land.
- */
-export function engineSaveSpriteEdit(
-  name: string,
-  image: string,
-): Promise<ShellResult<SavedSprite>> {
-  return invoke<SavedSprite>('engine_save_sprite_edit', { name, image });
 }
 
 /** Corrects one sprite that already exists. */

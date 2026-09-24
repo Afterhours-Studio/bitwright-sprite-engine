@@ -26,9 +26,6 @@
 
 import {
   engineConform,
-  engineRemoveSprite,
-  engineSaveSpriteEdit,
-  engineSprites,
   storageInfo,
   storagePickDirectory,
   storageResetRoot,
@@ -36,14 +33,7 @@ import {
   storageValidate,
   type ShellError,
 } from '@/lib/tauri';
-import type {
-  ConformOptions,
-  ConformResponse,
-  SavedSprite,
-  SpriteListResponse,
-  StorageChange,
-  StorageInfo,
-} from '@/types/engine';
+import type { ConformOptions, ConformResponse, StorageChange, StorageInfo } from '@/types/engine';
 
 /** A failure from the engine, carrying a code the `errors` namespace translates. */
 export class ApiError extends Error {
@@ -90,39 +80,6 @@ export function conformSprite(
   request: ConformOptions & { image: string },
 ): Promise<ConformResponse> {
   return unwrap(engineConform(request));
-}
-
-/**
- * Lists the sprites on disk, newest first.
- *
- * The gallery is a view of a directory rather than a list held in memory:
- * anything else means a sprite exists in two places that disagree the moment
- * one changes, and it means closing the window loses the record of work that
- * is still sitting on disk.
- */
-export function listSprites(): Promise<SpriteListResponse> {
-  return unwrap(engineSprites());
-}
-
-/** Deletes one sprite from disk. */
-export function removeSprite(name: string): Promise<null> {
-  return unwrap(engineRemoveSprite(name));
-}
-
-/**
- * Writes a painted sprite beside the one it was painted from.
- *
- * The caller names the sprite it started from; the engine decides what the
- * edit is called and answers with it. That is not politeness, it is the
- * security boundary: the only path this can reach is one the engine derived
- * from a file it already owns, so no name the interface sends can steer a
- * write anywhere else.
- *
- * A sprite whose name already belongs to an edit is written over, so a session
- * of painting leaves one file rather than one per stroke.
- */
-export function saveSpriteEdit(name: string, image: string): Promise<SavedSprite> {
-  return unwrap(engineSaveSpriteEdit(name, image));
 }
 
 /** Reports where the application's data is kept, and how much room is left. */

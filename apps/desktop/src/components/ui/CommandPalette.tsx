@@ -24,7 +24,7 @@ import { LANGUAGES, setLanguage } from '@/lib/i18n';
 import { useCommandPaletteStore } from '@/stores/useCommandPaletteStore';
 import { useShellStore, type Screen, type Theme } from '@/stores/useShellStore';
 
-const SCREENS: readonly Screen[] = ['editor', 'gallery', 'settings'];
+const SCREENS: readonly Screen[] = ['editor', 'settings'];
 const THEMES: readonly Theme[] = ['dark', 'light'];
 
 /** One row in the palette. */
@@ -95,9 +95,9 @@ function filterCommands(value: string, search: string, keywords?: string[]): num
  * removes anything, because a palette is driven by typing and
  * Enter: the user commits to a row after reading one word of it, having got
  * there through a fuzzy match they did not verify. That is a fine way to change
- * screens and an unacceptable way to overwrite a layer or empty the
- * gallery. Expensive and destructive actions stay where they are, on a control
- * the user has looked at.
+ * screens and an unacceptable way to overwrite a layer or delete a sprite.
+ * Expensive and destructive actions stay where they are, on a control the user
+ * has looked at.
  *
  * Every row is idempotent for the same reason. Choosing the screen already open
  * or the theme already applied does nothing, so a mistyped search costs

@@ -19,7 +19,7 @@
 What is left here is the shape of the process itself: the unauthenticated
 health probe the shell polls before it has parsed the handshake, and the socket
 bind that must never leave loopback. Route behaviour is covered beside each
-route, in test_conform, test_sprites and test_storage.
+route, in test_conform and test_storage.
 """
 
 from __future__ import annotations
