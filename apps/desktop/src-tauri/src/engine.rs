@@ -123,11 +123,23 @@ pub async fn call<R: Runtime>(
         )
     })?;
 
-    if status.is_success() {
-        return Ok(payload);
-    }
+    interpret_response(status.as_u16(), status.is_success(), payload)
+}
 
-    Err(engine_error(status.as_u16(), payload))
+/// `call`'s response-handling tail, split out so it can be tested against a
+/// fixed status and body instead of a real HTTP response: `call`'s signature
+/// takes an `AppHandle` and reaches the engine only through the sidecar
+/// manager's own credentials, so it cannot be pointed at an arbitrary base
+/// URL in a unit test.
+///
+/// A successful status hands the decoded body straight back; anything else
+/// is mapped through [`engine_error`].
+fn interpret_response(status: u16, success: bool, payload: Value) -> Result<Value, EngineError> {
+    if success {
+        Ok(payload)
+    } else {
+        Err(engine_error(status, payload))
+    }
 }
 
 /// Turns a failed response into a translatable error.
@@ -169,5 +181,20 @@ mod tests {
     fn reports_unknown_for_an_unrecognised_body() {
         let payload = serde_json::json!({ "unexpected": true });
         assert_eq!(engine_error(500, payload).code, "unknown");
+    }
+
+    #[test]
+    fn interpret_response_returns_the_body_for_a_successful_status() {
+        let payload = serde_json::json!({ "ok": true, "value": 42 });
+        let result = interpret_response(200, true, payload.clone()).unwrap();
+        assert_eq!(result, payload);
+    }
+
+    #[test]
+    fn interpret_response_maps_a_failing_status_through_engine_error() {
+        let payload = serde_json::json!({ "code": "backend.unavailable" });
+        let error = interpret_response(503, false, payload).unwrap_err();
+        assert_eq!(error.code, "backend.unavailable");
+        assert_eq!(error.detail, "engine responded 503");
     }
 }

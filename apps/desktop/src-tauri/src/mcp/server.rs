@@ -556,6 +556,53 @@ mod tests {
         assert_eq!(allowed.text().await.expect("a body"), "ok");
     }
 
+    /// A fresh directory under the system temporary directory.
+    fn temp_dir(label: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("the clock is after the epoch")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "bitwright-mcp-server-{label}-{}-{nanos}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&path).expect("a temporary directory can be made");
+        path
+    }
+
+    #[test]
+    fn a_freshly_loaded_server_state_reports_stopped_with_no_sessions() {
+        // `McpServerState` is constructible with nothing but a data directory
+        // — no live Tauri `App`/`AppHandle` is required — so its status can be
+        // exercised as a unit test directly, against a temporary settings
+        // file rather than a real one.
+        let dir = temp_dir("status");
+        let state = McpServerState::new(dir.clone()).expect("a fresh settings file loads");
+
+        let status = state.status();
+        assert!(!status.running);
+        assert_eq!(status.port, None);
+        assert_eq!(status.url, None);
+        assert!(status.sessions.is_empty());
+        assert!(!status.token.is_empty(), "a token was generated on load");
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn status_matches_the_token_persisted_on_disk() {
+        let dir = temp_dir("status-token");
+        let state = McpServerState::new(dir.clone()).expect("a fresh settings file loads");
+        let first = state.status().token;
+
+        // Reloading state from the same directory must read back the same
+        // token that was written, rather than minting a new one each time.
+        let reloaded = McpServerState::new(dir.clone()).expect("reloading the same file");
+        assert_eq!(reloaded.status().token, first);
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
     #[test]
     fn status_serialises_camel_case_fields() {
         let status = McpStatus {

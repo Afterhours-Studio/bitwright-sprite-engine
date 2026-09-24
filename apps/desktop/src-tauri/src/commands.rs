@@ -424,14 +424,24 @@ const ALLOWED_HOSTS: [&str; 2] = ["github.com", "www.gnu.org"];
 /// and `shell.open_failed` when the platform refuses to open it.
 #[tauri::command]
 pub fn open_directory<R: Runtime>(app: AppHandle<R>, path: String) -> Result<(), CommandError> {
-    let target = Path::new(&path);
-    if !target.is_dir() {
-        return Err(CommandError::new("shell.not_a_directory", path));
-    }
+    check_is_directory(&path)?;
 
     app.opener()
         .open_path(path, None::<&str>)
         .map_err(|error| CommandError::new("shell.open_failed", error.to_string()))
+}
+
+/// The pure part of [`open_directory`]'s guard: refuses anything that is not
+/// an existing directory, without touching the system opener.
+///
+/// # Errors
+///
+/// Returns `shell.not_a_directory` when `path` is not an existing directory.
+fn check_is_directory(path: &str) -> Result<(), CommandError> {
+    if !Path::new(path).is_dir() {
+        return Err(CommandError::new("shell.not_a_directory", path.to_string()));
+    }
+    Ok(())
 }
 
 /// Opens an external link in the user's browser.
@@ -442,7 +452,22 @@ pub fn open_directory<R: Runtime>(app: AppHandle<R>, path: String) -> Result<(),
 /// host, and `shell.open_failed` when the platform refuses to open it.
 #[tauri::command]
 pub fn open_external<R: Runtime>(app: AppHandle<R>, url: String) -> Result<(), CommandError> {
-    let parsed = url::Url::parse(&url)
+    check_url_allowed(&url)?;
+
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|error| CommandError::new("shell.open_failed", error.to_string()))
+}
+
+/// The pure part of [`open_external`]'s guard: parses `url` and checks it is
+/// `https` on one of [`ALLOWED_HOSTS`], without touching the system opener.
+///
+/// # Errors
+///
+/// Returns `shell.url_not_allowed` when `url` does not parse, is not
+/// `https`, or is not on an allowed host.
+fn check_url_allowed(url: &str) -> Result<(), CommandError> {
+    let parsed = url::Url::parse(url)
         .map_err(|error| CommandError::new("shell.url_not_allowed", error.to_string()))?;
 
     let allowed = parsed.scheme() == "https"
@@ -450,12 +475,9 @@ pub fn open_external<R: Runtime>(app: AppHandle<R>, url: String) -> Result<(), C
             .host_str()
             .is_some_and(|host| ALLOWED_HOSTS.contains(&host));
     if !allowed {
-        return Err(CommandError::new("shell.url_not_allowed", url));
+        return Err(CommandError::new("shell.url_not_allowed", url.to_string()));
     }
-
-    app.opener()
-        .open_url(url, None::<&str>)
-        .map_err(|error| CommandError::new("shell.open_failed", error.to_string()))
+    Ok(())
 }
 
 /// Registers every command with the builder.
@@ -616,6 +638,93 @@ mod tests {
         assert_eq!(root_of(&outcome).as_deref(), Some(ABSOLUTE));
         assert!(root_of(&serde_json::json!({ "current": {} })).is_none());
         assert!(root_of(&serde_json::json!({})).is_none());
+    }
+
+    #[test]
+    fn check_url_allowed_accepts_an_allowed_https_host() {
+        assert!(check_url_allowed("https://github.com/afterhours/bitwright").is_ok());
+        assert!(check_url_allowed("https://www.gnu.org/licenses/agpl-3.0.html").is_ok());
+    }
+
+    #[test]
+    fn check_url_allowed_refuses_a_non_https_scheme() {
+        assert_eq!(
+            check_url_allowed("http://github.com").unwrap_err().code,
+            "shell.url_not_allowed"
+        );
+        assert_eq!(
+            check_url_allowed("file:///etc/passwd").unwrap_err().code,
+            "shell.url_not_allowed"
+        );
+    }
+
+    #[test]
+    fn check_url_allowed_refuses_a_host_not_on_the_allowlist() {
+        assert_eq!(
+            check_url_allowed("https://evil.example.com")
+                .unwrap_err()
+                .code,
+            "shell.url_not_allowed"
+        );
+    }
+
+    #[test]
+    fn check_url_allowed_refuses_a_url_that_does_not_parse() {
+        assert_eq!(
+            check_url_allowed("not a url").unwrap_err().code,
+            "shell.url_not_allowed"
+        );
+    }
+
+    #[test]
+    fn check_is_directory_accepts_an_existing_directory() {
+        let directory = std::env::temp_dir();
+        assert!(check_is_directory(&directory.display().to_string()).is_ok());
+    }
+
+    #[test]
+    fn check_is_directory_refuses_a_file_or_a_missing_path() {
+        let file =
+            std::env::temp_dir().join(format!("bitwright-cmd-test-{}", uuid::Uuid::now_v7()));
+        std::fs::write(&file, b"not a directory").unwrap();
+        assert_eq!(
+            check_is_directory(&file.display().to_string())
+                .unwrap_err()
+                .code,
+            "shell.not_a_directory"
+        );
+        std::fs::remove_file(&file).unwrap();
+
+        let missing =
+            std::env::temp_dir().join(format!("bitwright-cmd-missing-{}", uuid::Uuid::now_v7()));
+        assert_eq!(
+            check_is_directory(&missing.display().to_string())
+                .unwrap_err()
+                .code,
+            "shell.not_a_directory"
+        );
+    }
+
+    #[test]
+    fn app_version_matches_the_cargo_manifest_and_is_semver_shaped() {
+        let version = app_version();
+        assert_eq!(version, env!("CARGO_PKG_VERSION"));
+        // `\d+\.\d+\.\d+`, allowing a pre-release/build metadata suffix, without
+        // pulling in a regex dependency for one check: three dot-separated,
+        // all-digit, non-empty components at the start of the string.
+        let core = version.split(['-', '+']).next().unwrap_or(&version);
+        let parts: Vec<&str> = core.split('.').collect();
+        assert_eq!(
+            parts.len(),
+            3,
+            "{version} does not look like major.minor.patch"
+        );
+        assert!(
+            parts
+                .iter()
+                .all(|part| !part.is_empty() && part.chars().all(|c| c.is_ascii_digit())),
+            "{version} does not look like semver"
+        );
     }
 
     #[test]

@@ -1024,6 +1024,66 @@ mod tests {
     }
 
     #[test]
+    fn render_asset_of_a_background_renders_its_tilemap() {
+        let mut store = Store::memory().unwrap();
+        let project = store.project_create("Demo", "hd2d").unwrap();
+        let background = store
+            .asset_create(project.id, "hills", "background", 8, 8)
+            .unwrap();
+        let tile = store
+            .asset_create(project.id, "grass", "tile", 8, 8)
+            .unwrap();
+        let mut map = crate::raster::Tilemap::new(8, 8, 1, 1).unwrap();
+        map.place(
+            "ground",
+            &[crate::raster::Placement {
+                x: 0,
+                y: 0,
+                tile: Some(tile.id.0),
+            }],
+        )
+        .unwrap();
+        store.tilemap_write(background.id, &map).unwrap();
+
+        let rendered = render_asset(&store, background.id, 1).unwrap();
+        let direct = store.tilemap_render(background.id, None).unwrap();
+        assert_eq!(rendered.data, direct.data);
+        assert_eq!((rendered.width, rendered.height), (8, 8));
+    }
+
+    #[test]
+    fn render_asset_of_a_non_background_renders_its_layer_composite() {
+        let mut store = Store::memory().unwrap();
+        let project = store.project_create("Demo", "hd2d").unwrap();
+        let asset = store
+            .asset_create(project.id, "hero", "prop", 2, 2)
+            .unwrap();
+
+        let rendered = render_asset(&store, asset.id, 1).unwrap();
+        let direct = store.asset_composite(asset.id).unwrap();
+        assert_eq!(rendered.data, direct.data);
+        assert_eq!((rendered.width, rendered.height), (2, 2));
+    }
+
+    #[test]
+    fn render_asset_scales_the_underlying_render() {
+        let mut store = Store::memory().unwrap();
+        let project = store.project_create("Demo", "hd2d").unwrap();
+        let asset = store
+            .asset_create(project.id, "hero", "prop", 2, 2)
+            .unwrap();
+        let rendered = render_asset(&store, asset.id, 2).unwrap();
+        assert_eq!((rendered.width, rendered.height), (4, 4));
+    }
+
+    // `exports_root` is not tested here: it reads the data root through
+    // `preferences::data_root_without_app()`, which is a process-global set
+    // by the app's own preferences file rather than a parameter this
+    // function takes, so a unit test cannot point it at an isolated
+    // temporary directory without mutating state shared with every other
+    // test in this binary (and with a real user's configured data root).
+
+    #[test]
     fn write_failed_removes_the_temp_file() {
         // Regression: the temp file was only removed when the rename step
         // failed, leaving it behind whenever the initial write itself

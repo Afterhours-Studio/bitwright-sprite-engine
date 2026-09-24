@@ -1094,4 +1094,121 @@ mod tests {
         let rules = store.project_rules(id).unwrap();
         assert_eq!(rules.max_slots, StyleRules::default().max_slots);
     }
+
+    #[test]
+    fn a_project_is_renamed_and_an_invalid_name_is_refused() {
+        let (mut store, project) = store();
+        let renamed = store.project_rename(project, "new name").unwrap();
+        assert_eq!(renamed.name, "new name");
+        assert_eq!(store.project_read(project).unwrap().name, "new name");
+        assert_eq!(
+            store.project_rename(project, "").unwrap_err().code,
+            "document.invalid_name"
+        );
+        // The failed rename must not have taken effect.
+        assert_eq!(store.project_read(project).unwrap().name, "new name");
+    }
+
+    #[test]
+    fn style_list_is_scoped_by_project_including_project_less_styles() {
+        let (mut store, project) = store();
+        let other = store.project_create("other", "hd2d").unwrap();
+        let global = store
+            .style_create(None, "global", "custom", StyleRules::default())
+            .unwrap();
+
+        let for_project = store.style_list(Some(project)).unwrap();
+        assert_eq!(for_project.len(), 1);
+        assert_eq!(for_project[0].project_id, Some(project));
+
+        let for_other = store.style_list(Some(other.id)).unwrap();
+        assert_eq!(for_other.len(), 1);
+        assert_eq!(for_other[0].project_id, Some(other.id));
+
+        let project_less = store.style_list(None).unwrap();
+        assert_eq!(project_less.len(), 1);
+        assert_eq!(project_less[0].id, global.id);
+    }
+
+    #[test]
+    fn style_update_round_trips_through_style_read() {
+        let (mut store, project) = store();
+        let mut style = store
+            .style_create(Some(project), "original", "custom", StyleRules::default())
+            .unwrap();
+        style.name = "renamed".into();
+        style.rules = StyleRules {
+            max_slots: 12,
+            ..StyleRules::default()
+        };
+        let updated = store.style_update(&style).unwrap();
+        assert_eq!(updated.name, "renamed");
+        assert_eq!(updated.rules.max_slots, 12);
+        let read_back = store.style_read(style.id).unwrap();
+        assert_eq!(read_back.name, "renamed");
+        assert_eq!(read_back.rules.max_slots, 12);
+    }
+
+    #[test]
+    fn reference_delete_removes_it_from_the_list_and_errors_on_a_missing_one() {
+        let (mut store, project) = store();
+        let asset = store.asset_create(project, "hero", "prop", 2, 2).unwrap();
+        let reference = Reference {
+            id: Uuid::now_v7(),
+            asset_id: asset.id,
+            name: "photo".into(),
+            source_png: vec![1, 2, 3],
+            conformed: None,
+            conform_meta: None,
+            created_at: now(),
+        };
+        store.reference_write(reference.clone()).unwrap();
+        assert_eq!(store.reference_list(asset.id).unwrap().len(), 1);
+
+        store.reference_delete(asset.id, reference.id).unwrap();
+        assert!(store.reference_list(asset.id).unwrap().is_empty());
+
+        assert_eq!(
+            store
+                .reference_delete(asset.id, reference.id)
+                .unwrap_err()
+                .code,
+            "reference.not_found"
+        );
+        assert_eq!(
+            store
+                .reference_delete(asset.id, Uuid::now_v7())
+                .unwrap_err()
+                .code,
+            "reference.not_found"
+        );
+    }
+
+    #[test]
+    fn asset_composite_renders_known_pixels_through_the_palette() {
+        let (mut store, project) = store();
+        let asset = store.asset_create(project, "hero", "prop", 2, 2).unwrap();
+        let palette = Palette {
+            slots: vec![PaletteSlot {
+                index: 1,
+                rgba: [10, 20, 30, 255],
+                name: None,
+                ramp: None,
+                step: None,
+            }],
+            ramps: vec![],
+        };
+        store.palette_write(asset.id, palette).unwrap();
+        let mut layer = store.layer_read(asset.id, LayerRole("flats")).unwrap();
+        layer.buffer.data[0] = 1;
+        store.layer_write(asset.id, layer).unwrap();
+
+        let image = store.asset_composite(asset.id).unwrap();
+        assert_eq!((image.width, image.height), (2, 2));
+        assert_eq!(&image.data[0..4], &[10, 20, 30, 255]);
+        // The other three pixels are untouched and remain transparent.
+        for pixel in image.data[4..].chunks_exact(4) {
+            assert_eq!(pixel, &[0, 0, 0, 0]);
+        }
+    }
 }

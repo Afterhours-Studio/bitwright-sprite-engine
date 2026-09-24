@@ -360,12 +360,30 @@ fn sibling(path: &Path, suffix: &str) -> PathBuf {
 ///
 /// Returns a message when the platform has no home or configuration directory.
 pub fn describe(id: McpClientId) -> Result<McpClient, String> {
-    let (config_path, config_dir) = locations(id).ok_or_else(|| {
-        format!(
-            "client.unsupported: no configuration directory for {}",
-            id.name()
-        )
-    })?;
+    let (home, config) = (
+        dirs::home_dir().ok_or_else(|| {
+            format!(
+                "client.unsupported: no configuration directory for {}",
+                id.name()
+            )
+        })?,
+        dirs::config_dir().ok_or_else(|| {
+            format!(
+                "client.unsupported: no configuration directory for {}",
+                id.name()
+            )
+        })?,
+    );
+    describe_in(id, &home, &config)
+}
+
+/// [`describe`]'s body, taking the home and configuration directories to
+/// resolve against instead of reading them from the platform, the same way
+/// [`locations_in`] does for [`locations`]. This is what makes `describe`
+/// exercisable against a temporary directory instead of the real, live
+/// configuration a person's machine happens to have.
+fn describe_in(id: McpClientId, home: &Path, config: &Path) -> Result<McpClient, String> {
+    let (config_path, config_dir) = locations_in(id, home, config);
 
     Ok(McpClient {
         id,
@@ -728,6 +746,42 @@ mod tests {
         assert_eq!(value["detected"], true);
         assert_eq!(value["configPath"], "/tmp/claude_desktop_config.json");
         assert_eq!(value["registered"], false);
+    }
+
+    #[test]
+    fn describe_in_reports_each_known_client_against_a_temp_config_dir() {
+        let home = temp_dir("describe-home");
+        let config = temp_dir("describe-config");
+
+        for id in McpClientId::ALL {
+            let described = describe_in(id, &home, &config).expect("a temp location resolves");
+            assert_eq!(described.id, id);
+            assert_eq!(described.name, id.name());
+            assert!(!described.detected, "{} starts undetected", id.name());
+            assert!(!described.registered, "{} starts unregistered", id.name());
+            let (expected_path, _) = locations_in(id, &home, &config);
+            assert_eq!(described.config_path, expected_path.to_string_lossy());
+        }
+
+        fs::remove_dir_all(&home).ok();
+        fs::remove_dir_all(&config).ok();
+    }
+
+    #[test]
+    fn describe_in_reflects_detection_and_registration_after_a_register() {
+        let home = temp_dir("describe-register-home");
+        let config = temp_dir("describe-register-config");
+
+        for id in McpClientId::ALL {
+            let (config_path, _) = locations_in(id, &home, &config);
+            register(&config_path, id, &endpoint()).expect("registering writes the file");
+            let described = describe_in(id, &home, &config).expect("a temp location resolves");
+            assert!(described.detected, "{} is now detected", id.name());
+            assert!(described.registered, "{} is now registered", id.name());
+        }
+
+        fs::remove_dir_all(&home).ok();
+        fs::remove_dir_all(&config).ok();
     }
 
     #[test]
