@@ -214,6 +214,16 @@ impl Store {
             style_row,
         )?)
     }
+    pub fn asset_rules(&self, id: AssetId) -> Result<StyleRules> {
+        effective_rules(&self.connection, &self.asset_read(id)?)
+    }
+    pub fn project_rules(&self, id: Uuid) -> Result<StyleRules> {
+        let project = self.project_read(id)?;
+        match project.style_id {
+            Some(style_id) => Ok(self.style_read(style_id)?.rules),
+            None => Ok(StyleRules::default()),
+        }
+    }
     pub fn style_list(&self, project: Option<Uuid>) -> Result<Vec<Style>> {
         let mut statement = self.connection.prepare("SELECT id,project_id,name,preset,rules,created_at,updated_at FROM style WHERE project_id IS ?1 ORDER BY created_at,id")?;
         let rows = statement
@@ -796,5 +806,36 @@ mod tests {
             store.reference_write(stolen).unwrap_err().code,
             "reference.invalid_owner"
         );
+    }
+
+    #[test]
+    fn asset_rules_returns_effective_rules_for_an_asset() {
+        let (mut store, project) = store();
+        let asset = store.asset_create(project, "hero", "prop", 4, 4).unwrap();
+        let rules = store.asset_rules(asset.id).unwrap();
+        // The default project style is hd2d which has max_slots == 24.
+        assert_eq!(rules.max_slots, 24);
+    }
+
+    #[test]
+    fn project_rules_returns_project_style_rules() {
+        let (mut store, project) = store();
+        let rules = store.project_rules(project).unwrap();
+        assert_eq!(rules.max_slots, 24);
+    }
+
+    #[test]
+    fn project_rules_returns_default_when_project_has_no_style() {
+        let store = Store::memory().unwrap();
+        let id = Uuid::now_v7();
+        store
+            .connection
+            .execute(
+                "INSERT INTO project VALUES(?1,?2,NULL,?3,?3)",
+                params![id.to_string(), "orphan", now()],
+            )
+            .unwrap();
+        let rules = store.project_rules(id).unwrap();
+        assert_eq!(rules.max_slots, StyleRules::default().max_slots);
     }
 }
