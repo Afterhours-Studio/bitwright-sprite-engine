@@ -2,38 +2,50 @@
 
 All notable changes to this project are documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and the project follows [Semantic Versioning](https://semver.org/). Versions
+before 0.2.0 belong to the diffusion-based sprite generator this application
+used to be; they are kept below as history.
 
-Versions are `major.minor.develop`:
+## [0.2.0] - 2026-09-24
 
-| Part    | Meaning                                                    |
-| ------- | ---------------------------------------------------------- |
-| major   | Breaking change. Stays at 0 until the first stable release |
-| minor   | A user-facing capability is complete                       |
-| develop | A development pass within the current minor                |
-
-The leading zero is accurate today: nothing has been released, and the
-backends still return placeholder images rather than generating anything.
-
-## [Unreleased]
+Bitwright is now an agent-driven pixel art editor: a person and an AI agent
+draw on the same indexed canvas, the agent through MCP, and the engine's
+gates judge each step of the drawing workflow from the pixels themselves.
 
 ### Added
 
-- The drawing tools draw. Pencil, eraser, fill, selection and the four shapes
-  all act on the sprite's own pixel grid, with the brush size and shape the
-  dock already offered; a stroke lands on whole sprite pixels at any zoom, and
-  the eraser writes transparency rather than a colour.
-- Undo and redo, with the stroke as the unit and a history bounded by both
-  steps and bytes. The Edit menu items that had been present and disabled since
-  the shell was built now work, and so do Ctrl+Z and Ctrl+Y.
-- A painted sprite is written back to the sprites directory as an edit beside
-  the sprite it came from, so the gallery lists it and closing the window does
-  not lose it. The generated sprite is never written over: it is the only
-  record of what the model produced.
-- `POST /v1/sprites/{name}/edit` in the engine, which writes that edit. The
-  name is resolved against the sprites directory and refused if it lands
-  anywhere else, and the file that is written is derived from the resolved
-  path rather than taken from the caller.
+- **The indexed document.** Projects, styles and assets in one SQLite file;
+  every edit an entry in an op log with undo and redo; layers as the
+  workflow's steps; palettes as ramps of slots checked against the style's
+  rules (ramp length, hue shift, value floor and ceiling).
+- **The editor.** The canvas with zoom, pan, the pixel grid and the paint
+  tools; the palette editor; the layer list; the step rail with every step,
+  revisiting a done step and forcing an advance past a failed gate, both
+  behind a confirmation.
+- **MCP.** A server over streamable HTTP on loopback with a token, and over
+  stdio (`--mcp-stdio`), with tools to read the canvas as text, write pixels,
+  shade, outline, set palettes, move through the workflow and undo; client
+  configuration for Claude Code, Claude Desktop and Cursor; live sync with an
+  agent-activity indicator; the drawing manual served by the server itself
+  (`read_guide`, `bitwright://guide/*`).
+- **References.** Import a picture with the system file dialog, conformed to
+  the sprite's size by the sidecar; inspect its detected grid, palette and
+  warnings; apply its colours as the palette. `read_reference` and
+  `extract_palette` give an agent the same.
+- **Tilemaps.** A background is a grid of tile assets in up to eight parallax
+  layers, edited in the tilemap editor or by an agent with `create_tilemap`,
+  `read_tilemap`, `place_tiles` and `tilemap_layers`.
+- **Export.** A sprite, a sheet of sprites, or a background to PNG at a scale,
+  into a folder the person picks, named from a pattern and never escaping it;
+  `export_png` and `export_sheet` let an agent export into the exports folder.
+- English and Vietnamese throughout.
+
+### Removed
+
+- Image generation: the diffusion backends, models, runtimes and providers,
+  the generation screen and its settings, and the gallery of generated
+  sprites. See ADR-0012.
 
 ## [0.1.1] - 2026-09-06
 

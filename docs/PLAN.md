@@ -33,27 +33,30 @@ server an agent draws through.
 
 Exit criteria met: full gate green at `f278cec`.
 
-## Phase 2 — Features · in progress
+## Phase 2 — Features · done
 
 Goal: everything the plan promises a person or an agent can do.
 
-| Task | What                                                                                                   | Owns                                                                                                 | Status  |
-| ---- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- | ------- |
-| F.1  | MCP `read_reference` and `extract_palette` over stored references                                      | `mcp/tools/reference.rs`, its line in `mcp/tools/mod.rs`                                             | pending |
-| F.2  | Step rail: every step, the current one marked, revisit, advance, forced advance behind a confirmation  | `features/editor/tools/StepRail.tsx` and its test, `locales/*/workflow.json`                         | pending |
-| F.3  | Reference panel: import, preview, detected grid and warnings, delete, apply the extracted palette      | `features/editor/reference/**`, `lib/reference.ts`, `types/reference.ts`, `locales/*/reference.json` | pending |
-| F.4  | Mount the reference panel in the editor; document the reference tools                                  | `EditorScreen.tsx`, `docs/architecture/mcp-tools.md`                                                 | pending |
-| F.5  | Tilemaps: a background is a grid of tile assets in named parallax layers; commands and MCP tools       | `raster/tilemap.rs`, `commands/tilemap.rs`, `mcp/tools/tilemap.rs`, `features/editor/tilemap/**`     | pending |
-| F.6  | Export: a sprite to PNG at a scale, frames or tiles to a sheet, a tilemap flattened; folder and naming | `export.rs`, `mcp/tools/export.rs`, `features/editor/export/**`                                      | pending |
+| Task | What                                                                                                   | Owns                                                                                                 | Status |
+| ---- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- | ------ |
+| F.1  | MCP `read_reference` and `extract_palette` over stored references                                      | `mcp/tools/reference.rs`, its line in `mcp/tools/mod.rs`                                             | done   |
+| F.2  | Step rail: every step, the current one marked, revisit, advance, forced advance behind a confirmation  | `features/editor/tools/StepRail.tsx` and its test, `locales/*/workflow.json`                         | done   |
+| F.3  | Reference panel: import, preview, detected grid and warnings, delete, apply the extracted palette      | `features/editor/reference/**`, `lib/reference.ts`, `types/reference.ts`, `locales/*/reference.json` | done   |
+| F.4  | Mount the reference panel in the editor; document the reference tools                                  | `EditorScreen.tsx`, `docs/architecture/mcp-tools.md`                                                 | done   |
+| F.5  | Tilemaps: a background is a grid of tile assets in named parallax layers; commands and MCP tools       | `raster/tilemap.rs`, `commands/tilemap.rs`, `mcp/tools/tilemap.rs`, `features/editor/tilemap/**`     | done   |
+| F.6  | Export: a sprite to PNG at a scale, frames or tiles to a sheet, a tilemap flattened; folder and naming | `export.rs`, `mcp/tools/export.rs`, `features/editor/export/**`                                      | done   |
 
-F.1–F.3 run in parallel; F.4 follows F.3. F.5 and F.6 each start with a
-contract (the Rust signatures and the TS types) before their parallel parts.
+F.1–F.3 ran in parallel; F.4 followed F.3. F.5 and F.6 started from the contract
+in `docs/architecture/tilemap-and-export.md`, and F.7 wired everything into
+the editor.
 
-Exit criteria: every row done and reviewed, the full gate green, the new
+Exit criteria met: every row done and cross-reviewed, the full gate green
+(prettier, typecheck, lint, 194 TS tests, the contrast check, rustfmt,
+clippy with warnings as errors, 410 Rust tests, 101 Python tests), the new
 commands and tools in `docs/architecture/mcp-tools.md`, version `0.2.0`
 tagged.
 
-## Phase 3 — Finish · pending
+## Phase 3 — Finish · in progress
 
 Goal: production quality: complete, consistent, documented.
 
