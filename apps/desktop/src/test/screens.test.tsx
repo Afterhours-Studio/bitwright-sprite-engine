@@ -29,6 +29,7 @@
  */
 
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { App } from '@/App';
@@ -36,12 +37,36 @@ import i18n, { resources } from '@/lib/i18n';
 import { useGalleryStore } from '@/stores/useGalleryStore';
 import { useShellStore, type Screen, type Theme } from '@/stores/useShellStore';
 import { useDocumentStore } from '@/stores/useDocumentStore';
+import type { Asset } from '@/types/document';
 
 const SCREENS: Screen[] = ['editor', 'gallery', 'settings'];
 const THEMES: Theme[] = ['light', 'dark'];
 
 /** Inline colour written by a component, rather than taken from a token. */
 const INLINE_COLOUR = /(?:color|background|border|fill|stroke)[^;"]*:\s*(?:#|rgba?\(|hsla?\()/i;
+
+/**
+ * A minimal asset row, as `useDocumentStore` would hold one for an open
+ * document.
+ *
+ * @param overrides - Fields to override, most often `kind`.
+ * @returns The asset.
+ */
+function asset(overrides: Partial<Asset> = {}): Asset {
+  return {
+    id: 'asset-1',
+    projectId: 'project-1',
+    styleId: null,
+    name: 'Hero',
+    kind: 'prop',
+    width: 32,
+    height: 32,
+    step: 'reference',
+    createdAt: 0,
+    updatedAt: 0,
+    ...overrides,
+  };
+}
 
 beforeEach(async () => {
   await i18n.changeLanguage('en');
@@ -114,5 +139,78 @@ describe('screens', () => {
       resources.vi.common.nav.editor,
     );
     expect(main.getByText(resources.vi.editor.canvas.empty)).toBeInTheDocument();
+  });
+
+  it('shows the tilemap editor instead of the canvas for a background asset', () => {
+    useShellStore.getState().setScreen('editor');
+    useDocumentStore.setState({ assetId: 'asset-1', asset: asset({ kind: 'background' }) });
+
+    const { unmount } = render(<App />);
+
+    const main = within(screen.getByRole('main'));
+
+    // The tilemap editor's own heading stands in for the whole component; the
+    // canvas is checked absent by its zoom-in button, which DocumentCanvas
+    // renders whether or not an asset is open, so its absence proves
+    // DocumentCanvas itself is not on screen rather than merely idle.
+    expect(main.getByRole('heading', { level: 3, name: 'Tilemap' })).toBeInTheDocument();
+    expect(
+      main.queryByRole('button', { name: resources.en.editor.canvas.zoomIn }),
+    ).not.toBeInTheDocument();
+    unmount();
+
+    // The other side of the same check: a non-background asset gets the
+    // canvas, not the tilemap editor.
+    useDocumentStore.setState({ assetId: 'asset-1', asset: asset({ kind: 'prop' }) });
+    render(<App />);
+    const mainAgain = within(screen.getByRole('main'));
+
+    expect(
+      mainAgain.getByRole('button', { name: resources.en.editor.canvas.zoomIn }),
+    ).toBeInTheDocument();
+    expect(mainAgain.queryByRole('heading', { level: 3, name: 'Tilemap' })).not.toBeInTheDocument();
+  });
+
+  it('opens the export dialog from the Export control', () => {
+    useShellStore.getState().setScreen('editor');
+    render(<App />);
+
+    // Disabled with nothing open: there is nothing yet to export.
+    expect(screen.getByRole('button', { name: 'Export' })).toBeDisabled();
+
+    act(() => {
+      useDocumentStore.setState({ assetId: 'asset-1', asset: asset() });
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Export' })).toBeInTheDocument();
+  });
+
+  it('closes the export dialog when the open asset changes', () => {
+    useShellStore.getState().setScreen('editor');
+    useDocumentStore.setState({ assetId: 'asset-1', asset: asset() });
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+    expect(screen.getByRole('heading', { level: 2, name: 'Export' })).toBeInTheDocument();
+
+    // Switching the open asset must close the dialog rather than leave it
+    // open and quietly retargeted at the new one.
+    act(() => {
+      useDocumentStore.setState({ assetId: 'asset-2', asset: asset({ id: 'asset-2' }) });
+    });
+
+    expect(screen.queryByRole('heading', { level: 2, name: 'Export' })).not.toBeInTheDocument();
+  });
+
+  it('shows the reference panel in the tool panel', () => {
+    useShellStore.getState().setScreen('editor');
+    useDocumentStore.setState({ assetId: 'asset-1', asset: asset() });
+
+    render(<App />);
+
+    const main = within(screen.getByRole('main'));
+
+    expect(main.getByRole('heading', { level: 3, name: 'Reference' })).toBeInTheDocument();
   });
 });

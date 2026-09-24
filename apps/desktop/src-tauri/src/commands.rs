@@ -612,6 +612,9 @@ pub fn handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + 
         crate::commands::tilemap::tilemap_set_layer,
         crate::commands::tilemap::tilemap_tiles,
         crate::commands::tilemap::tilemap_preview,
+        crate::export::export_png,
+        crate::export::export_sheet,
+        crate::export::export_directory,
     ]
 }
 

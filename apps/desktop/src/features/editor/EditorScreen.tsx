@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-import type { ReactElement } from 'react';
+import { useEffect, useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -24,15 +24,20 @@ import {
   DockPopover,
   type DockChoice,
 } from '@/components/layout/Dock';
+import { IconButton } from '@/components/ui/IconButton';
 import { NotificationList } from '@/components/ui/NotificationList';
 import { Toggle } from '@/components/ui/Field';
 import { NumberField } from '@/components/ui/NumberField';
 import { Pill } from '@/components/ui/Pill';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { DocumentCanvas } from '@/features/editor/canvas/DocumentCanvas';
+import { ExportDialog } from '@/features/editor/export/ExportDialog';
 import { AgentActivityIndicator } from '@/features/editor/live';
+import { TilemapEditor } from '@/features/editor/tilemap/TilemapEditor';
 import { ToolPanel } from '@/features/editor/tools/ToolPanel';
 import { useToastAnchor } from '@/hooks/useToastAnchor';
 import { cn } from '@/lib/cn';
+import { useDocumentStore } from '@/stores/useDocumentStore';
 import {
   BRUSH_SHAPES,
   MAX_BRUSH_SIZE,
@@ -59,7 +64,11 @@ import { useToastStore } from '@/stores/useToastStore';
  * its indexed layers by Rust. The screen is written against "the document that
  * is open" and not against who opened it, which is what lets an agent drawing
  * over MCP and a person drawing with a pencil arrive on the same stage by the
- * same route.
+ * same route. A background asset is the one exception: it has no pixels of
+ * its own to composite, only a grid of tile ids, so the stage shows
+ * `TilemapEditor` instead of `DocumentCanvas` for it. `key={assetId}` is what
+ * throws the tilemap editor's own state away when the open asset changes,
+ * rather than leaving it showing the previous background's map for a beat.
  *
  * THE DOCK CHOOSES AND OPENS. IT DOES NOT ACT.
  *
@@ -69,13 +78,29 @@ import { useToastStore } from '@/stores/useToastStore';
  * exists. The one press that does act on this screen is Apply, in the tool
  * column, where it sits beside the settings it applies.
  *
- * The bell is alone on the trailing rail. The bar between the rails is held on
- * the window's centre by the grid in Dock.tsx rather than by the space the
- * rails leave over, so a rail changing width cannot slide it.
+ * The bell and the export button share the trailing rail. Export opens a
+ * dialog rather than exporting on the spot, which keeps it on the "opens"
+ * side of that same rule; it is disabled with nothing open, since there is
+ * nothing yet to export. The bar between the rails is held on the window's
+ * centre by the grid in Dock.tsx rather than by the space the rails leave
+ * over, so a rail changing width cannot slide it.
  */
 export function EditorScreen(): ReactElement {
   const { t } = useTranslation('editor');
   const { t: tCommon } = useTranslation();
+  const { t: tExport } = useTranslation('export');
+
+  const assetId = useDocumentStore((state) => state.assetId);
+  const asset = useDocumentStore((state) => state.asset);
+  const [exportOpen, setExportOpen] = useState(false);
+
+  // Closed the moment the open asset changes, rather than carried over onto
+  // whatever is open next. Without this, switching sprites while the dialog
+  // is up would silently retarget it at the new asset instead of closing, or
+  // leave it looking open for an asset nobody chose to export.
+  useEffect(() => {
+    setExportOpen(false);
+  }, [assetId]);
 
   const tool = useEditorStore((state) => state.tool);
   const shape = useEditorStore((state) => state.shape);
@@ -175,7 +200,11 @@ export function EditorScreen(): ReactElement {
           shrink rather than overflowing, since a flex item's automatic minimum
           is its content. */}
       <div className="flex min-h-0 flex-1 gap-3 rounded-lg border border-line-subtle bg-surface-content p-1 shadow-sm lg:pe-3">
-        <DocumentCanvas />
+        {assetId !== null && asset?.kind === 'background' ? (
+          <TilemapEditor key={assetId} assetId={assetId} />
+        ) : (
+          <DocumentCanvas />
+        )}
         {/* The second column: the palette, the layers and the step - what the
             sprite in front of you is made of, and what it is waiting for. */}
         <div className="hidden min-w-64 max-w-80 flex-1 flex-col ps-1 lg:flex">
@@ -194,37 +223,50 @@ export function EditorScreen(): ReactElement {
         }
         leadingRail={<AgentActivityIndicator />}
         trailingRail={
-          <DockPopover
-            triggerLabel={bellLabel}
-            label={tCommon('notifications.title')}
-            align="end"
-            width="w-80"
-            padding="p-1"
-            triggerRef={anchor}
-            onOpen={markRead}
-            panel={() => <NotificationList />}
-          >
-            <BellIcon />
-            {unread > 0 && (
-              <span
-                aria-hidden="true"
-                className={cn(
-                  'absolute -end-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center',
-                  'rounded-full px-1 text-[10px] font-semibold leading-none',
-                  // Inverted rather than accent. The accent already marks the
-                  // chosen tool in this same row, and a second yellow thing
-                  // stops reading as "look here" and starts reading as
-                  // decoration. Inverting is the only thing in the bar that
-                  // does it, so it stands out by being unlike the rest. The
-                  // pair is --fg-primary against --surface-float with the
-                  // roles swapped, so it carries that pair's ratio.
-                  'bg-fg-primary text-surface-float',
-                )}
+          <div className="flex items-center gap-1">
+            <Tooltip label={tExport('open')}>
+              <IconButton
+                label={tExport('open')}
+                disabled={assetId === null}
+                onClick={() => {
+                  setExportOpen(true);
+                }}
               >
-                {unread}
-              </span>
-            )}
-          </DockPopover>
+                <ExportIcon />
+              </IconButton>
+            </Tooltip>
+            <DockPopover
+              triggerLabel={bellLabel}
+              label={tCommon('notifications.title')}
+              align="end"
+              width="w-80"
+              padding="p-1"
+              triggerRef={anchor}
+              onOpen={markRead}
+              panel={() => <NotificationList />}
+            >
+              <BellIcon />
+              {unread > 0 && (
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    'absolute -end-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center',
+                    'rounded-full px-1 text-[10px] font-semibold leading-none',
+                    // Inverted rather than accent. The accent already marks the
+                    // chosen tool in this same row, and a second yellow thing
+                    // stops reading as "look here" and starts reading as
+                    // decoration. Inverting is the only thing in the bar that
+                    // does it, so it stands out by being unlike the rest. The
+                    // pair is --fg-primary against --surface-float with the
+                    // roles swapped, so it carries that pair's ratio.
+                    'bg-fg-primary text-surface-float',
+                  )}
+                >
+                  {unread}
+                </span>
+              )}
+            </DockPopover>
+          </div>
         }
       >
         {/* THE BRUSH, BESIDE THE TOOL IT SIZES.
@@ -298,6 +340,17 @@ export function EditorScreen(): ReactElement {
           )}
         </DockEntry>
       </Dock>
+
+      {assetId !== null && exportOpen && (
+        <ExportDialog
+          key={assetId}
+          assetId={assetId}
+          open
+          onClose={() => {
+            setExportOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -317,6 +370,28 @@ function BellIcon(): ReactElement {
         stroke="currentColor"
         strokeWidth="1.3"
         strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/** An arrow leaving a tray, for writing the open asset out as a PNG. */
+function ExportIcon(): ReactElement {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" className="h-4 w-4" fill="none">
+      <path
+        d="M8 2v7.4M5.2 6.4L8 9.2l2.8-2.8"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M3 10.6v1.4a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1.4"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   );

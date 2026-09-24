@@ -23,11 +23,6 @@
 //! beneath the data root, which keeps a tool call from ever writing anywhere
 //! else on disk.
 
-// Registered by the integration task: `commands.rs` does not call into this
-// module yet, so every item here is otherwise unreachable and would fail
-// `clippy -D warnings`.
-#![allow(dead_code)]
-
 use std::fs;
 use std::path::{Path, PathBuf};
 

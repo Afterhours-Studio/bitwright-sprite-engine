@@ -15,9 +15,8 @@ It assumes [the document model](document-model.md).
 
 ## Status
 
-Phase 2 and Phase 3 are built. Two tools in the catalogue, `export_png` and
-`export_sheet`, need machinery a later phase builds, so they are absent from
-`tools/list` until then; nothing answers with a placeholder.
+Phase 2 through Phase 4 are built. Every tool in the catalogue answers for
+real; nothing here is a placeholder.
 
 | Section               | Tools                                                                                                      | Available now | Delivered by |
 | --------------------- | ---------------------------------------------------------------------------------------------------------- | ------------- | ------------ |
@@ -28,8 +27,8 @@ Phase 2 and Phase 3 are built. Two tools in the catalogue, `export_png` and
 | 7. Palette            | `set_palette`, `create_variation`, `extract_palette`                                                       | yes           | Phase 2/3    |
 | 8. The workflow       | `get_step`, `check_step`, `advance_step`, `revisit_step`                                                   | yes           | Phase 2      |
 | 9. Tilemaps           | `create_tilemap`, `read_tilemap`, `place_tiles`, `tilemap_layers`                                          | yes           | Phase 3      |
-| 10. History           | `undo`, `redo`, `read_history`                                                                             | yes           | Phase 2      |
-| 11. Export            | `export_png`, `export_sheet`                                                                               | no            | Phase 4      |
+| 10. Export            | `export_png`, `export_sheet`                                                                               | yes           | Phase 4      |
+| 11. History           | `undo`, `redo`, `read_history`                                                                             | yes           | Phase 2      |
 
 The Settings panel's **Install Skills** button belongs to Phase 3 as well.
 
@@ -526,7 +525,72 @@ tilemap's only remaining layer, `tilemap.invalid_layer` for a parallax outside
 
 ---
 
-## 10. History
+## 10. Export
+
+Writes a PNG to disk: a background asset's tilemap render, or any other
+kind's layer composite. An agent cannot choose where the file lands — every
+export goes to
+`<data root>/exports/<safe project name>-<last 8 hex characters of the project id>/`,
+a folder named for the asset's project and made safe from its own name the
+same way a file name is (see [the contract](tilemap-and-export.md#export)),
+so a hostile project or asset name can only ever produce an ugly folder,
+never escape the exports root. That is the one restriction Export tools
+carry that the person's own "Save As" does not: the interface lets a person
+point anywhere on disk, because a person already had that access; the tool
+surface never grants an agent more.
+
+### `export_png`
+
+```jsonc
+{
+  "assetId": "…", // optional; defaults to the session's open asset
+  "scale": 1, // 1..=16, nearest-neighbour upscale; defaults to 1
+  "name": "{asset}@{scale}x", // optional; a file name pattern
+  "overwrite": false, // optional; defaults to false
+}
+```
+
+`name` substitutes `{project}`, `{asset}`, `{kind}` and `{scale}`, then the
+result is made a safe file name the same way the folder is. Returns
+`{ path, width, height }` — where the file landed and its pixel size. Fails
+`export.invalid_scale` for a scale outside `1..=16`, and also for a scale
+that would scale the asset past 8192px on either side; `export.invalid_pattern`
+when the pattern is empty or empty after substitution, `export.exists` when
+the file is already there and `overwrite` is false, `export.write_failed` for
+any other write failure, and `export.no_directory` when the exports folder
+cannot be created.
+
+### `export_sheet`
+
+```jsonc
+{
+  "assetIds": ["…", "…"], // all the same size, all one project
+  "columns": 2, // optional; defaults to one row
+  "scale": 1, // optional; defaults to 1
+  "name": "sheet", // a file name pattern; {asset} and {kind} become "sheet"
+  "overwrite": false, // optional; defaults to false
+}
+```
+
+Lays the assets left to right, wrapped after `columns`, into one sheet, then
+writes it the same way `export_png` does. Returns `{ path, width, height }`.
+Fails `export.empty` with no assets, `export.mixed_sizes` when they are not
+all the same size, `export.mixed_projects` when they do not all belong to one
+project, and the same `export.invalid_scale` — for a scale outside `1..=16`,
+or one that would scale the sheet past 8192px on either side —
+`export.invalid_pattern`, `export.exists`, `export.write_failed` and
+`export.no_directory` as `export_png`.
+
+Both fail the store's own reason code, `document.not_found`, when an asset id
+is a well-formed uuid that does not resolve to an asset, and `asset.not_found`
+when it is not a uuid at all — malformed input is caught before the store is
+ever asked. `export_png` also fails `asset.not_open` when `assetId` is
+omitted with no session asset open, since only it has a session to fall back
+on.
+
+---
+
+## 11. History
 
 ### `undo` / `redo`
 
@@ -538,27 +602,6 @@ path the interface does.
 
 `{ assetId, limit?: 50 }` — recent ops with actor and timestamp. How an agent
 resuming a session finds out what it, or the person, last did.
-
----
-
-## 11. Export
-
-### `export_png`
-
-```jsonc
-{ "assetId": "…", "scale": 1, "layers": "visible" }
-```
-
-Writes to the project's configured export directory and returns the path. It
-cannot write anywhere else: a directory outside the project's export root is
-refused. An agent asking to write files at arbitrary paths is a thing this
-application declines to be, and the person picks the export directory in the
-interface, once, deliberately.
-
-### `export_sheet`
-
-`{ assetId, columns?, padding? }` — packs an asset's frames into a sheet under
-the same restriction, and returns the path plus the frame rectangles.
 
 ---
 
