@@ -25,10 +25,14 @@ pub fn render(buffer: &IndexedBuffer, rulers: bool) -> Result<String> {
     if rulers {
         let mut ruler = vec![b' '; usize::from(buffer.width)];
         for column in (0..usize::from(buffer.width)).step_by(5) {
-            for (offset, byte) in column.to_string().bytes().enumerate() {
-                if column + offset < ruler.len() {
-                    ruler[column + offset] = byte;
-                }
+            let label = column.to_string();
+            // A label is drawn whole or not at all. A clipped "1" standing for
+            // column 15 reads back as column 1, so it must never be drawn.
+            if column + label.len() > usize::from(buffer.width) {
+                continue;
+            }
+            for (offset, byte) in label.bytes().enumerate() {
+                ruler[column + offset] = byte;
             }
         }
         lines.push(format!(
@@ -135,6 +139,26 @@ mod tests {
             assert_eq!(parse(&render(&buffer, ruled).unwrap()).unwrap(), buffer);
         }
     }
+    /// A label that does not fit is not drawn at all: a clipped "1" standing
+    /// for column 15 reads back as column 1.
+    #[test]
+    fn ruler_labels_are_never_clipped() {
+        let ruler = |width: u16| {
+            let buffer = IndexedBuffer::new(width, 1).unwrap();
+            render(&buffer, true)
+                .unwrap()
+                .lines()
+                .next()
+                .unwrap()
+                .trim_end()
+                .to_string()
+        };
+        // Columns 0, 5 and 10 fit; column 15 needs two cells and only one is
+        // left, so the whole label is dropped rather than drawn as "1".
+        assert_eq!(ruler(16), "      0    5    10");
+        assert_eq!(ruler(17), "      0    5    10   15");
+    }
+
     #[test]
     fn refuses_unknown_symbols_ragged_rows_and_unrepresentable_slots() {
         for text in ["A?", "AA\nA", "A ", "  0 | AA\n  2 | AA"] {

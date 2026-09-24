@@ -114,13 +114,17 @@ fn render_at(buffer: &IndexedBuffer, x0: u16, y0: u16, rulers: bool) -> Result<S
     let mut ruler = vec![b' '; buffer.width as usize];
     for local_col in 0..buffer.width as usize {
         let canvas_col = x0 as usize + local_col;
-        if canvas_col % 5 == 0 && local_col < ruler.len() {
-            let label = canvas_col.to_string();
-            for (offset, byte) in label.bytes().enumerate() {
-                if local_col + offset < ruler.len() {
-                    ruler[local_col + offset] = byte;
-                }
-            }
+        if canvas_col % 5 != 0 {
+            continue;
+        }
+        let label = canvas_col.to_string();
+        // A label is drawn whole or not at all. A clipped "1" standing for
+        // column 15 reads back as column 1, so it must never be drawn.
+        if local_col + label.len() > ruler.len() {
+            continue;
+        }
+        for (offset, byte) in label.bytes().enumerate() {
+            ruler[local_col + offset] = byte;
         }
     }
     lines.push(format!(
@@ -1127,6 +1131,29 @@ mod tests {
             '.',
             "a valid role with no layer should read as transparent: {first_data_line}"
         );
+    }
+
+    /// A label that does not fit the region is not drawn at all: a clipped "1"
+    /// standing for column 15 reads back as column 1.
+    #[test]
+    fn ruler_labels_are_never_clipped() {
+        let ruler = |x0: u16, width: u16| {
+            let buffer = IndexedBuffer::new(width, 1).unwrap();
+            render_at(&buffer, x0, 0, true)
+                .unwrap()
+                .lines()
+                .next()
+                .unwrap()
+                .trim_end()
+                .to_string()
+        };
+        // Columns 0, 5 and 10 fit; column 15 needs two cells and only one is
+        // left, so the whole label is dropped rather than drawn as "1".
+        assert_eq!(ruler(0, 16), "      0    5    10");
+        assert_eq!(ruler(0, 17), "      0    5    10   15");
+        // The same rule applies to a region, whose labels are canvas columns:
+        // canvas column 15 starts at local offset 5 of a 6-wide region.
+        assert_eq!(ruler(10, 6), "      10");
     }
 
     #[test]
