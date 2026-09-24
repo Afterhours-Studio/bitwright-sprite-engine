@@ -131,14 +131,14 @@ The first launch is blocked, because pre-1.0 builds are not notarised. Open
 
 ```bash
 # AppImage
-chmod +x Bitwright_0.2.0_amd64.AppImage
-./Bitwright_0.2.0_amd64.AppImage
+chmod +x Bitwright_1.0.0_amd64.AppImage
+./Bitwright_1.0.0_amd64.AppImage
 
 # Debian and Ubuntu
-sudo apt install ./bitwright_0.2.0_amd64.deb
+sudo apt install ./bitwright_1.0.0_amd64.deb
 
 # Fedora
-sudo dnf install ./bitwright-0.2.0-1.x86_64.rpm
+sudo dnf install ./bitwright-1.0.0-1.x86_64.rpm
 ```
 
 If the window does not open, install the WebKit runtime:
@@ -330,10 +330,10 @@ in [the decision records](docs/architecture/decisions/0001-record-architecture-d
       machine, and the MCP server an agent draws through
 - [x] Phase 2 — Features: the step rail, the reference panel, tilemaps and
       export, both in the editor and over MCP — version `0.2.0`
-- [ ] Phase 3 — Finish, in progress: an i18n sweep so no visible string is
-      missing from either locale, a test sweep so every command, tool and store
-      action is covered, this README and the rest of the documentation brought
-      up to date, and no TODO, mock or hardcoded value left before `1.0.0`
+- [x] Phase 3 — Finish: every visible string in both languages, every
+      command, tool and store action tested, this README and the documentation
+      matched to the code, no TODO, mock or unexplained hardcoded value —
+      version `1.0.0`
 
 The phases, what each one delivers, and the exit criteria for each are in
 [the plan](docs/PLAN.md).

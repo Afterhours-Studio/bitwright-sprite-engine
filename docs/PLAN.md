@@ -56,7 +56,7 @@ clippy with warnings as errors, 410 Rust tests, 101 Python tests), the new
 commands and tools in `docs/architecture/mcp-tools.md`, version `0.2.0`
 tagged.
 
-## Phase 3 — Finish · in progress
+## Phase 3 — Finish · done
 
 Goal: production quality: complete, consistent, documented.
 
@@ -67,6 +67,14 @@ Goal: production quality: complete, consistent, documented.
 | P.3  | README: install, configure (MCP clients, sidecar), run, build; docs brought up to date     |
 | P.4  | No TODO, mock or hardcoded value left; CHANGELOG rewritten for what the application is now |
 
-Exit criteria: the completion conditions — every feature in this plan, the
-full gate green, no TODO, mock or hardcoded value, a README that matches the
-application, everything committed, version `1.0.0` tagged with its CHANGELOG.
+All four done: the i18n sweep found no untranslated string and no key
+missing in either language; the test sweep closed every gap an audit of the
+commands, tools, store methods, store actions, bridges and engine routes
+found; the README and the guides were rewritten against the code and
+reviewed; the audit found no TODO, mock or unexplained hardcoded value, and
+the obsolete sprite gallery was removed.
+
+Exit criteria met: the full gate green (prettier, typecheck, lint, 323 TS
+tests, the contrast check, rustfmt, clippy with warnings as errors, 431 Rust
+tests, 91 Python tests), everything committed, version `1.0.0` tagged with
+its CHANGELOG.

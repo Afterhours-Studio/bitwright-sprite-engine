@@ -47,7 +47,7 @@ The process binds a free loopback port, prints a handshake line on standard
 output, and then serves:
 
 ```json
-{ "event": "ready", "port": 51234, "token": "3Qq7...", "version": "0.2.0" }
+{ "event": "ready", "port": 51234, "token": "3Qq7...", "version": "1.0.0" }
 ```
 
 The token authenticates every route except `/health`, and goes in the

@@ -7,6 +7,34 @@ and the project follows [Semantic Versioning](https://semver.org/). Versions
 before 0.2.0 belong to the diffusion-based sprite generator this application
 used to be; they are kept below as history.
 
+## [1.0.0] - 2026-09-24
+
+The first release to rely on: every feature the plan describes, documented,
+tested, and checked by the full gate.
+
+### Removed
+
+- **Breaking:** the sprite gallery, the engine's `/v1/sprites` routes, the
+  shell commands behind them and the `sprites` folder setting. They showed a
+  folder only the removed generator wrote to; a sprite is a document opened
+  from the project tree.
+
+### Changed
+
+- The title bar's folder item opens the exports folder, where exports made by
+  an agent through MCP land.
+- The README and the guides describe the application as it is: installation,
+  configuration (the data root, the MCP transports and token, connecting a
+  client, where exports go), running and testing. The tool catalogue lists
+  every tool, `read_guide` included.
+
+### Added
+
+- Tests for every store action, the document and shell bridges on the wire,
+  the store's remaining methods, export rendering, the external-link and
+  folder guards, the MCP client descriptions and status, the engine's reading
+  of an answer, and an allowed shutdown of the engine.
+
 ## [0.2.0] - 2026-09-24
 
 Bitwright is now an agent-driven pixel art editor: a person and an AI agent

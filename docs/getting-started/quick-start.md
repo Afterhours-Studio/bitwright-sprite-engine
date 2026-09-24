@@ -6,12 +6,10 @@ agent in a canvas you are watching.
 This assumes Bitwright is installed. If it is not, see
 [Installation](installation.md).
 
-**Where this stands.** Everything below works today, at version `0.2.0`: the
+**Where this stands.** Everything below works today, at version `1.0.0`: the
 document store and the canvas, the paint tools, the workflow steps and their
 gates, the MCP server with both transports, the client configuration, the live
-sync, reference import, tilemap backgrounds and export. What remains is
-finishing work — an i18n sweep, a test sweep, and these documents — tracked as
-Phase 3 in [the plan](../PLAN.md).
+sync, reference import, tilemap backgrounds and export.
 
 ## 1. Make a project
 
