@@ -111,7 +111,7 @@ impl DocumentState {
     }
 }
 
-async fn run<T: Send + 'static>(
+pub(crate) async fn run<T: Send + 'static>(
     state: &DocumentState,
     work: impl FnOnce(&mut Store) -> Result<T> + Send + 'static,
 ) -> Result<T> {

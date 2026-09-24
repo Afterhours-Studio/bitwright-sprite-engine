@@ -21,6 +21,7 @@
 //! reaches the user.
 
 pub mod document;
+pub mod tilemap;
 
 use std::path::Path;
 use std::sync::Mutex;
@@ -602,6 +603,14 @@ pub fn handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + 
         crate::reference::reference_list,
         crate::reference::reference_preview,
         crate::reference::reference_delete,
+        crate::commands::tilemap::tilemap_create,
+        crate::commands::tilemap::tilemap_read,
+        crate::commands::tilemap::tilemap_place,
+        crate::commands::tilemap::tilemap_add_layer,
+        crate::commands::tilemap::tilemap_remove_layer,
+        crate::commands::tilemap::tilemap_set_layer,
+        crate::commands::tilemap::tilemap_tiles,
+        crate::commands::tilemap::tilemap_preview,
     ]
 }
 
