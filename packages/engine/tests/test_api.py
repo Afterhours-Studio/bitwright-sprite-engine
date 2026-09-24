@@ -65,3 +65,38 @@ def test_bind_socket_allocates_a_free_port() -> None:
         assert listener.getsockname()[1] > 0
     finally:
         listener.close()
+
+
+def test_shutdown_with_valid_token_and_server_sets_should_exit(
+    client: TestClient,
+) -> None:
+    """POST /shutdown with a valid token and server attached returns 202 and sets should_exit."""
+    app = cast(FastAPI, client.app)
+
+    # Attach a stub server with should_exit = False
+    class StubServer:
+        should_exit = False
+
+    app.state.server = StubServer()
+
+    response = client.post("/shutdown")
+
+    assert response.status_code == 202
+    assert app.state.server.should_exit is True
+
+
+def test_shutdown_with_valid_token_and_no_server_logs_warning(
+    client: TestClient,
+    caplog,
+) -> None:
+    """POST /shutdown without a server attached logs a warning and returns 202."""
+    app = cast(FastAPI, client.app)
+
+    # Ensure no server is attached
+    if hasattr(app.state, "server"):
+        delattr(app.state, "server")
+
+    response = client.post("/shutdown")
+
+    assert response.status_code == 202
+    assert "shutdown requested but no server is attached" in caplog.text
