@@ -73,3 +73,13 @@ subagent working in the same task worktree Agent Crew creates (with its
 shared build directories), under the same file ownership, verify command
 and review. Crew workers keep the small, fully specified tasks. The cost is
 the same account either way: the router's Sonnet is that subscription.
+
+## 2026-09-24 — The sprite gallery is removed
+
+The gallery listed the PNG files in the engine's `sprites` directory, which
+only the diffusion generator ever wrote to. Exports now go to a folder the
+person picks or to `<data root>/exports/`, and a sprite is a document in the
+store, opened from the project tree. The gallery showed a directory nothing
+writes to any more, so the screen, its store, the engine's sprite routes and
+the shell commands behind them are removed rather than kept as a view of
+leftovers.
