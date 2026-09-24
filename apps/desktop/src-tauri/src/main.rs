@@ -26,17 +26,25 @@
 pub mod commands;
 use bitwright::{raster, store};
 mod engine;
-#[allow(dead_code)] // wired into the window and the command handler by Phase 2 wave C
 mod mcp;
 mod preferences;
 mod sidecar;
+
+use std::process::ExitCode;
 
 use tauri::{Manager, RunEvent, WebviewWindow};
 
 use commands::{VibrancyManager, VibrancyState};
 use sidecar::SidecarManager;
 
-fn main() {
+fn main() -> ExitCode {
+    // A client that spawned this process is asking for MCP over stdin/stdout
+    // instead of a window. Nothing may reach stdout on this path: every frame
+    // there is protocol. `stdio::run` prints failures to stderr only.
+    if std::env::args().any(|argument| argument == "--mcp-stdio") {
+        return mcp_stdio();
+    }
+
     tauri::Builder::default()
         // Without this every log::info! and log::warn! in the shell is
         // discarded, including the ones reporting that the sidecar failed to
@@ -69,6 +77,18 @@ fn main() {
             app.manage(commands::document::DocumentState::new(store::Store::open(
                 root.join("bitwright.db"),
             )?));
+            app.manage(mcp::server::McpServerState::new(root.clone())?);
+
+            // The window must appear whether or not the MCP server starts, so
+            // the failure is logged rather than propagated. `start` does
+            // nothing at all when the saved transport is `off`.
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(error) = mcp::server::start(&handle).await {
+                    log::error!("could not start the MCP server: {error}");
+                }
+            });
+
             let window = app
                 .get_webview_window("main")
                 .expect("the main window is declared in tauri.conf.json");
@@ -97,6 +117,26 @@ fn main() {
                 commands::shutdown_sidecar(app);
             }
         });
+
+    ExitCode::SUCCESS
+}
+
+/// Serves MCP over stdin/stdout, without a window.
+///
+/// Resolves the data root the same way the window path does, so a client that
+/// spawns this binary sees the documents the app has been editing.
+fn mcp_stdio() -> ExitCode {
+    let Some(root) = preferences::data_root_without_app() else {
+        eprintln!("no configuration or data directory on this platform");
+        return ExitCode::FAILURE;
+    };
+
+    if let Err(error) = std::fs::create_dir_all(&root) {
+        eprintln!("cannot create {}: {error}", root.display());
+        return ExitCode::FAILURE;
+    }
+
+    mcp::stdio::run(&root.join("bitwright.db"))
 }
 
 /// Applies the platform's background effect to the main window.

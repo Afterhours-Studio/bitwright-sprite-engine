@@ -30,7 +30,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, Runtime};
 
 use crate::mcp::server::McpServerState;
 
@@ -382,7 +382,7 @@ pub fn describe(id: McpClientId) -> Result<McpClient, String> {
 ///
 /// Returns a message when the server is not running, or when the path of the
 /// running executable cannot be read.
-fn endpoint_from(app: &AppHandle) -> Result<Endpoint, String> {
+fn endpoint_from<R: Runtime>(app: &AppHandle<R>) -> Result<Endpoint, String> {
     let (url, token) = app.state::<McpServerState>().endpoint().ok_or_else(|| {
         "mcp.server_off: start the MCP server before configuring a client".to_string()
     })?;
@@ -414,7 +414,10 @@ pub async fn mcp_clients() -> Result<Vec<McpClient>, String> {
 /// Returns a message when the server is not running, when the client's file
 /// does not parse, or when it cannot be written.
 #[tauri::command]
-pub async fn mcp_client_register(app: AppHandle, id: McpClientId) -> Result<McpClient, String> {
+pub async fn mcp_client_register<R: Runtime>(
+    app: AppHandle<R>,
+    id: McpClientId,
+) -> Result<McpClient, String> {
     let endpoint = endpoint_from(&app)?;
     let (config_path, _) = locations(id).ok_or_else(|| {
         format!(
@@ -451,7 +454,7 @@ pub async fn mcp_client_unregister(id: McpClientId) -> Result<McpClient, String>
 ///
 /// Returns a message when the server is not running.
 #[tauri::command]
-pub async fn mcp_manual_config(app: AppHandle) -> Result<String, String> {
+pub async fn mcp_manual_config<R: Runtime>(app: AppHandle<R>) -> Result<String, String> {
     let endpoint = endpoint_from(&app)?;
     Ok(manual_config(&endpoint))
 }

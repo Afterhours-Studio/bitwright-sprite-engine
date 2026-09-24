@@ -26,7 +26,7 @@ use super::error::{ToolError, ToolResult};
 use super::host::DocumentHost;
 use super::session::Session;
 use crate::raster::LayerRole;
-use crate::store::{AppError, Asset, AssetId, OpResult};
+use crate::store::{Asset, AssetId, OpResult};
 use serde::de::DeserializeOwned;
 use uuid::Uuid;
 
@@ -208,14 +208,6 @@ pub fn summary(result: &OpResult) -> serde_json::Value {
         }),
         "seq": result.seq,
     })
-}
-
-/// The error every tool that could not reach the store answers with.
-pub(crate) fn lock_failed() -> ToolError {
-    ToolError::from(AppError::new(
-        "store.lock_failed",
-        "document store lock was poisoned",
-    ))
 }
 
 #[cfg(test)]

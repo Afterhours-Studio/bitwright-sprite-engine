@@ -384,7 +384,7 @@ fn authorize(headers: &HeaderMap, token: &str) -> Result<(), Response> {
 ///
 /// Never fails today; the signature matches the other commands.
 #[tauri::command]
-pub async fn mcp_status(app: AppHandle) -> Result<McpStatus, String> {
+pub async fn mcp_status<R: Runtime>(app: AppHandle<R>) -> Result<McpStatus, String> {
     Ok(app.state::<McpServerState>().status())
 }
 
@@ -395,7 +395,10 @@ pub async fn mcp_status(app: AppHandle) -> Result<McpStatus, String> {
 /// Returns a message when the settings cannot be saved or the server cannot be
 /// started.
 #[tauri::command]
-pub async fn mcp_set_transport(app: AppHandle, transport: Transport) -> Result<McpStatus, String> {
+pub async fn mcp_set_transport<R: Runtime>(
+    app: AppHandle<R>,
+    transport: Transport,
+) -> Result<McpStatus, String> {
     {
         let state = app.state::<McpServerState>();
         let mut inner = state.lock();
@@ -416,7 +419,7 @@ pub async fn mcp_set_transport(app: AppHandle, transport: Transport) -> Result<M
 /// Returns a message when the settings cannot be saved or the server cannot be
 /// restarted.
 #[tauri::command]
-pub async fn mcp_regenerate_token(app: AppHandle) -> Result<McpStatus, String> {
+pub async fn mcp_regenerate_token<R: Runtime>(app: AppHandle<R>) -> Result<McpStatus, String> {
     let was_running = { app.state::<McpServerState>().lock().running.is_some() };
     if was_running {
         stop(&app).await?;

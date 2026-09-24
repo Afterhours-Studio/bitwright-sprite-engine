@@ -33,7 +33,7 @@
 use std::collections::BTreeMap;
 use std::fs;
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -44,6 +44,13 @@ const FILE_NAME: &str = "preferences.json";
 
 /// Extension of the file a save is written to before it replaces the real one.
 const TEMPORARY_EXTENSION: &str = "json.tmp";
+
+/// The application identifier from `tauri.conf.json`.
+///
+/// Tauri builds `app_config_dir` and `app_local_data_dir` from it, so naming it
+/// here lets the same directories be resolved without an `AppHandle`, which is
+/// what the `--mcp-stdio` path needs before any window exists.
+const IDENTIFIER: &str = "studio.afterhours.bitwright";
 
 /// Everything the shell remembers for the next launch.
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
@@ -70,18 +77,22 @@ fn file_path<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
         .map(|directory| directory.join(FILE_NAME))
 }
 
-/// Reads the preferences.
+/// Returns the preferences file path without an application handle.
+///
+/// Mirrors what `app_config_dir` resolves to: the platform configuration
+/// directory followed by the application identifier.
+fn file_path_without_app() -> Option<PathBuf> {
+    dirs::config_dir().map(|directory| directory.join(IDENTIFIER).join(FILE_NAME))
+}
+
+/// Reads the preferences from `path`.
 ///
 /// A missing or unreadable file is not an error: it means nothing has been
 /// chosen yet, and the defaults apply. A corrupt file is reported in the log
 /// and then ignored, because refusing to start over a malformed preference
 /// would leave the user with no way in.
-pub fn load<R: Runtime>(app: &AppHandle<R>) -> Preferences {
-    let Some(path) = file_path(app) else {
-        return Preferences::default();
-    };
-
-    let text = match fs::read_to_string(&path) {
+fn read(path: &Path) -> Preferences {
+    let text = match fs::read_to_string(path) {
         Ok(text) => text,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Preferences::default(),
         Err(error) => {
@@ -97,6 +108,35 @@ pub fn load<R: Runtime>(app: &AppHandle<R>) -> Preferences {
             Preferences::default()
         }
     }
+}
+
+/// Reads the preferences.
+pub fn load<R: Runtime>(app: &AppHandle<R>) -> Preferences {
+    let Some(path) = file_path(app) else {
+        return Preferences::default();
+    };
+
+    read(&path)
+}
+
+/// Resolves the data root without an application handle.
+///
+/// Used by the `--mcp-stdio` path, which runs before any window exists. The
+/// order matches the window path: the saved preference first, then the
+/// environment override, then the platform's local data directory under the
+/// application identifier, which is what `app_local_data_dir` resolves to.
+pub fn data_root_without_app() -> Option<PathBuf> {
+    if let Some(path) = file_path_without_app() {
+        if let Some(root) = read(&path).data_root {
+            return Some(PathBuf::from(root));
+        }
+    }
+
+    if let Some(root) = std::env::var_os("BITWRIGHT_DATA_ROOT") {
+        return Some(PathBuf::from(root));
+    }
+
+    dirs::data_local_dir().map(|directory| directory.join(IDENTIFIER))
 }
 
 /// Writes the preferences.
@@ -167,5 +207,27 @@ mod tests {
     fn reads_a_file_with_no_root() {
         let preferences: Preferences = serde_json::from_str("{}").unwrap();
         assert!(preferences.data_root.is_none());
+    }
+
+    #[test]
+    fn read_returns_the_root_from_a_file() {
+        let path = std::env::temp_dir().join(format!(
+            "bitwright-preferences-{}.json",
+            uuid::Uuid::now_v7()
+        ));
+        fs::write(&path, r#"{"dataRoot":"D:\\bitwright"}"#).unwrap();
+
+        let preferences = read(&path);
+        assert_eq!(preferences.data_root.as_deref(), Some("D:\\bitwright"));
+
+        fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn read_treats_a_missing_file_as_default() {
+        let path =
+            std::env::temp_dir().join(format!("bitwright-missing-{}.json", uuid::Uuid::now_v7()));
+
+        assert!(read(&path).data_root.is_none());
     }
 }

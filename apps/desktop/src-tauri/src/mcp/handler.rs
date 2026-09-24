@@ -64,10 +64,6 @@ impl BitwrightServer {
             observer,
         }
     }
-
-    pub fn session(&self) -> &Arc<Session> {
-        &self.session
-    }
 }
 
 impl ServerHandler for BitwrightServer {
