@@ -27,7 +27,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useDocumentStore } from '@/stores/useDocumentStore';
-import type { Asset, Document, IndexedBuffer, Layer, LayerRole, StepState } from '@/types/document';
+import type {
+  Asset,
+  Document,
+  GateReport,
+  IndexedBuffer,
+  Layer,
+  LayerRole,
+  StepState,
+} from '@/types/document';
 
 vi.mock('@/lib/document', () => ({
   assetOpen: vi.fn(),
@@ -143,6 +151,9 @@ beforeEach(() => {
   vi.mocked(documents.onPaletteChanged).mockResolvedValue(() => undefined);
   vi.mocked(documents.onStepChanged).mockResolvedValue(() => undefined);
   vi.mocked(documents.documentReadLayer).mockReset();
+  // `subscribing` is module-scoped state in `useDocumentStore.ts`, so it has to
+  // be reset between tests the same way the shell resets it: through dispose.
+  useDocumentStore.getState().dispose();
   useDocumentStore.setState({
     assetId: null,
     asset: null,
@@ -348,5 +359,176 @@ describe('useDocumentStore', () => {
     expect(state.error).toBe('step.not_found');
     expect(state.step?.step).toBe('flats');
     expect(state.asset?.step).toBe('flats');
+  });
+
+  it('close resets the whole document to its empty state', async () => {
+    await useDocumentStore.getState().open('asset-1');
+
+    useDocumentStore.getState().close();
+
+    const state = useDocumentStore.getState();
+    expect(state.assetId).toBeNull();
+    expect(state.asset).toBeNull();
+    expect(state.layers).toEqual([]);
+    expect(state.palette).toBeNull();
+    expect(state.step).toBeNull();
+    expect(state.gate).toBeNull();
+    expect(state.seq).toBe(0);
+    expect(state.error).toBeNull();
+  });
+
+  it('undo re-reads the step state on success', async () => {
+    vi.mocked(documents.documentUndo).mockResolvedValue({
+      ok: true,
+      value: { assetId: 'asset-1' } as never,
+    });
+    const revisited: StepState = {
+      ...STEP,
+      step: 'silhouette',
+      gate: { ...STEP.gate, step: 'silhouette' },
+    };
+    vi.mocked(documents.stepState).mockResolvedValueOnce({ ok: true, value: STEP });
+
+    await useDocumentStore.getState().open('asset-1');
+    vi.mocked(documents.stepState).mockResolvedValue({ ok: true, value: revisited });
+
+    await useDocumentStore.getState().undo();
+
+    expect(documents.documentUndo).toHaveBeenCalledWith('asset-1');
+    const state = useDocumentStore.getState();
+    expect(state.step?.step).toBe('silhouette');
+    expect(state.loading).toBe(false);
+    expect(state.error).toBeNull();
+  });
+
+  it('undo records the failure code and does not re-read the step', async () => {
+    vi.mocked(documents.documentUndo).mockResolvedValue({
+      ok: false,
+      error: { code: 'document.nothing_to_undo', detail: '' },
+    });
+
+    await useDocumentStore.getState().open('asset-1');
+    vi.mocked(documents.stepState).mockClear();
+    await useDocumentStore.getState().undo();
+
+    expect(documents.stepState).not.toHaveBeenCalled();
+    const state = useDocumentStore.getState();
+    expect(state.error).toBe('document.nothing_to_undo');
+    expect(state.loading).toBe(false);
+  });
+
+  it('redo re-reads the step state on success', async () => {
+    vi.mocked(documents.documentRedo).mockResolvedValue({
+      ok: true,
+      value: { assetId: 'asset-1' } as never,
+    });
+    const revisited: StepState = {
+      ...STEP,
+      step: 'shadow',
+      gate: { ...STEP.gate, step: 'shadow' },
+    };
+
+    await useDocumentStore.getState().open('asset-1');
+    vi.mocked(documents.stepState).mockResolvedValue({ ok: true, value: revisited });
+
+    await useDocumentStore.getState().redo();
+
+    expect(documents.documentRedo).toHaveBeenCalledWith('asset-1');
+    const state = useDocumentStore.getState();
+    expect(state.step?.step).toBe('shadow');
+  });
+
+  it('redo records the failure code', async () => {
+    vi.mocked(documents.documentRedo).mockResolvedValue({
+      ok: false,
+      error: { code: 'document.nothing_to_redo', detail: '' },
+    });
+
+    await useDocumentStore.getState().open('asset-1');
+    await useDocumentStore.getState().redo();
+
+    const state = useDocumentStore.getState();
+    expect(state.error).toBe('document.nothing_to_redo');
+    expect(state.loading).toBe(false);
+  });
+
+  it('writePalette replaces the palette with what the shell returned', async () => {
+    const written = { slots: [{ index: 1, ramp: 'skin', position: 0 }], ramps: [] } as never;
+    vi.mocked(documents.paletteWrite).mockResolvedValue({ ok: true, value: written });
+
+    await useDocumentStore.getState().open('asset-1');
+    await useDocumentStore.getState().writePalette({ slots: [], ramps: [] });
+
+    expect(documents.paletteWrite).toHaveBeenCalledWith('asset-1', { slots: [], ramps: [] });
+    const state = useDocumentStore.getState();
+    expect(state.palette).toEqual(written);
+    expect(state.loading).toBe(false);
+  });
+
+  it('writePalette records the failure code', async () => {
+    vi.mocked(documents.paletteWrite).mockResolvedValue({
+      ok: false,
+      error: { code: 'document.invalid_buffer', detail: 'slot' },
+    });
+
+    await useDocumentStore.getState().open('asset-1');
+    await useDocumentStore.getState().writePalette({ slots: [], ramps: [] });
+
+    expect(useDocumentStore.getState().error).toBe('document.invalid_buffer');
+  });
+
+  it('check re-evaluates the current gate without advancing the step', async () => {
+    const report: GateReport = { ...STEP.gate, pass: true };
+    vi.mocked(documents.stepCheck).mockResolvedValue({ ok: true, value: report });
+
+    await useDocumentStore.getState().open('asset-1');
+    await useDocumentStore.getState().check();
+
+    expect(documents.stepCheck).toHaveBeenCalledWith('asset-1');
+    const state = useDocumentStore.getState();
+    expect(state.gate).toEqual(report);
+    expect(state.step?.step).toBe('flats');
+  });
+
+  it('check records the failure code', async () => {
+    vi.mocked(documents.stepCheck).mockResolvedValue({
+      ok: false,
+      error: { code: 'document.not_found', detail: '' },
+    });
+
+    await useDocumentStore.getState().open('asset-1');
+    await useDocumentStore.getState().check();
+
+    expect(useDocumentStore.getState().error).toBe('document.not_found');
+  });
+
+  it('dispose unlistens every subscription and closes the document', async () => {
+    const unlistenChanged = vi.fn();
+    const unlistenPalette = vi.fn();
+    const unlistenStep = vi.fn();
+    vi.mocked(documents.onDocumentChanged).mockResolvedValue(unlistenChanged);
+    vi.mocked(documents.onPaletteChanged).mockResolvedValue(unlistenPalette);
+    vi.mocked(documents.onStepChanged).mockResolvedValue(unlistenStep);
+
+    await useDocumentStore.getState().open('asset-1');
+    useDocumentStore.getState().dispose();
+
+    expect(unlistenChanged).toHaveBeenCalled();
+    expect(unlistenPalette).toHaveBeenCalled();
+    expect(unlistenStep).toHaveBeenCalled();
+    expect(useDocumentStore.getState().assetId).toBeNull();
+  });
+
+  it('clearError clears the last error', async () => {
+    vi.mocked(documents.assetOpen).mockResolvedValue({
+      ok: false,
+      error: { code: 'document.not_found', detail: 'asset-2' },
+    });
+    await useDocumentStore.getState().open('asset-2');
+    expect(useDocumentStore.getState().error).toBe('document.not_found');
+
+    useDocumentStore.getState().clearError();
+
+    expect(useDocumentStore.getState().error).toBeNull();
   });
 });

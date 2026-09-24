@@ -194,4 +194,96 @@ describe('useProjectStore', () => {
     expect(useProjectStore.getState().projectId).toBeNull();
     expect(useProjectStore.getState().assetId).toBeNull();
   });
+
+  it('renameProject replaces the row with what the shell returned', async () => {
+    const renamed = project('project-1', 'renamed forest');
+    vi.mocked(documents.projectRename).mockResolvedValue({ ok: true, value: renamed });
+
+    await useProjectStore.getState().load();
+    await useProjectStore.getState().renameProject('project-1', 'renamed forest');
+
+    expect(documents.projectRename).toHaveBeenCalledWith('project-1', 'renamed forest');
+    expect(useProjectStore.getState().projects).toEqual([renamed]);
+    expect(useProjectStore.getState().loading).toBe(false);
+  });
+
+  it('renameProject reports the reason when the shell refuses', async () => {
+    vi.mocked(documents.projectRename).mockResolvedValue({
+      ok: false,
+      error: { code: 'store.constraint', detail: 'taken' },
+    });
+
+    await useProjectStore.getState().load();
+    await useProjectStore.getState().renameProject('project-1', 'taken');
+
+    expect(useProjectStore.getState().error).toBe('store.constraint');
+    expect(useToastStore.getState().visible).toHaveLength(1);
+  });
+
+  it('deleteProject removes the row and deselects it when it was open', async () => {
+    vi.mocked(documents.projectDelete).mockResolvedValue({ ok: true, value: null });
+
+    await useProjectStore.getState().load();
+    await useProjectStore.getState().selectProject('project-1');
+    await useProjectStore.getState().deleteProject('project-1');
+
+    const state = useProjectStore.getState();
+    expect(state.projects).toEqual([]);
+    expect(state.projectId).toBeNull();
+    expect(state.assets).toEqual([]);
+  });
+
+  it('deleteProject leaves an unrelated selection alone', async () => {
+    vi.mocked(documents.projectList).mockResolvedValue({
+      ok: true,
+      value: [project('project-1', 'forest'), project('project-2', 'desert')],
+    });
+    vi.mocked(documents.projectDelete).mockResolvedValue({ ok: true, value: null });
+
+    await useProjectStore.getState().load();
+    await useProjectStore.getState().selectProject('project-1');
+    await useProjectStore.getState().deleteProject('project-2');
+
+    const state = useProjectStore.getState();
+    expect(state.projects.map((p) => p.id)).toEqual(['project-1']);
+    expect(state.projectId).toBe('project-1');
+  });
+
+  it('renameAsset replaces the row with what the shell returned', async () => {
+    const renamed = asset('asset-1', 'project-1', 'renamed hero');
+    vi.mocked(documents.assetRename).mockResolvedValue({ ok: true, value: renamed });
+
+    await useProjectStore.getState().selectProject('project-1');
+    await useProjectStore.getState().renameAsset('asset-1', 'renamed hero');
+
+    expect(documents.assetRename).toHaveBeenCalledWith('asset-1', 'renamed hero');
+    expect(useProjectStore.getState().assets).toEqual([renamed]);
+  });
+
+  it('renameAsset reports the reason when the shell refuses', async () => {
+    vi.mocked(documents.assetRename).mockResolvedValue({
+      ok: false,
+      error: { code: 'store.constraint', detail: 'taken' },
+    });
+
+    await useProjectStore.getState().selectProject('project-1');
+    await useProjectStore.getState().renameAsset('asset-1', 'taken');
+
+    expect(useProjectStore.getState().error).toBe('store.constraint');
+    expect(useProjectStore.getState().assets).toEqual([HERO]);
+  });
+
+  it('clearError clears the last error', async () => {
+    vi.mocked(documents.projectCreate).mockResolvedValue({
+      ok: false,
+      error: { code: 'store.constraint', detail: 'name already taken' },
+    });
+
+    await useProjectStore.getState().createProject('forest', 'hd2d');
+    expect(useProjectStore.getState().error).toBe('store.constraint');
+
+    useProjectStore.getState().clearError();
+
+    expect(useProjectStore.getState().error).toBeNull();
+  });
 });
