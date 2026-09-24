@@ -1020,7 +1020,7 @@ mod tests {
             .asset_create(project, "villain", "prop", 2, 2)
             .unwrap();
         let png = |width: u16, height: u16| {
-            crate::raster::png::encode(&RgbaImage {
+            crate::raster::png::encode(&crate::raster::RgbaImage {
                 width,
                 height,
                 data: vec![255; usize::from(width) * usize::from(height) * 4],
