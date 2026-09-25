@@ -1,140 +1,45 @@
 # Design system
 
-The rules the interface's colour, type and elevation follow, the full token
-table, and the mistakes these rules exist to prevent.
+The rules the interface's colour, shape, type and elevation follow, the full
+token table, and the mistakes these rules exist to prevent.
 
-The interface is the 1.1 studio layout: a reference pixel-art studio
-reproduced one to one in structure, spacing, type and colour, with Bitwright's
-own features in it. The region-by-region contract, with the class strings each
-screen uses, is [the studio layout](../architecture/studio-layout.md). This
-page is the system underneath it.
+All colour is defined once, in `apps/desktop/src/styles/tokens.css`, and
+verified by `scripts/check-contrast.ts`.
 
-All colour is defined once, in `apps/desktop/src/styles/tokens.css`, and the
-role tokens are verified by `scripts/check-contrast.ts`.
+## The studio
 
-## The studio look
+The interface is the studio: its **layout** follows a reference pixel-art
+studio one to one, and its **look** is Bitwright's own, the system on this
+page.
+
+- [The studio layout](../architecture/studio-layout.md) is the layout's
+  contract: which regions exist, where they sit, what each holds and in what
+  order, their sizes and spacing. The class strings it quotes are the
+  reference's, and only their structure and sizes are used.
+- [The studio style](../architecture/studio-style.md) is the look's contract:
+  how each of the reference's colour and shape classes maps onto a token
+  here.
+
+Everything a screen paints comes from the tokens below and the shared
+components in `components/ui/`: `Button` (primary, secondary, ghost, danger),
+`IconButton`, `SegmentedTabs`, `Select` and `ComboBox`, `Field`, `NumberField`,
+`Dialog`, `Menu`, `Tooltip`, `Pill` and `Card`. A bespoke control is fine where
+the layout needs one, such as a tool row or a frame card, but it takes its
+colours and shapes from the same tokens.
 
 ### Type and icons
 
-- **Font:** Manrope Variable, from `@fontsource-variable/manrope`, as
-  `font-sans`. Monospace text uses the platform's own monospace stack.
-- **Icons:** `lucide-react`, at `w-4 h-4` in tool rows and the header,
-  `w-3.5 h-3.5` in small buttons and `w-3 h-3` in the smallest.
+- **Font:** the Inter / system stack, `Inter, system-ui, -apple-system,
+Segoe UI, sans-serif`, as `font-sans`. Monospace text uses the platform's
+  own monospace stack, `font-mono`.
+- **Sizes:** `text-sm` for body text, `text-xs` for secondary text, and
+  `text-[11px]` for the smallest, such as keys and badges. Nothing is smaller
+  than 11px.
+- **Icons:** `lucide-react`, at stroke width 1.75, `h-4 w-4` in tool rows and
+  the header and smaller in small buttons. lucide is an icon set, not a theme,
+  and it replaces nothing Bitwright had drawn.
 
-### Two layers of colour
-
-The theme has two layers of colour, and both are deliberate.
-
-**Tailwind's palette, which the layout paints with.** The reference is written
-in Tailwind's own classes, so copying it one to one means those classes have to
-exist exactly as Tailwind 3 defines them:
-
-| Scale                                              | Source                                     |
-| -------------------------------------------------- | ------------------------------------------ |
-| `neutral` 50 to 950                                | CSS variables, inverted for light mode     |
-| `pink`, `sky`, `purple`, `red`, `amber`, `emerald` | Tailwind's fixed values                    |
-| `white`, `black`                                   | Tailwind's fixed values                    |
-| `studio-home`, `studio-home-side`, `studio-card`   | CSS variables, the three home-screen greys |
-
-No other scale exists. `colors` replaces Tailwind's default palette rather
-than extending it, so `bg-gray-800` is still not a class.
-
-**The role tokens, which the contrast check measures.** `surface-*`, `fg-*`,
-`line-*` and `accent` stay beside the scales and are re-pointed at the studio
-look, so a component still written against them paints the same greys as one
-written in the neutral scale, and the check keeps measuring the pairs text
-actually sits on. Why the palette came back is recorded in
-[DECISIONS.md](../DECISIONS.md), "Tailwind's palette comes back, through
-variables".
-
-### The neutral scale, through variables
-
-`neutral` is the scale the light theme has to invert, so each step reads a
-variable holding bare sRGB channels:
-
-```ts
-// tailwind.config.ts
-neutral: { 900: 'rgb(var(--neutral-900) / <alpha-value>)', ... }
-```
-
-Bare channels rather than a colour are what let the opacity modifier work:
-`bg-neutral-900/40` compiles to `rgb(var(--neutral-900) / 0.4)`.
-
-In dark mode the variables hold Tailwind's own neutral values, 50 `#fafafa`
-through 950 `#0a0a0a`. In light mode they hold the same scale inverted, 50
-swapped with 950, 100 with 900 and so on, so `bg-neutral-950` is near black in
-dark mode and near white in light mode. A component written for the dark
-reference reads the right way round in light mode without a single `dark:`
-variant.
-
-### How the accents are used
-
-Each accent scale carries one meaning, and only that one:
-
-| Accent                    | Means                                                         |
-| ------------------------- | ------------------------------------------------------------- |
-| `pink`                    | The active tool, the primary action, the current item or step |
-| `sky`                     | A toggle that is on, export, the zoom readout                 |
-| `purple`                  | Layers                                                        |
-| `red`, `amber`, `emerald` | Destructive hover, warnings, a passing gate                   |
-
-A pink that means "selected" in one place and "decoration" in another stops
-reading as a state in either.
-
-### Radii and shadows
-
-Tailwind's default scales, for the same reason as the palette: `rounded`,
-`rounded-xl` and `shadow-md shadow-pink-600/20` are written into the reference
-and have to mean what they mean there. `rounded` (4px) is the default corner,
-`rounded-xl` is for dialogs, and `rounded-full` for round buttons. Tailwind 3
-has no `shadow-xs`; the theme adds it with the value later versions give it.
-
-### Utilities
-
-Defined in `apps/desktop/src/styles/global.css`:
-
-| Class                   | What it is                                                                                      |
-| ----------------------- | ----------------------------------------------------------------------------------------------- |
-| `.canvas-workspace-bg`  | The editor's workspace: a faint 20px diagonal checker over `--workspace`                        |
-| `.checkerboard-pattern` | The small checker behind a thumbnail, so a transparent pixel reads as transparent               |
-| `.sprite-checkerboard`  | The checker behind the sprite on the stage, sized to two sprite pixels                          |
-| `.palette-swatch`       | A palette slot painted from `--swatch`, which is a pixel of the sprite, not an interface colour |
-| `.pixelated`            | `image-rendering: pixelated`, so a scaled sprite stays square pixels                            |
-| `.no-drag`              | Opts a control out of a window drag region                                                      |
-
-## The window
-
-The window has no system decorations, no bezel and no separate title bar.
-
-- **Each screen's top row is the drag region.** Home's content header, the
-  editor's `h-14` header and the Settings header carry
-  `data-tauri-drag-region`, and the window controls sit at their trailing end.
-  The controls themselves are `WindowControls` in `components/layout/`.
-- **The frame is opaque.** `AppShell` paints `bg-neutral-950` over the whole
-  window, whether or not the platform applied Mica or vibrancy. The studio look
-  has no translucent surface to show the effect through, so text never sits on
-  the user's wallpaper. Settings still reports whether the effect applied.
-- **The frame is rounded to `--radius-window`**, 8px, which is what Windows 11
-  and macOS clip an undecorated window to, so the corner outside it is one the
-  platform would have cut away anyway.
-- **On Windows the close button turns the system red on hover**, the `danger`
-  pair in `tailwind.config.ts`, which is a platform colour rather than part of
-  either palette. On macOS the system's traffic lights are left to draw
-  themselves.
-
-The layers every screen shares, the new sprite dialog, the command palette and
-the toasts, are mounted once in `AppShell` rather than in whichever screen is
-in front.
-
-Why the decorations are drawn by the application at all is
-[ADR 0006](../architecture/decisions/0006-custom-window-decorations.md); its
-title bar and bezel are what the studio layout replaced.
-
-## The role tokens
-
-The rest of this page is the role-token system. It is what the contrast check
-measures, and it still paints the base styles (body text, focus rings, text
-selection) and any component not written in the neutral scale.
+## Principles
 
 ### 1. Surfaces are named by role, not by height
 
@@ -149,17 +54,13 @@ is not.
 | `--surface-content-alt` | A content surface nested inside another one                        |
 | `--surface-input`       | Text fields, text areas, selects                                   |
 | `--surface-well`        | Decorative, and never carries text: the checkerboard, tracks       |
-| `--surface-float`       | Dropdowns, tooltips, menus                                         |
+| `--surface-float`       | Dropdowns, tooltips, menus, floating panels                        |
 | `--surface-disabled`    | A control that cannot be used                                      |
-| `--surface-anchor`      | The contrast anchor                                                |
-
-The anchor was the status bar, and later the dock. The studio layout has
-neither, so nothing paints it today; it is kept, and measured, so that a band
-of strong contrast has a checked pair the day one is needed.
+| `--surface-anchor`      | The contrast anchor: the bezel with no effect, the anchor pill     |
 
 `--surface-content` carries a second guarantee: it is always fully opaque, in
-every mode. A surface that holds text has to be opaque anyway, so the two
-meanings agree.
+every mode and whether or not a window background effect is active. A surface
+that holds text has to be opaque anyway, so the two meanings agree.
 
 ### 2. The two modes separate surfaces by different means
 
@@ -174,8 +75,7 @@ front.
 
 **Dark mode.** Content surfaces separate by **lightness**, in real steps of
 0.050 L or more, with a hairline border as support. **Shadow is not a
-separation mechanism here at all.** Every dark surface but the float is a
-Tailwind neutral step, so the role tokens and the neutral scale agree.
+separation mechanism here at all.**
 
 The reason is physical rather than stylistic. A shadow is a dark shape: it reads
 against a light ground and disappears against a dark one. And light mode is
@@ -209,18 +109,17 @@ the meaning a reader already expects. A disabled control uses
 `--fg-muted` is used **only** for the label of a disabled control. It does not
 clear 4.5:1 on the disabled surface, and the WCAG 1.4.3 exemption that permits
 that covers disabled controls and nothing else. The reason a control is
-disabled is information the user has to act on, so it uses `--fg-secondary`
-and is held to 4.5:1.
+disabled, such as "Not supported by the selected engine", is information the
+user has to act on, so it uses `--fg-secondary` and is held to 4.5:1.
 
-### 6. Opacity is never used to de-emphasise a role-token container
+### 6. Opacity is never used to de-emphasise a container
 
-A faded role-token container lets whatever is beneath it bleed through, which
-produces a colour that exists in no token and destroys the separation
-everything else depends on. Use `--surface-disabled` and `--fg-muted`.
+A faded container lets whatever is beneath it bleed through, which produces a
+colour that exists in no token and destroys the separation everything else
+depends on. Use `--surface-disabled` and `--fg-muted`.
 
-The studio layout does use the neutral scale's opacity modifier, as in
-`bg-neutral-900/40` for a panel head, because the reference does. Those are
-tints of the scale over a known neutral ground, not role surfaces.
+Opacity is for motion, for onion skin on the stage, and for a full-screen
+overlay.
 
 ### 7. Adjacency is declared, not inferred
 
@@ -244,79 +143,125 @@ mechanism and requires the lightness step on the same pairs.
 
 ### Light mode
 
-| Token                   | Value                      | Notes                          |
-| ----------------------- | -------------------------- | ------------------------------ |
-| `--surface-canvas`      | `oklch(0.930 0.005 85)`    | The only large grey            |
-| `--surface-content`     | `oklch(1.000 0 0)`         | White                          |
-| `--surface-content-alt` | `oklch(0.975 0.003 85)`    | Nested card                    |
-| `--surface-input`       | `oklch(1.000 0 0)`         | White, separated by its border |
-| `--surface-well`        | `oklch(0.890 0.006 85)`    | Decorative only                |
-| `--surface-float`       | `oklch(1.000 0 0)`         | White, separated by shadow     |
-| `--surface-disabled`    | `oklch(0.930 0.005 85)`    | Grey means disabled            |
-| `--surface-anchor`      | `oklch(0.220 0.008 85)`    | Contrast anchor                |
-| `--border-subtle`       | `oklch(0 0 0 / 0.08)`      |                                |
-| `--border-default`      | `oklch(0 0 0 / 0.14)`      | Carries content to content-alt |
-| `--border-strong`       | `oklch(0 0 0 / 0.24)`      |                                |
-| `--input-border`        | `oklch(0 0 0 / 0.18)`      | Carries content to input       |
-| `--input-border-focus`  | `oklch(0.656 0.212 354.3)` | Tailwind's pink-500            |
-| `--fg-primary`          | `oklch(0.230 0.010 85)`    | Body text                      |
-| `--fg-secondary`        | `oklch(0.440 0.008 85)`    | Anything that carries meaning  |
-| `--fg-muted`            | `oklch(0.560 0.008 85)`    | Disabled labels only           |
-| `--fg-placeholder`      | `oklch(0.545 0.008 85)`    | Inputs only, at a full 4.5:1   |
-| `--fg-on-anchor`        | `oklch(0.960 0.004 85)`    | Anchor only                    |
-| `--accent`              | `oklch(0.592 0.218 0.6)`   | Tailwind's pink-600            |
-| `--accent-hover`        | `oklch(0.525 0.199 4)`     | pink-700                       |
-| `--accent-fg`           | `oklch(1.000 0 0)`         | White                          |
+| Token                   | Value                    | Notes                          |
+| ----------------------- | ------------------------ | ------------------------------ |
+| `--surface-canvas`      | `oklch(0.930 0.005 85)`  | The only large grey            |
+| `--surface-content`     | `oklch(1.000 0 0)`       | White                          |
+| `--surface-content-alt` | `oklch(0.975 0.003 85)`  | Nested card                    |
+| `--surface-input`       | `oklch(1.000 0 0)`       | White, separated by its border |
+| `--surface-well`        | `oklch(0.890 0.006 85)`  | Decorative only                |
+| `--surface-float`       | `oklch(1.000 0 0)`       | White, separated by shadow     |
+| `--surface-disabled`    | `oklch(0.930 0.005 85)`  | Grey means disabled            |
+| `--surface-anchor`      | `oklch(0.220 0.008 85)`  | Contrast anchor                |
+| `--border-subtle`       | `oklch(0 0 0 / 0.08)`    |                                |
+| `--border-default`      | `oklch(0 0 0 / 0.14)`    | Carries content to content-alt |
+| `--border-strong`       | `oklch(0 0 0 / 0.24)`    |                                |
+| `--input-border`        | `oklch(0 0 0 / 0.18)`    | Carries content to input       |
+| `--input-border-focus`  | `oklch(0.700 0.150 105)` |                                |
+| `--fg-primary`          | `oklch(0.230 0.010 85)`  | Body text                      |
+| `--fg-secondary`        | `oklch(0.440 0.008 85)`  | Anything that carries meaning  |
+| `--fg-muted`            | `oklch(0.560 0.008 85)`  | Disabled labels only           |
+| `--fg-placeholder`      | `oklch(0.545 0.008 85)`  | Inputs only, at a full 4.5:1   |
+| `--fg-on-anchor`        | `oklch(0.960 0.004 85)`  | Anchor only                    |
+| `--accent`              | `oklch(0.880 0.190 105)` | Yellow                         |
+| `--accent-hover`        | `oklch(0.845 0.190 105)` | Darker, away from the surface  |
+| `--accent-fg`           | `oklch(0.220 0.030 105)` | Dark in both modes             |
+| `--severity-info`       | `oklch(0.550 0.150 250)` |                                |
+| `--severity-success`    | `oklch(0.520 0.140 150)` |                                |
+| `--severity-warning`    | `oklch(0.545 0.135 70)`  |                                |
+| `--severity-error`      | `oklch(0.550 0.200 25)`  |                                |
 
-Light mode role tokens keep a small non-zero chroma at hue 85, a warm grey,
-except where a value is pure white.
+Neutrals keep a small non-zero chroma at hue 85, a warm grey, except where a
+value is pure white.
 
 ### Dark mode
 
-| Token                   | Value                      | Step                          |
-| ----------------------- | -------------------------- | ----------------------------- |
-| `--surface-canvas`      | `oklch(0.145 0 0)`         | neutral-950, base             |
-| `--surface-content`     | `oklch(0.205 0 0)`         | neutral-900, +0.060           |
-| `--surface-content-alt` | `oklch(0.269 0 0)`         | neutral-800, +0.064           |
-| `--surface-input`       | `oklch(0.145 0 0)`         | neutral-950, -0.060           |
-| `--surface-well`        | `oklch(0.145 0 0)`         | neutral-950, -0.060           |
-| `--surface-float`       | `oklch(0.321 0 0)`         | `#333333`, +0.052             |
-| `--surface-disabled`    | `oklch(0.205 0 0)`         | neutral-900, +0.060 on input  |
-| `--surface-anchor`      | `oklch(0.205 0 0)`         | neutral-900, +0.060 on canvas |
-| `--border-subtle`       | `oklch(1 0 0 / 0.08)`      |                               |
-| `--border-default`      | `oklch(1 0 0 / 0.14)`      |                               |
-| `--border-strong`       | `oklch(1 0 0 / 0.24)`      |                               |
-| `--input-border`        | `oklch(1 0 0 / 0.20)`      |                               |
-| `--input-border-focus`  | `oklch(0.656 0.212 354.3)` | pink-500                      |
-| `--fg-primary`          | `oklch(0.970 0 0)`         | neutral-100                   |
-| `--fg-secondary`        | `oklch(0.715 0 0)`         | neutral-400                   |
-| `--fg-muted`            | `oklch(0.556 0 0)`         |                               |
-| `--fg-placeholder`      | `oklch(0.600 0 0)`         | Lighter than neutral-500      |
-| `--fg-on-anchor`        | `oklch(0.970 0 0)`         |                               |
-| `--accent`              | `oklch(0.592 0.218 0.6)`   | pink-600, as in light mode    |
-| `--accent-hover`        | `oklch(0.525 0.199 4)`     | pink-700                      |
-| `--accent-fg`           | `oklch(1.000 0 0)`         | White                         |
+| Token                   | Value                    | Step                           |
+| ----------------------- | ------------------------ | ------------------------------ |
+| `--surface-canvas`      | `oklch(0.255 0.008 85)`  | base                           |
+| `--surface-content`     | `oklch(0.315 0.009 85)`  | +0.060                         |
+| `--surface-content-alt` | `oklch(0.370 0.010 85)`  | +0.055                         |
+| `--surface-input`       | `oklch(0.225 0.008 85)`  | -0.090 from content            |
+| `--surface-well`        | `oklch(0.210 0.008 85)`  | -0.105 from content            |
+| `--surface-float`       | `oklch(0.420 0.011 85)`  | +0.050 from content-alt        |
+| `--surface-disabled`    | `oklch(0.285 0.008 85)`  | +0.060 from input              |
+| `--surface-anchor`      | `oklch(0.175 0.005 85)`  | -0.080 from canvas             |
+| `--border-subtle`       | `oklch(1 0 0 / 0.08)`    |                                |
+| `--border-default`      | `oklch(1 0 0 / 0.14)`    |                                |
+| `--border-strong`       | `oklch(1 0 0 / 0.24)`    |                                |
+| `--input-border`        | `oklch(1 0 0 / 0.20)`    |                                |
+| `--input-border-focus`  | `oklch(0.850 0.170 105)` |                                |
+| `--fg-primary`          | `oklch(0.960 0.004 85)`  |                                |
+| `--fg-secondary`        | `oklch(0.815 0.006 85)`  | Floor set by the float surface |
+| `--fg-muted`            | `oklch(0.620 0.008 85)`  |                                |
+| `--fg-placeholder`      | `oklch(0.640 0.008 85)`  |                                |
+| `--fg-on-anchor`        | `oklch(0.940 0.004 85)`  |                                |
+| `--accent`              | `oklch(0.850 0.170 105)` | L and chroma both down         |
+| `--accent-hover`        | `oklch(0.885 0.180 105)` | Lighter, away from the surface |
+| `--accent-fg`           | `oklch(0.180 0.030 105)` |                                |
+| `--severity-info`       | `oklch(0.800 0.110 250)` | Lighter than the float surface |
+| `--severity-success`    | `oklch(0.820 0.140 150)` |                                |
+| `--severity-warning`    | `oklch(0.840 0.130 80)`  |                                |
+| `--severity-error`      | `oklch(0.820 0.115 25)`  |                                |
 
-Dark mode is Tailwind's neutral scale exactly, chroma zero, because the layout
-is copied from a reference written in it. Two values depart from the
-reference, and both for contrast: the float is `#333333` rather than
-neutral-700, because `--fg-secondary` on neutral-700 is 4.12:1 and on
-`#333333` it is 5.01:1; and the placeholder is lighter than the reference's
-neutral-500, which measures 4.18:1 on the input.
+The dark ladder sits higher than the first one did. OKLCH lightness is not sRGB
+lightness: low L values that read as reasonable numbers rendered as an almost
+black interface. Check any new value by rendering it, never by reading it.
 
 ### About the accent
 
-The accent is Tailwind's pink-600, the reference's active colour, in both
-modes: the active tool, the primary button, the current step. White on it is
-4.60:1.
+One saturated colour, yellow, used sparingly: the active tool, the primary
+button, the current item or step, and the single most important value on a
+screen. Used for decoration it stops reading as a state.
 
-Hover on the role token goes **darker**, to pink-700 (6.04:1), in both modes,
-rather than lighter to pink-500. White on pink-500 is 3.53:1, and the accent's
-foreground has to stay readable while the pointer is on it. The studio
-layout's own buttons hover to pink-500 because the reference does; the role
-token keeps the stricter value.
+A secondary row of pills takes `--surface-anchor` instead (the `anchor` tone of
+`Pill`), and a toggle that is on is a pressed state on the content surfaces,
+not a second accent, so that only one kind of thing on screen is yellow.
+
+Two details are easy to get wrong:
+
+- **Dark mode lowers both L and chroma.** Yellow at full chroma on a dark ground
+  reads as neon.
+- **Hover moves away from the surface.** Darker in light mode, lighter in dark.
+
+`--accent-fg` is dark in **both** modes. Body text on the accent measures 1.38:1
+in dark mode, which is why the accent has a foreground token of its own.
+
+### Severity
+
+Four marker colours: `--severity-info`, `--severity-success`,
+`--severity-warning` and `--severity-error`, used as `text-severity-*`. They
+mark a notification's icon, a gate that passed or failed, and a warning. They
+are not surfaces and not general foregrounds.
+
+Their hues are the four a reader already has a meaning for, and the four
+furthest from the yellow accent, so a severity mark is never mistaken for the
+selected state. Every one clears 4.5:1 on `--surface-float` in both modes, not
+only the 3:1 WCAG 1.4.11 asks of a graphic, so a severity colour on a short
+word is legal too.
+
+The only other literal colour is `danger`: the Windows close button turns the
+system red on hover.
+
+### Radii
+
+| Token                   | Value   | Used for                              |
+| ----------------------- | ------- | ------------------------------------- |
+| `--radius-sm`           | `6px`   | Small controls and swatches           |
+| `--radius-md`           | `10px`  | Rows, cards and inputs                |
+| `--radius-lg`           | `14px`  | Panels, dialogs and floating toolbars |
+| `--radius-pill`         | `999px` | Buttons and segmented controls        |
+| `--radius-window`       | `8px`   | The window's own corner               |
+| `--radius-window-inner` | `4px`   | The corner inside the bezel           |
+
+`rounded-full` is for dots and round buttons. The scale is kept tight on
+purpose: a 20px corner at this card size reads as a rounded rectangle first and
+a panel second.
 
 ### Shadows
+
+Three, `--shadow-sm`, `--shadow-md` and `--shadow-lg`, and never a coloured
+one.
 
 Light mode: alpha 0.06 to 0.16, wide, small vertical offset. This is a real
 separation mechanism, and the only thing holding `--surface-float` apart from
@@ -325,9 +270,6 @@ the white beneath it.
 Dark mode: alpha 0.40 to 0.60, and permitted only on `--surface-float`, which
 also clears its lightness step. Everywhere else a shadow is decoration. The
 check will not accept a dark pair that relies on one.
-
-The studio layout's coloured shadows, such as `shadow-md shadow-pink-600/20`
-under the active tool, are Tailwind's scale recoloured, and are decoration.
 
 ### Which text goes on which surface
 
@@ -346,38 +288,49 @@ rather than the list of what happens to be checked.
 
 `--surface-well` carries no text at all.
 
-### Severity
-
-Four marker colours for a notification's icon: `--severity-info`,
-`--severity-success`, `--severity-warning` and `--severity-error`. They are not
-surfaces and not general foregrounds, and they only ever paint a glyph, so the
-rule that applies is WCAG 1.4.11's 3:1 for a non-text graphic. Every one clears
-4.5:1 on `--surface-float` anyway, in both modes, so a later change that puts
-one on a word is already legal.
-
 ## Using the tokens
 
 ### Through Tailwind
 
+Tailwind's own palette is **removed**, not extended. `bg-gray-800`,
+`bg-neutral-900` and `text-pink-400` are not classes that exist, because a
+stock palette colour would sit outside the surface model and outside the
+contrast checks.
+
 ```tsx
-<div className="bg-neutral-900/40 border border-neutral-800 text-neutral-300">
-<p className="text-xs text-fg-secondary">
+<div className="rounded-md border border-line-subtle bg-surface-content text-fg-primary shadow-sm">
 ```
 
-| Class                                                                                                                                                                      | Token                          |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| `bg-neutral-950` to `bg-neutral-50`, with any opacity modifier                                                                                                             | `--neutral-*`                  |
-| `bg-studio-home`, `bg-studio-home-side`, `bg-studio-card`                                                                                                                  | the home-screen greys          |
-| `bg-pink-600`, `text-sky-400`, `border-purple-500/80` and the rest                                                                                                         | Tailwind's fixed accent scales |
-| `bg-surface-canvas`, `bg-surface-content`, `bg-surface-content-alt`, `bg-surface-input`, `bg-surface-well`, `bg-surface-float`, `bg-surface-disabled`, `bg-surface-anchor` | the surfaces                   |
-| `text-fg-primary`, `text-fg-secondary`, `text-fg-muted`, `text-fg-placeholder`, `text-fg-on-anchor`                                                                        | the text tokens                |
-| `bg-accent`, `bg-accent-hover`, `text-accent-fg`                                                                                                                           | the accent                     |
-| `border-line-subtle`, `border-line`, `border-line-strong`, `border-line-input`, `border-line-focus`                                                                        | the borders                    |
-| `rounded`, `rounded-xl`, `rounded-full` and Tailwind's other radii                                                                                                         | Tailwind's radius scale        |
-| `rounded-window`                                                                                                                                                           | the window corner              |
-| `bg-danger`, `text-danger-fg`                                                                                                                                              | the Windows close button's red |
+| Class                                                                                                                                                                      | Token                                              |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `bg-surface-canvas`, `bg-surface-content`, `bg-surface-content-alt`, `bg-surface-input`, `bg-surface-well`, `bg-surface-float`, `bg-surface-disabled`, `bg-surface-anchor` | the surfaces                                       |
+| `text-fg-primary`, `text-fg-secondary`, `text-fg-muted`, `text-fg-placeholder`, `text-fg-on-anchor`                                                                        | the text tokens                                    |
+| `bg-accent`, `bg-accent-hover`, `text-accent-fg`                                                                                                                           | the accent                                         |
+| `border-line-subtle`, `border-line`, `border-line-strong`, `border-line-input`, `border-line-focus`                                                                        | the borders                                        |
+| `text-severity-info`, `text-severity-success`, `text-severity-warning`, `text-severity-error`                                                                              | the severity marks                                 |
+| `rounded-sm`, `rounded-md`, `rounded-lg`, `rounded-pill`, `rounded-full`                                                                                                   | the radii                                          |
+| `rounded-window`, `rounded-window-inner`                                                                                                                                   | the window corner, and the corner inside the bezel |
+| `shadow-sm`, `shadow-md`, `shadow-lg`                                                                                                                                      | the shadows                                        |
+| `bg-danger`, `text-danger-fg`                                                                                                                                              | the only two literal colours in the theme          |
 
 A bare `border` with no colour takes `--border-default`.
+
+`danger` is a pair of hex values rather than tokens, and the only such pair. The
+Windows close button has to turn the system red on hover, which is a platform
+colour and not part of the theme.
+
+### Utilities
+
+Defined in `apps/desktop/src/styles/global.css`:
+
+| Class                   | What it is                                                                                      |
+| ----------------------- | ----------------------------------------------------------------------------------------------- |
+| `.app-bezel`            | The ring of window around the interface; see [the bezel](#the-bezel)                            |
+| `.sprite-checkerboard`  | The checker behind the sprite on the stage: `--surface-well` with squares in `--border-subtle`  |
+| `.checkerboard-pattern` | The same checker at 8px, behind a thumbnail                                                     |
+| `.palette-swatch`       | A palette slot painted from `--swatch`, which is a pixel of the sprite, not an interface colour |
+| `.pixelated`            | `image-rendering: pixelated`, so a scaled sprite stays square pixels                            |
+| `.no-drag`              | Opts a control out of a window drag region                                                      |
 
 ### Nesting
 
@@ -386,7 +339,9 @@ border.** Two `--surface-content` elements inside each other have no boundary at
 all in light mode, where both are white.
 
 **Two levels of nesting is the limit.** Past that, separate with whitespace or a
-rule rather than another surface.
+rule rather than another surface. Light mode has `content` and `content-alt` and
+nothing further; there is no third near-white value that is still distinguishable
+from the second.
 
 ```
 canvas -> content (card) -> content-alt (nested card) -> whitespace
@@ -396,56 +351,151 @@ Inputs and wells are not nesting levels. An input goes on any content surface
 and is separated by its own border; a well goes inside a content surface and
 carries no text.
 
+## The window
+
+The window has no system decorations and no separate title bar. `AppShell` in
+`components/layout/` draws the bezel and an opaque container inside it, and
+the current screen fills that container.
+
+- **Each screen's top row is the drag region.** Home's content header, the
+  editor's header and the Settings header carry `data-tauri-drag-region`, and
+  the window controls, `WindowControls` in `components/layout/`, sit at their
+  trailing end. Controls opt out of the drag with `.no-drag`.
+- **On Windows the close button turns the system red on hover**, the `danger`
+  pair. On macOS the system's traffic lights draw themselves.
+- **The layers every screen shares**, the new sprite dialog, the command
+  palette and the toasts, are mounted once in `AppShell`, inside the container,
+  so an overlay never paints over the bezel or the window's rounded corner.
+
+Why the decorations are drawn by the application at all is
+[ADR 0006](../architecture/decisions/0006-custom-window-decorations.md).
+
+### The bezel
+
+`.app-bezel`, in `global.css`, is the ring of window around the interface. It is
+4px of padding, and it carries no text of any kind.
+
+That is what makes it the right place for the background effect. Under
+`[data-vibrancy="on"]` the bezel is transparent and the platform draws Mica or
+vibrancy there. With no effect it falls back to `--surface-anchor`, which is a
+deliberate dark frame rather than a hole. Everything inside the bezel is opaque:
+`--surface-canvas` immediately within it, and the usual content surfaces above
+that.
+
+**Every surface token is fully opaque, in every mode, whether or not an effect
+is active.** There is no translucent token set. Text is never composited
+against the user's wallpaper, and the declared lightness steps are never at the
+wallpaper's mercy.
+
+Because the one translucent thing holds no text, translucency is safe in
+**both** modes.
+[ADR 0006](../architecture/decisions/0006-custom-window-decorations.md)
+introduced a translucent token set for the chrome and concluded, from running
+the application rather than from reading the tokens, that it had to be dark mode
+only: a light mode chrome at L 0.95 composites toward the wallpaper and drops
+below the content surface, measured at sRGB 209 against 225, which inverts the
+elevation order.
+[ADR 0009](../architecture/decisions/0009-asymmetric-surface-model.md) reached
+the same conclusion from the surface side. The bezel changes the premise:
+nothing that carries text, or that has to hold a place in the elevation order,
+is translucent, so neither failure can occur in either mode.
+
+The frontend never guesses whether an effect applied. Rust reports it and the
+shell store sets `data-vibrancy`. Opaque is the default and the safe one.
+
+### Window radius
+
+`--radius-window` has to match what the compositor draws, rather than being
+chosen for looks. Windows 11 rounds a window at 8px. A bezel rounded more than
+that leaves a wedge of bezel outside the system's rounded edge at each corner,
+which reads as a rendering fault rather than as a design.
+
+`--radius-window-inner` is derived, not chosen: the outer radius minus the gap
+between the two corners, so 8 minus the 4px of bezel padding leaves 4. A corner
+nested inside another and rounded more than its parent produces the same visible
+wedge, one level in.
+
 ### Dropdowns and menus
 
 Everything that floats above the interface, the select, the combo box, the
-notification list and the command palette, is built on one `Overlay`
-component, and every one of them closes the same way: Escape closes the top
-one, and a press outside it does not reach what was underneath. Why those
-controls are written rather than native is
+menus, the notification list and the command palette, is built on one
+`Overlay` component painted with `--surface-float`. That is the only surface
+above a card, and it is held apart from `--surface-content-alt` by shadow in
+light mode and by a lightness step in dark, which is the pair `tokens.css`
+declares. Escape closes the top one, and a press outside it does not reach
+what was underneath. Why those controls are written rather than native is
 [ADR 0010](../architecture/decisions/0010-custom-overlay-controls.md).
 
 ## Common mistakes
 
-**Writing a `dark:` variant.** The neutral scale inverts itself in light mode.
-A `dark:` class is a second answer to a question the variables already
-answered, and the two drift.
+**Using a Tailwind palette class.** `bg-neutral-900`, `text-pink-400`,
+`border-sky-500`, `bg-white` and the rest are not in the theme, so the class
+compiles to nothing and the element silently loses its colour. It is also how
+the studio's look once drifted away from the tokens. `src/test/tokens.test.ts`
+fails on any such class, and on `bg-gradient-to-*`, anywhere in `src`. Use the
+mapping in [the studio style](../architecture/studio-style.md).
 
-**Mixing the neutral scale with a fixed colour for text on a neutral ground.**
-The neutral scale inverts; `white` and `black` do not. `text-neutral-100` on
-`bg-neutral-950` reads in both modes, and `text-white` on `bg-neutral-950` is
-white on near white in light mode. Fixed white belongs on the fixed accents,
-such as the pink active tool.
+**Copying a class string from the studio layout as it is.** The layout quotes
+the reference's classes for their structure and sizes. Its colours, corners and
+shadows are replaced by the tokens, as the studio style maps them.
 
-**Using an accent for decoration.** Pink means active, sky means on, purple
-means layers. A decorative pink makes the active tool harder to find.
-
-**Using a symmetric lightness ladder in both modes for the role tokens.**
-Stepping up in lightness from a grey canvas gives you more grey, so every card
-and every input ends up grey. Light mode separates content surfaces by border
+**Using a symmetric lightness ladder in both modes.** This is the mistake this
+model exists to correct. Stepping up in lightness from a grey canvas gives you
+more grey, so every card and every input ends up grey, and every piece of text
+in the application sits on grey. Light mode separates content surfaces by border
 and shadow; only dark mode uses a lightness ladder. See
 [ADR 0009](../architecture/decisions/0009-asymmetric-surface-model.md).
 
 **Checking contrast only against the foregrounds a surface is expected to
-carry.** A check built from expectations can only confirm what someone already
-thought of. The script discovers the tokens from the file and measures the
+carry.** The previous check did this and passed while placeholders were
+unreadable in both modes, because `--fg-placeholder` was not in its list at all.
+A check built from expectations can only confirm what someone already thought
+of. The current script discovers the tokens from the file and measures the
 whole matrix; a pair that fails must be declared unused or exempt.
 
 **Assuming Tailwind picks up a new token while the dev server is running.** It
-does not. After changing `tailwind.config.ts`, restart the dev server. Until
-then the class simply does not exist, the element has no background at all,
-and it looks exactly like a broken token rather than a missing class.
+does not. After adding a colour to `tailwind.config.ts`, restart the dev server.
+Until then the class simply does not exist, the element has no background at
+all, and it looks exactly like a broken token rather than a missing class. This
+cost a debugging session already.
+
+**Carrying the light mode shadow system into dark mode.** Shadows are close to
+invisible against a dark ground. Dark mode needs a lightness step and a border;
+the check refuses a dark pair that leans on a shadow.
+
+**Colouring a shadow.** Elevation is `shadow-sm`, `shadow-md` or `shadow-lg`,
+and nothing else.
 
 **Making a surface translucent so that the background effect shows through it.**
 A translucent surface ends up somewhere between its own value and the user's
-wallpaper, and no check can predict where. The frame is opaque.
+wallpaper, and no check can predict where. Every surface token is opaque in
+every mode, and the effect is shown by the bezel, which carries no text and
+holds no place in the elevation order.
+
+**Rounding a nested corner more than the corner outside it.** The inner radius
+has to be the outer radius minus the gap between them. Rounded further, the
+outer element shows as a wedge outside the inner curve at each corner, and it
+reads as a rendering fault. This is why `--radius-window-inner` is derived from
+`--radius-window` and the bezel padding rather than picked.
 
 **Using `--fg-muted` for anything but a disabled control.** It does not clear
-4.5:1, and the WCAG exemption that allows it covers disabled controls only.
+4.5:1, and the WCAG exemption that allows it covers disabled controls only. A
+hint, a status line, or the reason an engine cannot be selected is information
+the user has to act on: that is `--fg-secondary`.
+
+**Using opacity for a disabled state.** The layer beneath bleeds through and the
+result is a colour that exists in no token. Use `--surface-disabled`.
 
 **Writing a hex colour in a component.** It will not follow the theme, and no
 check will ever look at it. A test scans every source file and allows literal
 colours only in `tokens.css`.
+
+**Setting text under 11px.** `text-[11px]` is the floor, for keys and badges.
+
+**Nesting two surfaces of the same role.** A card inside a card uses
+`--surface-content-alt` and a full-strength border. Two `--surface-content`
+elements inside each other have no boundary at all in light mode, where they are
+both white.
 
 **Putting text on `--surface-well`.** It is decorative. The script will fail if
 the well is ever listed as text-bearing.
@@ -454,6 +504,7 @@ the well is ever listed as text-bearing.
 
 ```bash
 npm run check:contrast
+npm run test
 ```
 
-Reading the output is covered in [Theming](theming.md).
+Reading the contrast output is covered in [Theming](theming.md).

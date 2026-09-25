@@ -59,6 +59,8 @@ phase it belongs to.
 - [Overview](architecture/overview.md) - how the three parts fit together.
 - [Studio layout](architecture/studio-layout.md) - the 1.1 interface, screen by
   screen and region by region: home, the editor, Settings, and the keys.
+- [Studio style](architecture/studio-style.md) - how the studio looks: Bitwright's
+  own tokens and components, and how the reference's classes map onto them.
 - [Document model](architecture/document-model.md) - the schema and the IPC
   contract for projects, assets, documents and layers.
 - [Animation frames](architecture/animation.md) - frames as assets, their

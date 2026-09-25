@@ -136,13 +136,16 @@ request carrying an `Origin`, which a webview always sends. See
 [decision 0008](decisions/0008-authenticate-the-sidecar.md).
 
 Every user-visible string comes from i18next. Every colour comes from
-`tokens.css`, through the Tailwind palette and the role tokens described in
-[the design system](../development/design-system.md).
+`tokens.css`, through the role tokens described in
+[the design system](../development/design-system.md); Tailwind's own palette
+is not in the theme.
 
 #### Frontend structure
 
 The interface is the 1.1 studio layout, and
-[the studio layout](studio-layout.md) is its contract, region by region.
+[the studio layout](studio-layout.md) is its contract, region by region. Its
+look is Bitwright's own, and [the studio style](studio-style.md) is that
+contract.
 `useShellStore.screen` is `'home' | 'editor' | 'settings'`, and `App.tsx`
 renders one of the three inside `AppShell`. The editor with no document open is
 shown as home, because every route into the editor opens an asset first.

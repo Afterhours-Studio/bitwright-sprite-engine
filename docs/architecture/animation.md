@@ -164,7 +164,11 @@ a timeline stays live while an agent adds frames.
 
 ### Timeline strip (`features/editor/timeline/TimelineStrip.tsx`)
 
-The reference layout's own timeline, one to one:
+The reference layout's own timeline, one to one in structure and size. The
+class strings are the reference's; their colours, corners and shadows are
+painted with Bitwright's tokens instead, as
+[the studio style](studio-style.md) maps them (pink is the accent, sky's
+"on" is a pressed state, and so on):
 
 ```
 div.h-40 bg-neutral-950 border-t border-neutral-800 flex flex-col shrink-0 select-none
@@ -196,7 +200,7 @@ over the current frame's pixels on the stage, faintly, so every moving part show
 ### Elsewhere
 
 - Home cards: non-root frames are not listed; a root with `frames > 1` shows
-  the reference's pink "n frames" badge top-right (the step badge moves beside
+  an "n frames" badge top-right (the step badge moves beside
   the size badge bottom-left); sort by Frames joins Recent, Name, Size, Kind.
 - Export dialog: an animation offers GIF (scale, playback and durations as
   stored) and "Sprite sheet of the frames" in addition to PNG of this frame.

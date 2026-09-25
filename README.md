@@ -35,7 +35,9 @@ agent places them.
 ### The studio
 
 The interface is one window with three screens: home, the editor and
-Settings. There is no separate title bar. The top row of each screen is what
+Settings. The layout follows a reference pixel-art studio; the look is
+Bitwright's own, with warm neutrals, one yellow accent and a window bezel
+that shows the system's background effect. There is no separate title bar. The top row of each screen is what
 you drag the window by, and it carries the window buttons at its end.
 
 ![Home: the agent card and the create actions in the sidebar, recent sprites in a grid](docs/assets/screenshots/home.png)
@@ -206,7 +208,7 @@ one frame.
 - **Names follow the first frame**: `hero-walk`, `hero-walk #2`, and so on.
   Rename the first and the others follow; a later frame cannot be renamed on
   its own.
-- **Home** lists an animation once, by its first frame, with a pink "n frames"
+- **Home** lists an animation once, by its first frame, with an "n frames"
   badge, and **Frames** joins the sort orders.
 - **Export**: for an animation the export dialog offers the open frame as a
   PNG, the whole animation as a GIF that loops forever with the stored

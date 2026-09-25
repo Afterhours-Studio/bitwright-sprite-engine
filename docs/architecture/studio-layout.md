@@ -1,44 +1,36 @@
 # Studio layout (1.1)
 
 The interface is rebuilt on a reference pixel-art studio layout, reproduced
-one to one in structure, spacing, type and colour, with Bitwright's own name,
-features and agent workflow in it. This file is the contract every Phase 4
-task builds from. Class strings below are Tailwind 3 and are meant to be used
-verbatim.
+one to one in structure: which regions exist, where they sit, what each holds
+and in what order, and their sizes and spacing, with Bitwright's own name,
+features and agent workflow in it. This file is the contract for that layout.
+
+It describes the layout and quotes the reference's own class strings, which
+are Tailwind 3. Only their structure and sizes are used as written. Their
+colours, corners, shadows and type (`neutral-*`, `pink-*`, `sky-*`,
+`purple-*`, `white`, `rounded`, coloured shadows and the rest) are the
+reference's look, not Bitwright's, and none of them exists in the theme. The
+look comes from [the studio style](studio-style.md), which maps each of them
+onto Bitwright's tokens, and from [the design system](../development/design-system.md).
 
 ## Design system
 
-- Font: Manrope Variable (`@fontsource-variable/manrope`), `font-sans`.
-- Icons: `lucide-react`, `w-4 h-4` in tool rows and header, `w-3.5 h-3.5` in
-  small buttons, `w-3 h-3` in the tiniest.
-- Colour scales in `tailwind.config.ts`: `neutral` 50–950 read CSS variables
-  (`rgb(var(--neutral-900) / <alpha-value>)`) so `bg-neutral-900/40` works and
-  the light theme can invert the scale in `tokens.css`; `pink`, `sky`,
-  `purple`, `red`, `amber`, `emerald` are fixed Tailwind values; `white`,
-  `black`. Dark values of neutral are Tailwind's: 50 #fafafa, 100 #f5f5f5,
-  200 #e5e5e5, 300 #d4d4d4, 400 #a3a3a3, 500 #737373, 600 #525252,
-  700 #404040, 800 #262626, 900 #171717, 950 #0a0a0a.
-- Role tokens (`surface-*`, `fg-*`, `line-*`, `accent`) stay and are
-  re-pointed at the new look, so a component not yet restyled still matches.
-- Radii: `rounded` = 4px, `rounded-xl` for dialogs, `rounded-full` avatars.
-- Accent use: **pink** = the active tool / primary action / current item;
-  **sky** = toggles that are on, export, zoom readout; **purple** = layers.
-- Utilities in `global.css`: `.canvas-workspace-bg` (the diagonal checker:
-  four 45° gradients of `rgba(255,255,255,0.035)` at 20px on
-  `bg-neutral-950`, workspace colour `rgb(16,18,23)`), `.checkerboard-pattern`
-  (small checker behind thumbnails), `.pixelated` (`image-rendering:
-pixelated`).
-- Studio home background `#141414`, home sidebar `#121212`, asset card
-  `#1f1f1f`: tokens `--studio-home`, `--studio-home-side`, `--studio-card`,
-  used as `bg-studio-home` etc.
+Not in this file. The studio's look is Bitwright's own, as in 1.0: the role
+tokens, the yellow accent, warm neutrals, the radius and shadow tokens, the
+Inter / system type stack, the window bezel with its background effect, and
+the shared components in `components/ui/`. See
+[the studio style](studio-style.md) for the rules and the class mapping, and
+[the design system](../development/design-system.md) for the tokens. Icons are
+`lucide-react` at stroke width 1.75, `w-4 h-4` in tool rows and the header,
+smaller in small buttons.
 
 ## Screens
 
 `useShellStore.screen` is `'home' | 'editor' | 'settings'`. The app opens on
 `home`. Opening an asset goes to `editor`; the header's home button goes back.
-There is no bezel and no separate title bar: the top bar of each screen is the
-window's drag region (`data-tauri-drag-region`) and carries the window
-controls at its trailing end (ported from `TitleBar.tsx`).
+There is no separate title bar: inside the window's bezel, the top bar of each
+screen is the window's drag region (`data-tauri-drag-region`) and carries the
+window controls at its trailing end (ported from `TitleBar.tsx`).
 
 ### Home
 
