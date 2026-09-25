@@ -26,6 +26,7 @@ use super::super::error::ToolError;
 use super::super::host::{with_store, DocumentHost};
 use super::super::session::Session;
 use super::{asset_id, parse, resolve_asset, ToolResult, ToolSpec};
+use crate::commands::animation::{renamed_frames, touched};
 use crate::store::{Animation, AssetId, Store};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -56,12 +57,29 @@ fn ms_property() -> Value {
 }
 
 /// Runs one change to an animation and announces the result.
+///
+/// Adding, deleting or moving a frame renumbers the names of the frames after
+/// it, so each renamed frame is announced as changed too, the way the
+/// window's own frame commands do; a header or a home list showing one of
+/// those frames would otherwise keep the old name.
 fn change(
     host: &dyn DocumentHost,
+    anchor: AssetId,
     work: impl FnOnce(&mut Store) -> crate::store::Result<Animation>,
 ) -> Result<Animation, ToolError> {
-    let animation = with_store(host, work)?;
+    let (animation, renamed) = with_store(host, |store| {
+        let before = store.animation_read(anchor)?;
+        let after = work(store)?;
+        let renamed = renamed_frames(&before, &after)
+            .into_iter()
+            .map(|id| Ok((id, touched(store, id)?)))
+            .collect::<crate::store::Result<Vec<_>>>()?;
+        Ok((after, renamed))
+    })?;
     host.animation_changed(&animation);
+    for (id, result) in &renamed {
+        host.changed(*id, result);
+    }
     Ok(animation)
 }
 
@@ -139,7 +157,9 @@ fn add_frame(host: &dyn DocumentHost, session: &Session, args: Value) -> ToolRes
     let args: AddArgs = parse(args)?;
     let after = resolve_asset(session, args.asset_id.as_deref())?;
     let actor = session.actor();
-    let animation = change(host, |store| store.frame_add_as(after, args.copy, &actor))?;
+    let animation = change(host, after, |store| {
+        store.frame_add_as(after, args.copy, &actor)
+    })?;
     // The store inserts right after `after`, so the new frame is its
     // successor in the row it returns.
     let frame = position_of(&animation, after)
@@ -179,11 +199,19 @@ fn frame_schema() -> Value {
 fn delete_frame(host: &dyn DocumentHost, session: &Session, args: Value) -> ToolResult {
     let args: FrameArgs = parse(args)?;
     let frame = asset_id(&args.asset_id)?;
-    let (before, animation) = with_store(host, |store| {
+    let (before, animation, renamed) = with_store(host, |store| {
         let before = store.animation_read(frame)?;
-        Ok((before, store.frame_delete(frame)?))
+        let after = store.frame_delete(frame)?;
+        let renamed = renamed_frames(&before, &after)
+            .into_iter()
+            .map(|id| Ok((id, touched(store, id)?)))
+            .collect::<crate::store::Result<Vec<_>>>()?;
+        Ok((before, after, renamed))
     })?;
     host.animation_changed(&animation);
+    for (id, result) in &renamed {
+        host.changed(*id, result);
+    }
     // A session left holding a deleted asset would fail its next call, so it
     // moves to the frame that took the deleted one's place, as the window does.
     if session.current_asset() == Some(frame) {
@@ -229,7 +257,7 @@ fn move_schema() -> Value {
 fn move_frame(host: &dyn DocumentHost, _session: &Session, args: Value) -> ToolResult {
     let args: MoveArgs = parse(args)?;
     let frame = asset_id(&args.asset_id)?;
-    let animation = change(host, |store| store.frame_move(frame, args.to))?;
+    let animation = change(host, frame, |store| store.frame_move(frame, args.to))?;
     Ok(json!(animation))
 }
 
@@ -256,7 +284,9 @@ fn frame_duration_schema() -> Value {
 fn set_frame_duration(host: &dyn DocumentHost, _session: &Session, args: Value) -> ToolResult {
     let args: FrameDurationArgs = parse(args)?;
     let frame = asset_id(&args.asset_id)?;
-    let animation = change(host, |store| store.frame_set_duration(frame, args.ms))?;
+    let animation = change(host, frame, |store| {
+        store.frame_set_duration(frame, args.ms)
+    })?;
     Ok(json!(animation))
 }
 
@@ -283,7 +313,9 @@ fn animation_duration_schema() -> Value {
 fn set_animation_duration(host: &dyn DocumentHost, session: &Session, args: Value) -> ToolResult {
     let args: AnimationDurationArgs = parse(args)?;
     let asset = resolve_asset(session, args.asset_id.as_deref())?;
-    let animation = change(host, |store| store.animation_set_duration(asset, args.ms))?;
+    let animation = change(host, asset, |store| {
+        store.animation_set_duration(asset, args.ms)
+    })?;
     Ok(json!(animation))
 }
 
@@ -313,7 +345,7 @@ fn playback_schema() -> Value {
 fn set_playback(host: &dyn DocumentHost, session: &Session, args: Value) -> ToolResult {
     let args: PlaybackArgs = parse(args)?;
     let asset = resolve_asset(session, args.asset_id.as_deref())?;
-    let animation = change(host, |store| {
+    let animation = change(host, asset, |store| {
         store.animation_set_playback(asset, &args.mode)
     })?;
     Ok(json!(animation))
@@ -663,9 +695,9 @@ mod tests {
     #[test]
     fn set_playback_defaults_to_the_session_and_refuses_an_unknown_mode() {
         let fx = fixture();
-        // A lone sprite has nowhere to keep a mode and plays forward.
+        // A lone sprite keeps its mode for when it gains frames.
         let lone = run(&fx, "set_playback", json!({ "mode": "pingpong" })).unwrap();
-        assert_eq!(lone["playback"], "forward");
+        assert_eq!(lone["playback"], "pingpong");
         run(&fx, "add_frame", json!({})).unwrap();
         let result = run(&fx, "set_playback", json!({ "mode": "pingpong" })).unwrap();
         assert_eq!(result["playback"], "pingpong");
@@ -673,6 +705,30 @@ mod tests {
         let error = run(&fx, "set_playback", json!({ "mode": "bounce" })).unwrap_err();
         assert_eq!(error.code, "animation.invalid_playback");
         assert!(error.hint.contains("pingpong"));
+    }
+
+    #[test]
+    fn deleting_the_root_announces_every_frame_it_renamed() {
+        let fx = fixture();
+        run(&fx, "add_frame", json!({ "assetId": fx.hero })).unwrap();
+        let three = run(&fx, "add_frame", json!({})).unwrap();
+        let survivors: Vec<_> = frames(&three["animation"]).into_iter().skip(1).collect();
+        let before = fx.host.notices().len();
+        run(&fx, "delete_frame", json!({ "assetId": fx.hero })).unwrap();
+        let changed: Vec<_> = fx.host.notices()[before..]
+            .iter()
+            .filter_map(|notice| match notice {
+                Notice::Changed(id) => Some(*id),
+                _ => None,
+            })
+            .collect();
+        // Both survivors move up a place, so both take a new name.
+        for frame in survivors {
+            assert!(
+                changed.contains(&frame),
+                "{frame:?} was renamed but not announced"
+            );
+        }
     }
 
     #[test]

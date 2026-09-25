@@ -102,14 +102,31 @@ fn announce_travel(
     id: crate::store::AssetId,
     before: &crate::raster::Palette,
 ) -> Result<(), ToolError> {
-    let (after, animation) = with_store(host, |store| {
-        Ok((store.palette_read(id)?, store.animation_read(id)?))
+    let (after, animation, others) = with_store(host, |store| {
+        let animation = store.animation_read(id)?;
+        // An undo can rename every frame (a root rename walked back), and the
+        // op log does not say which, so every other frame is announced.
+        let others = animation
+            .frames
+            .iter()
+            .filter(|frame| animation.frames.len() > 1 && frame.asset_id != id)
+            .map(|frame| {
+                Ok((
+                    frame.asset_id,
+                    crate::commands::animation::touched(store, frame.asset_id)?,
+                ))
+            })
+            .collect::<crate::store::Result<Vec<_>>>()?;
+        Ok((store.palette_read(id)?, animation, others))
     })?;
     if after != *before {
         host.palette_changed(id);
     }
     if animation.frames.len() > 1 {
         host.animation_changed(&animation);
+    }
+    for (frame, result) in &others {
+        host.changed(*frame, result);
     }
     Ok(())
 }
