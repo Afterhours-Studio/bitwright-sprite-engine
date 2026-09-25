@@ -1,6 +1,5 @@
 {
   "title": "Cài đặt",
-  "subtitle": "Nơi lưu sprite và cách cửa sổ hiển thị",
   "storage": {
     "title": "Nơi lưu dữ liệu",
     "description": "Mọi thứ ứng dụng ghi ra đều nằm dưới một thư mục. Thư mục đó không nhất thiết phải ở ổ đĩa cài ứng dụng.",
@@ -74,5 +73,8 @@
       "failed": "Thất bại"
     },
     "unavailable": "Kết nối MCP chỉ khả dụng trong ứng dụng desktop."
+  },
+  "language": {
+    "description": "Giao diện đổi ngôn ngữ ngay lập tức."
   }
 }

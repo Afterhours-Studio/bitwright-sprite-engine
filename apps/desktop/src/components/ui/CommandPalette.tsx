@@ -20,12 +20,23 @@ import { useTranslation } from 'react-i18next';
 import { useCommandPaletteShortcut } from '@/hooks/useCommandPaletteShortcut';
 import { useDismiss } from '@/hooks/useDismiss';
 import { cn } from '@/lib/cn';
+import { exportDirectory } from '@/lib/export';
 import { LANGUAGES, setLanguage } from '@/lib/i18n';
+import { openDirectory, openExternal, type ShellResult } from '@/lib/tauri';
 import { useCommandPaletteStore } from '@/stores/useCommandPaletteStore';
+import { useDocumentStore } from '@/stores/useDocumentStore';
+import { TOOLS, TOOL_KEYS, useEditorStore } from '@/stores/useEditorStore';
 import { useShellStore, type Screen, type Theme } from '@/stores/useShellStore';
+import { useToastStore } from '@/stores/useToastStore';
 
-const SCREENS = ['editor', 'settings'] as const satisfies readonly Screen[];
+const SCREENS = ['home', 'editor', 'settings'] as const satisfies readonly Screen[];
 const THEMES: readonly Theme[] = ['dark', 'light'];
+
+/** The project's home, and the only host the palette opens besides the licence. */
+const REPOSITORY_URL = 'https://github.com/Afterhours-Studio/bitwright-sprite-engine';
+
+/** The licence this application is distributed under. */
+const LICENCE_URL = 'https://www.gnu.org/licenses/agpl-3.0.html';
 
 /** One row in the palette. */
 interface PaletteCommand {
@@ -35,6 +46,8 @@ interface PaletteCommand {
   label: string;
   /** Further text the search matches, so a group can be found by its name. */
   keywords: string[];
+  /** The key that does the same thing outside the palette, if there is one. */
+  shortcut?: string;
   /** What choosing the row does. */
   run: () => void;
 }
@@ -47,6 +60,34 @@ interface PaletteGroup {
   heading: string;
   /** The rows, in order. */
   commands: PaletteCommand[];
+}
+
+/**
+ * Says so when a shell command did not go through.
+ *
+ * `shell.unavailable` is left alone: it only means the page is not inside a
+ * Tauri window, which is not a failure of the thing asked for.
+ *
+ * @param result - What the command returned.
+ */
+function report(result: ShellResult<unknown>): void {
+  if (result.ok || result.error.code === 'shell.unavailable') {
+    return;
+  }
+  useToastStore.getState().notify({
+    severity: 'warning',
+    messageKey: `errors:${result.error.code}`,
+  });
+}
+
+/** Opens the directory exports are written to, creating it first if need be. */
+async function openExportsFolder(): Promise<void> {
+  const directory = await exportDirectory();
+  if (!directory.ok) {
+    report(directory);
+    return;
+  }
+  report(await openDirectory(directory.value));
 }
 
 /**
@@ -87,21 +128,29 @@ function filterCommands(value: string, search: string, keywords?: string[]): num
 
 /**
  * The command palette: a search field over everything the interface can be told
- * to do, opened from the title bar or with Ctrl+K.
+ * to do, opened with Ctrl+K (Cmd+K on macOS) from any screen.
  *
  * WHAT IS IN IT, AND WHAT IS DELIBERATELY NOT
  *
- * Navigation and mode switching only. Nothing here writes to a document or
- * removes anything, because a palette is driven by typing and
+ * Navigation, view settings, tool choice and a few links. Nothing here writes
+ * to a document or removes anything, because a palette is driven by typing and
  * Enter: the user commits to a row after reading one word of it, having got
- * there through a fuzzy match they did not verify. That is a fine way to change
- * screens and an unacceptable way to overwrite a layer or delete a sprite.
- * Expensive and destructive actions stay where they are, on a control the user
- * has looked at.
+ * there through a fuzzy match they did not verify. That is a fine way to
+ * change screens and an unacceptable way to overwrite a layer or delete a
+ * sprite. Expensive and destructive actions stay where they are, on a control
+ * the user has looked at.
  *
- * Every row is idempotent for the same reason. Choosing the screen already open
- * or the theme already applied does nothing, so a mistyped search costs
- * nothing.
+ * Every row says what it will do rather than naming a switch to flip. A view
+ * toggle reads "Show pixel grid" or "Hide pixel grid" depending on what is on
+ * screen, so a row chosen after reading it does what it said, and choosing the
+ * screen already open or the theme already applied does nothing. The
+ * checkerboard behind transparent pixels has no control of its own on the
+ * studio layout, so this is where it is reached.
+ *
+ * The editor's rows - the view toggles and the tools - are listed only while
+ * the editor is showing, which is the only place they change anything a person
+ * can see. The editor itself is offered only with a document open, because
+ * with none it is home.
  *
  * MOUNTED WHILE CLOSED
  *
@@ -112,10 +161,26 @@ function filterCommands(value: string, search: string, keywords?: string[]): num
  */
 export function CommandPalette(): ReactElement {
   const { t } = useTranslation();
+  const { t: tTools } = useTranslation('tools');
   const open = useCommandPaletteStore((state) => state.open);
   const setOpen = useCommandPaletteStore((state) => state.setOpen);
+  const screen = useShellStore((state) => state.screen);
   const setScreen = useShellStore((state) => state.setScreen);
   const setTheme = useShellStore((state) => state.setTheme);
+  const setNewSpriteOpen = useShellStore((state) => state.setNewSpriteOpen);
+  const hasDocument = useDocumentStore((state) => state.assetId !== null);
+
+  const showPixelGrid = useEditorStore((state) => state.showPixelGrid);
+  const showCheckerboard = useEditorStore((state) => state.showCheckerboard);
+  const tileGuide = useEditorStore((state) => state.tileGuide);
+  const showLayersPanel = useEditorStore((state) => state.showLayersPanel);
+  const showStepsStrip = useEditorStore((state) => state.showStepsStrip);
+  const setTool = useEditorStore((state) => state.setTool);
+  const setShowPixelGrid = useEditorStore((state) => state.setShowPixelGrid);
+  const setShowCheckerboard = useEditorStore((state) => state.setShowCheckerboard);
+  const setTileGuide = useEditorStore((state) => state.setTileGuide);
+  const setShowLayersPanel = useEditorStore((state) => state.setShowLayersPanel);
+  const setShowStepsStrip = useEditorStore((state) => state.setShowStepsStrip);
 
   const panel = useRef<HTMLDivElement>(null);
   const field = useRef<HTMLInputElement>(null);
@@ -138,25 +203,122 @@ export function CommandPalette(): ReactElement {
     field.current?.focus();
   }, [open]);
 
-  // Rebuilt when the language changes, because `t` is what changes with it.
+  const editing = screen === 'editor';
+
+  // Rebuilt when the language changes, because `t` is what changes with it,
+  // and when a toggle does, because each toggle's row says which way it goes.
   const groups = useMemo<PaletteGroup[]>(() => {
     const navigate = t('palette.goTo');
+    const create = t('palette.create');
+    const view = t('palette.view');
+    const tools = tTools('title');
     const theme = t('theme.label');
     const language = t('language.label');
+    const help = t('palette.help');
 
-    return [
+    /** A view toggle's row, labelled with what choosing it will do. */
+    const toggle = (
+      id: string,
+      on: boolean,
+      labels: { show: string; hide: string },
+      set: (next: boolean) => void,
+    ): PaletteCommand => ({
+      id: `view.${id}`,
+      label: on ? labels.hide : labels.show,
+      keywords: [view],
+      run: () => {
+        set(!on);
+      },
+    });
+
+    const result: PaletteGroup[] = [
       {
         id: 'navigate',
         heading: navigate,
-        commands: SCREENS.map((screen) => ({
-          id: `screen.${screen}`,
-          label: t(`nav.${screen}`),
+        commands: SCREENS.filter((item) => item !== 'editor' || hasDocument).map((item) => ({
+          id: `screen.${item}`,
+          label: t(`nav.${item}`),
           keywords: [navigate],
           run: () => {
-            setScreen(screen);
+            setScreen(item);
           },
         })),
       },
+      {
+        id: 'create',
+        heading: create,
+        commands: [
+          {
+            id: 'create.sprite',
+            label: t('palette.newSprite'),
+            keywords: [create],
+            run: () => {
+              setNewSpriteOpen(true);
+            },
+          },
+        ],
+      },
+    ];
+
+    if (editing) {
+      const viewCommands: PaletteCommand[] = [
+        toggle(
+          'pixelGrid',
+          showPixelGrid,
+          { show: t('palette.showPixelGrid'), hide: t('palette.hidePixelGrid') },
+          setShowPixelGrid,
+        ),
+        toggle(
+          'checkerboard',
+          showCheckerboard,
+          { show: t('palette.showCheckerboard'), hide: t('palette.hideCheckerboard') },
+          setShowCheckerboard,
+        ),
+        toggle(
+          'layersPanel',
+          showLayersPanel,
+          { show: t('palette.showLayersPanel'), hide: t('palette.hideLayersPanel') },
+          setShowLayersPanel,
+        ),
+        toggle(
+          'stepsStrip',
+          showStepsStrip,
+          { show: t('palette.showStepsStrip'), hide: t('palette.hideStepsStrip') },
+          setShowStepsStrip,
+        ),
+      ];
+      // Only while a guide is showing: turning off what is already off would
+      // be a row that does nothing, and the sizes are chosen in the header.
+      if (tileGuide !== 0) {
+        viewCommands.push({
+          id: 'view.tileGuideOff',
+          label: t('palette.tileGuideOff'),
+          keywords: [view],
+          run: () => {
+            setTileGuide(0);
+          },
+        });
+      }
+
+      result.push(
+        { id: 'view', heading: view, commands: viewCommands },
+        {
+          id: 'tools',
+          heading: tools,
+          commands: TOOLS.map((tool) => ({
+            id: `tool.${tool}`,
+            label: tTools(`tool.${tool}.name`),
+            keywords: [tools],
+            shortcut: TOOL_KEYS[tool],
+            run: () => {
+              setTool(tool);
+            },
+          })),
+        },
+      );
+    }
+
+    result.push(
       {
         id: 'theme',
         heading: theme,
@@ -181,8 +343,67 @@ export function CommandPalette(): ReactElement {
           },
         })),
       },
-    ];
-  }, [t, setScreen, setTheme]);
+      {
+        id: 'help',
+        heading: help,
+        commands: [
+          {
+            id: 'help.exports',
+            label: t('palette.exportsFolder'),
+            keywords: [help],
+            run: () => {
+              void openExportsFolder();
+            },
+          },
+          {
+            id: 'help.docs',
+            label: t('palette.documentation'),
+            keywords: [help],
+            run: () => {
+              void openExternal(REPOSITORY_URL).then(report);
+            },
+          },
+          {
+            id: 'help.issue',
+            label: t('palette.reportIssue'),
+            keywords: [help],
+            run: () => {
+              void openExternal(`${REPOSITORY_URL}/issues`).then(report);
+            },
+          },
+          {
+            id: 'help.licence',
+            label: t('palette.licence'),
+            keywords: [help],
+            run: () => {
+              void openExternal(LICENCE_URL).then(report);
+            },
+          },
+        ],
+      },
+    );
+
+    return result;
+  }, [
+    t,
+    tTools,
+    editing,
+    hasDocument,
+    showPixelGrid,
+    showCheckerboard,
+    tileGuide,
+    showLayersPanel,
+    showStepsStrip,
+    setScreen,
+    setTheme,
+    setNewSpriteOpen,
+    setTool,
+    setShowPixelGrid,
+    setShowCheckerboard,
+    setTileGuide,
+    setShowLayersPanel,
+    setShowStepsStrip,
+  ]);
 
   return (
     <div
@@ -201,7 +422,7 @@ export function CommandPalette(): ReactElement {
       // taking the field being typed into with it.
       className={cn(
         'absolute inset-0 z-50 flex items-start justify-center p-4 pt-20',
-        'transition-opacity duration-150',
+        'bg-black/60 backdrop-blur-sm transition-opacity duration-150',
         open ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0',
       )}
       aria-hidden={!open}
@@ -217,31 +438,30 @@ export function CommandPalette(): ReactElement {
         vimBindings={false}
         role="dialog"
         aria-modal="true"
+        aria-label={t('palette.label')}
         className={cn(
-          'flex w-full max-w-xl flex-col gap-2',
-          'rounded-md border border-line bg-surface-float p-2 shadow-lg',
+          'flex w-full max-w-xl flex-col overflow-hidden',
+          'bg-neutral-950 border border-neutral-800 rounded-xl shadow-2xl',
           'origin-top transition-transform duration-150',
           open ? 'scale-100' : 'scale-95',
         )}
       >
-        {/* The same treatment as `Field`, because it is the same kind of thing:
-            the surface moves away from the text colour, and the border is what
-            separates the field from the panel it sits on. */}
-        <Command.Input
-          ref={field}
-          value={search}
-          onValueChange={setSearch}
-          placeholder={t('palette.placeholder')}
-          className={cn(
-            'w-full rounded-sm border border-line-input bg-surface-input px-3 py-2',
-            'text-sm text-fg-primary transition-colors',
-            'placeholder:text-fg-placeholder',
-            'focus:border-line-focus',
-          )}
-        />
+        <div className="p-3 border-b border-neutral-800 bg-neutral-900/50">
+          <Command.Input
+            ref={field}
+            value={search}
+            onValueChange={setSearch}
+            placeholder={t('palette.placeholder')}
+            className={cn(
+              'w-full bg-neutral-900 border border-neutral-800 rounded px-3 py-1.5',
+              'text-xs text-neutral-200 placeholder:text-neutral-500',
+              'focus:border-pink-500',
+            )}
+          />
+        </div>
 
-        <Command.List className="max-h-72 overflow-auto">
-          <Command.Empty className="px-3 py-6 text-center text-sm text-fg-secondary">
+        <Command.List className="max-h-80 overflow-auto p-2">
+          <Command.Empty className="px-3 py-6 text-center text-xs text-neutral-500">
             {t('palette.empty')}
           </Command.Empty>
 
@@ -252,7 +472,7 @@ export function CommandPalette(): ReactElement {
               // rather than through an attribute selector reaching into cmdk's
               // own markup.
               heading={
-                <span className="block px-3 pb-1 pt-2 text-xs font-medium text-fg-secondary">
+                <span className="block px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                   {group.heading}
                 </span>
               }
@@ -267,12 +487,17 @@ export function CommandPalette(): ReactElement {
                     setOpen(false);
                   }}
                   className={cn(
-                    'flex cursor-pointer items-center gap-3 rounded-sm px-3 py-2',
-                    'text-sm text-fg-secondary transition-colors',
-                    'data-[selected=true]:bg-surface-content-alt data-[selected=true]:text-fg-primary',
+                    'flex cursor-pointer items-center justify-between gap-3 rounded px-2.5 py-1.5',
+                    'text-xs text-neutral-300',
+                    'data-[selected=true]:bg-pink-600 data-[selected=true]:text-white',
                   )}
                 >
-                  {command.label}
+                  <span className="truncate">{command.label}</span>
+                  {command.shortcut !== undefined && (
+                    <kbd className="kbd px-1.5 py-0.5 text-[10px] rounded bg-neutral-800 text-neutral-400 border border-neutral-700">
+                      {command.shortcut}
+                    </kbd>
+                  )}
                 </Command.Item>
               ))}
             </Command.Group>

@@ -1,6 +1,5 @@
 {
   "title": "Settings",
-  "subtitle": "Where sprites are kept, and how the window looks",
   "storage": {
     "title": "Storage Location",
     "description": "Everything the application writes is kept under one folder. It need not be on the volume this application is installed on.",
@@ -74,5 +73,8 @@
       "failed": "Failed"
     },
     "unavailable": "The MCP connection is available in the desktop application."
+  },
+  "language": {
+    "description": "The interface changes language immediately."
   }
 }

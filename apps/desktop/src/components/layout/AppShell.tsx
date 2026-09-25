@@ -13,12 +13,12 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 import type { ReactElement, ReactNode } from 'react';
 
-import { TitleBar } from '@/components/layout/TitleBar';
 import { CommandPalette } from '@/components/ui/CommandPalette';
 import { ToastViewport } from '@/components/ui/ToastViewport';
-import { ProjectSidebar } from '@/features/projects/ProjectSidebar';
+import { NewSpriteDialog } from '@/features/home/NewSpriteDialog';
 
 export interface AppShellProps {
   /** The current screen. */
@@ -26,47 +26,38 @@ export interface AppShellProps {
 }
 
 /**
- * The window frame: a bezel, a title bar carrying the navigation, and the
- * content area.
+ * The window frame: one opaque dark surface the size of the window, with the
+ * current screen filling it.
  *
- * The bezel is the ring of window around the interface. With a background
- * effect active it is transparent, so the platform draws Mica or vibrancy
- * there; it carries no text, which is what makes that safe in both modes.
+ * NO BEZEL AND NO TITLE BAR. Each screen's own top row is the window's drag
+ * region and carries the window controls, so the frame adds nothing above it.
  *
- * The command palette is mounted here, once, beside the content area rather
- * than inside a screen. It is reached from the title bar and from a shortcut
- * that works anywhere, so it cannot belong to whichever screen happens to be
- * open. It covers this container and not the bezel, so an open palette never
- * paints over the window's own rounded corner.
+ * OPAQUE, ON PURPOSE. The window is created transparent so the platform can
+ * put Mica or vibrancy behind it, and `data-vibrancy="on"` clears the page
+ * background for that. The studio look has no translucent surface left to
+ * show the effect through, so this frame paints `bg-neutral-950` over all of
+ * it whatever the shell reports: text never ends up on the wallpaper. It is
+ * rounded to the window's own radius, which is what the system clips an
+ * undecorated window to on Windows 11 and macOS, so the corner outside it is
+ * the one the platform would have cut away anyway.
  *
- * The toast layer is mounted here for the same two reasons, and in the same
- * place. A notification can be raised by any screen, by a store, or by the
- * shell before a screen has even settled, so it belongs to none of them; and it
- * is clipped to this container rather than the window, so a toast never paints
- * over the bezel either.
- *
- * The project sidebar is part of the frame rather than part of a screen. Which
- * sprite is open decides what every screen shows, so the tree cannot belong to
- * whichever one of them happens to be in front.
- *
- * There is no status bar. Each screen supplies its own dock if it has tools
- * worth docking, which is why the content area is the positioning context.
+ * THE LAYERS EVERY SCREEN SHARES ARE MOUNTED HERE, ONCE. The new sprite dialog
+ * is opened from home, the editor header and the command palette; the palette
+ * from a shortcut that works anywhere; a toast can be raised by any screen or
+ * store before a screen has settled. None of them belongs to whichever screen
+ * is in front. The frame is `relative` so the palette, which positions itself
+ * with `absolute inset-0`, covers the window and nothing outside it.
  */
 export function AppShell({ children }: AppShellProps): ReactElement {
   return (
-    <div className="app-bezel h-full">
-      <div className="relative flex h-full flex-col overflow-hidden rounded-window-inner bg-surface-canvas text-fg-primary">
-        <TitleBar />
-        {/* Not a positioned element, so the sidebar's own dialogs lay
-            themselves out against this container and cover the content area
-            rather than the bezel, as the palette and the toasts do. */}
-        <div className="flex min-h-0 flex-1">
-          <ProjectSidebar />
-          <main className="relative min-h-0 flex-1 overflow-hidden">{children}</main>
-        </div>
-        <CommandPalette />
-        <ToastViewport />
-      </div>
+    <div className="relative flex h-full flex-col overflow-hidden rounded-window bg-neutral-950 text-neutral-100">
+      {/* A plain container rather than `main`: each screen names its own main
+          region, and a landmark inside a landmark of the same kind is two
+          answers to "where is the content". */}
+      <div className="relative min-h-0 flex-1 overflow-hidden">{children}</div>
+      <NewSpriteDialog />
+      <CommandPalette />
+      <ToastViewport />
     </div>
   );
 }

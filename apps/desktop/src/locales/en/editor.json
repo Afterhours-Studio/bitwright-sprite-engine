@@ -1,5 +1,4 @@
 {
-  "title": "Editor",
   "canvas": {
     "empty": "Select a sprite in the project tree to edit it",
     "hint": "The checkerboard shows transparent pixels",
@@ -13,30 +12,6 @@
     "zoomOut": "Zoom out",
     "zoomFit": "Fit",
     "zoomLevel": "{{percent}} percent"
-  },
-  "dock": {
-    "tools": "Tools",
-    "toolPencil": "Pencil",
-    "toolEraser": "Eraser",
-    "toolFill": "Fill",
-    "shapes": "Shapes",
-    "shapeLine": "Line",
-    "shapeCurve": "Curve",
-    "shapeRectangle": "Rectangle",
-    "shapeEllipse": "Ellipse",
-    "brush": "Brush",
-    "brushSize": "Brush Size",
-    "brushShape": "Brush Shape",
-    "brushCircle": "Circle",
-    "brushSquare": "Square",
-    "view": "View",
-    "pixelGrid": "Pixel Grid",
-    "pixelGridHint": "Draws a line at every sprite pixel. It hides itself below six screen pixels per sprite pixel, where it would be a grey wash rather than a grid.",
-    "checkerboard": "Checkerboard",
-    "checkerboardHint": "Shows transparent pixels as a checker pattern."
-  },
-  "panel": {
-    "label": "Sprite tools"
   },
   "palette": {
     "title": "Palette",
@@ -116,5 +91,8 @@
   "live": {
     "drawing": "Agent drawing · {{tool}}",
     "connected": "Agent connected"
+  },
+  "stage": {
+    "label": "Canvas"
   }
 }

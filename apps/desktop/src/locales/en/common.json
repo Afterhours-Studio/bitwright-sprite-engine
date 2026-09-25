@@ -1,24 +1,17 @@
 {
   "app": {
-    "name": "Bitwright",
-    "tagline": "Sprite Engine"
+    "name": "Bitwright"
   },
   "nav": {
+    "home": "Home",
     "editor": "Editor",
     "settings": "Settings"
-  },
-  "window": {
-    "minimize": "Minimize",
-    "maximize": "Maximize",
-    "restore": "Restore",
-    "close": "Close"
   },
   "theme": {
     "label": "Theme",
     "system": "System",
     "dark": "Dark",
-    "light": "Light",
-    "toggle": "Theme"
+    "light": "Light"
   },
   "language": {
     "label": "Language",
@@ -40,33 +33,28 @@
     "megabytes": "MB",
     "gigabytes": "GB"
   },
-  "menu": {
-    "label": "Menu",
-    "file": "File",
-    "edit": "Edit",
-    "view": "View",
-    "quit": "Quit",
-    "search": "Search",
-    "editor": "Editor",
-    "exportsFolder": "Open Exports Folder",
-    "settings": "Settings",
-    "commandPalette": "Command Palette",
-    "pixelGrid": "Pixel Grid",
-    "checkerboard": "Transparency Checkerboard",
-    "help": "Help",
-    "documentation": "Documentation",
-    "reportIssue": "Report an Issue",
-    "licence": "Licence",
-    "about": "About",
-    "aboutBody": "Version {{version}}. Free software under the GNU AGPL v3.",
-    "undo": "Undo",
-    "redo": "Redo"
-  },
   "palette": {
     "label": "Command palette",
     "placeholder": "Search commands",
     "empty": "No matching command",
-    "goTo": "Go to"
+    "goTo": "Go to",
+    "showPixelGrid": "Show pixel grid",
+    "hidePixelGrid": "Hide pixel grid",
+    "showCheckerboard": "Show transparency checkerboard",
+    "hideCheckerboard": "Hide transparency checkerboard",
+    "showLayersPanel": "Show layers panel",
+    "hideLayersPanel": "Hide layers panel",
+    "showStepsStrip": "Show steps strip",
+    "hideStepsStrip": "Hide steps strip",
+    "tileGuideOff": "Turn off the tile guide",
+    "create": "Create",
+    "newSprite": "New sprite",
+    "view": "View",
+    "help": "Help",
+    "exportsFolder": "Open exports folder",
+    "documentation": "Documentation",
+    "reportIssue": "Report an issue",
+    "licence": "Licence"
   },
   "notifications": {
     "label": "Notifications",

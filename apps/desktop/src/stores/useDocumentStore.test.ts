@@ -532,3 +532,29 @@ describe('useDocumentStore', () => {
     expect(useDocumentStore.getState().error).toBeNull();
   });
 });
+
+describe('setAssetName', () => {
+  it('renames the open asset', () => {
+    useDocumentStore.setState({ assetId: ASSET.id, asset: ASSET });
+
+    useDocumentStore.getState().setAssetName(ASSET.id, 'Renamed');
+
+    expect(useDocumentStore.getState().asset?.name).toBe('Renamed');
+  });
+
+  it('leaves the open asset alone when another asset is renamed', () => {
+    useDocumentStore.setState({ assetId: ASSET.id, asset: ASSET });
+
+    useDocumentStore.getState().setAssetName('some-other-asset', 'Renamed');
+
+    expect(useDocumentStore.getState().asset?.name).toBe(ASSET.name);
+  });
+
+  it('does nothing with no document open', () => {
+    useDocumentStore.getState().close();
+
+    useDocumentStore.getState().setAssetName(ASSET.id, 'Renamed');
+
+    expect(useDocumentStore.getState().asset).toBeNull();
+  });
+});

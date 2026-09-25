@@ -1,24 +1,17 @@
 {
   "app": {
-    "name": "Bitwright",
-    "tagline": "Sprite Engine"
+    "name": "Bitwright"
   },
   "nav": {
+    "home": "Trang chủ",
     "editor": "Trình vẽ",
     "settings": "Cài đặt"
-  },
-  "window": {
-    "minimize": "Thu nhỏ",
-    "maximize": "Phóng to",
-    "restore": "Khôi phục",
-    "close": "Đóng"
   },
   "theme": {
     "label": "Giao diện",
     "system": "Theo hệ thống",
     "dark": "Tối",
-    "light": "Sáng",
-    "toggle": "Giao diện"
+    "light": "Sáng"
   },
   "language": {
     "label": "Ngôn ngữ",
@@ -40,33 +33,28 @@
     "megabytes": "MB",
     "gigabytes": "GB"
   },
-  "menu": {
-    "label": "Menu",
-    "file": "Tệp",
-    "edit": "Chỉnh sửa",
-    "view": "Hiển thị",
-    "quit": "Thoát",
-    "search": "Tìm kiếm",
-    "editor": "Trình vẽ",
-    "exportsFolder": "Mở thư mục xuất",
-    "settings": "Cài đặt",
-    "commandPalette": "Bảng lệnh",
-    "pixelGrid": "Lưới pixel",
-    "checkerboard": "Nền ô cờ trong suốt",
-    "help": "Trợ giúp",
-    "documentation": "Tài liệu",
-    "reportIssue": "Báo lỗi",
-    "licence": "Giấy phép",
-    "about": "Giới thiệu",
-    "aboutBody": "Phiên bản {{version}}. Phần mềm tự do theo GNU AGPL v3.",
-    "undo": "Hoàn tác",
-    "redo": "Làm lại"
-  },
   "palette": {
     "label": "Bảng lệnh",
     "placeholder": "Tìm lệnh",
     "empty": "Không có lệnh nào khớp",
-    "goTo": "Đi tới"
+    "goTo": "Đi tới",
+    "showPixelGrid": "Hiện lưới điểm ảnh",
+    "hidePixelGrid": "Ẩn lưới điểm ảnh",
+    "showCheckerboard": "Hiện nền ô cờ trong suốt",
+    "hideCheckerboard": "Ẩn nền ô cờ trong suốt",
+    "showLayersPanel": "Hiện bảng lớp",
+    "hideLayersPanel": "Ẩn bảng lớp",
+    "showStepsStrip": "Hiện dải các bước",
+    "hideStepsStrip": "Ẩn dải các bước",
+    "tileGuideOff": "Tắt lưới ô",
+    "create": "Tạo mới",
+    "newSprite": "Sprite mới",
+    "view": "Hiển thị",
+    "help": "Trợ giúp",
+    "exportsFolder": "Mở thư mục xuất",
+    "documentation": "Tài liệu",
+    "reportIssue": "Báo lỗi",
+    "licence": "Giấy phép"
   },
   "notifications": {
     "label": "Thông báo",

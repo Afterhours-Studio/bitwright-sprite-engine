@@ -129,6 +129,11 @@ interface DocumentState {
   dispose: () => void;
   /** Clears the last error. */
   clearError: () => void;
+  /**
+   * Follows a rename of the open asset, so the name shown for the document is
+   * the one stored. Ignored when the id is not the open asset's.
+   */
+  setAssetName: (assetId: string, name: string) => void;
 }
 
 /**
@@ -436,6 +441,16 @@ export const useDocumentStore = create<DocumentState>((set, get) => {
 
     clearError: () => {
       set({ error: null });
+    },
+
+    setAssetName: (assetId, name) => {
+      const asset = get().asset;
+      // Checked against the row rather than `assetId` alone: the row is what
+      // carries the name, and there is nothing to rename before it is read.
+      if (asset === null || asset.id !== assetId || asset.name === name) {
+        return;
+      }
+      set({ asset: { ...asset, name } });
     },
   };
 });

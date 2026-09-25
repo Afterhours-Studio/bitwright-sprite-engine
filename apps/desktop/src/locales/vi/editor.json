@@ -1,5 +1,4 @@
 {
-  "title": "Trình vẽ",
   "canvas": {
     "empty": "Chọn một sprite trong cây dự án để chỉnh sửa",
     "hint": "Ô bàn cờ thể hiện vùng trong suốt",
@@ -13,30 +12,6 @@
     "zoomOut": "Thu nhỏ",
     "zoomFit": "Vừa khung",
     "zoomLevel": "{{percent}} phần trăm"
-  },
-  "dock": {
-    "tools": "Công cụ",
-    "toolPencil": "Bút chì",
-    "toolEraser": "Tẩy",
-    "toolFill": "Tô màu",
-    "shapes": "Hình khối",
-    "shapeLine": "Đường thẳng",
-    "shapeCurve": "Đường cong",
-    "shapeRectangle": "Hình chữ nhật",
-    "shapeEllipse": "Hình elip",
-    "brush": "Nét cọ",
-    "brushSize": "Cỡ cọ",
-    "brushShape": "Dáng cọ",
-    "brushCircle": "Tròn",
-    "brushSquare": "Vuông",
-    "view": "Hiển thị",
-    "pixelGrid": "Lưới pixel",
-    "pixelGridHint": "Vẽ một đường ở từng pixel của sprite. Lưới tự ẩn khi mỗi pixel nhỏ hơn sáu điểm ảnh màn hình, vì lúc đó nó chỉ còn là một mảng xám.",
-    "checkerboard": "Nền bàn cờ",
-    "checkerboardHint": "Hiện các pixel trong suốt dưới dạng ô bàn cờ."
-  },
-  "panel": {
-    "label": "Công cụ sprite"
   },
   "palette": {
     "title": "Bảng màu",
@@ -116,5 +91,8 @@
   "live": {
     "drawing": "Agent đang vẽ · {{tool}}",
     "connected": "Agent đã kết nối"
+  },
+  "stage": {
+    "label": "Khung vẽ"
   }
 }
