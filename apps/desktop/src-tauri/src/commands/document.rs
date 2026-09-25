@@ -33,6 +33,8 @@ use uuid::Uuid;
 pub const EVENT_CHANGED: &str = "document://changed";
 pub const EVENT_PALETTE: &str = "document://palette";
 pub const EVENT_STEP: &str = "document://step";
+/// `{ rootId, animation }` after a frame is added, deleted, moved or retimed.
+pub const EVENT_ANIMATION: &str = "document://animation";
 pub const EVENT_AGENT_ACTIVITY: &str = "agent://activity";
 pub const EVENT_AGENT_SESSION: &str = "agent://session";
 const FRAME: Duration = Duration::from_millis(16);
@@ -257,12 +259,21 @@ pub async fn asset_rename<R: Runtime>(
     id: AssetId,
     name: String,
 ) -> Result<Asset> {
-    let (asset, seq) = run(&state, move |s| {
+    let (asset, seq, animation) = run(&state, move |s| {
         let asset = s.asset_rename(id, &name)?;
         let seq = s.op_log(id)?.last().map_or(0, |op| op.seq);
-        Ok((asset, seq))
+        // Renaming a root renames its frames, which a timeline shows.
+        let animation = s.animation_read(id)?;
+        Ok((
+            asset,
+            seq,
+            (animation.frames.len() > 1).then_some(animation),
+        ))
     })
     .await?;
+    if let Some(animation) = animation {
+        super::animation::emit_animation(&app, &animation);
+    }
     notify_changed(
         &app,
         &state,
@@ -277,8 +288,22 @@ pub async fn asset_rename<R: Runtime>(
     Ok(asset)
 }
 #[tauri::command]
-pub async fn asset_delete(state: State<'_, DocumentState>, id: AssetId) -> Result<()> {
-    run(&state, move |s| s.asset_delete(id)).await
+pub async fn asset_delete<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, DocumentState>,
+    id: AssetId,
+) -> Result<()> {
+    // Deleting a later frame leaves its animation behind, one frame shorter.
+    let remaining = run(&state, move |s| {
+        let root = s.asset_read(id)?.root_id;
+        s.asset_delete(id)?;
+        root.map(|root| s.animation_read(root)).transpose()
+    })
+    .await?;
+    if let Some(animation) = remaining {
+        super::animation::emit_animation(&app, &animation);
+    }
+    Ok(())
 }
 #[tauri::command]
 pub async fn asset_open(state: State<'_, DocumentState>, id: AssetId) -> Result<Document> {
@@ -385,9 +410,15 @@ pub async fn palette_write<R: Runtime>(
     asset_id: AssetId,
     palette: Palette,
 ) -> Result<Palette> {
-    let (palette, result) = run(&state, move |s| s.palette_write(asset_id, palette)).await?;
-    notify_changed(&app, &state, asset_id, &result);
-    emit(&app, EVENT_PALETTE, PaletteEvent { asset_id });
+    // Frames share a palette, so every frame it landed on is announced.
+    let (palette, results) = run(&state, move |s| {
+        s.palette_write_frames_as(asset_id, palette, "user")
+    })
+    .await?;
+    for (frame, result) in results {
+        notify_changed(&app, &state, frame, &result);
+        emit(&app, EVENT_PALETTE, PaletteEvent { asset_id: frame });
+    }
     Ok(palette)
 }
 #[tauri::command]

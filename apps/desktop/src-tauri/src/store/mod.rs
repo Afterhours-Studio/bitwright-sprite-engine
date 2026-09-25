@@ -17,10 +17,12 @@
 //! SQLite is the document, rather than a checkpoint of an in-memory editor.
 //! Every committed edit and its inverse therefore share one transaction.
 
+mod animation;
 mod history;
 pub mod migrations;
 pub mod models;
 mod workflow;
+pub use animation::{Animation, Frame};
 pub use models::*;
 
 use crate::raster::{
@@ -292,7 +294,9 @@ impl Store {
     }
     pub fn asset_list(&self, project: Uuid) -> Result<Vec<Asset>> {
         self.project_read(project)?;
-        let mut statement = self.connection.prepare("SELECT id,project_id,style_id,name,kind,width,height,step,created_at,updated_at FROM asset WHERE project_id=?1 ORDER BY created_at,id")?;
+        let mut statement = self.connection.prepare(&format!(
+            "SELECT {ASSET_COLUMNS} FROM asset a WHERE a.project_id=?1 ORDER BY a.created_at,a.id"
+        ))?;
         let rows = statement
             .query_map([project.to_string()], asset_row)?
             .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -349,22 +353,43 @@ impl Store {
         tx.commit()?;
         self.asset_read(id)
     }
+    /// Renaming a root renames its frames with it; a later frame's name is
+    /// derived from the root's, so it cannot be renamed on its own.
     pub fn asset_rename(&mut self, id: AssetId, value: &str) -> Result<Asset> {
         name(value)?;
+        if self.asset_read(id)?.root_id.is_some() {
+            return Err(AppError::new(
+                "animation.frame_name",
+                "a frame is named after its animation; rename the first frame",
+            ));
+        }
         self.commit(id, history::Mutation::Rename(value.into()), "user")?;
         self.asset_read(id)
     }
+    /// Deleting a root deletes its whole animation, because the home screen
+    /// lists the animation by its root and a row of orphaned frames could
+    /// never be reached again. A later frame is deleted as `frame_delete`.
     pub fn asset_delete(&mut self, id: AssetId) -> Result<()> {
-        self.asset_read(id)?;
-        self.connection
-            .execute("DELETE FROM asset WHERE id=?1", [id.0.to_string()])?;
+        let asset = self.asset_read(id)?;
+        if asset.root_id.is_some() {
+            self.frame_delete(id)?;
+            return Ok(());
+        }
+        let frames = animation::frame_ids(&self.connection, id)?;
+        let tx = self.connection.transaction()?;
+        for frame in frames.iter().rev() {
+            tx.execute("DELETE FROM asset WHERE id=?1", [frame.0.to_string()])?;
+        }
+        tx.commit()?;
         Ok(())
     }
+    /// Frames share their root's style, so setting it on one frame sets it on
+    /// every frame, each in its own op log.
     pub fn asset_set_style(&mut self, id: AssetId, style: Option<Uuid>) -> Result<Asset> {
         if let Some(style) = style {
             self.style_read(style)?;
         }
-        self.commit(id, history::Mutation::Style(style), "user")?;
+        self.fan_out(id, &history::Mutation::Style(style), "user")?;
         self.asset_read(id)
     }
     pub fn asset_open(&self, id: AssetId) -> Result<Document> {
@@ -384,18 +409,61 @@ impl Store {
         self.palette_write_as(id, palette, "user")
     }
     /// Records who wrote the palette: the op log carries the actor, so a
-    /// palette set by an agent reads back as that agent's write.
+    /// palette set by an agent reads back as that agent's write. Frames share
+    /// a palette, so the write lands on every frame of the animation; the
+    /// result returned is the one recorded on `id` itself.
     pub fn palette_write_as(
         &mut self,
         id: AssetId,
         palette: Palette,
         actor: &str,
     ) -> Result<(Palette, OpResult)> {
-        let result = self.commit(id, history::Mutation::Palette(palette), actor)?;
-        Ok((self.palette_read(id)?, result))
+        let (palette, results) = self.palette_write_frames_as(id, palette, actor)?;
+        let result = results
+            .into_iter()
+            .find(|(frame, _)| *frame == id)
+            .map(|(_, result)| result)
+            .ok_or_else(|| AppError::new("document.not_found", id.0.to_string()))?;
+        Ok((palette, result))
+    }
+    /// The palette write with every frame it touched, in frame order, so a
+    /// caller can tell each open view of those frames that its palette moved.
+    /// Every frame records the write in its own op log under `actor`, all in
+    /// one transaction; undo on one frame undoes that frame's copy only.
+    pub fn palette_write_frames_as(
+        &mut self,
+        id: AssetId,
+        palette: Palette,
+        actor: &str,
+    ) -> Result<(Palette, Vec<(AssetId, OpResult)>)> {
+        let results = self.fan_out(id, &history::Mutation::Palette(palette), actor)?;
+        Ok((self.palette_read(id)?, results))
     }
     pub fn palette_delete(&mut self, id: AssetId) -> Result<OpResult> {
-        self.commit(id, history::Mutation::Palette(Palette::default()), "user")
+        let (_, result) = self.palette_write_as(id, Palette::default(), "user")?;
+        Ok(result)
+    }
+    /// Applies one mutation to every frame of the animation `id` belongs to
+    /// (just `id` for a lone asset) in one transaction, each logged on its
+    /// own frame.
+    fn fan_out(
+        &mut self,
+        id: AssetId,
+        mutation: &history::Mutation,
+        actor: &str,
+    ) -> Result<Vec<(AssetId, OpResult)>> {
+        let frames = animation::frame_ids(&self.connection, id)?;
+        let limit = self.history_limit;
+        let tx = self.connection.transaction()?;
+        let mut results = Vec::with_capacity(frames.len());
+        for frame in frames {
+            results.push((
+                frame,
+                history::record(&tx, frame, mutation.clone(), actor, limit)?,
+            ));
+        }
+        tx.commit()?;
+        Ok(results)
     }
     pub fn layer_write(&mut self, id: AssetId, layer: Layer) -> Result<OpResult> {
         self.layer_write_as(id, layer, "user")
@@ -537,10 +605,23 @@ fn asset_row(r: &Row<'_>) -> rusqlite::Result<Asset> {
         step: r.get(7)?,
         created_at: r.get(8)?,
         updated_at: r.get(9)?,
+        root_id: optional_uuid(r, 10)?.map(AssetId),
+        frames: r.get(11)?,
     })
 }
+/// Every query that builds an `Asset` selects these, so the animation fields
+/// cannot be filled by one listing and forgotten by another.
+const ASSET_COLUMNS: &str =
+    "a.id,a.project_id,a.style_id,a.name,a.kind,a.width,a.height,a.step,a.created_at,a.updated_at,
+     (SELECT f.root_id FROM frame f WHERE f.asset_id=a.id AND f.position>0),
+     CASE WHEN EXISTS(SELECT 1 FROM frame f WHERE f.asset_id=a.id AND f.position>0) THEN 0
+          ELSE MAX(1,(SELECT COUNT(*) FROM frame f WHERE f.root_id=a.id)) END";
 fn read_asset(c: &Connection, id: AssetId) -> Result<Asset> {
-    Ok(c.query_row("SELECT id,project_id,style_id,name,kind,width,height,step,created_at,updated_at FROM asset WHERE id=?1",[id.0.to_string()],asset_row)?)
+    Ok(c.query_row(
+        &format!("SELECT {ASSET_COLUMNS} FROM asset a WHERE a.id=?1"),
+        [id.0.to_string()],
+        asset_row,
+    )?)
 }
 fn read_palette(c: &Connection, id: AssetId) -> Result<Palette> {
     Ok(c.query_row(

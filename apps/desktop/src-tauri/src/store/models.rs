@@ -58,6 +58,12 @@ pub struct Asset {
     pub step: String,
     pub created_at: i64,
     pub updated_at: i64,
+    /// The root of the animation this asset is a later frame of; `None` for
+    /// a root or a lone asset, which are what the home screen lists.
+    pub root_id: Option<AssetId>,
+    /// How many frames a root or lone asset has (at least 1); 0 for a later
+    /// frame, so a count summed over a project counts each animation once.
+    pub frames: u32,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Document {

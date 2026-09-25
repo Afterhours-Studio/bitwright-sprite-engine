@@ -20,6 +20,7 @@
 //! The frontend translates that code, so no English string from this file
 //! reaches the user.
 
+pub mod animation;
 pub mod document;
 pub mod tilemap;
 
@@ -541,6 +542,13 @@ pub fn handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + 
         crate::commands::tilemap::tilemap_set_layer,
         crate::commands::tilemap::tilemap_tiles,
         crate::commands::tilemap::tilemap_preview,
+        animation::animation_read,
+        animation::frame_add,
+        animation::frame_delete,
+        animation::frame_move,
+        animation::frame_set_duration,
+        animation::animation_set_duration,
+        animation::animation_set_playback,
         crate::export::export_png,
         crate::export::export_sheet,
         crate::export::export_directory,

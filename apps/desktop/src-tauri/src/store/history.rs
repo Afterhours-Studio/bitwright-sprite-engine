@@ -84,27 +84,9 @@ impl Store {
         mutation: Mutation,
         actor: &str,
     ) -> Result<OpResult> {
-        validate_actor(actor)?;
+        let limit = self.history_limit;
         let tx = self.connection.transaction()?;
-        let (inverse, mut result) = apply(&tx, id, &mutation)?;
-        tx.execute(
-            "DELETE FROM op WHERE asset_id=?1 AND seq>COALESCE((SELECT seq FROM op_cursor WHERE asset_id=?1),0)",
-            [id.0.to_string()],
-        )?;
-        result.seq = append(
-            &tx,
-            id,
-            mutation.kind(),
-            &mutation,
-            &inverse,
-            actor,
-            &result.roles,
-        )?;
-        tx.execute(
-            "INSERT INTO op_cursor(seq,asset_id) VALUES(?1,?2) ON CONFLICT(asset_id) DO UPDATE SET seq=excluded.seq",
-            params![result.seq, id.0.to_string()],
-        )?;
-        trim(&tx, id, self.history_limit)?;
+        let result = record(&tx, id, mutation, actor, limit)?;
         tx.commit()?;
         Ok(result)
     }
@@ -217,7 +199,40 @@ impl Store {
     }
 }
 
-fn validate_actor(actor: &str) -> Result<()> {
+/// Applies one mutation and appends it to the asset's op log inside the
+/// caller's transaction, so a change that spans several assets (a palette
+/// shared by every frame of an animation) commits or fails as one.
+pub(super) fn record(
+    c: &Connection,
+    id: AssetId,
+    mutation: Mutation,
+    actor: &str,
+    limit: usize,
+) -> Result<OpResult> {
+    validate_actor(actor)?;
+    let (inverse, mut result) = apply(c, id, &mutation)?;
+    c.execute(
+        "DELETE FROM op WHERE asset_id=?1 AND seq>COALESCE((SELECT seq FROM op_cursor WHERE asset_id=?1),0)",
+        [id.0.to_string()],
+    )?;
+    result.seq = append(
+        c,
+        id,
+        mutation.kind(),
+        &mutation,
+        &inverse,
+        actor,
+        &result.roles,
+    )?;
+    c.execute(
+        "INSERT INTO op_cursor(seq,asset_id) VALUES(?1,?2) ON CONFLICT(asset_id) DO UPDATE SET seq=excluded.seq",
+        params![result.seq, id.0.to_string()],
+    )?;
+    trim(c, id, limit)?;
+    Ok(result)
+}
+
+pub(super) fn validate_actor(actor: &str) -> Result<()> {
     // A forced advance records the actor as "<actor> (forced)"; strip that
     // suffix before validating the underlying actor.
     let base = actor.strip_suffix(" (forced)").unwrap_or(actor);
@@ -456,10 +471,14 @@ fn apply(c: &Connection, id: AssetId, mutation: &Mutation) -> Result<(Mutation, 
         }
         Mutation::Rename(value) => {
             super::name(value)?;
-            c.execute(
-                "UPDATE asset SET name=?1 WHERE id=?2",
-                params![value, id.0.to_string()],
-            )?;
+            // A frame's name is derived from its root's, so a rename (or its
+            // undo) inside an animation renames the whole row of frames.
+            if !super::animation::rename(c, id, value)? {
+                c.execute(
+                    "UPDATE asset SET name=?1 WHERE id=?2",
+                    params![value, id.0.to_string()],
+                )?;
+            }
             Mutation::Rename(document.asset.name)
         }
         Mutation::Style(style) => {

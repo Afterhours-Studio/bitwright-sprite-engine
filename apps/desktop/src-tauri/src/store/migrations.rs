@@ -20,9 +20,15 @@
 use super::{AppError, Result};
 use rusqlite::Connection;
 
-pub const VERSION: i64 = 4;
+pub const VERSION: i64 = 5;
 
 pub fn migrate(connection: &mut Connection) -> Result<()> {
+    migrate_to(connection, VERSION)
+}
+
+/// Brings the database up to `target`, which tests use to build a database as
+/// an older release left it.
+fn migrate_to(connection: &mut Connection, target: i64) -> Result<()> {
     connection.pragma_update(None, "foreign_keys", "ON")?;
     let transaction = connection.transaction()?;
     transaction.execute_batch("CREATE TABLE IF NOT EXISTS schema_migration (version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL);")?;
@@ -37,7 +43,7 @@ pub fn migrate(connection: &mut Connection) -> Result<()> {
             format!("database version {current}, supported {VERSION}"),
         ));
     }
-    for version in current + 1..=VERSION {
+    for version in current + 1..=target {
         match version {
             1 => transaction.execute_batch(include_str!("schema.sql"))?,
             // Applied state is separate from provenance. Undo and redo append
@@ -107,6 +113,22 @@ pub fn migrate(connection: &mut Connection) -> Result<()> {
                      updated_at INTEGER NOT NULL
                  );",
             )?,
+            // An animation is an ordered row of ordinary assets. The rows
+            // exist only once an asset has a second frame, so every asset
+            // made before this version is a one-frame animation as it is.
+            5 => transaction.execute_batch(
+                "CREATE TABLE frame (
+                     asset_id    TEXT PRIMARY KEY REFERENCES asset(id) ON DELETE CASCADE,
+                     root_id     TEXT NOT NULL REFERENCES asset(id) ON DELETE CASCADE,
+                     position    INTEGER NOT NULL,
+                     duration_ms INTEGER NOT NULL,
+                     UNIQUE (root_id, position)
+                 );
+                 CREATE TABLE animation (
+                     root_id     TEXT PRIMARY KEY REFERENCES asset(id) ON DELETE CASCADE,
+                     playback    TEXT NOT NULL DEFAULT 'forward'
+                 );",
+            )?,
             _ => {
                 return Err(AppError::new(
                     "store.migration_missing",
@@ -160,5 +182,58 @@ mod tests {
         c.execute("INSERT INTO schema_migration VALUES(99,0)", [])
             .unwrap();
         assert_eq!(migrate(&mut c).unwrap_err().code, "store.newer_schema");
+    }
+    #[test]
+    fn version_four_gains_the_animation_tables_and_keeps_its_assets() {
+        let mut c = Connection::open_in_memory().unwrap();
+        migrate_to(&mut c, 4).unwrap();
+        c.execute_batch(
+            "INSERT INTO project VALUES('p','test',NULL,1,1);
+             INSERT INTO asset VALUES('a','p',NULL,'hero','character',8,8,'flats',1,1);",
+        )
+        .unwrap();
+        assert!(c.prepare("SELECT * FROM frame").is_err());
+        migrate(&mut c).unwrap();
+        assert_eq!(
+            c.query_row("SELECT MAX(version) FROM schema_migration", [], |r| r
+                .get::<_, i64>(0))
+                .unwrap(),
+            5
+        );
+        assert_eq!(
+            c.query_row("SELECT name, step FROM asset", [], |r| Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?
+            )))
+            .unwrap(),
+            ("hero".into(), "flats".into())
+        );
+        // An upgraded asset is a lone frame: no rows until a second is added.
+        let rows: i64 = c
+            .query_row(
+                "SELECT (SELECT COUNT(*) FROM frame) + (SELECT COUNT(*) FROM animation)",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(rows, 0);
+        c.execute_batch(
+            "INSERT INTO asset VALUES('b','p',NULL,'hero #2','character',8,8,'flats',1,1);
+             INSERT INTO animation VALUES('a','forward');
+             INSERT INTO frame VALUES('a','a',0,125);
+             INSERT INTO frame VALUES('b','a',1,125);",
+        )
+        .unwrap();
+        // Two frames may not share a position, and deleting the root takes
+        // the animation's rows with it.
+        assert!(c
+            .execute("UPDATE frame SET position=0 WHERE asset_id='b'", [])
+            .is_err());
+        c.execute("DELETE FROM asset WHERE id='a'", []).unwrap();
+        assert_eq!(
+            c.query_row("SELECT COUNT(*) FROM frame", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
     }
 }

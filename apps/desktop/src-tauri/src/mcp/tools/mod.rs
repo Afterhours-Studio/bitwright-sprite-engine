@@ -251,6 +251,8 @@ mod tests {
             step: step.into(),
             created_at: 0,
             updated_at: 0,
+            root_id: None,
+            frames: 1,
         }
     }
 
