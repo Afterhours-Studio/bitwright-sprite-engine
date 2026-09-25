@@ -149,7 +149,10 @@ export function Select({
     <div className={cn('flex flex-col gap-1', className)}>
       <label
         htmlFor={id}
-        className={cn('text-xs font-medium', disabled ? 'text-fg-muted' : 'text-fg-secondary')}
+        className={cn(
+          'text-[11px] font-medium',
+          disabled ? 'text-neutral-600' : 'text-neutral-400',
+        )}
       >
         {label}
       </label>
@@ -168,12 +171,12 @@ export function Select({
           }}
           onKeyDown={onKeyDown}
           className={cn(
-            'flex w-full items-center justify-between gap-2 rounded-sm border px-3 py-2',
-            'text-left text-sm transition-colors',
+            'flex w-full items-center justify-between gap-2 rounded border px-3 py-1.5',
+            'text-left text-xs transition-colors focus:border-pink-500 focus:outline-none',
             disabled
-              ? 'cursor-not-allowed border-line-subtle bg-surface-disabled text-fg-muted'
-              : 'border-line-input bg-surface-input text-fg-primary',
-            open && !disabled && 'border-line-focus',
+              ? 'cursor-not-allowed border-neutral-800/40 bg-neutral-900/40 text-neutral-600'
+              : 'border-neutral-800 bg-neutral-900 text-neutral-100 hover:border-neutral-700',
+            open && !disabled && 'border-pink-500 hover:border-pink-500',
           )}
         >
           <span className="truncate">{current?.label ?? ''}</span>
@@ -196,10 +199,10 @@ export function Select({
                     commit(index);
                   }}
                   className={cn(
-                    'flex w-full items-center justify-between gap-2 rounded-sm px-3 py-2',
-                    'text-left text-sm transition-colors',
-                    index === active ? 'bg-surface-content-alt' : 'bg-transparent',
-                    option.value === value ? 'text-fg-primary' : 'text-fg-secondary',
+                    'flex w-full items-center justify-between gap-2 rounded px-2.5 py-1.5',
+                    'text-left text-xs transition-colors',
+                    index === active ? 'bg-neutral-800' : 'bg-transparent',
+                    option.value === value ? 'text-pink-400' : 'text-neutral-300',
                   )}
                 >
                   <span className="flex min-w-0 items-center gap-2">
@@ -214,7 +217,7 @@ export function Select({
         </Overlay>
       </div>
 
-      {hint !== undefined && <p className="text-xs text-fg-secondary">{hint}</p>}
+      {hint !== undefined && <p className="text-[11px] text-neutral-500">{hint}</p>}
     </div>
   );
 }
@@ -222,7 +225,7 @@ export function Select({
 /**
  * The square code shown in front of a label.
  *
- * Sized to the line box of the `text-sm` beside it rather than to its own text,
+ * Sized to the line box of the `text-xs` beside it rather than to its own text,
  * so the square matches the height of the label exactly and the row keeps one
  * baseline. `leading-none` on the code stops its own line height from making
  * the box taller than the square it is supposed to be.
@@ -232,8 +235,8 @@ function Tag({ text }: { text: string }): ReactElement {
     <span
       aria-hidden="true"
       className={cn(
-        'grid h-5 w-5 shrink-0 place-items-center rounded-sm',
-        'bg-surface-well text-[10px] font-semibold leading-none text-fg-secondary',
+        'grid h-4 w-5 shrink-0 place-items-center rounded-sm border border-neutral-700/60',
+        'bg-neutral-800 text-[9px] font-semibold leading-none text-neutral-400',
       )}
     >
       {text}

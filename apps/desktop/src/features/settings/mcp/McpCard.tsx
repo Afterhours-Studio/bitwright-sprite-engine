@@ -120,14 +120,14 @@ export default function McpCard(): ReactElement {
   if (!inShell()) {
     return (
       <Card title={t('mcp.title')} description={t('mcp.description')}>
-        <p className="text-xs text-fg-secondary">{t('mcp.unavailable')}</p>
+        <p className="text-xs text-neutral-500">{t('mcp.unavailable')}</p>
       </Card>
     );
   }
 
   return (
     <Card title={t('mcp.title')} description={t('mcp.description')}>
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-4">
         {/* Transport */}
         <SegmentedTabs
           segments={TRANSPORT_SEGMENTS.map((segment) => ({
@@ -161,8 +161,10 @@ export default function McpCard(): ReactElement {
         {/* Token */}
         {token !== null && (
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-fg-secondary">{t('mcp.token.label')}:</span>
-            <code className="rounded bg-surface-content-alt px-2 py-1 text-xs text-fg-primary">
+            <span className="text-[11px] font-medium text-neutral-400">
+              {t('mcp.token.label')}:
+            </span>
+            <code className="rounded border border-neutral-800 bg-neutral-900 px-2 py-1 font-mono text-[11px] text-pink-400">
               {tokenRevealed ? token : maskToken(token)}
             </code>
             <Button
@@ -195,9 +197,11 @@ export default function McpCard(): ReactElement {
 
         {/* Sessions */}
         <div>
-          <p className="mb-1 text-xs font-medium text-fg-secondary">{t('mcp.sessions.label')}</p>
+          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+            {t('mcp.sessions.label')}
+          </p>
           {sessions.length === 0 ? (
-            <p className="text-xs text-fg-secondary">{t('mcp.sessions.empty')}</p>
+            <p className="text-xs text-neutral-500">{t('mcp.sessions.empty')}</p>
           ) : (
             <div className="flex flex-col gap-1">
               {sessions.map((session) => (
@@ -209,7 +213,9 @@ export default function McpCard(): ReactElement {
 
         {/* Clients */}
         <div>
-          <p className="mb-1 text-xs font-medium text-fg-secondary">{t('mcp.clients.label')}</p>
+          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+            {t('mcp.clients.label')}
+          </p>
           <Button
             variant="secondary"
             className="mb-2 px-3 py-1 text-xs"
@@ -248,7 +254,11 @@ export default function McpCard(): ReactElement {
           manualConfig={manualConfig}
         />
 
-        {failure !== null && <p className="text-xs text-fg-secondary">{failure}</p>}
+        {failure !== null && (
+          <p className="rounded border border-red-500/40 bg-red-500/10 p-2 text-[11px] text-red-400">
+            {failure}
+          </p>
+        )}
       </div>
     </Card>
   );
@@ -263,15 +273,14 @@ function SessionRow({ session }: SessionRowProps): ReactElement {
   const shortId = session.id.length > 8 ? session.id.slice(0, 8) : session.id;
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md border border-line-subtle bg-surface-content-alt px-2 py-1 text-xs">
-      <code className="text-fg-primary">{shortId}</code>
-      <span className="text-fg-secondary">
+    <div className="flex flex-wrap items-center gap-2 rounded border border-neutral-800 bg-neutral-900/60 px-2.5 py-1.5 text-xs">
+      <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
+      <code className="font-mono text-neutral-100">{shortId}</code>
+      <span className="text-neutral-500">
         {t('mcp.sessions.connected', { minutes: minutesAgo(session.connectedAt) })}
       </span>
       {session.lastTool !== null && (
-        <span className="text-fg-secondary">
-          {t('mcp.sessions.tool', { tool: session.lastTool })}
-        </span>
+        <span className="text-pink-400">{t('mcp.sessions.tool', { tool: session.lastTool })}</span>
       )}
     </div>
   );
@@ -298,12 +307,14 @@ function ClientRow({
   const { t } = useTranslation('settings');
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md border border-line-subtle bg-surface-content-alt px-2 py-1 text-xs">
-      <span className="text-fg-primary">{name}</span>
-      <Pill active={detected}>
+    <div className="flex flex-wrap items-center gap-2 rounded border border-neutral-800 bg-neutral-900/60 px-2.5 py-1.5 text-xs">
+      <span className="font-medium text-neutral-100">{name}</span>
+      <Pill active={detected} tone="anchor">
         {detected ? t('mcp.clients.detected') : t('mcp.clients.notFound')}
       </Pill>
-      <span className="text-fg-secondary">{registered ? t('mcp.clients.registered') : ''}</span>
+      <span className="flex-1 text-emerald-400">
+        {registered ? t('mcp.clients.registered') : ''}
+      </span>
       {registered ? (
         <Button
           variant="ghost"
@@ -347,15 +358,15 @@ function ManualSnippet({ onReveal, manualConfig }: ManualSnippetProps): ReactEle
         }
       }}
     >
-      <summary className="cursor-pointer text-xs font-medium text-fg-secondary">
+      <summary className="cursor-pointer text-xs font-medium text-neutral-300 hover:text-neutral-100">
         {t('mcp.manual.label')}
       </summary>
       {open && (
         <div className="mt-2 flex flex-col gap-2">
-          <p className="text-xs text-fg-secondary">{t('mcp.manual.description')}</p>
+          <p className="text-xs text-neutral-500">{t('mcp.manual.description')}</p>
           {manualConfig !== null && (
             <>
-              <pre className="overflow-x-auto rounded bg-surface-content-alt p-2 text-xs text-fg-primary">
+              <pre className="overflow-x-auto rounded border border-neutral-800 bg-neutral-950 p-3 font-mono text-[11px] text-neutral-200">
                 {manualConfig}
               </pre>
               <CopyButton

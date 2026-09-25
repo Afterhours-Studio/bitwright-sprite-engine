@@ -167,14 +167,25 @@ export default function AgentActivityIndicator(): ReactElement | null {
     <div
       role="status"
       aria-live="polite"
-      className={cn(
-        'inline-flex items-center gap-2 rounded-md border border-line-subtle px-2 py-1 text-xs',
-        drawing
-          ? 'border-line-default bg-surface-content-alt text-fg-primary'
-          : 'bg-surface-content text-fg-secondary',
-      )}
+      className="inline-flex items-center gap-2 bg-neutral-950/90 backdrop-blur border border-neutral-800 rounded px-2.5 py-1 text-xs text-neutral-300 shadow-md"
     >
-      {state.tool === null ? t('live.connected') : t('live.drawing', { tool: state.tool })}
+      {/* Pink and pulsing while a call is in flight, a still neutral dot while
+          the session only sits there: the one thing the chip has to say at a
+          glance is whether something is drawing right now. */}
+      <span aria-hidden="true" className="relative flex h-2 w-2 shrink-0">
+        {drawing && (
+          <span className="absolute inline-flex h-full w-full motion-safe:animate-ping rounded-full bg-pink-500 opacity-75" />
+        )}
+        <span
+          className={cn(
+            'relative inline-flex h-2 w-2 rounded-full',
+            drawing ? 'bg-pink-500' : 'bg-neutral-500',
+          )}
+        />
+      </span>
+      <span className={cn('truncate', drawing && 'text-neutral-100')}>
+        {state.tool === null ? t('live.connected') : t('live.drawing', { tool: state.tool })}
+      </span>
     </div>
   );
 }

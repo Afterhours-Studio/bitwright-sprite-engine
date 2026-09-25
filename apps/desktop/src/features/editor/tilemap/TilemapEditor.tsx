@@ -31,6 +31,11 @@
  * itself is the next state. Only the preview is a separate call, because the
  * composite is not part of the map's own shape.
  *
+ * IT FILLS THE STAGE. A background asset shows this editor where a sprite
+ * shows its canvas, so the map is drawn on the workspace checker and its
+ * controls float over it in the same panels the sprite stage uses. The top
+ * left corner is left free for the agent chip the stage puts there.
+ *
  * `tilemap.none` IS NOT AN ERROR, IT IS A STATE. A background asset with no
  * map yet is the ordinary starting point, not a failure to show in the alert
  * region, so that one reason code switches the screen to the create form
@@ -46,6 +51,7 @@
  * the one case a token cannot cover: the panel being gone entirely.
  */
 
+import { Eraser, Layers, Map as MapIcon, Plus } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -80,6 +86,16 @@ const DEFAULT_ROWS = 12;
 
 /** How much larger than the tile itself a grid cell is drawn on screen. */
 const ZOOM = 2;
+
+/** The stage's floating panel, as the sprite stage draws its zoom box and actions. */
+const FLOAT = 'bg-neutral-950/90 backdrop-blur border border-neutral-800 rounded shadow-md';
+
+/** A compact field on a floating panel. */
+const SMALL_INPUT =
+  'rounded border border-neutral-800 bg-neutral-900 px-1.5 py-0.5 text-[11px] text-neutral-100 focus:border-pink-500 focus:outline-none';
+
+/** A label with its control at the trailing end. */
+const FIELD_ROW = 'flex items-center justify-between gap-2 text-[11px] text-neutral-400';
 
 /** Parallax is refused outside this range, by the create form and by a layer's own field. */
 const MIN_PARALLAX = 0;
@@ -442,120 +458,19 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
   const refusal = error !== null ? translateError(error) : null;
 
   return (
-    <div className="flex flex-col gap-3">
-      <h3 className="text-xs font-semibold text-fg-primary">{t('title')}</h3>
-
-      {needsCreate && (
-        <div className="flex flex-col gap-2 rounded-sm border border-line-subtle bg-surface-content-alt p-2">
-          <p className="text-[11px] font-medium text-fg-primary">{t('create.heading')}</p>
-          <p className="text-[11px] text-fg-secondary">{t('create.body')}</p>
-
-          <label className="flex items-center justify-between gap-2 text-[11px] text-fg-secondary">
-            {t('create.tileSize')}
-            <select
-              value={tileSize}
-              onChange={(event) => {
-                setTileSize(Number(event.target.value));
-              }}
-              className="rounded-sm border border-line-subtle bg-surface-content px-1 py-0.5 text-fg-primary"
-            >
-              {TILE_SIZES.map((size) => (
-                <option key={size} value={size}>
-                  {size}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="flex items-center justify-between gap-2 text-[11px] text-fg-secondary">
-            {t('create.columns')}
-            <input
-              type="number"
-              min={1}
-              max={256}
-              value={columns}
-              onChange={(event) => {
-                setColumns(Number(event.target.value));
-              }}
-              className="w-16 rounded-sm border border-line-subtle bg-surface-content px-1 py-0.5 text-fg-primary"
-            />
-          </label>
-
-          <label className="flex items-center justify-between gap-2 text-[11px] text-fg-secondary">
-            {t('create.rows')}
-            <input
-              type="number"
-              min={1}
-              max={256}
-              value={rows}
-              onChange={(event) => {
-                setRows(Number(event.target.value));
-              }}
-              className="w-16 rounded-sm border border-line-subtle bg-surface-content px-1 py-0.5 text-fg-primary"
-            />
-          </label>
-
-          <Button
-            variant="primary"
-            className="px-2 py-1 text-[11px]"
-            onClick={() => {
-              void handleCreate();
-            }}
-          >
-            {t('create.submit')}
-          </Button>
-        </div>
-      )}
-
-      {tilemap !== null && (
-        <>
-          <section className="flex flex-col gap-1">
-            <p className="text-[11px] font-medium text-fg-secondary">{t('tiles.title')}</p>
-            <div className="flex flex-wrap gap-1">
-              {tiles.map((tile) => (
-                <button
-                  key={tile.id}
-                  type="button"
-                  aria-pressed={activeTile === tile.id}
-                  aria-label={tile.name}
-                  title={tile.name}
-                  onClick={() => {
-                    setActiveTile(tile.id);
-                  }}
-                  className={cn(
-                    'flex h-8 w-8 items-center justify-center rounded-sm border p-0.5',
-                    activeTile === tile.id
-                      ? 'border-accent shadow-sm ring-1 ring-accent'
-                      : 'border-line-subtle',
-                  )}
-                >
-                  <img
-                    src={tile.preview}
-                    alt=""
-                    style={{ imageRendering: 'pixelated' }}
-                    className="h-full w-full object-contain"
-                  />
-                </button>
-              ))}
-              <Button
-                variant={activeTile === null ? 'primary' : 'ghost'}
-                aria-pressed={activeTile === null}
-                className="px-2 py-1 text-[11px]"
-                onClick={() => {
-                  setActiveTile(null);
-                }}
-              >
-                {t('tiles.eraser')}
-              </Button>
-            </div>
-            {tiles.length === 0 && (
-              <p className="text-[11px] text-fg-secondary">{t('tiles.empty')}</p>
-            )}
-          </section>
-
-          {activeLayer !== null && (
+    <div className="canvas-workspace-bg relative h-full w-full overflow-hidden text-neutral-100">
+      {/* Named for assistive technology from the first render, before the map
+          has answered and any panel is on screen; the panels show it too. */}
+      <h3 className="sr-only">{t('title')}</h3>
+      {/* The grid sits where the sprite would, and scrolls under the floating
+          panels rather than being pushed aside by them: the panels are the
+          stage's chrome, and the map is the stage. The padding is what lets
+          any cell be scrolled out from under a panel. */}
+      <div className="absolute inset-0 overflow-auto">
+        <div className="flex min-h-full min-w-full w-max items-center justify-center p-24">
+          {tilemap !== null && activeLayer !== null && (
             <div
-              className="grid gap-px"
+              className="grid gap-px bg-neutral-800/70 shadow-2xl ring-1 ring-white/15"
               style={{
                 gridTemplateColumns: `repeat(${tilemap.columns}, ${tilemap.tileWidth * ZOOM}px)`,
               }}
@@ -578,14 +493,13 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
                         width: tilemap.tileWidth * ZOOM,
                         height: tilemap.tileHeight * ZOOM,
                       }}
-                      className="flex items-center justify-center border border-line-subtle bg-surface-content-alt p-0"
+                      className="flex items-center justify-center bg-neutral-950/70 p-0 hover:bg-neutral-800/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-pink-500"
                     >
                       {tile !== null && (
                         <img
                           src={tile.preview}
                           alt=""
-                          style={{ imageRendering: 'pixelated' }}
-                          className="h-full w-full object-contain"
+                          className="pixelated h-full w-full object-contain"
                         />
                       )}
                     </button>
@@ -594,32 +508,197 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
               )}
             </div>
           )}
+        </div>
+      </div>
 
-          <section className="flex flex-col gap-1">
-            <p className="text-[11px] font-medium text-fg-secondary">{t('layers.title')}</p>
-            <div className="flex flex-col gap-1">
+      {needsCreate && (
+        <div className="absolute inset-0 flex items-center justify-center p-4">
+          <div className={cn(FLOAT, 'flex w-full max-w-xs flex-col gap-3 p-4')}>
+            <div className="flex items-center gap-2">
+              <MapIcon aria-hidden="true" className="w-4 h-4 text-pink-500" />
+              <p className="text-xs font-semibold text-neutral-200">{t('title')}</p>
+            </div>
+            <p className="text-xs font-semibold text-neutral-100">{t('create.heading')}</p>
+            <p className="text-[11px] leading-relaxed text-neutral-400">{t('create.body')}</p>
+
+            <label className={FIELD_ROW}>
+              {t('create.tileSize')}
+              <select
+                value={tileSize}
+                onChange={(event) => {
+                  setTileSize(Number(event.target.value));
+                }}
+                className={SMALL_INPUT}
+              >
+                {TILE_SIZES.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className={FIELD_ROW}>
+              {t('create.columns')}
+              <input
+                type="number"
+                min={1}
+                max={256}
+                value={columns}
+                onChange={(event) => {
+                  setColumns(Number(event.target.value));
+                }}
+                className={cn(SMALL_INPUT, 'w-16')}
+              />
+            </label>
+
+            <label className={FIELD_ROW}>
+              {t('create.rows')}
+              <input
+                type="number"
+                min={1}
+                max={256}
+                value={rows}
+                onChange={(event) => {
+                  setRows(Number(event.target.value));
+                }}
+                className={cn(SMALL_INPUT, 'w-16')}
+              />
+            </label>
+
+            <Button
+              variant="primary"
+              className="w-full py-2"
+              onClick={() => {
+                void handleCreate();
+              }}
+            >
+              {t('create.submit')}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {tilemap !== null && (
+        <>
+          {/* Tiles: the brush box, bottom left, where the readout sits on a
+              sprite's stage. The top left is left to the agent chip. */}
+          <section
+            className={cn(FLOAT, 'absolute bottom-3 left-3 flex max-w-[18rem] flex-col gap-2 p-2')}
+          >
+            <div className="flex items-center justify-between gap-2 px-0.5">
+              <p className="text-xs font-semibold text-neutral-200">{t('title')}</p>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-neutral-500">
+                {t('tiles.title')}
+              </p>
+            </div>
+            <div className="flex max-h-32 flex-wrap gap-1 overflow-y-auto">
+              {tiles.map((tile) => (
+                <button
+                  key={tile.id}
+                  type="button"
+                  aria-pressed={activeTile === tile.id}
+                  aria-label={tile.name}
+                  title={tile.name}
+                  onClick={() => {
+                    setActiveTile(tile.id);
+                  }}
+                  className={cn(
+                    'checkerboard-pattern flex h-8 w-8 items-center justify-center rounded border p-0.5',
+                    activeTile === tile.id
+                      ? 'border-pink-500 ring-1 ring-pink-500/50'
+                      : 'border-neutral-800 hover:border-neutral-600',
+                  )}
+                >
+                  <img
+                    src={tile.preview}
+                    alt=""
+                    className="pixelated h-full w-full object-contain"
+                  />
+                </button>
+              ))}
+              <Button
+                variant={activeTile === null ? 'primary' : 'secondary'}
+                aria-pressed={activeTile === null}
+                className="h-8 px-2 text-[11px]"
+                onClick={() => {
+                  setActiveTile(null);
+                }}
+              >
+                <Eraser aria-hidden="true" className="w-3.5 h-3.5" />
+                {t('tiles.eraser')}
+              </Button>
+            </div>
+            {tiles.length === 0 && (
+              <p className="px-0.5 text-[11px] text-neutral-500">{t('tiles.empty')}</p>
+            )}
+          </section>
+
+          {/* Layers: styled as the editor's layers panel, top right where the
+              sprite stage keeps its canvas actions. */}
+          <section
+            className={cn(
+              FLOAT,
+              'absolute right-4 top-4 flex max-h-[calc(100%-2rem)] w-72 flex-col p-0',
+            )}
+          >
+            <div className="flex items-center gap-2 rounded-t border-b border-neutral-800 bg-neutral-900/40 p-3">
+              <Layers aria-hidden="true" className="w-4 h-4 text-purple-400" />
+              <p className="text-xs font-semibold text-neutral-200">{t('layers.title')}</p>
+            </div>
+
+            <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto p-2">
               {tilemap.layers.map((layer) => (
                 <div
                   key={layer.name}
                   className={cn(
-                    'flex items-center gap-2 rounded-sm border p-1 text-[11px]',
+                    'rounded border p-2 text-[11px]',
                     layer.name === activeLayer
-                      ? 'border-accent bg-surface-content-alt'
-                      : 'border-line-subtle',
+                      ? 'bg-neutral-900 border-purple-500/80 shadow-sm shadow-purple-500/10'
+                      : 'bg-neutral-900/40 border-neutral-800',
                   )}
                 >
-                  <button
-                    type="button"
-                    aria-pressed={layer.name === activeLayer}
-                    onClick={() => {
-                      setActiveLayer(layer.name);
-                    }}
-                    className="flex-1 text-start font-medium text-fg-primary"
-                  >
-                    {layer.name}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      aria-pressed={layer.name === activeLayer}
+                      onClick={() => {
+                        setActiveLayer(layer.name);
+                      }}
+                      className={cn(
+                        'min-w-0 flex-1 truncate text-start text-xs font-medium',
+                        layer.name === activeLayer ? 'text-neutral-100' : 'text-neutral-300',
+                      )}
+                    >
+                      {layer.name}
+                    </button>
 
-                  <label className="flex items-center gap-1 text-fg-secondary">
+                    <label className="flex items-center gap-1 text-neutral-400">
+                      <input
+                        type="checkbox"
+                        checked={layer.visible}
+                        aria-label={t('layers.visibleFor', { name: layer.name })}
+                        onChange={(event) => {
+                          void handleToggleVisible(layer.name, event.target.checked);
+                        }}
+                        className="h-3 w-3 accent-sky-500"
+                      />
+                      {t('layers.visible')}
+                    </label>
+
+                    <Button
+                      variant="ghost"
+                      className="px-1.5 py-0.5 text-[11px] hover:text-red-400"
+                      disabled={tilemap.layers.length === 1}
+                      onClick={() => {
+                        void handleRemoveLayer(layer.name);
+                      }}
+                    >
+                      {t('layers.remove')}
+                    </Button>
+                  </div>
+
+                  <label className="mt-2 flex items-center justify-between gap-2 border-t border-neutral-800/80 pt-1.5 text-neutral-500">
                     {t('layers.parallax')}
                     <input
                       type="number"
@@ -640,38 +719,15 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
                           void handleSetParallax(layer, event.currentTarget.value);
                         }
                       }}
-                      className="w-14 rounded-sm border border-line-subtle bg-surface-content px-1 py-0.5 text-fg-primary"
+                      className={cn(SMALL_INPUT, 'w-16 text-purple-400')}
                     />
                   </label>
-
-                  <label className="flex items-center gap-1 text-fg-secondary">
-                    <input
-                      type="checkbox"
-                      checked={layer.visible}
-                      aria-label={t('layers.visibleFor', { name: layer.name })}
-                      onChange={(event) => {
-                        void handleToggleVisible(layer.name, event.target.checked);
-                      }}
-                    />
-                    {t('layers.visible')}
-                  </label>
-
-                  <Button
-                    variant="ghost"
-                    className="px-2 py-1 text-[11px]"
-                    disabled={tilemap.layers.length === 1}
-                    onClick={() => {
-                      void handleRemoveLayer(layer.name);
-                    }}
-                  >
-                    {t('layers.remove')}
-                  </Button>
                 </div>
               ))}
             </div>
 
-            <div className="flex items-center gap-2 rounded-sm border border-line-subtle p-1 text-[11px]">
-              <label className="flex flex-1 items-center gap-1 text-fg-secondary">
+            <div className="flex flex-col gap-2 border-t border-neutral-800/80 p-2 text-[11px]">
+              <label className="flex flex-col gap-1 text-neutral-400">
                 {t('layers.name')}
                 <input
                   type="text"
@@ -679,43 +735,52 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
                   onChange={(event) => {
                     setNewLayerName(event.target.value);
                   }}
-                  className="w-full rounded-sm border border-line-subtle bg-surface-content px-1 py-0.5 text-fg-primary"
+                  className={cn(SMALL_INPUT, 'w-full')}
                 />
               </label>
-              <label className="flex items-center gap-1 text-fg-secondary">
-                {t('layers.parallax')}
-                <input
-                  type="number"
-                  min={MIN_PARALLAX}
-                  max={MAX_PARALLAX}
-                  step={0.1}
-                  value={newLayerParallax}
-                  onChange={(event) => {
-                    setNewLayerParallax(Number(event.target.value));
+              <div className="flex items-end gap-2">
+                <label className="flex flex-1 items-center justify-between gap-2 text-neutral-400">
+                  {t('layers.parallax')}
+                  <input
+                    type="number"
+                    min={MIN_PARALLAX}
+                    max={MAX_PARALLAX}
+                    step={0.1}
+                    value={newLayerParallax}
+                    onChange={(event) => {
+                      setNewLayerParallax(Number(event.target.value));
+                    }}
+                    className={cn(SMALL_INPUT, 'w-16')}
+                  />
+                </label>
+                <Button
+                  variant="secondary"
+                  className="px-2.5 py-1 text-[11px]"
+                  onClick={() => {
+                    void handleAddLayer();
                   }}
-                  className="w-14 rounded-sm border border-line-subtle bg-surface-content px-1 py-0.5 text-fg-primary"
-                />
-              </label>
-              <Button
-                variant="secondary"
-                className="px-2 py-1 text-[11px]"
-                onClick={() => {
-                  void handleAddLayer();
-                }}
-              >
-                {t('layers.add')}
-              </Button>
+                >
+                  <Plus aria-hidden="true" className="w-3 h-3" />
+                  {t('layers.add')}
+                </Button>
+              </div>
             </div>
           </section>
 
           {preview !== null && (
-            <section className="flex flex-col gap-1">
-              <p className="text-[11px] font-medium text-fg-secondary">{t('preview.title')}</p>
+            <section
+              className={cn(
+                FLOAT,
+                'absolute bottom-3 right-3 flex max-w-[16rem] flex-col gap-1.5 p-2',
+              )}
+            >
+              <p className="px-0.5 text-[10px] font-medium uppercase tracking-wider text-neutral-500">
+                {t('preview.title')}
+              </p>
               <img
                 src={preview}
                 alt={t('preview.title')}
-                style={{ imageRendering: 'pixelated' }}
-                className="max-w-full rounded-sm border border-line-subtle"
+                className="pixelated checkerboard-pattern max-h-40 max-w-full rounded border border-neutral-800 object-contain"
               />
             </section>
           )}
@@ -723,7 +788,10 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
       )}
 
       {refusal !== null && (
-        <p role="alert" className="text-[11px] text-[color:var(--severity-error)]">
+        <p
+          role="alert"
+          className="absolute left-1/2 top-4 max-w-[calc(100%-2rem)] -translate-x-1/2 rounded border border-red-500/40 bg-neutral-950/90 px-3 py-1.5 text-xs text-red-400 shadow-md backdrop-blur"
+        >
           {refusal}
         </p>
       )}

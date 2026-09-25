@@ -32,12 +32,14 @@
  * the selection moves on.
  */
 
-import { useEffect, useState, type ReactElement } from 'react';
+import { ImageUp } from 'lucide-react';
+import { useEffect, useState, type CSSProperties, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
 import { useErrorMessage } from '@/hooks/useErrorMessage';
+import { cn } from '@/lib/cn';
 import {
   referenceApplyPalette,
   referenceDelete,
@@ -130,7 +132,7 @@ export function ReferencePanel(): ReactElement {
   }, [assetId, selected]);
 
   if (assetId === null) {
-    return <p className="text-xs text-fg-secondary">{t('noDocument')}</p>;
+    return <p className="text-xs text-neutral-500">{t('noDocument')}</p>;
   }
 
   const chosen = references.find((reference) => reference.id === selected) ?? null;
@@ -187,25 +189,30 @@ export function ReferencePanel(): ReactElement {
   const refusal = error !== null ? translateError(error) : null;
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-baseline justify-between gap-2">
-        <h3 className="text-xs font-semibold text-fg-primary">{t('title')}</h3>
+    <div className="flex flex-col gap-4 text-neutral-100">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+          {t('title')}
+        </h3>
         <Button
-          variant="ghost"
-          className="px-2 py-1 text-[11px]"
+          variant="secondary"
+          className="px-2.5 py-1 text-[11px]"
           disabled={importing}
           onClick={() => {
             void handleImport();
           }}
         >
+          <ImageUp aria-hidden="true" className="w-3.5 h-3.5 text-sky-400" />
           {importing ? t('importing') : t('import')}
         </Button>
       </div>
 
       {references.length === 0 ? (
-        <p className="text-xs text-fg-secondary">{t('empty')}</p>
+        <p className="rounded border border-dashed border-neutral-800 px-3 py-6 text-center text-xs text-neutral-500">
+          {t('empty')}
+        </p>
       ) : (
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1.5">
           {references.map((reference) => (
             <button
               key={reference.id}
@@ -214,7 +221,12 @@ export function ReferencePanel(): ReactElement {
               onClick={() => {
                 setSelected(reference.id);
               }}
-              className="rounded-sm border border-line-subtle px-2 py-1 text-[11px] text-fg-secondary aria-pressed:border-accent aria-pressed:text-fg-primary"
+              className={cn(
+                'max-w-full truncate rounded border px-2.5 py-1 text-[11px] font-medium',
+                reference.id === selected
+                  ? 'bg-neutral-900 border-pink-500 text-pink-400'
+                  : 'border-neutral-800 text-neutral-400 hover:border-neutral-700 hover:text-neutral-100',
+              )}
             >
               {reference.name}
             </button>
@@ -223,65 +235,69 @@ export function ReferencePanel(): ReactElement {
       )}
 
       {chosen !== null && (
-        <div className="flex flex-col gap-2 rounded-sm border border-line-subtle bg-surface-content-alt p-2">
-          {preview !== null && (
-            <img
-              src={preview}
-              alt={t('previewAlt', { name: chosen.name })}
-              style={{ imageRendering: 'pixelated' }}
-              className="max-h-40 w-auto self-start"
-            />
-          )}
-          <p className="text-[11px] font-medium text-fg-primary">{chosen.name}</p>
-          <p className="text-[11px] text-fg-secondary">
-            {t('size', { width: chosen.width, height: chosen.height })}
-          </p>
-          <p className="text-[11px] text-fg-secondary">
-            {chosen.detected === null
-              ? t('noGrid')
-              : t('grid', {
-                  width: chosen.detected.cellWidth,
-                  height: chosen.detected.cellHeight,
-                  confidence: Math.round(chosen.detected.confidence * 100),
-                })}
-          </p>
-          {chosen.palette.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {chosen.palette.map((hex, index) => (
-                <span
-                  key={`${hex}-${index}`}
-                  title={hex}
-                  className="h-5 w-5 rounded-sm border border-line-subtle"
-                  style={{ backgroundColor: hex }}
-                />
-              ))}
-            </div>
-          )}
-          {chosen.warnings.map((code) => (
-            <p key={code} className="text-[11px] text-fg-secondary">
-              {t(`warnings.${code}`, { defaultValue: code })}
-            </p>
-          ))}
+        <div className="flex flex-col gap-3 rounded border border-neutral-800 bg-neutral-900/40 p-3 sm:flex-row">
+          <div className="checkerboard-pattern flex h-40 w-full shrink-0 items-center justify-center overflow-hidden rounded border border-neutral-800 p-2 sm:w-40">
+            {preview !== null && (
+              <img
+                src={preview}
+                alt={t('previewAlt', { name: chosen.name })}
+                className="pixelated max-h-full max-w-full object-contain"
+              />
+            )}
+          </div>
 
-          <div className="mt-1 flex gap-2">
-            <Button
-              variant="secondary"
-              className="px-2 py-1 text-[11px]"
-              onClick={() => {
-                void handleApplyPalette();
-              }}
-            >
-              {t('applyPalette')}
-            </Button>
-            <Button
-              variant="danger"
-              className="px-2 py-1 text-[11px]"
-              onClick={() => {
-                setConfirmingDelete(true);
-              }}
-            >
-              {t('delete')}
-            </Button>
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <p className="truncate text-xs font-semibold text-neutral-100">{chosen.name}</p>
+            <p className="text-[11px] font-medium text-pink-400">
+              {t('size', { width: chosen.width, height: chosen.height })}
+            </p>
+            <p className="text-[11px] text-neutral-400">
+              {chosen.detected === null
+                ? t('noGrid')
+                : t('grid', {
+                    width: chosen.detected.cellWidth,
+                    height: chosen.detected.cellHeight,
+                    confidence: Math.round(chosen.detected.confidence * 100),
+                  })}
+            </p>
+            {chosen.palette.length > 0 && (
+              <div className="grid grid-cols-8 gap-1 rounded border border-neutral-800/80 bg-neutral-900/60 p-1.5">
+                {chosen.palette.map((hex, index) => (
+                  <span
+                    key={`${hex}-${index}`}
+                    title={hex}
+                    className="palette-swatch aspect-square rounded-sm ring-1 ring-neutral-800"
+                    style={{ '--swatch': hex } as CSSProperties}
+                  />
+                ))}
+              </div>
+            )}
+            {chosen.warnings.map((code) => (
+              <p key={code} className="text-[11px] text-amber-400">
+                {t(`warnings.${code}`, { defaultValue: code })}
+              </p>
+            ))}
+
+            <div className="mt-auto flex flex-wrap gap-2 pt-1">
+              <Button
+                variant="primary"
+                className="px-2.5 py-1 text-[11px]"
+                onClick={() => {
+                  void handleApplyPalette();
+                }}
+              >
+                {t('applyPalette')}
+              </Button>
+              <Button
+                variant="ghost"
+                className="px-2.5 py-1 text-[11px] hover:text-red-400"
+                onClick={() => {
+                  setConfirmingDelete(true);
+                }}
+              >
+                {t('delete')}
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -289,7 +305,7 @@ export function ReferencePanel(): ReactElement {
       {refusal !== null && (
         <p
           role="alert"
-          className="rounded-sm bg-surface-content-alt p-2 text-[11px] text-[color:var(--severity-error)]"
+          className="rounded border border-red-500/40 bg-red-500/10 p-2 text-[11px] text-red-400"
         >
           {refusal}
         </p>
@@ -307,7 +323,7 @@ export function ReferencePanel(): ReactElement {
           void handleDelete();
         }}
       >
-        <p className="text-xs text-fg-secondary">
+        <p className="text-xs leading-relaxed text-neutral-400">
           {chosen === null ? '' : t('deleteBody', { name: chosen.name })}
         </p>
       </Dialog>

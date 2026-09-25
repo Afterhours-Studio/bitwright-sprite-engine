@@ -44,8 +44,9 @@ const ALIGN: Record<OverlayAlign, string> = {
  * snap. `hidden` would remove it from the layout immediately and skip the
  * transition, so visibility and pointer events are what get toggled.
  *
- * Sits on --surface-float, which is the only surface above a card, and is held
- * apart from it by shadow in light mode and by a lightness step in dark.
+ * Drawn like the stage's floating panels - a translucent near-black with a
+ * blur behind it and a hairline border - so a dropdown opened over the
+ * checkered workspace reads as the same kind of thing as the zoom box.
  */
 export function Overlay({
   open,
@@ -58,7 +59,7 @@ export function Overlay({
       role="presentation"
       className={cn(
         'absolute top-[calc(100%+6px)] z-50 min-w-full',
-        'rounded-md border border-line bg-surface-float p-1 shadow-md',
+        'rounded border border-neutral-800 bg-neutral-950/90 p-1 text-neutral-200 shadow-md backdrop-blur',
         'origin-top transition-[opacity,transform] duration-150',
         ALIGN[align],
         open

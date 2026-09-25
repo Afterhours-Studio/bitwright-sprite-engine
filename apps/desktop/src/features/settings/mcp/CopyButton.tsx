@@ -20,6 +20,7 @@ import { useEffect, useRef, useState, type ReactElement } from 'react';
 
 import { Button } from '@/components/ui/Button';
 import { copyToClipboard } from '@/features/settings/mcp/clipboard';
+import { cn } from '@/lib/cn';
 
 /** How long the confirmation stays before the label reverts. */
 const CONFIRM_MS = 2000;
@@ -73,8 +74,12 @@ export function CopyButton({
 
   return (
     <Button
-      variant="ghost"
-      className="px-2 py-1 text-xs"
+      variant="secondary"
+      className={cn(
+        'px-2 py-1 text-[11px]',
+        outcome === 'copied' && 'border-emerald-500/60 text-emerald-400 hover:text-emerald-400',
+        outcome === 'failed' && 'border-red-500/60 text-red-400 hover:text-red-400',
+      )}
       onClick={onClick}
       data-slot="copy-outcome"
       data-outcome={outcome}

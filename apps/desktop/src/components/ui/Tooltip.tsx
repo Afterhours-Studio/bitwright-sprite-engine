@@ -345,8 +345,8 @@ export function Tooltip({ label, side = 'bottom', children }: TooltipProps): Rea
         style={placed}
         className={cn(
           'pointer-events-none fixed z-50 whitespace-nowrap',
-          'rounded-sm border border-line bg-surface-float px-2 py-1 shadow-md',
-          'text-xs font-medium text-fg-primary',
+          'rounded border border-neutral-800 bg-neutral-950/90 px-2 py-1 shadow-md backdrop-blur',
+          'text-[11px] font-medium text-neutral-200',
           'transition-[opacity,transform] duration-150',
           showing ? 'scale-100 opacity-100' : 'scale-95 opacity-0',
           placement === 'top' ? 'origin-bottom' : 'origin-top',

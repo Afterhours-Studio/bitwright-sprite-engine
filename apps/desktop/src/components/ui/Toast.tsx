@@ -29,18 +29,16 @@ import {
 /**
  * The severity colours.
  *
- * Written as arbitrary values reading the custom property directly, because
- * these four tokens are not in the Tailwind theme: that file is shared, and a
- * severity is a marker rather than a surface or a foreground, so it does not
- * belong in the surface model's own naming. The values themselves live in
- * `styles/tokens.css` beside every other colour, which is what keeps them in
- * the contrast check and following the theme.
+ * The studio's own accents, at the 400 step the layout uses for coloured
+ * text on its near-black panels: sky for information, as for every readout,
+ * emerald and red as the steps strip marks passes and failures, amber for a
+ * warning.
  */
 const TONE: Record<ToastSeverity, string> = {
-  info: 'text-[color:var(--severity-info)]',
-  success: 'text-[color:var(--severity-success)]',
-  warning: 'text-[color:var(--severity-warning)]',
-  error: 'text-[color:var(--severity-error)]',
+  info: 'text-sky-400',
+  success: 'text-emerald-400',
+  warning: 'text-amber-400',
+  error: 'text-red-400',
 };
 
 /**
@@ -297,8 +295,8 @@ export function Toast({ toast }: ToastProps): ReactElement {
               // one line. At 336px the text column was 236px, and a message of
               // the length these carry needs about 270. Capped against the
               // viewport so a narrow window cannot push it off the edge.
-              'flex w-[400px] max-w-[calc(100vw-3rem)] items-start gap-3 rounded-md p-3',
-              'border border-line bg-surface-float shadow-md',
+              'flex w-[400px] max-w-[calc(100vw-3rem)] items-start gap-3 rounded p-3',
+              'border border-neutral-800 bg-neutral-950/90 text-neutral-100 shadow-2xl backdrop-blur',
             )}
           >
             <SeverityIcon severity={toast.severity} />
@@ -308,14 +306,14 @@ export function Toast({ toast }: ToastProps): ReactElement {
                 // `pretty` rather than the default, so a headline that does
                 // have to wrap breaks into even lines instead of leaving one
                 // word stranded on the second.
-                <p className="text-sm font-medium leading-snug text-fg-primary [text-wrap:pretty]">
+                <p className="text-xs font-semibold leading-snug text-neutral-100 [text-wrap:pretty]">
                   {title}
                 </p>
               )}
               <p
                 className={cn(
-                  'break-words text-sm leading-snug',
-                  title === null ? 'text-fg-primary' : 'mt-1 text-fg-secondary',
+                  'break-words text-xs leading-snug',
+                  title === null ? 'text-neutral-100' : 'mt-1 text-neutral-400',
                 )}
               >
                 {message}

@@ -98,10 +98,10 @@ export function Menu({
           setOpenGroup(null);
         }}
         className={cn(
-          // Matches IconButton, which matches the dock's rails.
-          'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
-          'text-fg-secondary transition-colors hover:text-fg-primary',
-          open ? 'bg-surface-content-alt' : 'bg-surface-content shadow-sm',
+          // Matches IconButton.
+          'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded',
+          'transition-colors hover:text-neutral-100',
+          open ? 'bg-neutral-800 text-neutral-100' : 'text-neutral-400 hover:bg-neutral-800',
         )}
       >
         {children}
@@ -126,11 +126,11 @@ export function Menu({
                   setOpenGroup((current) => (current === group.id ? null : group.id));
                 }}
                 className={cn(
-                  'flex w-full items-center justify-between gap-2 rounded-sm px-3 py-2',
-                  'text-left text-sm transition-colors',
+                  'flex w-full items-center justify-between gap-2 rounded px-2.5 py-1.5',
+                  'text-left text-xs transition-colors',
                   openGroup === group.id
-                    ? 'bg-surface-content-alt text-fg-primary'
-                    : 'bg-transparent text-fg-secondary',
+                    ? 'bg-neutral-800 text-neutral-100'
+                    : 'bg-transparent text-neutral-300',
                 )}
               >
                 <span>{group.label}</span>
@@ -151,7 +151,7 @@ export function Menu({
                   // guess at, and these are the only words explaining what
                   // the item does.
                   'absolute start-[calc(100%+4px)] top-0 z-50 w-max min-w-52 max-w-80',
-                  'rounded-md border border-line bg-surface-float p-1 shadow-md',
+                  'rounded border border-neutral-800 bg-neutral-950/90 p-1 shadow-md backdrop-blur',
                   'origin-top-left transition-[opacity,transform] duration-150',
                   openGroup === group.id
                     ? 'pointer-events-auto scale-100 opacity-100'
@@ -172,11 +172,11 @@ export function Menu({
                           close();
                         }}
                         className={cn(
-                          'flex w-full items-center justify-between gap-4 rounded-sm px-3 py-2',
-                          'text-left text-sm transition-colors',
+                          'flex w-full items-center justify-between gap-4 rounded px-2.5 py-1.5',
+                          'text-left text-xs transition-colors',
                           item.disabled === true
-                            ? 'cursor-not-allowed text-fg-muted'
-                            : 'text-fg-secondary hover:bg-surface-content-alt hover:text-fg-primary',
+                            ? 'cursor-not-allowed text-neutral-600'
+                            : 'text-neutral-300 hover:bg-neutral-800 hover:text-neutral-100',
                         )}
                       >
                         <span className="flex items-center gap-2">
@@ -184,7 +184,7 @@ export function Menu({
                             // A fixed width whether or not the tick is drawn,
                             // so the labels in a group stay on one left edge
                             // instead of shifting as things are toggled.
-                            <span aria-hidden="true" className="w-3 shrink-0">
+                            <span aria-hidden="true" className="w-3 shrink-0 text-sky-400">
                               {item.checked && (
                                 <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none">
                                   <path
@@ -201,7 +201,9 @@ export function Menu({
                           <span>{item.label}</span>
                         </span>
                         {item.accelerator !== undefined && (
-                          <span className="shrink-0 text-xs text-fg-muted">{item.accelerator}</span>
+                          <span className="shrink-0 text-[10px] text-neutral-500">
+                            {item.accelerator}
+                          </span>
                         )}
                       </button>
                     </li>

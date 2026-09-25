@@ -31,6 +31,7 @@
  * switching between them.
  */
 
+import { Download } from 'lucide-react';
 import { useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -169,6 +170,8 @@ export function ExportDialog({ assetId, open, onClose }: ExportDialogProps): Rea
     <Dialog
       open={open}
       title={t('title')}
+      icon={<Download />}
+      size="md"
       confirmLabel={exporting ? t('exporting') : t('export')}
       confirmDisabled={prefs.directory === null || exporting}
       onDismiss={onClose}
@@ -182,8 +185,8 @@ export function ExportDialog({ assetId, open, onClose }: ExportDialogProps): Rea
         readOnly
         trailing={
           <Button
-            variant="ghost"
-            className="px-2 py-1 text-[11px]"
+            variant="secondary"
+            className="px-2 py-0.5 text-[11px]"
             onClick={() => {
               void chooseFolder();
             }}
@@ -211,20 +214,20 @@ export function ExportDialog({ assetId, open, onClose }: ExportDialogProps): Rea
         }}
       />
 
-      <label className="flex items-center gap-2 text-xs font-medium text-fg-secondary">
+      <label className="flex items-center gap-2 text-[11px] font-medium text-neutral-300">
         <input
           type="checkbox"
           checked={overwrite}
           onChange={(event) => {
             setOverwrite(event.target.checked);
           }}
-          className="h-3.5 w-3.5 rounded-sm border-line-input"
+          className="h-3.5 w-3.5 rounded-sm border-neutral-700 accent-pink-600"
         />
         {t('overwrite')}
       </label>
 
       {result !== null && (
-        <p className="text-xs text-fg-secondary">
+        <p className="rounded border border-emerald-500/30 bg-emerald-500/10 p-2 text-[11px] break-all text-emerald-400">
           {t('success', { path: result.path, width: result.width, height: result.height })}
         </p>
       )}
@@ -233,12 +236,12 @@ export function ExportDialog({ assetId, open, onClose }: ExportDialogProps): Rea
         <div className="flex flex-col gap-1">
           <p
             role="alert"
-            className="rounded-sm bg-surface-content-alt p-2 text-[11px] text-[color:var(--severity-error)]"
+            className="rounded border border-red-500/40 bg-red-500/10 p-2 text-[11px] text-red-400"
           >
             {refusal}
           </p>
           {error === 'export.exists' && (
-            <p className="text-[11px] text-fg-secondary">{t('existsHint')}</p>
+            <p className="text-[11px] text-neutral-500">{t('existsHint')}</p>
           )}
         </div>
       )}

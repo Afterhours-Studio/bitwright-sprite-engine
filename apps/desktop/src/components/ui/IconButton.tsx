@@ -27,11 +27,9 @@ export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>
 }
 
 /**
- * A round icon button.
- *
- * The circular affordance is the reference language for anything that is an
- * action rather than a choice: window controls, the theme switch, add buttons.
- * A pill is a choice; a circle is an action.
+ * A square icon button, drawn like the buttons on the stage's floating
+ * panels: no surface at rest, a neutral one under the pointer, so a row of
+ * them reads as one strip of actions rather than a row of boxes.
  *
  * `label` is the accessible name and nothing else. It is deliberately not also
  * written to `title`: that attribute is drawn by the operating system, in its
@@ -53,18 +51,11 @@ export function IconButton({
       aria-label={label}
       disabled={disabled}
       className={cn(
-        // The same corner the dock's rails use. A round button in the title
-        // bar over a rounded-rectangle one in the footer made the two rows
-        // read as parts of different applications.
-        'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
-        'transition-colors',
-        disabled && 'cursor-not-allowed bg-surface-disabled text-fg-muted',
-        !disabled &&
-          danger &&
-          'bg-surface-content text-fg-secondary hover:bg-danger hover:text-danger-fg',
-        !disabled &&
-          !danger &&
-          'bg-surface-content text-fg-secondary shadow-sm hover:text-fg-primary',
+        'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded',
+        'transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-pink-500',
+        disabled && 'cursor-not-allowed text-neutral-600',
+        !disabled && danger && 'text-neutral-400 hover:bg-danger hover:text-danger-fg',
+        !disabled && !danger && 'text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100',
         className,
       )}
       {...rest}
