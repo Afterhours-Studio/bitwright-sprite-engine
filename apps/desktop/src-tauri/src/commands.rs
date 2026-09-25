@@ -551,6 +551,7 @@ pub fn handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + 
         animation::animation_set_playback,
         crate::export::export_png,
         crate::export::export_sheet,
+        crate::export::export_gif,
         crate::export::export_directory,
     ]
 }

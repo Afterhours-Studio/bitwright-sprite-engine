@@ -43,6 +43,9 @@ rand = "0.9.5"
 # webview only ever receives a finished PNG as base64.
 png = "0.17"
 base64 = "0.22"
+# Animations export as GIF. Its palette is built here from the frames' own
+# colours, so the crate's colour quantizer is left out.
+gif = { version = "0.13", default-features = false, features = ["std", "raii_no_panic"] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-window-state = "2"

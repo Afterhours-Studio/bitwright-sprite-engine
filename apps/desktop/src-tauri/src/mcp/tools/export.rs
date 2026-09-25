@@ -14,14 +14,14 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Export: writes a PNG into the MCP exports folder.
+//! Export: writes a PNG, a sheet or an animation's GIF into the MCP exports
+//! folder.
 //!
 //! An agent cannot name a folder. Its files always land under
 //! `crate::export::exports_root()/<safe project folder>/`, which is created
 //! from the project's own name the same way a file name is made safe, so a
 //! tool call can never write anywhere else on disk.
 
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
@@ -74,15 +74,14 @@ fn lock_failed<T>(_: T) -> ToolError {
 /// of the store by the time it is called — callers create the folder after
 /// releasing the store lock, so the filesystem call never holds it up.
 fn project_folder(root: &Path, project_name: &str, project_id: Uuid) -> Result<PathBuf, ToolError> {
-    let dir = root.join(export::safe_folder_name(project_name, project_id));
-    fs::create_dir_all(&dir).map_err(|error| {
+    export::project_folder(root, project_name, project_id).map_err(|error| {
+        let error = tool_error(error);
         ToolError::new(
-            "export.no_directory",
-            format!("{}: {error}", dir.display()),
+            &error.code,
+            error.message,
             "The exports folder could not be created; check the data root is writable.",
         )
-    })?;
-    Ok(dir)
+    })
 }
 
 fn export_result(path: PathBuf, image: &crate::raster::RgbaImage) -> Value {
@@ -206,7 +205,8 @@ fn export_sheet_schema() -> Value {
                 "type": "array",
                 "items": { "type": "string" },
                 "description": "The assets to lay out, in order, all the same size and all in \
-                    one project.",
+                    one project. An animation (its root, or any of its frames) stands for all \
+                    of its frames in timeline order.",
             },
             "columns": {
                 "type": "integer",
@@ -251,19 +251,21 @@ fn export_sheet_at(
             "Pass at least one assetId.",
         ));
     }
-    let mut assets = Vec::with_capacity(args.asset_ids.len());
+    let mut ids = Vec::with_capacity(args.asset_ids.len());
     for raw in &args.asset_ids {
-        assets.push(asset_id(raw)?);
+        ids.push(asset_id(raw)?);
     }
     let scale = args.scale.unwrap_or(1);
-    let columns = args
-        .columns
-        .unwrap_or_else(|| u16::try_from(assets.len()).unwrap_or(u16::MAX));
     let overwrite = args.overwrite.unwrap_or(false);
 
     let arc = host.store();
     let (name, project_name, project_id, image) = {
         let store = arc.lock().map_err(lock_failed)?;
+        let assets = export::sheet_assets(&store, &ids).map_err(tool_error)?;
+        // One row by default, counted after animations expand to their frames.
+        let columns = args
+            .columns
+            .unwrap_or_else(|| u16::try_from(assets.len()).unwrap_or(u16::MAX));
         let first = store.asset_read(assets[0]).map_err(ToolError::from)?;
         for &other in &assets[1..] {
             let record = store.asset_read(other).map_err(ToolError::from)?;
@@ -297,6 +299,103 @@ fn export_sheet(host: &dyn DocumentHost, session: &Session, args: Value) -> Tool
 }
 
 // ---------------------------------------------------------------------------
+// export_gif
+// ---------------------------------------------------------------------------
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ExportGifArgs {
+    asset_id: Option<String>,
+    scale: Option<u8>,
+    name: Option<String>,
+    overwrite: Option<bool>,
+}
+
+fn export_gif_schema() -> Value {
+    json!({
+        "type": "object",
+        "properties": {
+            "assetId": {
+                "type": "string",
+                "description": "Any frame of the animation to export, or a lone asset for a \
+                    one-frame GIF; defaults to the session's open asset.",
+            },
+            "scale": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16,
+                "description": "Integer upscale factor, nearest-neighbour. Defaults to 1.",
+            },
+            "name": {
+                "type": "string",
+                "description": "A file name pattern: {project}, {asset}, {kind} and {scale} \
+                    are substituted ({asset} is the animation's root), then the result is made \
+                    a safe file name ending in .gif. Defaults to '{asset}@{scale}x'.",
+            },
+            "overwrite": {
+                "type": "boolean",
+                "description": "Replace a file already at that name instead of refusing. \
+                    Defaults to false.",
+            },
+        },
+        "additionalProperties": false,
+    })
+}
+
+/// The body of `export_gif`, taking the exports root explicitly so tests
+/// never touch the real one.
+fn export_gif_at(
+    host: &dyn DocumentHost,
+    session: &Session,
+    args: Value,
+    root: &Path,
+) -> ToolResult {
+    let args: ExportGifArgs = parse(args)?;
+    let asset = resolve_asset(session, args.asset_id.as_deref())?;
+    let scale = args.scale.unwrap_or(1);
+    let pattern = args
+        .name
+        .unwrap_or_else(|| export::DEFAULT_GIF_PATTERN.to_string());
+    let overwrite = args.overwrite.unwrap_or(false);
+
+    let arc = host.store();
+    let (name, project_name, project_id, frames) = {
+        let store = arc.lock().map_err(lock_failed)?;
+        let frames = export::render_gif_frames(&store, asset, scale).map_err(tool_error)?;
+        let root_record = store.asset_read(frames.root_id).map_err(ToolError::from)?;
+        let project = store
+            .project_read(root_record.project_id)
+            .map_err(ToolError::from)?;
+        let name = export::gif_file_name(
+            &pattern,
+            &project.name,
+            &root_record.name,
+            &root_record.kind,
+            scale,
+        )
+        .map_err(tool_error)?;
+        (name, project.name, project.id, frames)
+    };
+
+    // Encoding and the folder both happen after the lock is released: the
+    // frames are already rendered, and neither needs the store.
+    let bytes = export::encode_gif(&frames).map_err(tool_error)?;
+    let directory = project_folder(root, &project_name, project_id)?;
+    let path = export::write_file(&directory, &name, &bytes, overwrite).map_err(tool_error)?;
+    Ok(json!({
+        "path": path.to_string_lossy(),
+        "width": frames.width(),
+        "height": frames.height(),
+        "frames": frames.frames(),
+    }))
+}
+
+fn export_gif(host: &dyn DocumentHost, session: &Session, args: Value) -> ToolResult {
+    let root = export::exports_root().map_err(tool_error)?;
+    export_gif_at(host, session, args, &root)
+}
+
+// ---------------------------------------------------------------------------
 
 pub fn tools() -> Vec<ToolSpec> {
     vec![
@@ -312,11 +411,22 @@ pub fn tools() -> Vec<ToolSpec> {
         ToolSpec {
             name: "export_sheet",
             description: "Export several same-sized assets from one project as a single sprite \
-                sheet PNG, laid left to right and wrapped after `columns`. The file goes to \
-                the exports folder, under a folder named for the assets' project; the returned \
-                path is where the person can find it.",
+                sheet PNG, laid left to right and wrapped after `columns`. An animation's id \
+                lays out all of its frames in order. The file goes to the exports folder, under \
+                a folder named for the assets' project; the returned path is where the person \
+                can find it.",
             input_schema: export_sheet_schema,
             handler: export_sheet,
+        },
+        ToolSpec {
+            name: "export_gif",
+            description: "Export an animation as a GIF that loops forever, in its playback \
+                order (pingpong plays 0..n-1 and back to 1) and with each frame's duration; a \
+                lone asset exports a one-frame GIF. Transparent pixels stay transparent. The \
+                file goes to the exports folder, under a folder named for the project; returns \
+                the path, the scaled size and how many frames the GIF holds.",
+            input_schema: export_gif_schema,
+            handler: export_gif,
         },
     ]
 }
@@ -327,6 +437,7 @@ mod tests {
     use crate::mcp::host::HeadlessHost;
     use crate::raster;
     use crate::store::Store;
+    use std::fs;
     use std::process;
     use uuid::Uuid;
 
@@ -573,5 +684,106 @@ mod tests {
                 .collect();
             assert_eq!(entries, vec![expected_dir], "{hostile:?}");
         }
+    }
+
+    /// A three-frame animation rooted at a 4x4 "run", in pingpong.
+    fn make_animation(host: &HeadlessHost, project: Uuid) -> Vec<Uuid> {
+        let root = make_asset(host, project, "run", 4);
+        let arc = host.store();
+        let mut store = arc.lock().unwrap();
+        let root = crate::store::AssetId(root);
+        store.frame_add(root, true).unwrap();
+        let animation = store.frame_add(root, true).unwrap();
+        store.animation_set_playback(root, "pingpong").unwrap();
+        animation
+            .frames
+            .iter()
+            .map(|frame| frame.asset_id.0)
+            .collect()
+    }
+
+    #[test]
+    fn export_gif_writes_the_animation_into_the_project_folder() {
+        let (host, session, project, root) = setup();
+        let frames = make_animation(&host, project);
+
+        let result = export_gif_at(
+            &host,
+            &session,
+            json!({ "assetId": frames[2].to_string(), "scale": 2 }),
+            &root.path,
+        )
+        .unwrap();
+
+        let path = PathBuf::from(result["path"].as_str().unwrap());
+        assert_eq!(
+            path.parent(),
+            Some(demo_project_dir(&root.path, project).as_path())
+        );
+        // Named after the root, whichever frame was passed.
+        assert_eq!(path.file_name().unwrap().to_str().unwrap(), "run@2x.gif");
+        assert_eq!(result["width"], 8);
+        assert_eq!(result["height"], 8);
+        // Pingpong over three frames plays 0, 1, 2, 1.
+        assert_eq!(result["frames"], 4);
+
+        let bytes = fs::read(&path).unwrap();
+        let mut decoder = gif::DecodeOptions::new().read_info(&bytes[..]).unwrap();
+        let mut count = 0;
+        while decoder.read_next_frame().unwrap().is_some() {
+            count += 1;
+        }
+        assert_eq!(count, 4);
+    }
+
+    #[test]
+    fn export_gif_refuses_a_second_export_unless_overwriting() {
+        let (host, session, project, root) = setup();
+        let asset = make_asset(&host, project, "hero", 4);
+        let args = json!({ "assetId": asset.to_string(), "name": "idle" });
+
+        let first = export_gif_at(&host, &session, args.clone(), &root.path).unwrap();
+        assert_eq!(first["frames"], 1);
+        let error = export_gif_at(&host, &session, args, &root.path).unwrap_err();
+        assert_eq!(error.code, "export.exists");
+        export_gif_at(
+            &host,
+            &session,
+            json!({ "assetId": asset.to_string(), "name": "idle", "overwrite": true }),
+            &root.path,
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn export_gif_refuses_an_invalid_scale() {
+        let (host, session, project, root) = setup();
+        let asset = make_asset(&host, project, "hero", 4);
+        let error = export_gif_at(
+            &host,
+            &session,
+            json!({ "assetId": asset.to_string(), "scale": 17 }),
+            &root.path,
+        )
+        .unwrap_err();
+        assert_eq!(error.code, "export.invalid_scale");
+    }
+
+    #[test]
+    fn export_sheet_of_an_animation_lays_out_all_its_frames() {
+        let (host, session, project, root) = setup();
+        let frames = make_animation(&host, project);
+
+        let result = export_sheet_at(
+            &host,
+            &session,
+            json!({ "assetIds": [frames[0].to_string()], "name": "run-sheet" }),
+            &root.path,
+        )
+        .unwrap();
+
+        // Three 4x4 frames in the default single row.
+        assert_eq!(result["width"], 12);
+        assert_eq!(result["height"], 4);
     }
 }

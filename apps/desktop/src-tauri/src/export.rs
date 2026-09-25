@@ -14,15 +14,17 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Export: an explicit "Save As" that writes PNG files into a folder.
+//! Export: an explicit "Save As" that writes PNG and GIF files into a folder.
 //!
 //! Saving inside the document is continuous and never touches the disk as a
-//! file; exporting is the one place a sprite or a sheet leaves the database
-//! as a PNG a person can hand to an engine. An agent exporting through MCP
+//! file; exporting is the one place a sprite, a sheet or an animation leaves
+//! the database as a file a person can hand to an engine. An agent exporting through MCP
 //! cannot name a folder, so its files always land under the exports folder
 //! beneath the data root, which keeps a tool call from ever writing anywhere
 //! else on disk.
 
+use std::borrow::Cow;
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -38,7 +40,7 @@ use crate::store::{AppError, AssetId, Store};
 /// Neither an asset render nor a sheet may exceed this on either side.
 const MAX_EXPORT_SIDE: u32 = 8192;
 
-/// The longest file stem export writes, before the `.png` extension.
+/// The longest file stem export writes, before the `.png` or `.gif` extension.
 const MAX_STEM_CHARS: usize = 120;
 
 /// Windows reserves these names regardless of extension or case. `CONIN$`
@@ -130,6 +132,35 @@ pub fn file_name(
     kind: &str,
     scale: u8,
 ) -> Result<String, CommandError> {
+    named(pattern, project, asset, kind, scale, ".png")
+}
+
+/// [`file_name`] for a GIF: the same substitution and the same safety rules,
+/// ending in `.gif` instead of `.png`.
+///
+/// # Errors
+///
+/// Returns `export.invalid_pattern` as [`file_name`] does.
+pub fn gif_file_name(
+    pattern: &str,
+    project: &str,
+    asset: &str,
+    kind: &str,
+    scale: u8,
+) -> Result<String, CommandError> {
+    named(pattern, project, asset, kind, scale, ".gif")
+}
+
+/// The body of [`file_name`] and [`gif_file_name`]; `extension` is a dot and
+/// three lower-case ASCII letters.
+fn named(
+    pattern: &str,
+    project: &str,
+    asset: &str,
+    kind: &str,
+    scale: u8,
+    extension: &str,
+) -> Result<String, CommandError> {
     let replaced = pattern
         .replace("{project}", project)
         .replace("{asset}", asset)
@@ -147,13 +178,13 @@ pub fn file_name(
     // char boundary, so this cannot panic on a name that ends in a
     // multi-byte character (an asset named entirely in, say, Japanese has no
     // ASCII ".png" tail to match). A match does prove the last four bytes
-    // are the single-byte ASCII characters of ".png" or "..PNG", since a
+    // are the single-byte ASCII characters of ".png" or ".PNG", since a
     // UTF-8 continuation or lead byte always has its high bit set and so can
     // never equal one of those bytes after ASCII-lowercasing — only then is
     // slicing at `len() - 4` known to land on a char boundary.
-    let has_png_extension = safe.to_ascii_lowercase().ends_with(".png");
-    let (mut stem, extension) = if has_png_extension {
-        let split = safe.len() - 4;
+    let has_extension = safe.to_ascii_lowercase().ends_with(extension);
+    let (mut stem, kept) = if has_extension {
+        let split = safe.len() - extension.len();
         (safe[..split].to_string(), safe[split..].to_string())
     } else {
         (safe, String::new())
@@ -166,10 +197,10 @@ pub fn file_name(
         stem = stem.chars().take(MAX_STEM_CHARS).collect();
     }
 
-    Ok(if extension.is_empty() {
-        format!("{stem}.png")
-    } else {
+    Ok(if kept.is_empty() {
         format!("{stem}{extension}")
+    } else {
+        format!("{stem}{kept}")
     })
 }
 
@@ -223,21 +254,8 @@ pub(crate) fn safe_folder_name(project: &str, id: Uuid) -> String {
 /// Returns `export.invalid_scale` when `scale` is outside `1..=16`, or when
 /// the scaled image would exceed [`MAX_EXPORT_SIDE`] on either side.
 pub fn scaled(image: &RgbaImage, scale: u8) -> Result<RgbaImage, CommandError> {
-    if !(1..=16).contains(&scale) {
-        return Err(CommandError::new(
-            "export.invalid_scale",
-            format!("scale {scale} is outside 1..=16"),
-        ));
-    }
+    let (width, height) = scaled_size(image.width, image.height, scale)?;
     let factor = u32::from(scale);
-    let width = u32::from(image.width) * factor;
-    let height = u32::from(image.height) * factor;
-    if width > MAX_EXPORT_SIDE || height > MAX_EXPORT_SIDE {
-        return Err(CommandError::new(
-            "export.invalid_scale",
-            format!("the scaled image {width}x{height} exceeds {MAX_EXPORT_SIDE}px a side"),
-        ));
-    }
 
     let source_width = usize::from(image.width);
     let mut data = vec![0u8; (width as usize) * (height as usize) * 4];
@@ -257,6 +275,31 @@ pub fn scaled(image: &RgbaImage, scale: u8) -> Result<RgbaImage, CommandError> {
         height: height as u16,
         data,
     })
+}
+
+/// The size of a `width` x `height` image scaled by `scale`.
+///
+/// # Errors
+///
+/// Returns `export.invalid_scale` when `scale` is outside `1..=16`, or when
+/// the scaled image would exceed [`MAX_EXPORT_SIDE`] on either side.
+fn scaled_size(width: u16, height: u16, scale: u8) -> Result<(u32, u32), CommandError> {
+    if !(1..=16).contains(&scale) {
+        return Err(CommandError::new(
+            "export.invalid_scale",
+            format!("scale {scale} is outside 1..=16"),
+        ));
+    }
+    let factor = u32::from(scale);
+    let width = u32::from(width) * factor;
+    let height = u32::from(height) * factor;
+    if width > MAX_EXPORT_SIDE || height > MAX_EXPORT_SIDE {
+        return Err(CommandError::new(
+            "export.invalid_scale",
+            format!("the scaled image {width}x{height} exceeds {MAX_EXPORT_SIDE}px a side"),
+        ));
+    }
+    Ok((width, height))
 }
 
 /// The raw, unscaled render of an asset: a background's tilemap, or any
@@ -412,6 +455,294 @@ fn compose_sheet(tiles: &[RgbaImage], columns: u16, scale: u8) -> Result<RgbaIma
     scaled(&sheet, scale)
 }
 
+/// Every asset a sheet lays out, in order: an asset that belongs to an
+/// animation of more than one frame (its root or any other frame) stands for
+/// all of that animation's frames in position order, so "a sheet of this
+/// animation" is one id rather than a list the caller has to keep in step
+/// with the timeline. A lone asset stands for itself.
+///
+/// # Errors
+///
+/// Returns the store's reason code when an asset is missing.
+pub fn sheet_assets(store: &Store, ids: &[AssetId]) -> Result<Vec<AssetId>, CommandError> {
+    let mut assets = Vec::with_capacity(ids.len());
+    for &id in ids {
+        let animation = store.animation_read(id).map_err(app_failed)?;
+        if animation.frames.len() > 1 {
+            assets.extend(animation.frames.iter().map(|frame| frame.asset_id));
+        } else {
+            assets.push(id);
+        }
+    }
+    Ok(assets)
+}
+
+/// The GIF palette index every transparent pixel is written as. Index 0 keeps
+/// the opaque colours at 1..=255, one short of GIF's 256-entry limit.
+const TRANSPARENT_INDEX: u8 = 0;
+
+/// The most opaque colours one GIF palette holds beside the transparent one.
+const MAX_GIF_COLOURS: usize = 255;
+
+/// A pixel at or above this alpha is written opaque; below it, transparent.
+/// GIF has no partial alpha, so the cut sits at half.
+const OPAQUE_ALPHA: u8 = 128;
+
+/// The shortest delay written, in centiseconds. Browsers replace 0 and 1
+/// with a much slower default, so a faster frame would play slower.
+const MIN_GIF_DELAY: u16 = 2;
+
+/// An animation rendered and ordered, ready to encode as a GIF.
+///
+/// Each frame is rendered once at scale 1; `sequence` refers to them by
+/// index, so pingpong's repeated frames cost nothing extra to hold, and
+/// scaling happens on the one-byte palette indices rather than on RGBA.
+pub struct GifFrames {
+    /// The animation's root, whose name the file is named after.
+    pub root_id: AssetId,
+    images: Vec<RgbaImage>,
+    /// Index into `images` and delay in centiseconds, in playback order.
+    sequence: Vec<(usize, u16)>,
+    scale: u8,
+    width: u32,
+    height: u32,
+}
+
+impl GifFrames {
+    /// The GIF's width, after scaling.
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+
+    /// The GIF's height, after scaling.
+    pub fn height(&self) -> u32 {
+        self.height
+    }
+
+    /// How many frames the GIF holds: a pingpong of `n` frames plays
+    /// `2n - 2` of them.
+    pub fn frames(&self) -> usize {
+        self.sequence.len()
+    }
+}
+
+/// A frame duration in milliseconds as a GIF delay: centiseconds, rounded,
+/// never under [`MIN_GIF_DELAY`].
+pub fn gif_delay(duration_ms: u32) -> u16 {
+    let centiseconds = duration_ms.saturating_add(5) / 10;
+    u16::try_from(centiseconds)
+        .unwrap_or(u16::MAX)
+        .max(MIN_GIF_DELAY)
+}
+
+/// The order `count` frames play in under `playback`: forward is
+/// `0..n`, reverse `n-1..=0`, and pingpong `0..n` then back through
+/// `n-2..=1`, so a loop never shows either end frame twice in a row.
+pub fn playback_order(count: usize, playback: &str) -> Vec<usize> {
+    match playback {
+        "reverse" => (0..count).rev().collect(),
+        "pingpong" => (0..count)
+            .chain((1..count.saturating_sub(1)).rev())
+            .collect(),
+        _ => (0..count).collect(),
+    }
+}
+
+/// Renders every frame of the animation `asset` belongs to (a lone asset is
+/// a one-frame animation) and orders them by its playback.
+///
+/// # Errors
+///
+/// Returns the store's reason code when the asset is missing,
+/// `export.invalid_scale` when `scale` is outside `1..=16` or the scaled GIF
+/// would exceed [`MAX_EXPORT_SIDE`] a side, and `export.mixed_sizes` when the
+/// frames are not all one size.
+pub fn render_gif_frames(
+    store: &Store,
+    asset: AssetId,
+    scale: u8,
+) -> Result<GifFrames, CommandError> {
+    let animation = store.animation_read(asset).map_err(app_failed)?;
+    let mut images: Vec<RgbaImage> = Vec::with_capacity(animation.frames.len());
+    let mut size = None;
+    for frame in &animation.frames {
+        let image = render_kind(store, frame.asset_id)?;
+        match images.first() {
+            // The first frame fixes the size, so a scale that is out of
+            // range or too large is refused before rendering the rest.
+            None => size = Some(scaled_size(image.width, image.height, scale)?),
+            Some(first) if (first.width, first.height) != (image.width, image.height) => {
+                return Err(CommandError::new(
+                    "export.mixed_sizes",
+                    "every frame of an animation must share one size",
+                ))
+            }
+            Some(_) => {}
+        }
+        images.push(image);
+    }
+    let (width, height) = size.ok_or_else(|| {
+        CommandError::new("export.empty", "the animation has no frames to export")
+    })?;
+    let sequence = playback_order(animation.frames.len(), &animation.playback)
+        .into_iter()
+        .map(|index| (index, gif_delay(animation.frames[index].duration_ms)))
+        .collect();
+    Ok(GifFrames {
+        root_id: animation.root_id,
+        images,
+        sequence,
+        scale,
+        width,
+        height,
+    })
+}
+
+/// One palette shared by every frame: RGB triples with the transparent entry
+/// first, and each opaque colour's index.
+struct GifPalette {
+    rgb: Vec<u8>,
+    lookup: HashMap<[u8; 3], u8>,
+}
+
+/// Builds the shared palette from the frames' opaque colours. A sprite's
+/// palette is far below 255 colours, so normally every colour gets its own
+/// entry and the GIF is exact. Layer opacity can blend new colours into the
+/// composite, though; past 255, the most used colours are kept and each of
+/// the rest is written as its nearest kept colour.
+fn gif_palette(images: &[RgbaImage]) -> GifPalette {
+    let mut counts: HashMap<[u8; 3], u64> = HashMap::new();
+    for image in images {
+        for pixel in image.data.chunks_exact(4) {
+            if pixel[3] >= OPAQUE_ALPHA {
+                *counts.entry([pixel[0], pixel[1], pixel[2]]).or_default() += 1;
+            }
+        }
+    }
+    let mut ranked: Vec<([u8; 3], u64)> = counts.into_iter().collect();
+    // Colour breaks ties so the same frames always give the same file.
+    ranked.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+
+    let kept: Vec<[u8; 3]> = ranked
+        .iter()
+        .take(MAX_GIF_COLOURS)
+        .map(|(colour, _)| *colour)
+        .collect();
+    let mut rgb = vec![0, 0, 0];
+    let mut lookup = HashMap::with_capacity(ranked.len());
+    for (index, colour) in kept.iter().enumerate() {
+        rgb.extend_from_slice(colour);
+        lookup.insert(*colour, index as u8 + 1);
+    }
+    for (colour, _) in ranked.iter().skip(MAX_GIF_COLOURS) {
+        lookup.insert(*colour, nearest(&kept, *colour));
+    }
+    GifPalette { rgb, lookup }
+}
+
+/// The palette index (1-based, after the transparent entry) of the kept
+/// colour closest to `colour` by squared RGB distance.
+fn nearest(kept: &[[u8; 3]], colour: [u8; 3]) -> u8 {
+    let distance = |other: &[u8; 3]| -> u32 {
+        (0..3)
+            .map(|channel| {
+                let delta = i32::from(colour[channel]) - i32::from(other[channel]);
+                (delta * delta) as u32
+            })
+            .sum()
+    };
+    let (index, _) = kept
+        .iter()
+        .enumerate()
+        .min_by_key(|(_, other)| distance(other))
+        .expect("nearest is only asked once more than 255 colours are kept");
+    index as u8 + 1
+}
+
+/// `image` as palette indices, scaled by `factor` with nearest-neighbour.
+fn indexed(image: &RgbaImage, palette: &GifPalette, factor: usize) -> Vec<u8> {
+    let width = usize::from(image.width);
+    let mut out = Vec::with_capacity(width * factor * usize::from(image.height) * factor);
+    let mut line = Vec::with_capacity(width * factor);
+    for source_row in image.data.chunks_exact(width * 4) {
+        line.clear();
+        for pixel in source_row.chunks_exact(4) {
+            let index = if pixel[3] >= OPAQUE_ALPHA {
+                palette.lookup[&[pixel[0], pixel[1], pixel[2]]]
+            } else {
+                TRANSPARENT_INDEX
+            };
+            line.extend(std::iter::repeat(index).take(factor));
+        }
+        for _ in 0..factor {
+            out.extend_from_slice(&line);
+        }
+    }
+    out
+}
+
+fn gif_failed(error: gif::EncodingError) -> CommandError {
+    CommandError::new("export.encode_failed", error.to_string())
+}
+
+/// Encodes `frames` as a GIF that loops forever. Every frame covers the whole
+/// canvas and is cleared to the background before the next, so a pixel a
+/// frame leaves transparent never shows the frame before it through.
+///
+/// # Errors
+///
+/// Returns `export.encode_failed` when the encoder refuses the image.
+pub fn encode_gif(frames: &GifFrames) -> Result<Vec<u8>, CommandError> {
+    let palette = gif_palette(&frames.images);
+    let factor = usize::from(frames.scale);
+    let buffers: Vec<Vec<u8>> = frames
+        .images
+        .iter()
+        .map(|image| indexed(image, &palette, factor))
+        .collect();
+    // Both sides are at most MAX_EXPORT_SIDE, checked by `scaled_size`.
+    let width = frames.width as u16;
+    let height = frames.height as u16;
+
+    let mut encoder =
+        gif::Encoder::new(Vec::new(), width, height, &palette.rgb).map_err(gif_failed)?;
+    encoder
+        .set_repeat(gif::Repeat::Infinite)
+        .map_err(gif_failed)?;
+    for &(index, delay) in &frames.sequence {
+        let frame = gif::Frame {
+            width,
+            height,
+            delay,
+            dispose: gif::DisposalMethod::Background,
+            transparent: Some(TRANSPARENT_INDEX),
+            buffer: Cow::Borrowed(&buffers[index]),
+            ..gif::Frame::default()
+        };
+        encoder.write_frame(&frame).map_err(gif_failed)?;
+    }
+    encoder
+        .into_inner()
+        .map_err(|error| CommandError::new("export.encode_failed", error.to_string()))
+}
+
+/// A project's folder under the exports root, named by
+/// [`safe_folder_name`] and created if needed.
+///
+/// # Errors
+///
+/// Returns `export.no_directory` when the folder cannot be created.
+pub fn project_folder(root: &Path, project: &str, id: Uuid) -> Result<PathBuf, CommandError> {
+    let directory = root.join(safe_folder_name(project, id));
+    fs::create_dir_all(&directory).map_err(|error| {
+        CommandError::new(
+            "export.no_directory",
+            format!("{}: {error}", directory.display()),
+        )
+    })?;
+    Ok(directory)
+}
+
 /// Writes `image` as `directory/name`, refusing to clobber an existing file
 /// unless `overwrite` is set.
 ///
@@ -458,11 +789,33 @@ pub fn write_png(
             format!("{} is not a directory", directory.display()),
         ));
     }
+    let bytes = raster::png::encode(image).map_err(raster_failed)?;
+    write_file(directory, name, &bytes, overwrite)
+}
+
+/// Writes already encoded `bytes` as `directory/name` under the same rules
+/// as [`write_png`]: through a temporary file, never partial, and never
+/// replacing an existing file unless `overwrite` is set.
+///
+/// # Errors
+///
+/// Returns the same `export.*` codes as [`write_png`].
+pub fn write_file(
+    directory: &Path,
+    name: &str,
+    bytes: &[u8],
+    overwrite: bool,
+) -> Result<PathBuf, CommandError> {
+    if !directory.is_dir() {
+        return Err(CommandError::new(
+            "export.no_directory",
+            format!("{} is not a directory", directory.display()),
+        ));
+    }
     let target = directory.join(name);
 
-    let bytes = raster::png::encode(image).map_err(raster_failed)?;
     let temp = directory.join(format!(".{}.tmp", Uuid::now_v7()));
-    fs::write(&temp, &bytes).map_err(|error| write_failed(&temp, &temp, error))?;
+    fs::write(&temp, bytes).map_err(|error| write_failed(&temp, &temp, error))?;
 
     if overwrite {
         fs::rename(&temp, &target).map_err(|error| write_failed(&temp, &target, error))?;
@@ -576,7 +929,9 @@ pub async fn export_png(
     })
 }
 
-/// Exports several assets of the same size as one sprite sheet PNG.
+/// Exports several assets of the same size as one sprite sheet PNG. An
+/// animation in `asset_ids` stands for all of its frames, as
+/// [`sheet_assets`] expands it.
 ///
 /// # Errors
 ///
@@ -594,6 +949,7 @@ pub async fn export_sheet(
     overwrite: bool,
 ) -> Result<ExportResult, CommandError> {
     let (file_name_value, image) = run(&state, move |store| {
+        let asset_ids = sheet_assets(store, &asset_ids)?;
         let project_name = match asset_ids.first() {
             Some(&first) => {
                 let asset = store.asset_read(first).map_err(app_failed)?;
@@ -620,6 +976,75 @@ pub async fn export_sheet(
         path: path.to_string_lossy().into_owned(),
         width: u32::from(image.width),
         height: u32::from(image.height),
+    })
+}
+
+/// The file name an animation's GIF gets when no path is chosen, as
+/// `export_png`'s default pattern names a PNG.
+pub const DEFAULT_GIF_PATTERN: &str = "{asset}@{scale}x";
+
+/// Exports the animation `asset_id` belongs to (a lone asset exports a
+/// one-frame GIF) as a looping GIF, in its playback order and durations.
+///
+/// `path` is the file the person chose in the system save dialog, which has
+/// already asked before replacing a file there, so it is written over. With
+/// no path the GIF goes to the project's folder under the exports root,
+/// named from the animation's root by [`DEFAULT_GIF_PATTERN`], and an
+/// existing file is refused as an agent's would be.
+///
+/// # Errors
+///
+/// Returns the store's reason code when the asset is missing,
+/// `export.invalid_scale`, `export.mixed_sizes`, `export.encode_failed`, and
+/// this module's other `export.*` codes for the name and the write.
+#[tauri::command]
+pub async fn export_gif(
+    state: State<'_, DocumentState>,
+    asset_id: AssetId,
+    scale: u8,
+    path: Option<String>,
+) -> Result<ExportResult, CommandError> {
+    let (frames, name, project_name, project_id) = run(&state, move |store| {
+        let frames = render_gif_frames(store, asset_id, scale)?;
+        let root = store.asset_read(frames.root_id).map_err(app_failed)?;
+        let project = store.project_read(root.project_id).map_err(app_failed)?;
+        let name = gif_file_name(
+            DEFAULT_GIF_PATTERN,
+            &project.name,
+            &root.name,
+            &root.kind,
+            scale,
+        )?;
+        Ok((frames, name, project.name, project.id))
+    })
+    .await?;
+
+    let bytes = encode_gif(&frames)?;
+    let path = match path {
+        Some(chosen) => {
+            let chosen = PathBuf::from(chosen);
+            let directory = chosen.parent().map(Path::to_path_buf).unwrap_or_default();
+            let file = chosen
+                .file_name()
+                .and_then(|file| file.to_str())
+                .ok_or_else(|| {
+                    CommandError::new(
+                        "export.invalid_pattern",
+                        format!("{} names no file", chosen.display()),
+                    )
+                })?
+                .to_string();
+            write_file(&directory, &file, &bytes, true)?
+        }
+        None => {
+            let directory = project_folder(&exports_root()?, &project_name, project_id)?;
+            write_file(&directory, &name, &bytes, false)?
+        }
+    };
+    Ok(ExportResult {
+        path: path.to_string_lossy().into_owned(),
+        width: frames.width(),
+        height: frames.height(),
     })
 }
 
@@ -1102,5 +1527,265 @@ mod tests {
 
         assert_eq!(code_of(&error), "export.write_failed");
         assert!(!temp.exists());
+    }
+
+    const RED: [u8; 4] = [200, 30, 30, 255];
+    const GREEN: [u8; 4] = [30, 200, 30, 255];
+    const BLUE: [u8; 4] = [30, 30, 200, 255];
+
+    fn slot(index: u8, rgba: [u8; 4]) -> crate::raster::PaletteSlot {
+        crate::raster::PaletteSlot {
+            index,
+            rgba,
+            name: None,
+            ramp: None,
+            step: None,
+        }
+    }
+
+    /// A 2x1 animation of three frames: frame `k` has pixel 0 in colour `k`
+    /// (red, green, blue) and pixel 1 left transparent, each shown for
+    /// `durations[k]` milliseconds.
+    fn animation(durations: [u32; 3]) -> (Store, Vec<AssetId>) {
+        let mut store = Store::memory().unwrap();
+        let project = store.project_create("Demo", "hd2d").unwrap();
+        let root = store
+            .asset_create(project.id, "hero", "character", 2, 1)
+            .unwrap()
+            .id;
+        store
+            .palette_write(
+                root,
+                crate::raster::Palette {
+                    slots: vec![slot(1, RED), slot(2, GREEN), slot(3, BLUE)],
+                    ramps: vec![],
+                },
+            )
+            .unwrap();
+        store.frame_add(root, true).unwrap();
+        let second = store.animation_read(root).unwrap().frames[1].asset_id;
+        store.frame_add(second, true).unwrap();
+        let ids: Vec<AssetId> = store
+            .animation_read(root)
+            .unwrap()
+            .frames
+            .iter()
+            .map(|frame| frame.asset_id)
+            .collect();
+        for (index, &id) in ids.iter().enumerate() {
+            let mut layer = store
+                .layer_read(id, crate::raster::LayerRole("silhouette"))
+                .unwrap();
+            layer.buffer.data[0] = index as u8 + 1;
+            store.layer_write(id, layer).unwrap();
+            store.frame_set_duration(id, durations[index]).unwrap();
+        }
+        (store, ids)
+    }
+
+    /// One decoded GIF frame: its delay and its RGBA pixels.
+    struct Decoded {
+        width: u16,
+        height: u16,
+        infinite: bool,
+        frames: Vec<(u16, Vec<u8>)>,
+    }
+
+    fn decode(bytes: &[u8]) -> Decoded {
+        let mut options = gif::DecodeOptions::new();
+        options.set_color_output(gif::ColorOutput::RGBA);
+        let mut decoder = options.read_info(bytes).unwrap();
+        let mut frames = Vec::new();
+        while let Some(frame) = decoder.read_next_frame().unwrap() {
+            assert_eq!(frame.dispose, gif::DisposalMethod::Background);
+            frames.push((frame.delay, frame.buffer.to_vec()));
+        }
+        Decoded {
+            width: decoder.width(),
+            height: decoder.height(),
+            infinite: decoder.repeat() == gif::Repeat::Infinite,
+            frames,
+        }
+    }
+
+    fn export(store: &Store, asset: AssetId, scale: u8) -> Decoded {
+        let frames = render_gif_frames(store, asset, scale).unwrap();
+        decode(&encode_gif(&frames).unwrap())
+    }
+
+    /// The colour of each frame's first pixel, in the order the GIF plays.
+    fn colours(decoded: &Decoded) -> Vec<[u8; 4]> {
+        decoded
+            .frames
+            .iter()
+            .map(|(_, pixels)| pixels[..4].try_into().unwrap())
+            .collect()
+    }
+
+    #[test]
+    fn gif_delay_rounds_to_centiseconds_with_a_floor_of_two() {
+        assert_eq!(gif_delay(125), 13);
+        assert_eq!(gif_delay(124), 12);
+        assert_eq!(gif_delay(10), 2);
+        assert_eq!(gif_delay(25), 3);
+        assert_eq!(gif_delay(10_000), 1000);
+        assert_eq!(gif_delay(u32::MAX), u16::MAX);
+    }
+
+    #[test]
+    fn playback_order_covers_every_mode() {
+        assert_eq!(playback_order(3, "forward"), vec![0, 1, 2]);
+        assert_eq!(playback_order(3, "reverse"), vec![2, 1, 0]);
+        assert_eq!(playback_order(4, "pingpong"), vec![0, 1, 2, 3, 2, 1]);
+        assert_eq!(playback_order(2, "pingpong"), vec![0, 1]);
+        assert_eq!(playback_order(1, "pingpong"), vec![0]);
+    }
+
+    #[test]
+    fn export_gif_writes_every_frame_forward_with_its_delay_looping_forever() {
+        let (store, ids) = animation([100, 250, 40]);
+        // Any frame stands for the whole animation.
+        let decoded = export(&store, ids[1], 1);
+        assert!(decoded.infinite);
+        assert_eq!((decoded.width, decoded.height), (2, 1));
+        let delays: Vec<u16> = decoded.frames.iter().map(|(delay, _)| *delay).collect();
+        assert_eq!(delays, vec![10, 25, 4]);
+        assert_eq!(colours(&decoded), vec![RED, GREEN, BLUE]);
+    }
+
+    #[test]
+    fn export_gif_honours_reverse_and_pingpong() {
+        let (mut store, ids) = animation([100, 200, 300]);
+        store.animation_set_playback(ids[0], "reverse").unwrap();
+        let reverse = export(&store, ids[0], 1);
+        assert_eq!(colours(&reverse), vec![BLUE, GREEN, RED]);
+        let delays: Vec<u16> = reverse.frames.iter().map(|(delay, _)| *delay).collect();
+        assert_eq!(delays, vec![30, 20, 10]);
+
+        store.animation_set_playback(ids[0], "pingpong").unwrap();
+        let pingpong = export(&store, ids[0], 1);
+        assert_eq!(colours(&pingpong), vec![RED, GREEN, BLUE, GREEN]);
+        assert_eq!(render_gif_frames(&store, ids[0], 1).unwrap().frames(), 4);
+    }
+
+    #[test]
+    fn export_gif_keeps_transparent_pixels_transparent() {
+        let (store, ids) = animation([100, 100, 100]);
+        let decoded = export(&store, ids[0], 1);
+        for (_, pixels) in &decoded.frames {
+            assert_eq!(pixels[7], 0, "pixel 1 was never drawn and must stay clear");
+            assert_eq!(pixels[3], 255);
+        }
+    }
+
+    #[test]
+    fn export_gif_scales_every_frame_nearest_neighbour() {
+        let (store, ids) = animation([100, 100, 100]);
+        let frames = render_gif_frames(&store, ids[0], 3).unwrap();
+        assert_eq!((frames.width(), frames.height()), (6, 3));
+        let decoded = decode(&encode_gif(&frames).unwrap());
+        assert_eq!((decoded.width, decoded.height), (6, 3));
+        let (_, pixels) = &decoded.frames[2];
+        for y in 0..3usize {
+            for x in 0..6usize {
+                let index = (y * 6 + x) * 4;
+                let alpha = pixels[index + 3];
+                if x < 3 {
+                    assert_eq!(&pixels[index..index + 4], &BLUE);
+                } else {
+                    assert_eq!(alpha, 0);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn export_gif_of_a_lone_sprite_is_one_frame() {
+        let (store, ids) = store_with_assets(&[(4, 4)]);
+        let decoded = export(&store, ids[0], 2);
+        assert_eq!(decoded.frames.len(), 1);
+        assert_eq!(decoded.frames[0].0, 13);
+        assert_eq!((decoded.width, decoded.height), (8, 8));
+    }
+
+    #[test]
+    fn export_gif_refuses_a_scale_outside_the_range_or_past_the_cap() {
+        let (store, ids) = animation([100, 100, 100]);
+        for scale in [0, 17] {
+            let error = render_gif_frames(&store, ids[0], scale).err().unwrap();
+            assert_eq!(code_of(&error), "export.invalid_scale");
+        }
+        let (store, ids) = store_with_assets(&[(1024, 1)]);
+        let error = render_gif_frames(&store, ids[0], 9).err().unwrap();
+        assert_eq!(code_of(&error), "export.invalid_scale");
+    }
+
+    #[test]
+    fn encode_gif_maps_more_than_255_colours_to_the_nearest_kept_one() {
+        // Blended layer opacity can make more colours than a GIF holds; the
+        // extras are written as their nearest kept colour, not refused.
+        let data: Vec<u8> = (0..300u32)
+            .flat_map(|value| [(value % 256) as u8, (value / 256) as u8, 7, 255])
+            .collect();
+        let frames = GifFrames {
+            root_id: AssetId(Uuid::now_v7()),
+            images: vec![RgbaImage {
+                width: 300,
+                height: 1,
+                data,
+            }],
+            sequence: vec![(0, 10)],
+            scale: 1,
+            width: 300,
+            height: 1,
+        };
+        let decoded = decode(&encode_gif(&frames).unwrap());
+        assert_eq!(decoded.frames.len(), 1);
+        assert!(decoded.frames[0]
+            .1
+            .chunks_exact(4)
+            .all(|pixel| pixel[3] == 255));
+    }
+
+    #[test]
+    fn gif_file_name_ends_in_gif() {
+        assert_eq!(
+            gif_file_name("{asset}@{scale}x", "p", "hero", "k", 2).unwrap(),
+            "hero@2x.gif"
+        );
+        assert_eq!(
+            gif_file_name("run.GIF", "p", "a", "k", 1).unwrap(),
+            "run.GIF"
+        );
+    }
+
+    #[test]
+    fn write_file_without_overwrite_refuses_an_existing_gif() {
+        let directory = TempDir::new();
+        let (store, ids) = animation([100, 100, 100]);
+        let bytes = encode_gif(&render_gif_frames(&store, ids[0], 1).unwrap()).unwrap();
+        write_file(&directory.path, "run.gif", &bytes, false).unwrap();
+        let error = write_file(&directory.path, "run.gif", &bytes, false).unwrap_err();
+        assert_eq!(code_of(&error), "export.exists");
+        write_file(&directory.path, "run.gif", &bytes, true).unwrap();
+    }
+
+    #[test]
+    fn sheet_assets_expands_an_animation_from_any_of_its_frames() {
+        let (mut store, ids) = animation([100, 100, 100]);
+        let project = store.asset_read(ids[0]).unwrap().project_id;
+        let lone = store
+            .asset_create(project, "rock", "prop", 2, 1)
+            .unwrap()
+            .id;
+        assert_eq!(sheet_assets(&store, &[ids[0]]).unwrap(), ids);
+        assert_eq!(sheet_assets(&store, &[ids[2]]).unwrap(), ids);
+        let mut expected = vec![lone];
+        expected.extend(&ids);
+        assert_eq!(sheet_assets(&store, &[lone, ids[1]]).unwrap(), expected);
+
+        let sheet = render_sheet(&store, &sheet_assets(&store, &[ids[0]]).unwrap(), 3, 1).unwrap();
+        assert_eq!((sheet.width, sheet.height), (6, 1));
+        assert_eq!(&sheet.data[8..12], &GREEN);
     }
 }
