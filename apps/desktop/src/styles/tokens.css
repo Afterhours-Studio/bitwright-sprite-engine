@@ -90,9 +90,25 @@
  * @separation surface-content-alt > surface-float: shadow(--shadow-md)
  * @separation surface-input > surface-disabled: lightness
  *
- * Neutrals keep a small non-zero chroma at hue 85, a warm grey, except where a
- * value is pure white. Chroma of exactly zero elsewhere reads as dead, and
- * slightly blue, on most displays.
+ * Light mode neutrals keep a small non-zero chroma at hue 85, a warm grey,
+ * except where a value is pure white. Dark mode is Tailwind's neutral scale
+ * exactly, chroma zero, because the studio layout is copied one to one from a
+ * reference written in it (see docs/architecture/studio-layout.md).
+ *
+ * ---------------------------------------------------------------------------
+ * THE NEUTRAL SCALE, AND THE VALUES THAT ARE NOT OKLCH
+ * ---------------------------------------------------------------------------
+ *
+ * --neutral-50 ... --neutral-950 are bare sRGB channels, not colours, because
+ * Tailwind's opacity modifier needs them that way: the class `bg-neutral-900/40`
+ * compiles to `rgb(var(--neutral-900) / 0.4)`. Dark mode holds Tailwind's own
+ * values; light mode holds the same scale inverted, 50 swapped with 950 and so
+ * on, so a component written for the dark reference reads the right way round
+ * in light mode with no `dark:` variants. The role tokens above are still what
+ * the contrast check measures; the scale is what the copied layout paints with.
+ *
+ * The studio and workspace colours are sRGB because the reference specifies
+ * them that way, and a converted value would be a paraphrase of it.
  */
 
 :root {
@@ -130,7 +146,8 @@
      mode it is the only thing separating a white field from the white card it
      sits on. */
   --input-border: oklch(0 0 0 / 0.18);
-  --input-border-focus: oklch(0.7 0.15 105);
+  /* Tailwind's pink-500, the reference's focused field. */
+  --input-border-focus: oklch(0.656 0.212 354.3);
 
   /* Text.
        --fg-primary      Body text. Cleared for every text-bearing surface.
@@ -152,10 +169,40 @@
   --fg-on-anchor: oklch(0.96 0.004 85);
 
   /* One saturated accent, used only for the active state and for the single
-     most important value on screen. */
-  --accent: oklch(0.88 0.19 105);
-  --accent-hover: oklch(0.845 0.19 105);
-  --accent-fg: oklch(0.22 0.03 105);
+     most important value on screen: Tailwind's pink-600 (#db2777), the
+     reference's active colour, in both modes. White on it is 4.60:1. Hover
+     goes to pink-700 (#be185d, 6.04:1) rather than lighter to pink-500, in
+     both modes: white on pink-500 is 3.53:1, and the accent's foreground has
+     to stay readable while the pointer is on it. */
+  --accent: oklch(0.592 0.218 0.6);
+  --accent-hover: oklch(0.525 0.199 4);
+  --accent-fg: oklch(1 0 0);
+
+  /* The neutral scale, inverted for light mode. See the header. */
+  --neutral-50: 10 10 10;
+  --neutral-100: 23 23 23;
+  --neutral-200: 38 38 38;
+  --neutral-300: 64 64 64;
+  --neutral-400: 82 82 82;
+  --neutral-500: 115 115 115;
+  --neutral-600: 163 163 163;
+  --neutral-700: 212 212 212;
+  --neutral-800: 229 229 229;
+  --neutral-900: 245 245 245;
+  --neutral-950: 250 250 250;
+
+  /* The home screen's background, its sidebar, and an asset card. The card is
+     the lightest of the three, because a white card on a grey page is what
+     light mode does everywhere else in this file. */
+  --studio-home: #f5f5f5;
+  --studio-home-side: #ededed;
+  --studio-card: #ffffff;
+
+  /* The editor's workspace behind the sprite, and the faint diagonal checker
+     drawn over it. The checker is a tint of the text colour rather than of
+     the background, so it inverts with the mode. */
+  --workspace: rgb(229 231 235);
+  --workspace-checker: rgb(0 0 0 / 0.035);
 
   /* Severity. Four marker colours for a notification: the icon beside it, and
      nothing wider. They are NOT surfaces and NOT general foregrounds, which is
@@ -170,15 +217,17 @@
 
        mode   info  success  warning  error
        light  4.85  5.17     5.11     5.38
-       dark   4.56  5.10     5.12     4.64
+       dark   6.81  7.62     7.65     6.92
 
      The extra headroom is deliberate: it means a later change that puts a
      severity colour on a word, rather than on a glyph, is already legal instead
      of quietly failing at 3.2:1.
 
-     Hues are the four a reader already has a meaning for, and they are the
-     four hues furthest from the yellow accent, so a severity marker is never
-     mistaken for the selected state. Chroma is held down in dark mode for the
+     Hues are the four a reader already has a meaning for. They were chosen
+     against the old yellow accent; with the accent now pink, error red is the
+     nearest of them to it, which is acceptable because a severity colour only
+     ever paints a glyph beside a message and never marks a selected state.
+     Chroma is held down in dark mode for the
      same reason the accent is: full chroma on a dark ground reads as neon. */
   --severity-info: oklch(0.55 0.15 250);
   --severity-success: oklch(0.52 0.14 150);
@@ -233,53 +282,74 @@
 }
 
 [data-theme='dark'] {
-  /* Dark mode uses real lightness steps, every one at least 0.050:
-       canvas 0.255 -> content 0.315          0.060
-       content 0.315 -> content-alt 0.370     0.055
-       content-alt 0.370 -> float 0.420       0.050
-       content 0.315 -> input 0.225           0.090, downward
-       input 0.225 -> disabled 0.285          0.060
-       canvas 0.255 -> anchor 0.175           0.080
-       content 0.315 -> well 0.210            0.105, downward
+  /* Dark mode uses real lightness steps, every one at least 0.050, and every
+     surface but the float is a Tailwind neutral step, so a restyled component
+     and one still on the role tokens paint the same greys:
+       canvas 950 0.145 -> content 900 0.205      0.060
+       content 900 0.205 -> content-alt 800 0.269 0.064
+       content-alt 0.269 -> float 0.321           0.052
+       content 0.205 -> input 950 0.145           0.060, downward
+       input 0.145 -> disabled 900 0.205          0.060
+       canvas 0.145 -> anchor 900 0.205           0.060, upward
+       content 0.205 -> well 950 0.145            0.060, downward
 
-     The whole ladder sits 0.080 higher than it first did. OKLCH lightness is
-     not sRGB lightness: the first set read as reasonable numbers and rendered
-     as an almost black interface, because L is close to the cube root of
-     luminance down here. Measured off a screenshot, the old canvas came out at
-     sRGB 18 and the old input at 11 - not a dark theme, an unlit one. The step
-     sizes are unchanged, so every declared separation still holds; only the
-     floor moved. Check any future value by rendering it, never by reading it. */
-  --surface-canvas: oklch(0.255 0.008 85);
-  --surface-content: oklch(0.315 0.009 85);
-  --surface-content-alt: oklch(0.37 0.01 85);
-  --surface-input: oklch(0.225 0.008 85);
-  --surface-well: oklch(0.21 0.008 85);
-  --surface-float: oklch(0.42 0.011 85);
-  --surface-disabled: oklch(0.285 0.008 85);
-  --surface-anchor: oklch(0.175 0.005 85);
+     The float surface is #333333, between neutral-800 and neutral-700, and not
+     neutral-700 itself: --fg-secondary (neutral-400) on neutral-700 measures
+     4.12:1, and on #333333 it measures 5.01:1. The anchor sits above the
+     canvas rather than below it because below neutral-950 there is no room
+     for a 0.050 step that is not black. */
+  --surface-canvas: oklch(0.145 0 0);
+  --surface-content: oklch(0.205 0 0);
+  --surface-content-alt: oklch(0.269 0 0);
+  --surface-input: oklch(0.145 0 0);
+  --surface-well: oklch(0.145 0 0);
+  --surface-float: oklch(0.321 0 0);
+  --surface-disabled: oklch(0.205 0 0);
+  --surface-anchor: oklch(0.205 0 0);
 
   --border-subtle: oklch(1 0 0 / 0.08);
   --border-default: oklch(1 0 0 / 0.14);
   --border-strong: oklch(1 0 0 / 0.24);
 
   --input-border: oklch(1 0 0 / 0.2);
-  --input-border-focus: oklch(0.85 0.17 105);
+  /* Tailwind's pink-500, the reference's focused field. */
+  --input-border-focus: oklch(0.656 0.212 354.3);
 
-  --fg-primary: oklch(0.96 0.004 85);
-  /* Raised with the surface ladder. surface-float is the lightest surface that
-     carries text, so it sets the floor for this token; at the old 0.760 the
-     secondary text inside a popover fell to 3.94:1. */
-  --fg-secondary: oklch(0.815 0.006 85);
-  --fg-muted: oklch(0.62 0.008 85);
-  --fg-placeholder: oklch(0.64 0.008 85);
-  --fg-on-anchor: oklch(0.94 0.004 85);
+  /* neutral-100 for body text and neutral-400 for secondary text, as in the
+     reference. The placeholder is lighter than the reference's neutral-500:
+     neutral-500 on the neutral-950 input is 4.18:1, and a placeholder is read,
+     so it is held to 4.5:1 (oklch 0.6 is 5.0:1 there). */
+  --fg-primary: oklch(0.97 0 0);
+  --fg-secondary: oklch(0.715 0 0);
+  --fg-muted: oklch(0.556 0 0);
+  --fg-placeholder: oklch(0.6 0 0);
+  --fg-on-anchor: oklch(0.97 0 0);
 
-  /* Yellow at full chroma on a dark ground reads as neon. Both L and chroma
-     come down. Hover goes lighter here and darker in light mode, so that hover
-     always moves away from the surface it sits on. */
-  --accent: oklch(0.85 0.17 105);
-  --accent-hover: oklch(0.885 0.18 105);
-  --accent-fg: oklch(0.18 0.03 105);
+  /* pink-600 with white, the same as light mode; see there for why hover goes
+     to pink-700 rather than lighter. */
+  --accent: oklch(0.592 0.218 0.6);
+  --accent-hover: oklch(0.525 0.199 4);
+  --accent-fg: oklch(1 0 0);
+
+  /* Tailwind's own neutral values. */
+  --neutral-50: 250 250 250;
+  --neutral-100: 245 245 245;
+  --neutral-200: 229 229 229;
+  --neutral-300: 212 212 212;
+  --neutral-400: 163 163 163;
+  --neutral-500: 115 115 115;
+  --neutral-600: 82 82 82;
+  --neutral-700: 64 64 64;
+  --neutral-800: 38 38 38;
+  --neutral-900: 23 23 23;
+  --neutral-950: 10 10 10;
+
+  --studio-home: #141414;
+  --studio-home-side: #121212;
+  --studio-card: #1f1f1f;
+
+  --workspace: rgb(16 18 23);
+  --workspace-checker: rgb(255 255 255 / 0.035);
 
   /* Severity, lifted above --surface-float rather than dropped below it. In
      dark mode a marker has to be lighter than the surface it sits on, and the

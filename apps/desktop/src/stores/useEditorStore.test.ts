@@ -15,8 +15,8 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * What the pixel editor is set to draw with: the clamped ranges, the coupling
- * between the shape flyout and the shape tool, and the view overlays that
+ * What the pixel editor is set to draw with: the tool set and its keys, the
+ * clamped ranges, the two slots, the selection, and the view preferences that
  * outlive the window.
  */
 
@@ -26,12 +26,16 @@ import { saveValue } from '@/lib/persist';
 import {
   DEFAULT_BRUSH_SHAPE,
   DEFAULT_BRUSH_SIZE,
-  DEFAULT_SHAPE,
+  DEFAULT_SECONDARY_SLOT,
   DEFAULT_TOOL,
   FIRST_SLOT,
   MAX_BRUSH_SIZE,
   MAX_SLOT,
   MIN_BRUSH_SIZE,
+  SHAPE_TOOLS,
+  shapeOf,
+  TOOL_KEYS,
+  TOOLS,
   useEditorStore,
 } from '@/stores/useEditorStore';
 
@@ -45,13 +49,19 @@ beforeEach(() => {
   vi.mocked(saveValue).mockClear();
   useEditorStore.setState({
     tool: DEFAULT_TOOL,
-    shape: DEFAULT_SHAPE,
     brushSize: DEFAULT_BRUSH_SIZE,
     brushShape: DEFAULT_BRUSH_SHAPE,
     slot: FIRST_SLOT,
+    secondarySlot: DEFAULT_SECONDARY_SLOT,
+    shapeFill: false,
+    symmetry: 'off',
+    selection: null,
     targetRole: null,
     showPixelGrid: true,
     showCheckerboard: true,
+    tileGuide: 0,
+    showLayersPanel: true,
+    showStepsStrip: true,
   });
 });
 
@@ -62,14 +72,38 @@ describe('setTool', () => {
   });
 });
 
-describe('setShape', () => {
-  it('sets the shape and forces the tool to shape', () => {
-    useEditorStore.getState().setTool('pencil');
-    useEditorStore.getState().setShape('ellipse');
+describe('the tool set', () => {
+  it('lists the rail in order', () => {
+    expect(TOOLS).toEqual([
+      'pencil',
+      'eraser',
+      'fill',
+      'eyedropper',
+      'select',
+      'wand',
+      'move',
+      'pan',
+      'zoom',
+      'line',
+      'curve',
+      'rectangle',
+      'ellipse',
+      'dither',
+      'lighten',
+      'darken',
+    ]);
+  });
 
-    const state = useEditorStore.getState();
-    expect(state.shape).toBe('ellipse');
-    expect(state.tool).toBe('shape');
+  it('gives every tool its own key', () => {
+    expect(TOOLS.map((tool) => TOOL_KEYS[tool]).join(' ')).toBe('B E G I M W V H Z L Q U C J O K');
+  });
+
+  it('reads the figure back from a shape tool, and nothing from the rest', () => {
+    for (const shape of SHAPE_TOOLS) {
+      expect(shapeOf(shape)).toBe(shape);
+    }
+    expect(shapeOf('pencil')).toBeNull();
+    expect(shapeOf('fill')).toBeNull();
   });
 });
 
@@ -140,6 +174,9 @@ describe('setShowPixelGrid', () => {
     expect(saveValue).toHaveBeenCalledWith('bitwright.view', {
       showPixelGrid: false,
       showCheckerboard: true,
+      tileGuide: 0,
+      showLayersPanel: true,
+      showStepsStrip: true,
     });
   });
 });
@@ -152,6 +189,96 @@ describe('setShowCheckerboard', () => {
     expect(saveValue).toHaveBeenCalledWith('bitwright.view', {
       showPixelGrid: true,
       showCheckerboard: false,
+      tileGuide: 0,
+      showLayersPanel: true,
+      showStepsStrip: true,
     });
+  });
+});
+
+describe('setSecondarySlot', () => {
+  it('starts on slot 2', () => {
+    expect(useEditorStore.getInitialState().secondarySlot).toBe(2);
+  });
+
+  it('clamps like the primary slot', () => {
+    useEditorStore.getState().setSecondarySlot(999);
+    expect(useEditorStore.getState().secondarySlot).toBe(MAX_SLOT);
+    useEditorStore.getState().setSecondarySlot(0);
+    expect(useEditorStore.getState().secondarySlot).toBe(FIRST_SLOT);
+  });
+
+  it('falls back to the default on NaN', () => {
+    useEditorStore.getState().setSecondarySlot(Number.NaN);
+    expect(useEditorStore.getState().secondarySlot).toBe(DEFAULT_SECONDARY_SLOT);
+  });
+});
+
+describe('swapSlots', () => {
+  it('trades the primary and the secondary slot', () => {
+    useEditorStore.getState().setSlot(5);
+    useEditorStore.getState().setSecondarySlot(9);
+    useEditorStore.getState().swapSlots();
+
+    const state = useEditorStore.getState();
+    expect(state.slot).toBe(9);
+    expect(state.secondarySlot).toBe(5);
+  });
+});
+
+describe('setShapeFill and setSymmetry', () => {
+  it('sets the fill and the mirror axes, and remembers neither', () => {
+    useEditorStore.getState().setShapeFill(true);
+    useEditorStore.getState().setSymmetry('both');
+
+    const state = useEditorStore.getState();
+    expect(state.shapeFill).toBe(true);
+    expect(state.symmetry).toBe('both');
+    expect(saveValue).not.toHaveBeenCalled();
+  });
+});
+
+describe('selection', () => {
+  it('holds a mask that matches its size, and drops it', () => {
+    const mask = new Uint8Array(6).fill(1);
+    useEditorStore.getState().setSelection({ width: 3, height: 2, mask });
+    expect(useEditorStore.getState().selection).toEqual({ width: 3, height: 2, mask });
+
+    useEditorStore.getState().clearSelection();
+    expect(useEditorStore.getState().selection).toBeNull();
+  });
+
+  it('refuses a mask that does not match its size', () => {
+    expect(() => {
+      useEditorStore.getState().setSelection({ width: 3, height: 2, mask: new Uint8Array(5) });
+    }).toThrow(RangeError);
+    expect(useEditorStore.getState().selection).toBeNull();
+  });
+});
+
+describe('view preferences', () => {
+  it('persists the tile guide and the two panels with the overlays', () => {
+    useEditorStore.getState().setTileGuide(16);
+    useEditorStore.getState().setShowLayersPanel(false);
+    useEditorStore.getState().setShowStepsStrip(false);
+
+    const state = useEditorStore.getState();
+    expect(state.tileGuide).toBe(16);
+    expect(state.showLayersPanel).toBe(false);
+    expect(state.showStepsStrip).toBe(false);
+    expect(saveValue).toHaveBeenLastCalledWith('bitwright.view', {
+      showPixelGrid: true,
+      showCheckerboard: true,
+      tileGuide: 16,
+      showLayersPanel: false,
+      showStepsStrip: false,
+    });
+  });
+
+  it('starts with no tile guide and both panels shown', () => {
+    const initial = useEditorStore.getInitialState();
+    expect(initial.tileGuide).toBe(0);
+    expect(initial.showLayersPanel).toBe(true);
+    expect(initial.showStepsStrip).toBe(true);
   });
 });

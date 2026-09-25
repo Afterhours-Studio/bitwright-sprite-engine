@@ -28,8 +28,14 @@ import { create } from 'zustand';
 
 import type { PlatformInfo, SidecarStatus, VibrancyState } from '@/lib/tauri';
 
-/** The screens the application has. */
-export type Screen = 'editor' | 'settings';
+/**
+ * The screens the application has.
+ *
+ * The application opens on `home`, the asset browser, rather than on an
+ * editor with nothing in it: an empty canvas is a screen that can do nothing
+ * until something else is chosen, and home is where that choice is made.
+ */
+export type Screen = 'home' | 'editor' | 'settings';
 
 /** What the user chose. Dark is the default. */
 export type Theme = 'dark' | 'light' | 'system';
@@ -63,6 +69,14 @@ interface ShellState {
   sidecar: SidecarStatus;
   /** The application's own version, or empty before the shell has answered. */
   appVersion: string;
+  /**
+   * Whether the new sprite dialog is open.
+   *
+   * Shell state rather than a screen's own, because the dialog is opened from
+   * more than one place - the home sidebar, the editor's header, the command
+   * palette - and has to be the same dialog whichever one asked for it.
+   */
+  newSpriteOpen: boolean;
 
   /** Opens a screen. */
   setScreen: (screen: Screen) => void;
@@ -78,6 +92,8 @@ interface ShellState {
   setSidecar: (sidecar: SidecarStatus) => void;
   /** Records the application version reported by the shell. */
   setAppVersion: (version: string) => void;
+  /** Opens or closes the new sprite dialog. */
+  setNewSpriteOpen: (open: boolean) => void;
 }
 
 /**
@@ -163,7 +179,7 @@ export function applyRootAttributes(attributes: {
 }
 
 export const useShellStore = create<ShellState>((set, get) => ({
-  screen: 'editor',
+  screen: 'home',
   theme: storedTheme(),
   platform: null,
   // Opaque tokens are the safe default: an active effect with opaque surfaces
@@ -172,6 +188,7 @@ export const useShellStore = create<ShellState>((set, get) => ({
   vibrancy: { applied: false, effect: '', reason: '' },
   sidecar: { ready: false, port: 0, version: '', error: '', detail: '' },
   appVersion: '',
+  newSpriteOpen: false,
 
   setScreen: (screen) => {
     set({ screen });
@@ -210,5 +227,9 @@ export const useShellStore = create<ShellState>((set, get) => ({
 
   setAppVersion: (version) => {
     set({ appVersion: version });
+  },
+
+  setNewSpriteOpen: (newSpriteOpen) => {
+    set({ newSpriteOpen });
   },
 }));

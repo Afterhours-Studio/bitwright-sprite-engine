@@ -42,7 +42,8 @@ import {
   BRUSH_SHAPES,
   MAX_BRUSH_SIZE,
   MIN_BRUSH_SIZE,
-  SHAPES,
+  SHAPE_TOOLS,
+  shapeOf,
   useEditorStore,
   type BrushShape,
   type Shape,
@@ -103,13 +104,15 @@ export function EditorScreen(): ReactElement {
   }, [assetId]);
 
   const tool = useEditorStore((state) => state.tool);
-  const shape = useEditorStore((state) => state.shape);
+  // Each shape is a tool of its own in the store; the dock still shows them
+  // as one chip, which wears the shape last chosen.
+  const [lastShape, setLastShape] = useState<Shape>('rectangle');
+  const shape = shapeOf(tool) ?? lastShape;
   const brushSize = useEditorStore((state) => state.brushSize);
   const brushShape = useEditorStore((state) => state.brushShape);
   const showPixelGrid = useEditorStore((state) => state.showPixelGrid);
   const showCheckerboard = useEditorStore((state) => state.showCheckerboard);
   const setTool = useEditorStore((state) => state.setTool);
-  const setShape = useEditorStore((state) => state.setShape);
   const setBrushSize = useEditorStore((state) => state.setBrushSize);
   const setBrushShape = useEditorStore((state) => state.setBrushShape);
   const setShowPixelGrid = useEditorStore((state) => state.setShowPixelGrid);
@@ -152,7 +155,7 @@ export function EditorScreen(): ReactElement {
     { value: 'eraser', label: t('dock.toolEraser'), icon: <EraserIcon /> },
     { value: 'fill', label: t('dock.toolFill'), icon: <FillIcon /> },
     {
-      value: 'shape',
+      value: shape,
       label: shapes[shape].label,
       icon: shapes[shape].icon,
       popover: {
@@ -162,13 +165,14 @@ export function EditorScreen(): ReactElement {
         // their outline rather than by their name.
         render: (close: () => void) => (
           <div className="grid grid-cols-2 gap-2">
-            {SHAPES.map((option) => (
+            {SHAPE_TOOLS.map((option) => (
               <button
                 key={option}
                 type="button"
                 aria-current={shape === option}
                 onClick={() => {
-                  setShape(option);
+                  setLastShape(option);
+                  setTool(option);
                   close();
                 }}
                 className={cn(

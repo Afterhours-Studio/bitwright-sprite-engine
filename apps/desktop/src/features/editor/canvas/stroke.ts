@@ -42,7 +42,7 @@
  */
 
 import { brushOffsets, linePoints, pixelPerfect } from '@/lib/pixels';
-import type { BrushShape, Shape, Tool } from '@/stores/useEditorStore';
+import { shapeOf, type BrushShape, type Shape, type Tool } from '@/stores/useEditorStore';
 import type { LayerRole, Op, PixelSet, Point, Shape as OpShape } from '@/types/document';
 
 /**
@@ -61,10 +61,11 @@ export interface StrokeCanvas {
 
 /** Everything a finished drag knows about itself. */
 export interface Stroke {
-  /** The tool, as it was when the drag began. */
+  /**
+   * The tool, as it was when the drag began. A shape tool carries its figure
+   * in its name, which `shapeOf` reads back.
+   */
   tool: Tool;
-  /** The figure the shape tool would lay down, taken at the same moment. */
-  shape: Shape;
   /** The layer the stroke writes to. */
   layer: LayerRole;
   /** The palette slot the stroke writes, 1 to 62. Ignored by the eraser. */
@@ -194,7 +195,8 @@ export function strokeOps(stroke: Stroke): Op[] {
     ];
   }
 
-  if (stroke.tool === 'shape') {
+  const shape = shapeOf(stroke.tool);
+  if (shape !== null) {
     if (!within(first, stroke.canvas) && !within(last, stroke.canvas)) {
       return [];
     }
@@ -202,7 +204,7 @@ export function strokeOps(stroke: Stroke): Op[] {
       {
         kind: 'draw_shape',
         layer: stroke.layer,
-        shape: OP_SHAPES[stroke.shape],
+        shape: OP_SHAPES[shape],
         from: first,
         to: last,
         slot: stroke.slot,
@@ -212,6 +214,14 @@ export function strokeOps(stroke: Stroke): Op[] {
         pixelPerfect: true,
       },
     ];
+  }
+
+  // Only the pencil and the eraser lay down the pixels a drag passed over.
+  // Every other tool either writes through an op of its own above or writes
+  // nothing through a stroke at all - a picker, a selection, a view tool - and
+  // painting its path would put pixels on the sprite nobody drew.
+  if (stroke.tool !== 'pencil' && stroke.tool !== 'eraser') {
+    return [];
   }
 
   const pixels = strokePixels(stroke);

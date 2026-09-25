@@ -40,7 +40,6 @@ const CANVAS = { width: 16, height: 16 };
 function stroke(over: Partial<Stroke>): Stroke {
   return {
     tool: 'pencil',
-    shape: 'rectangle',
     layer: 'flats',
     slot: 7,
     brushSize: 1,
@@ -156,11 +155,30 @@ describe('strokeOps', () => {
     ]);
   });
 
+  it.each(['eyedropper', 'select', 'wand', 'move', 'pan', 'zoom'] as const)(
+    'writes nothing for the %s tool, which does not paint its path',
+    (tool) => {
+      const points = [
+        { x: 1, y: 1 },
+        { x: 4, y: 4 },
+      ];
+      expect(strokeOps(stroke({ tool, points }))).toEqual([]);
+    },
+  );
+
+  it('names the figure a shape tool draws in the op', () => {
+    const points = [
+      { x: 1, y: 1 },
+      { x: 5, y: 3 },
+    ];
+    const [op] = strokeOps(stroke({ tool: 'ellipse', points }));
+    expect(op).toMatchObject({ kind: 'draw_shape', shape: 'ellipse' });
+  });
+
   it('sends a shape as one draw_shape, in the op vocabulary', () => {
     const ops = strokeOps(
       stroke({
-        tool: 'shape',
-        shape: 'rectangle',
+        tool: 'rectangle',
         points: [
           { x: 1, y: 1 },
           { x: 9, y: 9 },

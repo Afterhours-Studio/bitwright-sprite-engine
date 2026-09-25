@@ -30,7 +30,7 @@ import { exportDirectory } from '@/lib/export';
 import { appVersion, openDirectory, openExternal } from '@/lib/tauri';
 import { useShellStore, type Screen } from '@/stores/useShellStore';
 
-const SCREENS: readonly Screen[] = ['editor', 'settings'];
+const SCREENS = ['editor', 'settings'] as const satisfies readonly Screen[];
 
 /**
  * The window's own title bar, drawn because the system decorations are off.

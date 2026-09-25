@@ -22,11 +22,15 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { PlatformInfo, SidecarStatus, VibrancyState } from '@/lib/tauri';
-import { useShellStore } from '@/stores/useShellStore';
+import { storedTheme, useShellStore } from '@/stores/useShellStore';
+
+// Taken before any test changes the store, so it is what a fresh window gets.
+const initial = useShellStore.getState();
 
 beforeEach(() => {
   useShellStore.setState({
     screen: 'editor',
+    newSpriteOpen: false,
     theme: 'dark',
     platform: null,
     vibrancy: { applied: false, effect: '', reason: '' },
@@ -83,5 +87,36 @@ describe('setAppVersion', () => {
   it('records the application version reported by the shell', () => {
     useShellStore.getState().setAppVersion('0.2.0');
     expect(useShellStore.getState().appVersion).toBe('0.2.0');
+  });
+});
+
+describe('initial state', () => {
+  it('opens on the home screen', () => {
+    expect(initial.screen).toBe('home');
+  });
+
+  it('starts with the new sprite dialog closed', () => {
+    expect(initial.newSpriteOpen).toBe(false);
+  });
+
+  it('defaults to the dark theme when nothing is stored', () => {
+    window.localStorage.removeItem('bitwright.theme');
+    expect(storedTheme()).toBe('dark');
+  });
+});
+
+describe('setScreen', () => {
+  it('goes back to the home screen', () => {
+    useShellStore.getState().setScreen('home');
+    expect(useShellStore.getState().screen).toBe('home');
+  });
+});
+
+describe('setNewSpriteOpen', () => {
+  it('opens and closes the new sprite dialog', () => {
+    useShellStore.getState().setNewSpriteOpen(true);
+    expect(useShellStore.getState().newSpriteOpen).toBe(true);
+    useShellStore.getState().setNewSpriteOpen(false);
+    expect(useShellStore.getState().newSpriteOpen).toBe(false);
   });
 });

@@ -99,7 +99,6 @@ export function DocumentCanvas(): ReactElement {
   const write = useDocumentStore((state) => state.write);
 
   const tool = useEditorStore((state) => state.tool);
-  const shape = useEditorStore((state) => state.shape);
   const slot = useEditorStore((state) => state.slot);
   const brushSize = useEditorStore((state) => state.brushSize);
   const brushShape = useEditorStore((state) => state.brushShape);
@@ -203,7 +202,6 @@ export function DocumentCanvas(): ReactElement {
       points: [start],
       stroke: {
         tool,
-        shape,
         layer: target.role,
         slot,
         brushSize,

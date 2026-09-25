@@ -32,6 +32,10 @@ import type reference from '@/locales/en/reference.json';
 import type settings from '@/locales/en/settings.json';
 import type tilemap from '@/locales/en/tilemap.json';
 import type workflow from '@/locales/en/workflow.json';
+import type home from '@/locales/en/home.json';
+import type studio from '@/locales/en/studio.json';
+import type tools from '@/locales/en/tools.json';
+import type panels from '@/locales/en/panels.json';
 
 declare module 'i18next' {
   interface CustomTypeOptions {
@@ -46,6 +50,10 @@ declare module 'i18next' {
       tilemap: typeof tilemap;
       workflow: typeof workflow;
       errors: typeof errors;
+      home: typeof home;
+      studio: typeof studio;
+      tools: typeof tools;
+      panels: typeof panels;
     };
     returnNull: false;
   }
