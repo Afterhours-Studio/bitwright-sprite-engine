@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-import type { ReactElement } from 'react';
+import { useEffect, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DocumentCanvas } from '@/features/editor/canvas/DocumentCanvas';
@@ -26,6 +26,7 @@ import { PalettePanel } from '@/features/editor/tools/PalettePanel';
 import { StepRail } from '@/features/editor/tools/StepRail';
 import { ToolColumn } from '@/features/editor/tools/ToolColumn';
 import { useToolShortcuts } from '@/hooks/useToolShortcuts';
+import { useAnimationStore } from '@/stores/useAnimationStore';
 import { useDocumentStore } from '@/stores/useDocumentStore';
 import { useEditorStore } from '@/stores/useEditorStore';
 
@@ -55,9 +56,17 @@ import { useEditorStore } from '@/stores/useEditorStore';
  * column's and the colour panel's; the view toggles are the header's and the
  * command palette's, which is also where the checkerboard is reached now.
  *
- * The steps strip is in a `relative` container of its own and nothing between
- * it and the window clips upward, so the gate report's popover, which opens
- * above the strip, lays out against the strip and paints over the stage.
+ * THE STRIP UNDER THE STAGE is the timeline or the steps, whichever the
+ * header's toggles chose, or nothing. The steps strip is in a `relative`
+ * container of its own and nothing between it and the window clips upward, so
+ * the gate report's popover, which opens above the strip, lays out against the
+ * strip and paints over the stage.
+ *
+ * THE ANIMATION FOLLOWS THE EDITOR. The animation store reads the open
+ * document's frames only once it is subscribed, so the editor subscribes it
+ * for as long as it is mounted and lets it go on the way out: the timeline,
+ * the header's frame count and the stage's onion skin and playback all read
+ * from it, and none of them is on screen anywhere else.
  */
 export function EditorScreen(): ReactElement {
   const { t } = useTranslation('editor');
@@ -66,7 +75,14 @@ export function EditorScreen(): ReactElement {
   const assetId = useDocumentStore((state) => state.assetId);
   const background = useDocumentStore((state) => state.asset?.kind === 'background');
   const showLayersPanel = useEditorStore((state) => state.showLayersPanel);
-  const showStepsStrip = useEditorStore((state) => state.showStepsStrip);
+  const bottomPanel = useEditorStore((state) => state.bottomPanel);
+
+  useEffect(() => {
+    void useAnimationStore.getState().subscribe();
+    return () => {
+      useAnimationStore.getState().dispose();
+    };
+  }, []);
 
   return (
     <div className="flex flex-col h-full w-full overflow-hidden bg-neutral-950 text-neutral-100">
@@ -95,7 +111,7 @@ export function EditorScreen(): ReactElement {
         </div>
       </div>
 
-      {showStepsStrip && (
+      {bottomPanel === 'steps' && (
         <div className="relative shrink-0">
           <StepRail />
         </div>

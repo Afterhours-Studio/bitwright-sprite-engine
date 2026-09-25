@@ -24,7 +24,8 @@
     "replaceSecondary": "Replace secondary with primary",
     "outline": "Outline from the fills",
     "outlineUnavailable": "Outline: draw on the outline layer to derive it from the fills",
-    "antialias": "Anti-alias"
+    "antialias": "Anti-alias",
+    "playing": "Playing"
   },
   "palette": {
     "title": "Palette",

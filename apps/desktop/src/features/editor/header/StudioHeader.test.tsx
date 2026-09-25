@@ -45,6 +45,7 @@ vi.mock('@/lib/mcp', async (importOriginal) => ({
 
 const tauri = await import('@/lib/tauri');
 import { StudioHeader } from '@/features/editor/header/StudioHeader';
+import { useAnimationStore } from '@/stores/useAnimationStore';
 import { useDocumentStore } from '@/stores/useDocumentStore';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { useProjectStore } from '@/stores/useProjectStore';
@@ -98,10 +99,11 @@ beforeEach(() => {
   useEditorStore.setState({
     showPixelGrid: true,
     showLayersPanel: true,
-    showStepsStrip: true,
+    bottomPanel: 'steps',
     tileGuide: 0,
     targetRole: null,
   });
+  useAnimationStore.setState({ animation: null });
 });
 
 describe('StudioHeader', () => {
@@ -197,12 +199,54 @@ describe('StudioHeader', () => {
     expect(useEditorStore.getState().showLayersPanel).toBe(false);
 
     fireEvent.click(screen.getByRole('button', { name: /Steps/ }));
-    expect(useEditorStore.getState().showStepsStrip).toBe(false);
+    expect(useEditorStore.getState().bottomPanel).toBeNull();
 
     fireEvent.change(screen.getByRole('combobox', { name: 'Tile guide' }), {
       target: { value: '16' },
     });
     expect(useEditorStore.getState().tileGuide).toBe(16);
+  });
+
+  it('switches the bottom panel between the timeline and the steps, and hides the active one', () => {
+    render(<StudioHeader />);
+    const timeline = screen.getByRole('button', { name: /Timeline/ });
+    const steps = screen.getByRole('button', { name: /Steps/ });
+    expect(steps).toHaveAttribute('aria-pressed', 'true');
+    expect(timeline).toHaveAttribute('aria-pressed', 'false');
+
+    fireEvent.click(timeline);
+    expect(useEditorStore.getState().bottomPanel).toBe('timeline');
+    expect(timeline).toHaveAttribute('aria-pressed', 'true');
+    expect(steps).toHaveAttribute('aria-pressed', 'false');
+
+    fireEvent.click(timeline);
+    expect(useEditorStore.getState().bottomPanel).toBeNull();
+
+    fireEvent.click(steps);
+    expect(useEditorStore.getState().bottomPanel).toBe('steps');
+    fireEvent.click(timeline);
+    expect(useEditorStore.getState().bottomPanel).toBe('timeline');
+  });
+
+  it('counts the frames, one for a lone sprite', () => {
+    render(<StudioHeader />);
+    expect(screen.getByRole('button', { name: /Timeline \(1\)/ })).toBeInTheDocument();
+
+    const frame = { durationMs: 125, name: 'Knight', step: 'flats' as const, updatedAt: 0 };
+    act(() => {
+      useAnimationStore.setState({
+        animation: {
+          rootId: 'asset-1',
+          playback: 'forward',
+          frames: [0, 1, 2].map((position) => ({
+            ...frame,
+            assetId: `asset-${String(position + 1)}`,
+            position,
+          })),
+        },
+      });
+    });
+    expect(screen.getByRole('button', { name: /Timeline \(3\)/ })).toBeInTheDocument();
   });
 
   it('counts the step the sprite is on out of eleven', () => {

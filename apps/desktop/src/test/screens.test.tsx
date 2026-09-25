@@ -93,7 +93,7 @@ beforeEach(async () => {
     newSpriteOpen: false,
     sidecar: { ready: true, port: 51234, version: '0.1.0', error: '', detail: '' },
   });
-  useEditorStore.setState({ showLayersPanel: true, showStepsStrip: true, tileGuide: 0 });
+  useEditorStore.setState({ showLayersPanel: true, bottomPanel: 'steps', tileGuide: 0 });
   useCommandPaletteStore.setState({ open: false });
   useProjectStore.setState({ projects: [], assets: [], allAssets: [] });
   useDocumentStore.getState().close();
@@ -209,7 +209,7 @@ describe('editor', () => {
 
     act(() => {
       useEditorStore.getState().setShowLayersPanel(false);
-      useEditorStore.getState().setShowStepsStrip(false);
+      useEditorStore.getState().setBottomPanel(null);
     });
 
     expect(
@@ -333,7 +333,7 @@ describe('command palette', () => {
     expect(useEditorStore.getState().showLayersPanel).toBe(false);
 
     fireEvent.click(openPalette().getByRole('option', { name: en.common.palette.hideStepsStrip }));
-    expect(useEditorStore.getState().showStepsStrip).toBe(false);
+    expect(useEditorStore.getState().bottomPanel).toBeNull();
   });
 
   it('turns the tile guide off only while one is showing', () => {

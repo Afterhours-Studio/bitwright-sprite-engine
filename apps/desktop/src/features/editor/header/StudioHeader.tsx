@@ -39,6 +39,7 @@ import {
   Bell,
   BrushCleaning,
   Download,
+  Film,
   Grid3x3,
   House,
   ImageUp,
@@ -72,6 +73,7 @@ import { useToastAnchor } from '@/hooks/useToastAnchor';
 import { cn } from '@/lib/cn';
 import { useDocumentStore } from '@/stores/useDocumentStore';
 import { TILE_GUIDES, useEditorStore, type TileGuide } from '@/stores/useEditorStore';
+import { useAnimationStore } from '@/stores/useAnimationStore';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { useShellStore } from '@/stores/useShellStore';
 import { useToastStore } from '@/stores/useToastStore';
@@ -322,8 +324,21 @@ export function StudioHeader(): ReactElement {
   const setTileGuide = useEditorStore((state) => state.setTileGuide);
   const showLayersPanel = useEditorStore((state) => state.showLayersPanel);
   const setShowLayersPanel = useEditorStore((state) => state.setShowLayersPanel);
-  const showStepsStrip = useEditorStore((state) => state.showStepsStrip);
-  const setShowStepsStrip = useEditorStore((state) => state.setShowStepsStrip);
+  const bottomPanel = useEditorStore((state) => state.bottomPanel);
+  const setBottomPanel = useEditorStore((state) => state.setBottomPanel);
+  // A lone sprite is an animation of one frame, and one that has not been
+  // read yet is counted the same way rather than as none.
+  const frameCount = useAnimationStore((state) => state.animation?.frames.length ?? 1);
+
+  /**
+   * Presses a bottom panel toggle: the one showing hides, the other takes the
+   * slot, because both live in the one strip under the stage.
+   *
+   * @param panel - The toggle pressed.
+   */
+  const toggleBottomPanel = (panel: 'timeline' | 'steps'): void => {
+    setBottomPanel(bottomPanel === panel ? null : panel);
+  };
 
   const [referenceOpen, setReferenceOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
@@ -457,11 +472,23 @@ export function StudioHeader(): ReactElement {
         </button>
         <button
           type="button"
-          aria-pressed={showStepsStrip}
-          title={t('header.stepsHint')}
-          className={showStepsStrip ? TOGGLE_ON : TOGGLE_OFF}
+          aria-pressed={bottomPanel === 'timeline'}
+          title={t('header.timelineHint')}
+          className={bottomPanel === 'timeline' ? TOGGLE_ON : TOGGLE_OFF}
           onClick={() => {
-            setShowStepsStrip(!showStepsStrip);
+            toggleBottomPanel('timeline');
+          }}
+        >
+          <Film aria-hidden="true" className="w-3.5 h-3.5" />
+          <span>{t('header.timeline', { frames: frameCount })}</span>
+        </button>
+        <button
+          type="button"
+          aria-pressed={bottomPanel === 'steps'}
+          title={t('header.stepsHint')}
+          className={bottomPanel === 'steps' ? TOGGLE_ON : TOGGLE_OFF}
+          onClick={() => {
+            toggleBottomPanel('steps');
           }}
         >
           <ListChecks aria-hidden="true" className="w-3.5 h-3.5" />

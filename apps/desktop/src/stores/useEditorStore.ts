@@ -196,6 +196,16 @@ export const BRUSH_SHAPES: readonly BrushShape[] = ['circle', 'square'];
 /** The symmetry modes, in the order the panel lists them. */
 export const SYMMETRIES: readonly Symmetry[] = ['off', 'horizontal', 'vertical', 'both'];
 
+/**
+ * What the strip under the stage shows: the frames of the animation, the
+ * workflow's steps, or nothing.
+ *
+ * One value rather than a flag per panel, because the two share the one slot
+ * under the stage: showing both would squeeze the stage by two strips' height,
+ * and a pair of flags could say both are shown.
+ */
+export type BottomPanel = 'timeline' | 'steps' | null;
+
 /** The tile guide sizes, in the order the menu lists them, off first. */
 export const TILE_GUIDES: readonly TileGuide[] = [0, 8, 16, 24, 32, 48, 64];
 
@@ -297,8 +307,8 @@ interface EditorState {
   tileGuide: TileGuide;
   /** Whether the layers panel is shown beside the canvas. */
   showLayersPanel: boolean;
-  /** Whether the step strip is shown under the canvas. */
-  showStepsStrip: boolean;
+  /** Which strip is shown under the canvas, or null for none. */
+  bottomPanel: BottomPanel;
 
   /** Chooses the tool. */
   setTool: (tool: Tool) => void;
@@ -330,8 +340,8 @@ interface EditorState {
   setTileGuide: (size: TileGuide) => void;
   /** Shows or hides the layers panel. */
   setShowLayersPanel: (show: boolean) => void;
-  /** Shows or hides the step strip. */
-  setShowStepsStrip: (show: boolean) => void;
+  /** Chooses the strip under the canvas, or null to hide it. */
+  setBottomPanel: (panel: BottomPanel) => void;
 }
 
 /** What the canvas overlays and the editor frame show, as kept between sessions. */
@@ -340,7 +350,7 @@ interface ViewPreferences {
   showCheckerboard: boolean;
   tileGuide: TileGuide;
   showLayersPanel: boolean;
-  showStepsStrip: boolean;
+  bottomPanel: BottomPanel;
 }
 
 /** The view a first run starts with. */
@@ -349,8 +359,11 @@ const DEFAULT_VIEW: ViewPreferences = {
   showCheckerboard: true,
   tileGuide: 0,
   showLayersPanel: true,
-  showStepsStrip: true,
+  bottomPanel: 'steps',
 };
+
+/** Every value `bottomPanel` may hold. */
+const BOTTOM_PANELS: readonly BottomPanel[] = ['timeline', 'steps', null];
 
 /**
  * Clamps a slot into the range the palette alphabet can name.
@@ -379,13 +392,25 @@ function clampSlot(slot: number, fallback: number): number {
  * @returns The stored preferences, with anything missing taken from the
  *   defaults, so a record written by an older version still loads. A stored
  *   tile guide that is not one of the offered sizes falls back to off rather
- *   than drawing a guide no menu entry describes.
+ *   than drawing a guide no menu entry describes. A record from before the
+ *   timeline holds `showStepsStrip` instead of `bottomPanel`; a strip that was
+ *   hidden there stays hidden, rather than coming back because the setting
+ *   was renamed.
  */
 function storedView(): ViewPreferences {
-  const stored = loadValue(STORAGE_KEYS.view) as Partial<ViewPreferences> | null;
-  const view = { ...DEFAULT_VIEW, ...(stored ?? {}) };
+  const loaded = loadValue(STORAGE_KEYS.view);
+  const stored = (
+    typeof loaded === 'object' && loaded !== null ? loaded : {}
+  ) as Partial<ViewPreferences> & { showStepsStrip?: unknown };
+  const { showStepsStrip, ...rest } = stored;
+  const view: ViewPreferences = { ...DEFAULT_VIEW, ...rest };
   if (!TILE_GUIDES.includes(view.tileGuide)) {
     view.tileGuide = DEFAULT_VIEW.tileGuide;
+  }
+  if (!('bottomPanel' in stored)) {
+    view.bottomPanel = showStepsStrip === false ? null : DEFAULT_VIEW.bottomPanel;
+  } else if (!BOTTOM_PANELS.includes(view.bottomPanel)) {
+    view.bottomPanel = DEFAULT_VIEW.bottomPanel;
   }
   return view;
 }
@@ -401,7 +426,7 @@ function remember(state: ViewPreferences): void {
     showCheckerboard: state.showCheckerboard,
     tileGuide: state.tileGuide,
     showLayersPanel: state.showLayersPanel,
-    showStepsStrip: state.showStepsStrip,
+    bottomPanel: state.bottomPanel,
   });
 }
 
@@ -502,8 +527,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     remember(get());
   },
 
-  setShowStepsStrip: (showStepsStrip) => {
-    set({ showStepsStrip });
+  setBottomPanel: (bottomPanel) => {
+    set({ bottomPanel });
     remember(get());
   },
 }));

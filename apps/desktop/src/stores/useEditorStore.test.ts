@@ -61,7 +61,7 @@ beforeEach(() => {
     showCheckerboard: true,
     tileGuide: 0,
     showLayersPanel: true,
-    showStepsStrip: true,
+    bottomPanel: 'steps',
   });
 });
 
@@ -176,7 +176,7 @@ describe('setShowPixelGrid', () => {
       showCheckerboard: true,
       tileGuide: 0,
       showLayersPanel: true,
-      showStepsStrip: true,
+      bottomPanel: 'steps',
     });
   });
 });
@@ -191,7 +191,7 @@ describe('setShowCheckerboard', () => {
       showCheckerboard: false,
       tileGuide: 0,
       showLayersPanel: true,
-      showStepsStrip: true,
+      bottomPanel: 'steps',
     });
   });
 });
@@ -268,18 +268,18 @@ describe('view preferences', () => {
   it('persists the tile guide and the two panels with the overlays', () => {
     useEditorStore.getState().setTileGuide(16);
     useEditorStore.getState().setShowLayersPanel(false);
-    useEditorStore.getState().setShowStepsStrip(false);
+    useEditorStore.getState().setBottomPanel(null);
 
     const state = useEditorStore.getState();
     expect(state.tileGuide).toBe(16);
     expect(state.showLayersPanel).toBe(false);
-    expect(state.showStepsStrip).toBe(false);
+    expect(state.bottomPanel).toBeNull();
     expect(saveValue).toHaveBeenLastCalledWith('bitwright.view', {
       showPixelGrid: true,
       showCheckerboard: true,
       tileGuide: 16,
       showLayersPanel: false,
-      showStepsStrip: false,
+      bottomPanel: null,
     });
   });
 
@@ -287,6 +287,48 @@ describe('view preferences', () => {
     const initial = useEditorStore.getInitialState();
     expect(initial.tileGuide).toBe(0);
     expect(initial.showLayersPanel).toBe(true);
-    expect(initial.showStepsStrip).toBe(true);
+    expect(initial.bottomPanel).toBe('steps');
+  });
+
+  it('switches the bottom panel between the timeline and the steps', () => {
+    useEditorStore.getState().setBottomPanel('timeline');
+    expect(useEditorStore.getState().bottomPanel).toBe('timeline');
+    expect(saveValue).toHaveBeenLastCalledWith(
+      'bitwright.view',
+      expect.objectContaining({ bottomPanel: 'timeline' }),
+    );
+  });
+});
+
+describe('stored view preferences', () => {
+  /**
+   * Loads a fresh copy of the store over a stored record.
+   *
+   * @param stored - What the view key holds.
+   * @returns The store's initial state.
+   */
+  async function loadWith(stored: unknown): Promise<ReturnType<typeof useEditorStore.getState>> {
+    vi.resetModules();
+    const persist = await import('@/lib/persist');
+    vi.mocked(persist.loadValue).mockReturnValueOnce(stored);
+    const fresh = await import('@/stores/useEditorStore');
+    return fresh.useEditorStore.getInitialState();
+  }
+
+  it('keeps a steps strip hidden before the timeline existed hidden', async () => {
+    const state = await loadWith({ showPixelGrid: false, showStepsStrip: false });
+    expect(state.bottomPanel).toBeNull();
+    expect(state.showPixelGrid).toBe(false);
+    expect('showStepsStrip' in state).toBe(false);
+  });
+
+  it('shows the steps for an older record that had the strip on', async () => {
+    expect((await loadWith({ showStepsStrip: true })).bottomPanel).toBe('steps');
+  });
+
+  it('reads a stored bottom panel, and falls back on one it does not know', async () => {
+    expect((await loadWith({ bottomPanel: 'timeline' })).bottomPanel).toBe('timeline');
+    expect((await loadWith({ bottomPanel: null })).bottomPanel).toBeNull();
+    expect((await loadWith({ bottomPanel: 'sideways' })).bottomPanel).toBe('steps');
   });
 });

@@ -54,6 +54,38 @@ const ERASE_ALPHA = 90;
 /** What the eraser's footprint is drawn in: white, at {@link ERASE_ALPHA}. */
 const ERASE_INK: readonly [number, number, number, number] = [255, 255, 255, 255];
 
+/**
+ * Writes a composite into a canvas at the document's own resolution.
+ *
+ * @param element - The canvas, or null before it has mounted.
+ * @param image - The composite, in straight sRGB bytes.
+ */
+function paint(element: HTMLCanvasElement | null, image: RgbaImage): void {
+  if (element === null) {
+    return;
+  }
+  element.width = image.width;
+  element.height = image.height;
+
+  const context = element.getContext('2d');
+  if (context === null) {
+    return;
+  }
+  // `data` crosses the IPC boundary as a JSON number array, which is what
+  // Tauri makes of a `Vec<u8>`. `ImageData` wants a clamped array, and the
+  // copy is one pass over four bytes per pixel - a 48 by 64 sprite is twelve
+  // thousand of them, which is not close to being the slow part of anything.
+  const bytes = new Uint8ClampedArray(image.data);
+  if (bytes.length !== image.width * image.height * 4) {
+    // A buffer that does not match its own stated size would throw out of
+    // `ImageData` and take the editor down with it. It cannot happen while
+    // Rust is the only producer, which is why it leaves the last good
+    // picture alone rather than reporting anything.
+    return;
+  }
+  context.putImageData(new ImageData(bytes, image.width, image.height), 0, 0);
+}
+
 export interface DocumentSurfaceProps {
   /** The composited document, in straight sRGB bytes. */
   image: RgbaImage;
@@ -80,30 +112,7 @@ export function DocumentSurface({
   const canvas = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    const element = canvas.current;
-    if (element === null) {
-      return;
-    }
-    element.width = image.width;
-    element.height = image.height;
-
-    const context = element.getContext('2d');
-    if (context === null) {
-      return;
-    }
-    // `data` crosses the IPC boundary as a JSON number array, which is what
-    // Tauri makes of a `Vec<u8>`. `ImageData` wants a clamped array, and the
-    // copy is one pass over four bytes per pixel - a 48 by 64 sprite is twelve
-    // thousand of them, which is not close to being the slow part of anything.
-    const bytes = new Uint8ClampedArray(image.data);
-    if (bytes.length !== image.width * image.height * 4) {
-      // A buffer that does not match its own stated size would throw out of
-      // `ImageData` and take the editor down with it. It cannot happen while
-      // Rust is the only producer, which is why it leaves the last good
-      // picture alone rather than reporting anything.
-      return;
-    }
-    context.putImageData(new ImageData(bytes, image.width, image.height), 0, 0);
+    paint(canvas.current, image);
   }, [image]);
 
   return (
@@ -113,6 +122,47 @@ export function DocumentSurface({
       aria-label={label}
       className="absolute inset-0"
       style={{ width, height, imageRendering: 'pixelated' }}
+    />
+  );
+}
+
+export interface FrameGhostProps {
+  /** Another frame's composite, in straight sRGB bytes. */
+  image: RgbaImage;
+  /** How opaque it is drawn, 0 to 1. */
+  opacity: number;
+  /** The drawn width, in CSS pixels. */
+  width: number;
+  /** The drawn height, in CSS pixels. */
+  height: number;
+}
+
+/**
+ * A neighbouring frame, drawn faintly under the open one: the onion skin.
+ *
+ * The same canvas as the document's own, stretched the same way, so at every
+ * zoom and pan its pixels sit exactly on the sprite's. The opacity is the
+ * element's rather than baked into the bytes, so the one cached picture of a
+ * frame serves as the previous frame of one and the next frame of another.
+ * It is decoration, so it is hidden from screen readers.
+ *
+ * @param props - The image, its opacity and the size to draw it at.
+ * @returns The canvas.
+ */
+export function FrameGhost({ image, opacity, width, height }: FrameGhostProps): ReactElement {
+  const canvas = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    paint(canvas.current, image);
+  }, [image]);
+
+  return (
+    <canvas
+      ref={canvas}
+      aria-hidden="true"
+      data-testid="onion-skin"
+      className="pointer-events-none absolute inset-0"
+      style={{ width, height, opacity, imageRendering: 'pixelated' }}
     />
   );
 }

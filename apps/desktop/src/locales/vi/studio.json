@@ -14,6 +14,8 @@
     "tileSize": "{{size}} px",
     "layers": "Lớp",
     "layersHint": "Hiện hoặc ẩn bảng lớp",
+    "timeline": "Dòng thời gian ({{frames}})",
+    "timelineHint": "Hiện hoặc ẩn dòng thời gian",
     "steps": "Bước ({{current}}/{{total}})",
     "stepsHint": "Hiện hoặc ẩn dải các bước",
     "agent": "Agent",

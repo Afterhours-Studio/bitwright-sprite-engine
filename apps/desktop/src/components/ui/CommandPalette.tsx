@@ -17,12 +17,14 @@ import { Command, defaultFilter } from 'cmdk';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { stepFrame } from '@/features/editor/canvas/frameStep';
 import { useCommandPaletteShortcut } from '@/hooks/useCommandPaletteShortcut';
 import { useDismiss } from '@/hooks/useDismiss';
 import { cn } from '@/lib/cn';
 import { exportDirectory } from '@/lib/export';
 import { LANGUAGES, setLanguage } from '@/lib/i18n';
 import { openDirectory, openExternal, type ShellResult } from '@/lib/tauri';
+import { useAnimationStore } from '@/stores/useAnimationStore';
 import { useCommandPaletteStore } from '@/stores/useCommandPaletteStore';
 import { useDocumentStore } from '@/stores/useDocumentStore';
 import { TOOLS, TOOL_KEYS, useEditorStore } from '@/stores/useEditorStore';
@@ -132,13 +134,15 @@ function filterCommands(value: string, search: string, keywords?: string[]): num
  *
  * WHAT IS IN IT, AND WHAT IS DELIBERATELY NOT
  *
- * Navigation, view settings, tool choice and a few links. Nothing here writes
- * to a document or removes anything, because a palette is driven by typing and
- * Enter: the user commits to a row after reading one word of it, having got
- * there through a fuzzy match they did not verify. That is a fine way to
- * change screens and an unacceptable way to overwrite a layer or delete a
- * sprite. Expensive and destructive actions stay where they are, on a control
- * the user has looked at.
+ * Navigation, view settings, tool choice, the animation's playback and a few
+ * links. Nothing here overwrites a document or removes anything, because a
+ * palette is driven by typing and Enter: the user commits to a row after
+ * reading one word of it, having got there through a fuzzy match they did not
+ * verify. That is a fine way to change screens and an unacceptable way to
+ * overwrite a layer or delete a sprite. Adding a frame is the one row that
+ * writes, and it only adds: a copy of the open frame, which the timeline's
+ * delete takes away again. Expensive and destructive actions stay where they
+ * are, on a control the user has looked at.
  *
  * Every row says what it will do rather than naming a switch to flip. A view
  * toggle reads "Show pixel grid" or "Hide pixel grid" depending on what is on
@@ -174,13 +178,18 @@ export function CommandPalette(): ReactElement {
   const showCheckerboard = useEditorStore((state) => state.showCheckerboard);
   const tileGuide = useEditorStore((state) => state.tileGuide);
   const showLayersPanel = useEditorStore((state) => state.showLayersPanel);
-  const showStepsStrip = useEditorStore((state) => state.showStepsStrip);
+  const bottomPanel = useEditorStore((state) => state.bottomPanel);
   const setTool = useEditorStore((state) => state.setTool);
   const setShowPixelGrid = useEditorStore((state) => state.setShowPixelGrid);
   const setShowCheckerboard = useEditorStore((state) => state.setShowCheckerboard);
   const setTileGuide = useEditorStore((state) => state.setTileGuide);
   const setShowLayersPanel = useEditorStore((state) => state.setShowLayersPanel);
-  const setShowStepsStrip = useEditorStore((state) => state.setShowStepsStrip);
+  const setBottomPanel = useEditorStore((state) => state.setBottomPanel);
+
+  const hasAnimation = useAnimationStore((state) => state.animation !== null);
+  const frameCount = useAnimationStore((state) => state.animation?.frames.length ?? 0);
+  const playing = useAnimationStore((state) => state.playing);
+  const onionSkin = useAnimationStore((state) => state.onionSkin);
 
   const panel = useRef<HTMLDivElement>(null);
   const field = useRef<HTMLInputElement>(null);
@@ -280,11 +289,23 @@ export function CommandPalette(): ReactElement {
           { show: t('palette.showLayersPanel'), hide: t('palette.hideLayersPanel') },
           setShowLayersPanel,
         ),
+        // The two strips share the slot under the stage, so showing one puts
+        // it in the other's place and hiding the one showing leaves it empty.
+        toggle(
+          'timeline',
+          bottomPanel === 'timeline',
+          { show: t('palette.showTimeline'), hide: t('palette.hideTimeline') },
+          (show) => {
+            setBottomPanel(show ? 'timeline' : null);
+          },
+        ),
         toggle(
           'stepsStrip',
-          showStepsStrip,
+          bottomPanel === 'steps',
           { show: t('palette.showStepsStrip'), hide: t('palette.hideStepsStrip') },
-          setShowStepsStrip,
+          (show) => {
+            setBottomPanel(show ? 'steps' : null);
+          },
         ),
       ];
       // Only while a guide is showing: turning off what is already off would
@@ -300,22 +321,82 @@ export function CommandPalette(): ReactElement {
         });
       }
 
-      result.push(
-        { id: 'view', heading: view, commands: viewCommands },
-        {
-          id: 'tools',
-          heading: tools,
-          commands: TOOLS.map((tool) => ({
-            id: `tool.${tool}`,
-            label: tTools(`tool.${tool}.name`),
-            keywords: [tools],
-            shortcut: TOOL_KEYS[tool],
-            run: () => {
-              setTool(tool);
+      result.push({ id: 'view', heading: view, commands: viewCommands });
+
+      if (hasDocument && hasAnimation) {
+        const animation = t('palette.animation');
+        const animate = useAnimationStore.getState();
+        const animationCommands: PaletteCommand[] = [];
+        // Playing and stepping need a second frame; with one they would be
+        // rows that do nothing.
+        if (frameCount > 1) {
+          animationCommands.push(
+            {
+              id: 'animation.play',
+              label: playing ? t('palette.pause') : t('palette.play'),
+              keywords: [animation],
+              run: () => {
+                if (useAnimationStore.getState().playing) {
+                  animate.pause();
+                } else {
+                  animate.play();
+                }
+              },
             },
-          })),
-        },
-      );
+            {
+              id: 'animation.next',
+              label: t('palette.nextFrame'),
+              keywords: [animation],
+              shortcut: '.',
+              run: () => {
+                stepFrame(1);
+              },
+            },
+            {
+              id: 'animation.previous',
+              label: t('palette.previousFrame'),
+              keywords: [animation],
+              shortcut: ',',
+              run: () => {
+                stepFrame(-1);
+              },
+            },
+          );
+        }
+        animationCommands.push(
+          {
+            id: 'animation.onionSkin',
+            label: onionSkin ? t('palette.hideOnionSkin') : t('palette.showOnionSkin'),
+            keywords: [animation, view],
+            run: () => {
+              animate.toggleOnionSkin();
+            },
+          },
+          {
+            id: 'animation.addFrame',
+            label: t('palette.addFrame'),
+            keywords: [animation],
+            run: () => {
+              void animate.add(true);
+            },
+          },
+        );
+        result.push({ id: 'animation', heading: animation, commands: animationCommands });
+      }
+
+      result.push({
+        id: 'tools',
+        heading: tools,
+        commands: TOOLS.map((tool) => ({
+          id: `tool.${tool}`,
+          label: tTools(`tool.${tool}.name`),
+          keywords: [tools],
+          shortcut: TOOL_KEYS[tool],
+          run: () => {
+            setTool(tool);
+          },
+        })),
+      });
     }
 
     result.push(
@@ -393,7 +474,11 @@ export function CommandPalette(): ReactElement {
     showCheckerboard,
     tileGuide,
     showLayersPanel,
-    showStepsStrip,
+    bottomPanel,
+    hasAnimation,
+    frameCount,
+    playing,
+    onionSkin,
     setScreen,
     setTheme,
     setNewSpriteOpen,
@@ -402,7 +487,7 @@ export function CommandPalette(): ReactElement {
     setShowCheckerboard,
     setTileGuide,
     setShowLayersPanel,
-    setShowStepsStrip,
+    setBottomPanel,
   ]);
 
   return (

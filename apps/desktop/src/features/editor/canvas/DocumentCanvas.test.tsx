@@ -42,11 +42,14 @@ vi.mock('@/hooks/useElementSize', () => ({
 }));
 
 import { DocumentCanvas } from '@/features/editor/canvas/DocumentCanvas';
+import { invoke } from '@/lib/tauri';
 import { rectSelection } from '@/lib/selection';
 import { resources } from '@/lib/i18n';
+import { useAnimationStore } from '@/stores/useAnimationStore';
 import { useDocumentStore } from '@/stores/useDocumentStore';
 import { useEditorStore } from '@/stores/useEditorStore';
-import type { Asset, Layer, Op, StepState } from '@/types/document';
+import type { Animation } from '@/types/animation';
+import type { Asset, Layer, Op, RgbaImage, StepState } from '@/types/document';
 
 const en = resources.en.editor.canvas;
 
@@ -582,5 +585,175 @@ describe('DocumentCanvas', () => {
       fireEvent.wheel(stage, { deltaY: -30, ...at(4, 4) });
     }
     expect(percent).toHaveTextContent('2800 %');
+  });
+});
+
+describe('DocumentCanvas with an animation', () => {
+  /** The store's own `select`, put back after a test replaces it. */
+  const realSelect = useAnimationStore.getState().select;
+
+  /** An opaque picture of the sprite's size, as `document_composite` returns. */
+  const picture: RgbaImage = {
+    width: SIZE,
+    height: SIZE,
+    data: new Array<number>(SIZE * SIZE * 4).fill(255),
+  };
+
+  /**
+   * Frames around the open sprite. Each test names its own, because the
+   * frame pictures are cached by id for the life of the module.
+   *
+   * @param ids - The frames in order; `asset-1` is the open one.
+   * @returns The animation.
+   */
+  function animationOf(ids: string[]): Animation {
+    return {
+      rootId: ids[0] ?? 'asset-1',
+      playback: 'forward',
+      frames: ids.map((assetId, position) => ({
+        assetId,
+        position,
+        durationMs: 125,
+        name: `Knight #${String(position + 1)}`,
+        step: 'flats',
+        updatedAt: 1,
+      })),
+    };
+  }
+
+  /** The asset ids `document_composite` was asked for. */
+  function composited(): unknown[] {
+    return vi
+      .mocked(invoke)
+      .mock.calls.filter(([command]) => command === 'document_composite')
+      .map(([, args]) => (args as { assetId: string }).assetId);
+  }
+
+  beforeEach(() => {
+    vi.mocked(invoke).mockReset();
+    // Every frame but the open one answers; the open one's composite stays
+    // pending, so what is on the stage is only ever another frame's picture.
+    vi.mocked(invoke).mockImplementation((command, args) => {
+      const id = (args as { assetId?: string } | undefined)?.assetId;
+      if (command === 'document_composite' && id !== 'asset-1') {
+        return Promise.resolve({ ok: true, value: picture });
+      }
+      return new Promise(() => undefined);
+    });
+    useAnimationStore.setState({
+      animation: null,
+      playing: false,
+      playhead: 0,
+      onionSkin: false,
+      select: realSelect,
+    });
+  });
+
+  it('draws the previous frame at 30% and the next at 15% under the open one, in the sprite box', async () => {
+    open('flats');
+    useAnimationStore.setState({
+      animation: animationOf(['onion-prev', 'asset-1', 'onion-next']),
+      onionSkin: true,
+    });
+    render(<DocumentCanvas />);
+
+    const ghosts = await screen.findAllByTestId('onion-skin');
+    expect(ghosts).toHaveLength(2);
+    expect(ghosts.map((ghost) => ghost.style.opacity)).toEqual(['0.3', '0.15']);
+    // Stretched to the sprite's drawn size, inside the box that pans and zooms.
+    expect(ghosts[0]?.style.width).toBe(`${String(SIZE * ZOOM)}px`);
+    expect(ghosts[0]?.parentElement?.style.left).toBe(`${String(ORIGIN)}px`);
+    expect(composited()).toEqual(expect.arrayContaining(['onion-prev', 'onion-next']));
+
+    // Zooming moves the ghosts with the sprite, because they are in its box.
+    fireEvent.keyDown(window, { key: '-' });
+    expect(ghosts[0]?.style.width).toBe(`${String((SIZE * ZOOM) / 2)}px`);
+  });
+
+  it('draws no previous frame on the first, and nothing with the onion skin off', async () => {
+    open('flats');
+    useAnimationStore.setState({
+      animation: animationOf(['asset-1', 'first-next']),
+      onionSkin: true,
+    });
+    const { unmount } = render(<DocumentCanvas />);
+    const ghosts = await screen.findAllByTestId('onion-skin');
+    expect(ghosts.map((ghost) => ghost.style.opacity)).toEqual(['0.15']);
+    unmount();
+
+    vi.mocked(invoke).mockClear();
+    useAnimationStore.setState({
+      animation: animationOf(['off-prev', 'asset-1']),
+      onionSkin: false,
+    });
+    render(<DocumentCanvas />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.queryByTestId('onion-skin')).not.toBeInTheDocument();
+    expect(composited()).not.toContain('off-prev');
+  });
+
+  it('shows the playhead frame while playing, draws nothing, and still zooms', async () => {
+    open('flats');
+    useAnimationStore.setState({
+      animation: animationOf(['play-a', 'asset-1', 'play-c']),
+      onionSkin: true,
+      playing: true,
+      playhead: 2,
+    });
+    render(<DocumentCanvas />);
+
+    // The open frame's own composite never answers, so a surface on the stage
+    // is the playhead frame's picture.
+    expect(await screen.findByRole('img', { name: en.surface })).toBeInTheDocument();
+    expect(composited()).toEqual(expect.arrayContaining(['play-a', 'play-c']));
+    expect(screen.queryByTestId('onion-skin')).not.toBeInTheDocument();
+    expect(screen.getByTestId('canvas-readout')).toHaveTextContent(en.playing);
+
+    drag([1, 1], [3, 1]);
+    fireEvent.keyDown(window, { key: 'Delete' });
+    expect(write).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: en.flipHorizontal })).toBeDisabled();
+
+    const percent = screen.getByRole('button', { name: en.zoomFitHint });
+    act(() => {
+      useEditorStore.setState({ tool: 'zoom' });
+    });
+    fireEvent.pointerDown(screen.getByTestId('stage'), { ...at(4, 4), button: 0, pointerId: 1 });
+    expect(percent).toHaveTextContent('2800 %');
+
+    act(() => {
+      useAnimationStore.setState({ playing: false });
+      useEditorStore.setState({ tool: 'pencil' });
+    });
+    expect(screen.getByTestId('canvas-readout')).not.toHaveTextContent(en.playing);
+  });
+
+  it('steps frames with comma and full stop, round the ends, but not while typing', () => {
+    open('flats');
+    const select = vi.fn(() => Promise.resolve());
+    useAnimationStore.setState({ animation: animationOf(['keys-a', 'asset-1', 'keys-c']), select });
+    render(
+      <>
+        <input aria-label="name" />
+        <DocumentCanvas />
+      </>,
+    );
+
+    fireEvent.keyDown(window, { key: '.' });
+    expect(select).toHaveBeenLastCalledWith('keys-c');
+    fireEvent.keyDown(window, { key: ',' });
+    expect(select).toHaveBeenLastCalledWith('keys-a');
+
+    select.mockClear();
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'name' }), { key: '.' });
+    expect(select).not.toHaveBeenCalled();
+
+    act(() => {
+      useAnimationStore.setState({ animation: animationOf(['asset-1', 'keys-z']) });
+    });
+    fireEvent.keyDown(window, { key: ',' });
+    expect(select).toHaveBeenLastCalledWith('keys-z');
   });
 });

@@ -39,9 +39,25 @@
  * press rather than after it.
  *
  * THE LAYERS OF THE SPRITE BOX, bottom up: the checker pattern that shows
- * transparency, the composite, the stroke preview, the pixel grid and tile
- * guide, and the marching ants. The floating panels sit over the stage, not
- * the sprite, so zooming never moves them.
+ * transparency, the onion skin, the composite, the stroke preview, the pixel
+ * grid and tile guide, and the marching ants. The floating panels sit over the
+ * stage, not the sprite, so zooming never moves them.
+ *
+ * THE ONION SKIN is the previous frame at 30% and the next at 15%, under the
+ * open frame's pixels, as Aseprite and Piskel draw it: the frame being drawn
+ * stays the strongest thing on the stage, and the one it follows reads more
+ * strongly than the one it leads into. Each is another asset's composite in
+ * the same sprite box, so it lines up at every zoom and pan without any
+ * arithmetic of its own. It does not wrap: the first frame has no previous.
+ *
+ * PLAYBACK shows the playhead's frame in place of the open one. In place of,
+ * not over: a frame's transparent pixels would otherwise show the open frame
+ * through them, which is a picture no frame of the animation contains. The
+ * onion skin is left out while playing for the same reason. Nothing is drawn
+ * while playing - a stroke would land on a frame other than the one on screen
+ * - so every pointer tool does nothing and the canvas tools are off; the hand,
+ * the zoom and the wheel still work, because looking closer at a loop is what
+ * playing it is for. The readout says so.
  */
 
 import {
@@ -72,7 +88,13 @@ import { useWorkflowLabels } from '@/features/editor/labels';
 import { DocumentSurface, StrokePreview } from '@/features/editor/canvas/DocumentSurface';
 import { SelectionOutline } from '@/features/editor/canvas/SelectionOutline';
 import { isFreehand, strokeOps, strokePreview, type Stroke } from '@/features/editor/canvas/stroke';
+import { FrameGhost } from '@/features/editor/canvas/DocumentSurface';
+import { stepFrame } from '@/features/editor/canvas/frameStep';
 import { useComposite } from '@/features/editor/canvas/useComposite';
+import {
+  useFrameComposites,
+  type FrameRevision,
+} from '@/features/editor/canvas/useFrameComposites';
 import {
   fitView,
   imageRect,
@@ -95,6 +117,7 @@ import {
   wandSelection,
   type LayerPixels,
 } from '@/lib/selection';
+import { useAnimationStore } from '@/stores/useAnimationStore';
 import { useDocumentStore } from '@/stores/useDocumentStore';
 import { shapeOf, useEditorStore, type Selection } from '@/stores/useEditorStore';
 import type { LayerRole, Op, PixelSet, Point } from '@/types/document';
@@ -104,6 +127,12 @@ import type { LayerRole, Op, PixelSet, Point } from '@/types/document';
  * panels in the corners do not sit on the sprite at the zoom it opens at.
  */
 const FIT_MARGIN = 56;
+
+/** How opaque the frame before the open one is drawn under it. */
+const ONION_PREVIOUS = 0.3;
+
+/** How opaque the frame after the open one is drawn under it. */
+const ONION_NEXT = 0.15;
 
 /** The floating panel look, from the studio layout. */
 const PANEL = 'bg-neutral-950/90 backdrop-blur border border-neutral-800 p-1 rounded shadow-md';
@@ -322,6 +351,11 @@ export function DocumentCanvas(): ReactElement {
   const showCheckerboard = useEditorStore((state) => state.showCheckerboard);
   const tileGuide = useEditorStore((state) => state.tileGuide);
 
+  const animation = useAnimationStore((state) => state.animation);
+  const playing = useAnimationStore((state) => state.playing);
+  const playhead = useAnimationStore((state) => state.playhead);
+  const onionSkin = useAnimationStore((state) => state.onionSkin);
+
   const { ref, width: stageWidth, height: stageHeight } = useElementSize();
   const [view, setView] = useState<View>(DEFAULT_VIEW);
   const [preview, setPreview] = useState<readonly PixelSet[]>([]);
@@ -358,7 +392,34 @@ export function DocumentCanvas(): ReactElement {
     storedSelection.height === canvas.height
       ? storedSelection
       : null;
-  const role = target.refusal === 'ready' ? target.role : null;
+  // Nothing is written while playing, so the whole stage treats a playback as
+  // it treats a step that paints nothing: there is no layer to draw into.
+  const role = target.refusal === 'ready' && !playing ? target.role : null;
+
+  // The frames around the open one, and the one the playhead is on. The open
+  // frame's own picture is `image`, which follows every stroke; the others
+  // come from their own composites.
+  const frames = animation?.frames ?? [];
+  const openIndex = frames.findIndex((frame) => frame.assetId === assetId);
+  const onion = onionSkin && !playing && openIndex >= 0;
+  const previousFrame = onion ? frames[openIndex - 1] : undefined;
+  const nextFrame = onion ? frames[openIndex + 1] : undefined;
+  const playFrame = playing ? frames[playhead] : undefined;
+  // While playing every other frame is fetched, not only the one showing, so
+  // the loop has its pictures before it reaches them.
+  const wanted: FrameRevision[] = (
+    playing ? frames : [previousFrame, nextFrame].filter((frame) => frame !== undefined)
+  ).filter((frame) => frame.assetId !== assetId);
+  const frameImages = useFrameComposites(wanted);
+  const previousImage =
+    previousFrame === undefined ? undefined : frameImages.get(previousFrame.assetId);
+  const nextImage = nextFrame === undefined ? undefined : frameImages.get(nextFrame.assetId);
+  // A frame whose picture has not arrived yet leaves the open one showing
+  // rather than a blank box for a tick.
+  const shown =
+    playFrame === undefined || playFrame.assetId === assetId
+      ? image
+      : (frameImages.get(playFrame.assetId) ?? image);
 
   // And one that is not honoured is dropped, so no other screen reads it as
   // the selection either.
@@ -596,6 +657,14 @@ export function DocumentCanvas(): ReactElement {
     finishRef.current = finish;
   });
 
+  // A stroke under way when playback starts would commit onto a frame that is
+  // no longer the one on screen, so it is dropped.
+  useEffect(() => {
+    if (playing) {
+      finishRef.current(false);
+    }
+  }, [playing]);
+
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>): void => {
     if (asset === null) {
       return;
@@ -627,6 +696,10 @@ export function DocumentCanvas(): ReactElement {
       return;
     }
     const secondary = event.button === 2;
+    if (playing && tool !== 'zoom') {
+      // Only looking is allowed during playback; see the header comment.
+      return;
+    }
     const onDocument = toCanvasPoint(point, view, viewport, canvas);
     const anywhere = toDocumentPoint(point, view, viewport, canvas);
 
@@ -892,6 +965,14 @@ export function DocumentCanvas(): ReactElement {
           event.preventDefault();
           zoomStep(1);
           return;
+        case ',':
+        case '.':
+          // The frame keys. They step during playback too: `select` pauses
+          // it first, as clicking a frame on the timeline does.
+          if (stepFrame(event.key === '.' ? 1 : -1)) {
+            event.preventDefault();
+          }
+          return;
         case 'Escape':
           if (useEditorStore.getState().selection !== null) {
             clearSelection();
@@ -1026,9 +1107,25 @@ export function DocumentCanvas(): ReactElement {
                 style={{ ['--sprite-checker-size' as string]: `${String(checkerSize)}px` }}
               />
             )}
-            {image !== null && (
+            {previousImage !== undefined && (
+              <FrameGhost
+                image={previousImage}
+                opacity={ONION_PREVIOUS}
+                width={rect.width}
+                height={rect.height}
+              />
+            )}
+            {nextImage !== undefined && (
+              <FrameGhost
+                image={nextImage}
+                opacity={ONION_NEXT}
+                width={rect.width}
+                height={rect.height}
+              />
+            )}
+            {shown !== null && (
               <DocumentSurface
-                image={image}
+                image={shown}
                 width={rect.width}
                 height={rect.height}
                 label={t('canvas.surface')}
@@ -1165,10 +1262,16 @@ export function DocumentCanvas(): ReactElement {
           aria-live="polite"
           className={cn(
             'min-w-0 truncate',
-            role !== null && message === null ? 'text-purple-400' : 'text-amber-400',
+            playing
+              ? 'text-sky-400'
+              : role !== null && message === null
+                ? 'text-purple-400'
+                : 'text-amber-400',
           )}
         >
-          {message ?? (role !== null ? labels.layer[role] : refusal)}
+          {playing
+            ? t('canvas.playing')
+            : (message ?? (role !== null ? labels.layer[role] : refusal))}
         </span>
       </div>
 

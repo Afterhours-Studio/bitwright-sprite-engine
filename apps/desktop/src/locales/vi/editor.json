@@ -24,7 +24,8 @@
     "replaceSecondary": "Thay màu phụ bằng màu chính",
     "outline": "Tạo viền từ các mảng màu",
     "outlineUnavailable": "Viền: hãy vẽ trên lớp viền để tạo viền từ các mảng màu",
-    "antialias": "Khử răng cưa"
+    "antialias": "Khử răng cưa",
+    "playing": "Đang phát"
   },
   "palette": {
     "title": "Bảng màu",
