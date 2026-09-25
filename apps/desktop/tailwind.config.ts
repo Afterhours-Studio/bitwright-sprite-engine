@@ -15,18 +15,6 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import type { Config } from 'tailwindcss';
-import colors from 'tailwindcss/colors';
-
-// TRANSITIONAL (Phase 6): the neutral scale through variables, so the
-// `bg-neutral-900/40` classes that wave 1 has not converted yet still resolve.
-// Removed with the palette block below in wave 2.
-const neutral = Object.fromEntries(
-  ['50', '100', '200', '300', '400', '500', '600', '700', '800', '900', '950'].map((step) => [
-    step,
-    `rgb(var(--neutral-${step}) / <alpha-value>)`,
-  ]),
-);
-
 /**
  * Every colour in the theme resolves to a token from `src/styles/tokens.css`.
  * Tailwind's own palette is removed rather than extended, so `bg-gray-800` is
@@ -99,24 +87,6 @@ export default {
         fg: '#ffffff',
       },
 
-      // ---- TRANSITIONAL (Phase 6, removed in wave 2) ----------------------
-      // Tailwind's palettes and the studio greys, only so the files wave 1 is
-      // still converting keep rendering. Nothing new may use them.
-      white: colors.white,
-      black: colors.black,
-      neutral,
-      pink: colors.pink,
-      sky: colors.sky,
-      purple: colors.purple,
-      red: colors.red,
-      amber: colors.amber,
-      emerald: colors.emerald,
-      studio: {
-        home: 'var(--studio-home)',
-        'home-side': 'var(--studio-home-side)',
-        card: 'var(--studio-card)',
-      },
-      // ---- end TRANSITIONAL ------------------------------------------------
     },
     borderColor: ({ theme }) => ({
       ...theme('colors'),
@@ -131,8 +101,6 @@ export default {
       window: 'var(--radius-window)',
       'window-inner': 'var(--radius-window-inner)',
       full: '9999px',
-      // TRANSITIONAL (Phase 6): a bare `rounded` still rounds until wave 2.
-      DEFAULT: 'var(--radius-sm)',
     },
     boxShadow: {
       none: 'none',

@@ -225,23 +225,6 @@
       -4px 0;
   }
 
-  /* TRANSITIONAL (Phase 6, removed in wave 2): the old workspace class, now
-     only an alias of the well with the checker drawn in --border-subtle. */
-  .canvas-workspace-bg {
-    background-color: var(--surface-well);
-    background-image:
-      linear-gradient(45deg, var(--border-subtle) 25%, transparent 25%),
-      linear-gradient(-45deg, var(--border-subtle) 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, var(--border-subtle) 75%),
-      linear-gradient(-45deg, transparent 75%, var(--border-subtle) 75%);
-    background-size: 20px 20px;
-    background-position:
-      0 0,
-      0 10px,
-      10px -10px,
-      -10px 0;
-  }
-
   /* A sprite scaled up has to stay square pixels, not a blur. */
   .pixelated {
     image-rendering: pixelated;

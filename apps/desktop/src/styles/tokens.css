@@ -230,24 +230,6 @@
   /* Reserved for the macOS traffic lights, which the system draws over the
      client area at the top left. */
   --titlebar-inset-start: 0px;
-
-  /* TRANSITIONAL (Phase 6): the neutral scale (sRGB channels, inverted for light mode) and studio/workspace colours, kept only until wave 2 converts the files that still use them. */
-  --neutral-50: 10 10 10;
-  --neutral-100: 23 23 23;
-  --neutral-200: 38 38 38;
-  --neutral-300: 64 64 64;
-  --neutral-400: 82 82 82;
-  --neutral-500: 115 115 115;
-  --neutral-600: 163 163 163;
-  --neutral-700: 212 212 212;
-  --neutral-800: 229 229 229;
-  --neutral-900: 245 245 245;
-  --neutral-950: 250 250 250;
-  --studio-home: #f5f5f5;
-  --studio-home-side: #ededed;
-  --studio-card: #ffffff;
-  --workspace: rgb(229 231 235);
-  --workspace-checker: rgb(0 0 0 / 0.035);
 }
 
 [data-theme='dark'] {
@@ -315,24 +297,6 @@
   --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.4);
   --shadow-md: 0 2px 6px oklch(0 0 0 / 0.5);
   --shadow-lg: 0 8px 32px oklch(0 0 0 / 0.6);
-
-  /* TRANSITIONAL (Phase 6): Tailwind's neutral scale and the studio/workspace colours, kept only until wave 2 converts the files that still use them. */
-  --neutral-50: 250 250 250;
-  --neutral-100: 245 245 245;
-  --neutral-200: 229 229 229;
-  --neutral-300: 212 212 212;
-  --neutral-400: 163 163 163;
-  --neutral-500: 115 115 115;
-  --neutral-600: 82 82 82;
-  --neutral-700: 64 64 64;
-  --neutral-800: 38 38 38;
-  --neutral-900: 23 23 23;
-  --neutral-950: 10 10 10;
-  --studio-home: #141414;
-  --studio-home-side: #121212;
-  --studio-card: #1f1f1f;
-  --workspace: rgb(16 18 23);
-  --workspace-checker: rgb(255 255 255 / 0.035);
 }
 
 [data-platform='macos'] {

@@ -74,6 +74,21 @@ describe('colour tokens', () => {
     expect(offenders.map((path) => relative(process.cwd(), path))).toEqual([]);
   });
 
+  it('uses no stock Tailwind palette class', () => {
+    // The palette is not in the theme, so such a class compiles to nothing
+    // and the element silently loses its colour. It is also how the studio's
+    // look once drifted away from the tokens, which is the reason this test
+    // exists (docs/architecture/studio-style.md).
+    const PALETTE =
+      /\b(?:bg|text|border|ring|from|to|via|fill|stroke|shadow|accent|outline|divide|placeholder|decoration)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}\b|\b(?:bg|text|border|ring|from|to|via|fill|stroke)-(?:white|black)\b|\bbg-gradient-to-/;
+    const offenders = files
+      .filter((path) => /\.tsx?$/.test(path) && !/\.test\.tsx?$/.test(path))
+      .filter((path) => PALETTE.test(readFileSync(path, 'utf8')))
+      .map((path) => relative(process.cwd(), path));
+
+    expect(offenders).toEqual([]);
+  });
+
   it('declares both a light and a dark value for every colour token', () => {
     // Comments are stripped first. The scope notes beside each token contain
     // prose such as "4.5:1 on --surface-input: a placeholder is read", which
