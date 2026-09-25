@@ -65,6 +65,9 @@ ALLOWED = {
     "MIT-0",
     "MIT-CMU",
     "MPL-2.0",
+    # The interface font (Manrope). OFL permits bundling a font with any
+    # software, copyleft included, as long as the font is not sold alone.
+    "OFL-1.1",
     "PSF-2.0",
     "Python-2.0",
     "Unicode-3.0",
