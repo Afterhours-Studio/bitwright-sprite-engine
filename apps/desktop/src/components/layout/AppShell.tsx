@@ -26,38 +26,39 @@ export interface AppShellProps {
 }
 
 /**
- * The window frame: one opaque dark surface the size of the window, with the
- * current screen filling it.
+ * The window frame: a bezel, and the current screen filling the container
+ * inside it.
  *
- * NO BEZEL AND NO TITLE BAR. Each screen's own top row is the window's drag
- * region and carries the window controls, so the frame adds nothing above it.
+ * The bezel is the ring of window around the interface. With a background
+ * effect active it is transparent, so the platform draws Mica or vibrancy
+ * there; without one it is the anchor colour, a deliberate dark frame. It
+ * carries no text, which is what makes that safe in both modes. Everything
+ * readable sits on the opaque container inside it, rounded to the window's
+ * inner radius.
  *
- * OPAQUE, ON PURPOSE. The window is created transparent so the platform can
- * put Mica or vibrancy behind it, and `data-vibrancy="on"` clears the page
- * background for that. The studio look has no translucent surface left to
- * show the effect through, so this frame paints `bg-neutral-950` over all of
- * it whatever the shell reports: text never ends up on the wallpaper. It is
- * rounded to the window's own radius, which is what the system clips an
- * undecorated window to on Windows 11 and macOS, so the corner outside it is
- * the one the platform would have cut away anyway.
+ * NO TITLE BAR. Each screen's own top row is the window's drag region and
+ * carries the window controls, so the frame adds nothing above it.
  *
  * THE LAYERS EVERY SCREEN SHARES ARE MOUNTED HERE, ONCE. The new sprite dialog
  * is opened from home, the editor header and the command palette; the palette
  * from a shortcut that works anywhere; a toast can be raised by any screen or
  * store before a screen has settled. None of them belongs to whichever screen
- * is in front. The frame is `relative` so the palette, which positions itself
- * with `absolute inset-0`, covers the window and nothing outside it.
+ * is in front. The container is `relative` so the palette, which positions
+ * itself with `absolute inset-0`, covers the content and never the bezel, so
+ * an open palette does not paint over the window's own rounded corner.
  */
 export function AppShell({ children }: AppShellProps): ReactElement {
   return (
-    <div className="relative flex h-full flex-col overflow-hidden rounded-window bg-neutral-950 text-neutral-100">
-      {/* A plain container rather than `main`: each screen names its own main
-          region, and a landmark inside a landmark of the same kind is two
-          answers to "where is the content". */}
-      <div className="relative min-h-0 flex-1 overflow-hidden">{children}</div>
-      <NewSpriteDialog />
-      <CommandPalette />
-      <ToastViewport />
+    <div className="app-bezel h-full">
+      <div className="relative flex h-full flex-col overflow-hidden rounded-window-inner bg-surface-canvas text-fg-primary">
+        {/* A plain container rather than `main`: each screen names its own
+            main region, and a landmark inside a landmark of the same kind is
+            two answers to "where is the content". */}
+        <div className="relative min-h-0 flex-1 overflow-hidden">{children}</div>
+        <NewSpriteDialog />
+        <CommandPalette />
+        <ToastViewport />
+      </div>
     </div>
   );
 }

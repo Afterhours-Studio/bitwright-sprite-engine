@@ -63,6 +63,7 @@ import { useTranslation } from 'react-i18next';
 
 import { WindowControls } from '@/components/layout/WindowControls';
 import { Dialog } from '@/components/ui/Dialog';
+import { IconButton } from '@/components/ui/IconButton';
 import { NotificationList } from '@/components/ui/NotificationList';
 import { paintTarget } from '@/features/editor/activeLayer';
 import { ExportDialog } from '@/features/editor/export/ExportDialog';
@@ -79,27 +80,64 @@ import { useShellStore } from '@/stores/useShellStore';
 import { useToastStore } from '@/stores/useToastStore';
 import { STEPS } from '@/types/document';
 
-/** An icon button in the middle group, idle. */
-const ICON_IDLE = 'no-drag p-1.5 rounded border border-neutral-800 bg-neutral-900 text-neutral-400';
+/**
+ * The header's controls, in Bitwright's own look: the 1.0 icon button's raised
+ * chip on the content surface, pressed in when a toggle is on, and the accent
+ * for the one primary action. They are bespoke rather than the shared
+ * `IconButton` and `Button` only because those are a size larger than this
+ * row has room for in a 1280px window; the colours and shapes are the same
+ * tokens.
+ */
+const CONTROL = 'no-drag inline-flex shrink-0 items-center justify-center border transition-colors';
 
-/** An icon button in the middle group, with nothing to act on. */
-const ICON_DISABLED =
-  'no-drag p-1.5 rounded border bg-neutral-900/40 text-neutral-600 border-neutral-800/40 cursor-not-allowed';
+/** A square icon button, idle. Its hover colour is the caller's. */
+const ICON_IDLE = cn(
+  CONTROL,
+  'p-1.5 rounded-md border-line-subtle bg-surface-content text-fg-secondary shadow-sm hover:bg-surface-content-alt',
+);
 
-/** An icon button in the middle group, switched on. */
-const ICON_ON = 'no-drag p-1.5 rounded border bg-sky-600 text-white border-sky-400';
+/** A square icon button, with nothing to act on. */
+const ICON_DISABLED = cn(
+  CONTROL,
+  'p-1.5 rounded-md border-line-subtle bg-surface-disabled text-fg-muted cursor-not-allowed',
+);
+
+/** A square icon button, switched on: pressed in, as the 1.0 dock's toggles were. */
+const ICON_ON = cn(
+  CONTROL,
+  'p-1.5 rounded-md border-line-strong bg-surface-content-alt text-fg-primary',
+);
+
+/** The shared shape of the text buttons and toggles. */
+const TEXT = cn(
+  CONTROL,
+  'whitespace-nowrap gap-1.5 px-2.5 py-1.5 rounded-pill text-xs font-medium',
+);
+
+/** A text button, or a text toggle that is off. */
+const TEXT_IDLE = cn(
+  TEXT,
+  'border-line-subtle bg-surface-content text-fg-secondary shadow-sm hover:bg-surface-content-alt hover:text-fg-primary',
+);
 
 /** A text toggle, on. */
-const TOGGLE_ON =
-  'no-drag flex shrink-0 items-center whitespace-nowrap space-x-1.5 px-2.5 py-1.5 text-xs font-medium rounded border bg-neutral-800 text-neutral-200 border-neutral-700';
+const TOGGLE_ON = cn(TEXT, 'border-line-strong bg-surface-content-alt text-fg-primary');
 
-/** A text toggle, off. */
-const TOGGLE_OFF =
-  'no-drag flex shrink-0 items-center whitespace-nowrap space-x-1.5 px-2.5 py-1.5 text-xs font-medium rounded border bg-neutral-900 text-neutral-500 border-neutral-800';
+/** A text button with nothing to act on. */
+const TEXT_DISABLED = cn(
+  TEXT,
+  'border-line-subtle bg-surface-disabled text-fg-muted cursor-not-allowed',
+);
+
+/** The one primary action in the row. */
+const TEXT_PRIMARY = cn(
+  TEXT,
+  'font-semibold border-transparent bg-accent text-accent-fg shadow-sm hover:bg-accent-hover',
+);
 
 /** The small vertical rule between groups of controls. */
 function Divider(): ReactElement {
-  return <div aria-hidden="true" className="h-4 w-px bg-neutral-800" />;
+  return <div aria-hidden="true" className="h-4 w-px bg-line-subtle" />;
 }
 
 /**
@@ -121,12 +159,12 @@ function inTextField(target: EventTarget | null): boolean {
   );
 }
 
-interface IconButtonProps {
+interface HeaderIconButtonProps {
   label: string;
   disabled?: boolean;
   /** Whether a toggle is on. Left out for a button that is not a toggle. */
   on?: boolean;
-  /** Extra hover classes for the idle state only. */
+  /** The hover text colour, for the idle state only. */
   hover?: string;
   onClick: () => void;
   children: ReactNode;
@@ -137,10 +175,10 @@ function HeaderIconButton({
   label,
   disabled = false,
   on,
-  hover = 'hover:text-neutral-100 hover:bg-neutral-800',
+  hover = 'hover:text-fg-primary',
   onClick,
   children,
-}: IconButtonProps): ReactElement {
+}: HeaderIconButtonProps): ReactElement {
   return (
     <button
       type="button"
@@ -207,7 +245,7 @@ function NameBox(): ReactElement {
   };
 
   return (
-    <div className="no-drag flex items-center space-x-2 bg-neutral-900 border border-neutral-800 hover:border-neutral-700 px-2.5 py-1 rounded">
+    <div className="no-drag flex items-center space-x-2 rounded-md border border-line-subtle bg-surface-content px-2.5 py-1 hover:border-line">
       <input
         type="text"
         aria-label={t('header.nameLabel')}
@@ -219,10 +257,10 @@ function NameBox(): ReactElement {
         }}
         onBlur={commit}
         onKeyDown={onKeyDown}
-        className="bg-transparent text-sm font-medium text-neutral-200 w-28 2xl:w-44 outline-none placeholder:text-neutral-600"
+        className="bg-transparent text-sm font-medium text-fg-primary w-28 2xl:w-44 outline-none placeholder:text-fg-placeholder"
       />
       {asset !== null && (
-        <span className="text-[10px] text-pink-400 bg-neutral-800 px-2 py-0.5 rounded border border-neutral-700/60 whitespace-nowrap">
+        <span className="whitespace-nowrap rounded-sm border border-line-subtle bg-surface-content-alt px-2 py-0.5 text-[11px] font-medium text-fg-primary">
           {t('header.size', { width: asset.width, height: asset.height })}
         </span>
       )}
@@ -264,7 +302,7 @@ function Notifications(): ReactElement {
         aria-label={label}
         title={t('notifications.label')}
         aria-expanded={open}
-        className="relative p-1.5 rounded text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800"
+        className="relative rounded-md p-1.5 text-fg-secondary transition-colors hover:bg-surface-content-alt hover:text-fg-primary"
         onClick={() => {
           if (!open) {
             markRead();
@@ -272,11 +310,11 @@ function Notifications(): ReactElement {
           setOpen(!open);
         }}
       >
-        <Bell aria-hidden="true" className="w-4 h-4" />
+        <Bell aria-hidden="true" strokeWidth={1.75} className="w-4 h-4" />
         {unread > 0 && (
           <span
             aria-hidden="true"
-            className="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-pink-600 px-1 text-[10px] font-semibold leading-none text-white"
+            className="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[11px] font-semibold leading-none text-accent-fg"
           >
             {unread}
           </span>
@@ -286,7 +324,7 @@ function Notifications(): ReactElement {
         <div
           role="dialog"
           aria-label={t('notifications.title')}
-          className="absolute right-0 top-full mt-2 z-50 w-80 bg-neutral-950/90 backdrop-blur border border-neutral-800 rounded shadow-md p-1"
+          className="absolute right-0 top-full mt-2 z-50 w-80 rounded-lg border border-line-subtle bg-surface-float p-1 shadow-md"
         >
           <NotificationList />
         </div>
@@ -390,24 +428,27 @@ export function StudioHeader(): ReactElement {
   return (
     <header
       data-tauri-drag-region
-      className="h-14 bg-neutral-950 border-b border-neutral-800 px-4 flex items-center justify-between shrink-0"
+      className="h-14 bg-surface-canvas border-b border-line-subtle px-4 flex items-center justify-between shrink-0"
     >
       <div data-tauri-drag-region className="flex items-center space-x-3">
         <button
           type="button"
           aria-label={t('header.home')}
           title={t('header.home')}
-          className="no-drag p-1.5 rounded bg-pink-600 hover:bg-pink-500 border border-pink-500 text-white shadow-md shadow-pink-600/20"
+          className={cn(
+            CONTROL,
+            'p-1.5 rounded-md border-transparent bg-accent text-accent-fg shadow-sm hover:bg-accent-hover',
+          )}
           onClick={() => {
             setScreen('home');
           }}
         >
-          <House aria-hidden="true" className="w-4 h-4" />
+          <House aria-hidden="true" strokeWidth={1.75} className="w-4 h-4" />
         </button>
         <Divider />
         <span
           data-tauri-drag-region
-          className="w-16 leading-tight font-semibold text-sm tracking-tight text-neutral-200"
+          className="w-16 leading-tight font-semibold text-sm tracking-tight text-fg-primary"
         >
           {t('title')}
         </span>
@@ -416,22 +457,22 @@ export function StudioHeader(): ReactElement {
 
       <div data-tauri-drag-region className="flex items-center space-x-1.5">
         <HeaderIconButton label={t('header.undo')} disabled={!hasAsset} onClick={() => void undo()}>
-          <Undo2 aria-hidden="true" className="w-4 h-4" />
+          <Undo2 aria-hidden="true" strokeWidth={1.75} className="w-4 h-4" />
         </HeaderIconButton>
         <HeaderIconButton label={t('header.redo')} disabled={!hasAsset} onClick={() => void redo()}>
-          <Redo2 aria-hidden="true" className="w-4 h-4" />
+          <Redo2 aria-hidden="true" strokeWidth={1.75} className="w-4 h-4" />
         </HeaderIconButton>
         <HeaderIconButton
           label={t('header.clear')}
           disabled={!clearable}
-          hover="hover:text-red-400 hover:bg-red-950/40 hover:border-red-800/60"
+          hover="hover:text-severity-error"
           onClick={() => {
             if (target.role !== null) {
               void write([{ kind: 'clear', layer: target.role }]);
             }
           }}
         >
-          <BrushCleaning aria-hidden="true" className="w-4 h-4" />
+          <BrushCleaning aria-hidden="true" strokeWidth={1.75} className="w-4 h-4" />
         </HeaderIconButton>
         <Divider />
         <HeaderIconButton
@@ -441,7 +482,7 @@ export function StudioHeader(): ReactElement {
             setShowPixelGrid(!showPixelGrid);
           }}
         >
-          <Grid3x3 aria-hidden="true" className="w-4 h-4" />
+          <Grid3x3 aria-hidden="true" strokeWidth={1.75} className="w-4 h-4" />
         </HeaderIconButton>
         <select
           aria-label={t('header.tileGuide')}
@@ -449,7 +490,7 @@ export function StudioHeader(): ReactElement {
           onChange={(event) => {
             setTileGuide(Number(event.target.value) as TileGuide);
           }}
-          className="no-drag w-20 rounded px-2 py-1.5 bg-neutral-800 border border-neutral-700 text-xs text-neutral-200"
+          className="no-drag w-20 rounded-md border border-line-input bg-surface-input px-2 py-1.5 text-xs text-fg-primary outline-none focus:border-line-focus"
         >
           {TILE_GUIDES.map((size) => (
             <option key={size} value={size}>
@@ -462,36 +503,36 @@ export function StudioHeader(): ReactElement {
           type="button"
           aria-pressed={showLayersPanel}
           title={t('header.layersHint')}
-          className={showLayersPanel ? TOGGLE_ON : TOGGLE_OFF}
+          className={showLayersPanel ? TOGGLE_ON : TEXT_IDLE}
           onClick={() => {
             setShowLayersPanel(!showLayersPanel);
           }}
         >
-          <Layers aria-hidden="true" className="w-3.5 h-3.5" />
+          <Layers aria-hidden="true" strokeWidth={1.75} className="w-3.5 h-3.5" />
           <span className="sr-only min-[1400px]:not-sr-only">{t('header.layers')}</span>
         </button>
         <button
           type="button"
           aria-pressed={bottomPanel === 'timeline'}
           title={t('header.timelineHint')}
-          className={bottomPanel === 'timeline' ? TOGGLE_ON : TOGGLE_OFF}
+          className={bottomPanel === 'timeline' ? TOGGLE_ON : TEXT_IDLE}
           onClick={() => {
             toggleBottomPanel('timeline');
           }}
         >
-          <Film aria-hidden="true" className="w-3.5 h-3.5" />
+          <Film aria-hidden="true" strokeWidth={1.75} className="w-3.5 h-3.5" />
           <span>{t('header.timeline', { frames: frameCount })}</span>
         </button>
         <button
           type="button"
           aria-pressed={bottomPanel === 'steps'}
           title={t('header.stepsHint')}
-          className={bottomPanel === 'steps' ? TOGGLE_ON : TOGGLE_OFF}
+          className={bottomPanel === 'steps' ? TOGGLE_ON : TEXT_IDLE}
           onClick={() => {
             toggleBottomPanel('steps');
           }}
         >
-          <ListChecks aria-hidden="true" className="w-3.5 h-3.5" />
+          <ListChecks aria-hidden="true" strokeWidth={1.75} className="w-3.5 h-3.5" />
           <span>{t('header.steps', { current: stepNumber, total: STEPS.length })}</span>
         </button>
         <AgentPopover />
@@ -501,62 +542,48 @@ export function StudioHeader(): ReactElement {
         <button
           type="button"
           title={t('header.newHint')}
-          className="no-drag flex shrink-0 items-center whitespace-nowrap space-x-1.5 px-3 py-1.5 rounded text-xs bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800"
+          className={TEXT_IDLE}
           onClick={() => {
             setNewSpriteOpen(true);
           }}
         >
-          <Plus aria-hidden="true" className="w-3.5 h-3.5" />
+          <Plus aria-hidden="true" strokeWidth={1.75} className="w-3.5 h-3.5" />
           <span className="sr-only min-[1400px]:not-sr-only">{t('header.new')}</span>
         </button>
         <button
           type="button"
           disabled={!hasAsset}
-          className={cn(
-            'no-drag flex shrink-0 items-center whitespace-nowrap space-x-1.5 px-3 py-1.5 rounded text-xs border',
-            hasAsset
-              ? 'bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border-neutral-800'
-              : 'bg-neutral-900/40 text-neutral-600 border-neutral-800/40 cursor-not-allowed',
-          )}
+          className={hasAsset ? TEXT_IDLE : TEXT_DISABLED}
           title={t('header.reference')}
           onClick={() => {
             setReferenceOpen(true);
           }}
         >
-          <ImageUp
-            aria-hidden="true"
-            className={cn('w-3.5 h-3.5', hasAsset ? 'text-sky-400' : 'text-neutral-600')}
-          />
+          <ImageUp aria-hidden="true" strokeWidth={1.75} className="w-3.5 h-3.5" />
           <span className="sr-only min-[1400px]:not-sr-only">{t('header.reference')}</span>
         </button>
         <button
           type="button"
           disabled={!hasAsset}
-          className={cn(
-            'no-drag flex shrink-0 items-center whitespace-nowrap space-x-1.5 px-3 py-1.5 rounded text-xs font-semibold',
-            hasAsset
-              ? 'bg-sky-600 hover:bg-sky-500 border border-sky-400 text-white shadow-md shadow-sky-600/30'
-              : 'bg-neutral-900/40 text-neutral-600 border border-neutral-800/40 cursor-not-allowed',
-          )}
+          className={hasAsset ? TEXT_PRIMARY : TEXT_DISABLED}
           onClick={() => {
             setExportOpen(true);
           }}
         >
-          <Download aria-hidden="true" className="w-3.5 h-3.5" />
+          <Download aria-hidden="true" strokeWidth={1.75} className="w-3.5 h-3.5" />
           <span>{t('header.export')}</span>
         </button>
         <Notifications />
-        <button
-          type="button"
-          aria-label={t('header.settings')}
+        <IconButton
+          label={t('header.settings')}
           title={t('header.settings')}
-          className="no-drag p-2 rounded-full bg-gradient-to-tr from-pink-600 to-purple-600 text-white"
+          className="no-drag rounded-full"
           onClick={() => {
             setScreen('settings');
           }}
         >
-          <Settings aria-hidden="true" className="w-3.5 h-3.5" />
-        </button>
+          <Settings aria-hidden="true" strokeWidth={1.75} className="w-4 h-4" />
+        </IconButton>
         <WindowControls />
       </div>
 
@@ -568,7 +595,7 @@ export function StudioHeader(): ReactElement {
         onConfirm={dismissReference}
         asForm={false}
         size="lg"
-        icon={<ImageUp aria-hidden="true" className="w-5 h-5" />}
+        icon={<ImageUp aria-hidden="true" strokeWidth={1.75} className="w-5 h-5" />}
       >
         {/* Mounted only while showing: the panel reads the asset's references
             on mount, and there is no reason to fetch them behind a closed

@@ -507,7 +507,7 @@ export function CommandPalette(): ReactElement {
       // taking the field being typed into with it.
       className={cn(
         'absolute inset-0 z-50 flex items-start justify-center p-4 pt-20',
-        'bg-black/60 backdrop-blur-sm transition-opacity duration-150',
+        'transition-opacity duration-150',
         open ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0',
       )}
       aria-hidden={!open}
@@ -525,28 +525,30 @@ export function CommandPalette(): ReactElement {
         aria-modal="true"
         aria-label={t('palette.label')}
         className={cn(
-          'flex w-full max-w-xl flex-col overflow-hidden',
-          'bg-neutral-950 border border-neutral-800 rounded-xl shadow-2xl',
+          'flex w-full max-w-xl flex-col gap-2',
+          'rounded-md border border-line bg-surface-float p-2 shadow-lg',
           'origin-top transition-transform duration-150',
           open ? 'scale-100' : 'scale-95',
         )}
       >
-        <div className="p-3 border-b border-neutral-800 bg-neutral-900/50">
-          <Command.Input
-            ref={field}
-            value={search}
-            onValueChange={setSearch}
-            placeholder={t('palette.placeholder')}
-            className={cn(
-              'w-full bg-neutral-900 border border-neutral-800 rounded px-3 py-1.5',
-              'text-xs text-neutral-200 placeholder:text-neutral-500',
-              'focus:border-pink-500',
-            )}
-          />
-        </div>
+        {/* The same treatment as `Field`, because it is the same kind of thing:
+            the surface moves away from the text colour, and the border is what
+            separates the field from the panel it sits on. */}
+        <Command.Input
+          ref={field}
+          value={search}
+          onValueChange={setSearch}
+          placeholder={t('palette.placeholder')}
+          className={cn(
+            'w-full rounded-sm border border-line-input bg-surface-input px-3 py-2',
+            'text-sm text-fg-primary outline-none transition-colors',
+            'placeholder:text-fg-placeholder',
+            'focus:border-line-focus',
+          )}
+        />
 
-        <Command.List className="max-h-80 overflow-auto p-2">
-          <Command.Empty className="px-3 py-6 text-center text-xs text-neutral-500">
+        <Command.List className="max-h-80 overflow-auto">
+          <Command.Empty className="px-3 py-6 text-center text-sm text-fg-secondary">
             {t('palette.empty')}
           </Command.Empty>
 
@@ -557,7 +559,7 @@ export function CommandPalette(): ReactElement {
               // rather than through an attribute selector reaching into cmdk's
               // own markup.
               heading={
-                <span className="block px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+                <span className="block px-3 pb-1 pt-2 text-xs font-medium text-fg-secondary">
                   {group.heading}
                 </span>
               }
@@ -572,14 +574,14 @@ export function CommandPalette(): ReactElement {
                     setOpen(false);
                   }}
                   className={cn(
-                    'flex cursor-pointer items-center justify-between gap-3 rounded px-2.5 py-1.5',
-                    'text-xs text-neutral-300',
-                    'data-[selected=true]:bg-pink-600 data-[selected=true]:text-white',
+                    'flex cursor-pointer items-center justify-between gap-3 rounded-sm px-3 py-2',
+                    'text-sm text-fg-secondary transition-colors',
+                    'data-[selected=true]:bg-surface-content-alt data-[selected=true]:text-fg-primary',
                   )}
                 >
                   <span className="truncate">{command.label}</span>
                   {command.shortcut !== undefined && (
-                    <kbd className="kbd px-1.5 py-0.5 text-[10px] rounded bg-neutral-800 text-neutral-400 border border-neutral-700">
+                    <kbd className="kbd rounded-sm border border-line-subtle bg-surface-content px-1.5 py-0.5 text-[11px] text-fg-secondary">
                       {command.shortcut}
                     </kbd>
                   )}

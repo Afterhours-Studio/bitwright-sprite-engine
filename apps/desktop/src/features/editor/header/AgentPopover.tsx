@@ -46,13 +46,18 @@ import { cn } from '@/lib/cn';
 import { inShell } from '@/lib/tauri';
 import { useShellStore } from '@/stores/useShellStore';
 
-/** The header's text toggle, on. */
-const TOGGLE_ON =
-  'px-2.5 py-1.5 text-xs font-medium rounded border bg-neutral-800 text-neutral-200 border-neutral-700';
+/** The shape the header's text toggles share. */
+const TOGGLE =
+  'inline-flex shrink-0 items-center justify-center whitespace-nowrap gap-1.5 px-2.5 py-1.5 rounded-pill border text-xs font-medium transition-colors';
+
+/** The header's text toggle, on: pressed in. */
+const TOGGLE_ON = cn(TOGGLE, 'border-line-strong bg-surface-content-alt text-fg-primary');
 
 /** The header's text toggle, off. */
-const TOGGLE_OFF =
-  'px-2.5 py-1.5 text-xs font-medium rounded border bg-neutral-900 text-neutral-500 border-neutral-800';
+const TOGGLE_OFF = cn(
+  TOGGLE,
+  'border-line-subtle bg-surface-content text-fg-secondary shadow-sm hover:bg-surface-content-alt hover:text-fg-primary',
+);
 
 /**
  * The Agent button, and the popover under it while it is open.
@@ -94,12 +99,12 @@ export function AgentPopover(): ReactElement {
         aria-expanded={open}
         aria-haspopup="dialog"
         title={t('header.agentHint')}
-        className={cn('flex items-center space-x-1.5', open ? TOGGLE_ON : TOGGLE_OFF)}
+        className={open ? TOGGLE_ON : TOGGLE_OFF}
         onClick={() => {
           setOpen((current) => !current);
         }}
       >
-        <Brain aria-hidden="true" className="w-3.5 h-3.5" />
+        <Brain aria-hidden="true" strokeWidth={1.75} className="w-3.5 h-3.5" />
         <span className="sr-only min-[1400px]:not-sr-only">{t('header.agent')}</span>
       </button>
 
@@ -111,12 +116,12 @@ export function AgentPopover(): ReactElement {
         hidden={!open}
         role="dialog"
         aria-label={t('agent.title')}
-        className="absolute right-0 top-full mt-2 z-50 w-72 bg-neutral-950/90 backdrop-blur border border-neutral-800 rounded shadow-md p-3 space-y-3 text-xs"
+        className="absolute right-0 top-full mt-2 z-50 w-72 space-y-3 rounded-lg border border-line-subtle bg-surface-float p-3 text-xs text-fg-primary shadow-md"
       >
         <div className="space-y-1">
           <div className="flex items-center justify-between">
-            <span className="font-semibold text-neutral-300">{t('agent.server')}</span>
-            <span className={running ? 'text-emerald-400' : 'text-neutral-500'}>
+            <span className="font-semibold text-fg-primary">{t('agent.server')}</span>
+            <span className={running ? 'text-severity-success' : 'text-fg-secondary'}>
               {status === null
                 ? t('agent.unknown')
                 : running
@@ -126,28 +131,28 @@ export function AgentPopover(): ReactElement {
           </div>
           {running && status.url !== null && (
             <div className="flex items-center justify-between space-x-2">
-              <span className="text-neutral-500">{t('agent.address')}</span>
-              <code className="truncate text-[11px] text-sky-400">{status.url}</code>
+              <span className="text-fg-secondary">{t('agent.address')}</span>
+              <code className="truncate text-[11px] text-fg-primary">{status.url}</code>
             </div>
           )}
         </div>
 
-        <div className="h-px bg-neutral-800" />
+        <div className="h-px bg-line-subtle" />
 
         <div className="space-y-1.5">
-          <span className="block font-semibold text-neutral-300">{t('agent.sessions')}</span>
+          <span className="block font-semibold text-fg-primary">{t('agent.sessions')}</span>
           {sessions.length === 0 ? (
-            <p className="text-neutral-500">{t('agent.noSessions')}</p>
+            <p className="text-fg-secondary">{t('agent.noSessions')}</p>
           ) : (
             <>
-              <p className="text-neutral-400">
+              <p className="text-fg-secondary">
                 {t('agent.sessionCount', { count: sessions.length })}
               </p>
               <ul className="space-y-1">
                 {sessions.map((session) => (
                   <li key={session.id} className="flex flex-col">
-                    <code className="truncate text-[11px] text-neutral-300">{session.id}</code>
-                    <span className="text-[11px] text-neutral-500">
+                    <code className="truncate text-[11px] text-fg-primary">{session.id}</code>
+                    <span className="text-[11px] text-fg-secondary">
                       {session.lastTool === null
                         ? t('agent.idle')
                         : t('agent.lastTool', { tool: session.lastTool })}
@@ -160,17 +165,17 @@ export function AgentPopover(): ReactElement {
           <AgentActivityIndicator />
         </div>
 
-        <div className="h-px bg-neutral-800" />
+        <div className="h-px bg-line-subtle" />
 
         <button
           type="button"
-          className="w-full flex items-center justify-center space-x-1.5 px-3 py-1.5 rounded text-xs bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800"
+          className="flex w-full items-center justify-center gap-1.5 rounded-pill border border-line-subtle bg-surface-content px-3 py-1.5 text-xs font-medium text-fg-primary shadow-sm transition-colors hover:bg-surface-content-alt"
           onClick={() => {
             setOpen(false);
             setScreen('settings');
           }}
         >
-          <Settings aria-hidden="true" className="w-3.5 h-3.5" />
+          <Settings aria-hidden="true" strokeWidth={1.75} className="w-3.5 h-3.5" />
           <span>{t('agent.configure')}</span>
         </button>
       </div>
