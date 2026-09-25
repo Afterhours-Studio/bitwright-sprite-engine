@@ -8,5 +8,17 @@
   "forceAdvanceTitle": "Advance without passing the gate?",
   "forceAdvanceBody": "These checks have not passed:",
   "forceAdvanceNote": "The advance is recorded as forced, on the record for anyone reading this sprite's history.",
-  "forceAdvanceConfirm": "Advance anyway"
+  "forceAdvanceConfirm": "Advance anyway",
+  "stepsLabel": "Workflow steps",
+  "currentStep": "Step :",
+  "stepNumber": "# {{number}}",
+  "gateSummary": "Gate report: {{passed}} passed, {{failed}} failed",
+  "gateNotChecked": "Gate report: not checked yet",
+  "notChecked": "Not checked",
+  "gateReport": "Gate report",
+  "stepLayer": "Layer: {{layer}}",
+  "noLayer": "No layer",
+  "revisitPrevious": "Go back to {{step}}",
+  "stepDone": "Done",
+  "stepLocked": "Not reached yet"
 }

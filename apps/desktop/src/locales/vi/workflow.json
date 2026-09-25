@@ -8,5 +8,17 @@
   "forceAdvanceTitle": "Tiến tới mà không vượt qua cổng kiểm tra?",
   "forceAdvanceBody": "Các kiểm tra sau chưa đạt:",
   "forceAdvanceNote": "Bước tiến này sẽ được ghi lại là bị ép buộc, lưu trong lịch sử của sprite để ai đọc cũng thấy.",
-  "forceAdvanceConfirm": "Vẫn tiến tới"
+  "forceAdvanceConfirm": "Vẫn tiến tới",
+  "stepsLabel": "Các bước quy trình",
+  "currentStep": "Bước :",
+  "stepNumber": "# {{number}}",
+  "gateSummary": "Báo cáo kiểm tra: {{passed}} đạt, {{failed}} chưa đạt",
+  "gateNotChecked": "Báo cáo kiểm tra: chưa chạy",
+  "notChecked": "Chưa kiểm tra",
+  "gateReport": "Báo cáo kiểm tra",
+  "stepLayer": "Lớp: {{layer}}",
+  "noLayer": "Không có lớp",
+  "revisitPrevious": "Lùi về {{step}}",
+  "stepDone": "Đã xong",
+  "stepLocked": "Chưa tới"
 }
