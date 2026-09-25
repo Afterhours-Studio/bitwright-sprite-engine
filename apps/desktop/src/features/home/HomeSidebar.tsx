@@ -73,8 +73,12 @@ const NAV: readonly { view: HomeView; icon: LucideIcon }[] = [
  */
 const COPYRIGHT_SIGN = '©';
 
-const ACTION =
-  'group w-full flex items-center space-x-2.5 px-3 py-2 rounded bg-neutral-800/40 border border-neutral-800/40 hover:bg-neutral-700/40 text-neutral-400 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50';
+const ACTION = cn(
+  'group w-full flex items-center space-x-2.5 px-3 py-2 rounded-md border border-line-subtle bg-surface-content',
+  'text-xs font-medium text-fg-secondary transition-colors hover:bg-surface-content-alt hover:text-fg-primary',
+  'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus',
+  'disabled:cursor-not-allowed disabled:bg-surface-disabled disabled:text-fg-muted',
+);
 
 /** Home's sidebar. */
 export function HomeSidebar({ active, onNavigate }: HomeSidebarProps): ReactElement {
@@ -132,17 +136,21 @@ export function HomeSidebar({ active, onNavigate }: HomeSidebarProps): ReactElem
   return (
     <aside
       aria-label={t('sidebar.label')}
-      className="w-56 md:w-60 bg-studio-home-side border-r border-neutral-800/80 pt-5 px-5 pb-5 flex flex-col shrink-0"
+      className="w-56 md:w-60 bg-surface-canvas border-r border-line-subtle pt-5 px-5 pb-5 flex flex-col shrink-0"
     >
-      <div className="bg-neutral-800/40 border border-neutral-800/40 hover:bg-neutral-700/40 rounded p-3 mb-5 flex flex-col gap-2.5 shadow-sm">
+      <div className="bg-surface-content border border-line-subtle rounded-md p-3 mb-5 flex flex-col gap-2.5 shadow-sm">
         <div className="flex items-center gap-2.5" role="status">
-          <span className="w-8 h-8 rounded-full bg-neutral-700/40 flex items-center justify-center shrink-0">
+          <span className="w-8 h-8 rounded-full bg-surface-content-alt border border-line-subtle flex items-center justify-center shrink-0">
             <Bot
-              className={cn('w-4 h-4', connected ? 'text-emerald-400' : 'text-neutral-400')}
+              className={cn(
+                'w-4 h-4',
+                connected ? 'text-[color:var(--severity-success)]' : 'text-fg-secondary',
+              )}
+              strokeWidth={1.75}
               aria-hidden="true"
             />
           </span>
-          <span className="text-xs font-semibold text-neutral-300">
+          <span className="text-xs font-semibold text-fg-primary">
             {connected ? t('sidebar.agentConnected') : t('sidebar.agentDisconnected')}
           </span>
         </div>
@@ -151,7 +159,7 @@ export function HomeSidebar({ active, onNavigate }: HomeSidebarProps): ReactElem
           onClick={() => {
             setScreen('settings');
           }}
-          className="w-full py-1.5 px-2 rounded bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-semibold text-[11px]"
+          className="w-full py-1.5 px-2 rounded-pill bg-accent hover:bg-accent-hover text-accent-fg font-semibold text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
         >
           {connected ? t('sidebar.manageAgent') : t('sidebar.connectAgent')}
         </button>
@@ -165,7 +173,11 @@ export function HomeSidebar({ active, onNavigate }: HomeSidebarProps): ReactElem
             setNewSpriteOpen(true);
           }}
         >
-          <ImagePlus className="w-4 h-4 group-hover:text-pink-400" aria-hidden="true" />
+          <ImagePlus
+            className="w-4 h-4 group-hover:text-fg-primary"
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
           <span>{t('sidebar.newSprite')}</span>
         </button>
         <button
@@ -175,7 +187,11 @@ export function HomeSidebar({ active, onNavigate }: HomeSidebarProps): ReactElem
             setNewProjectOpen(true);
           }}
         >
-          <FolderPlus className="w-4 h-4 group-hover:text-pink-400" aria-hidden="true" />
+          <FolderPlus
+            className="w-4 h-4 group-hover:text-fg-primary"
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
           <span>{t('sidebar.newProject')}</span>
         </button>
         <button
@@ -187,12 +203,16 @@ export function HomeSidebar({ active, onNavigate }: HomeSidebarProps): ReactElem
             void convert();
           }}
         >
-          <Images className="w-4 h-4 group-hover:text-pink-400" aria-hidden="true" />
+          <Images
+            className="w-4 h-4 group-hover:text-fg-primary"
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
           <span>{t('sidebar.pngToPixel')}</span>
         </button>
       </div>
 
-      <div className="border-t border-neutral-800/80 my-3" />
+      <div className="border-t border-line-subtle my-3" />
 
       <nav aria-label={t('sidebar.nav')} className="space-y-1">
         {NAV.map(({ view, icon: Icon }) => {
@@ -206,13 +226,14 @@ export function HomeSidebar({ active, onNavigate }: HomeSidebarProps): ReactElem
                 onNavigate(view);
               }}
               className={cn(
-                'w-full flex items-center space-x-2.5 px-3 py-2 rounded text-xs',
+                'w-full flex items-center space-x-2.5 px-3 py-2 rounded-md border text-xs transition-colors',
+                'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus',
                 on
-                  ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white font-semibold shadow-xs'
-                  : 'bg-neutral-800/30 border border-transparent hover:bg-neutral-800/60 text-neutral-400 hover:text-neutral-100',
+                  ? 'border-accent bg-accent text-accent-fg font-semibold shadow-sm'
+                  : 'border-transparent text-fg-secondary hover:bg-surface-content-alt hover:text-fg-primary',
               )}
             >
-              <Icon className="w-4 h-4" aria-hidden="true" />
+              <Icon className="w-4 h-4" strokeWidth={1.75} aria-hidden="true" />
               <span>{t(`sidebar.${view}`)}</span>
             </button>
           );
@@ -222,9 +243,9 @@ export function HomeSidebar({ active, onNavigate }: HomeSidebarProps): ReactElem
       <div className="mt-auto pt-4">
         <label
           htmlFor={languageId}
-          className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-neutral-500"
+          className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-fg-secondary"
         >
-          <Languages className="h-3.5 w-3.5" aria-hidden="true" />
+          <Languages className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
           {tc('language.label')}
         </label>
         <select
@@ -236,7 +257,7 @@ export function HomeSidebar({ active, onNavigate }: HomeSidebarProps): ReactElem
               void setLanguage(next);
             }
           }}
-          className="w-full rounded border border-neutral-800 bg-neutral-900/70 px-3 py-2 pr-8 text-xs text-neutral-300 focus:border-pink-500 focus:outline-none"
+          className="w-full rounded-md border border-line-input bg-surface-input px-3 py-2 pr-8 text-xs text-fg-primary focus:border-line-focus focus:outline-none"
         >
           {LANGUAGES.map((code) => (
             <option key={code} value={code}>
@@ -246,11 +267,9 @@ export function HomeSidebar({ active, onNavigate }: HomeSidebarProps): ReactElem
         </select>
       </div>
 
-      <div className="mt-4 pt-4 border-t border-neutral-800/60 text-[11px] text-neutral-500">
+      <div className="mt-4 pt-4 border-t border-line-subtle text-[11px] text-fg-secondary">
         <p>{t('sidebar.copyright', { mark: COPYRIGHT_SIGN })}</p>
-        <p className="text-[10px] text-neutral-600">
-          {t('sidebar.studio', { version: appVersion })}
-        </p>
+        <p className="text-[11px] text-fg-muted">{t('sidebar.studio', { version: appVersion })}</p>
       </div>
 
       <NewProjectDialog

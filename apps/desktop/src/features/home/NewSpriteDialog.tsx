@@ -58,11 +58,13 @@ export const MAX_SIDE = 512;
 type SizeChoice = { kind: 'square'; size: number } | { kind: 'preset' } | { kind: 'custom' };
 
 const INPUT =
-  'w-full bg-neutral-900 border border-neutral-800 rounded px-3 py-1.5 text-xs text-neutral-100 focus:border-pink-500 focus:outline-none';
-const LABEL = 'mb-1.5 block text-[11px] font-medium text-neutral-400';
-const CARD = 'p-2.5 rounded border text-left';
-const CARD_ON = 'bg-neutral-900 border-pink-500 ring-1 ring-pink-500/50';
-const CARD_OFF = 'border-neutral-800 hover:border-neutral-700 hover:bg-neutral-900/50';
+  'w-full bg-surface-input border border-line-input rounded-md px-3 py-1.5 text-xs text-fg-primary placeholder:text-fg-placeholder focus:border-line-focus focus:outline-none';
+const LABEL = 'mb-1.5 block text-[11px] font-medium text-fg-secondary';
+const CARD =
+  'p-2.5 rounded-md border text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus';
+const CARD_ON = 'bg-surface-content-alt border-accent ring-1 ring-accent';
+const CARD_OFF =
+  'bg-surface-content border-line-subtle hover:border-line hover:bg-surface-content-alt';
 
 /**
  * Whether a side typed into Custom is one a sprite can be created at.
@@ -177,18 +179,22 @@ export function NewSpriteDialog(): ReactElement | null {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[color-mix(in_oklch,var(--surface-anchor)_60%,transparent)] backdrop-blur-sm p-4">
       <div
         ref={panel}
         role="dialog"
         aria-modal="true"
         aria-labelledby={`${ids}-title`}
-        className="flex max-h-full w-full flex-col overflow-hidden bg-neutral-950 border border-neutral-800 rounded-xl max-w-lg shadow-2xl text-neutral-100"
+        className="flex max-h-full w-full flex-col overflow-hidden bg-surface-float border border-line rounded-lg max-w-lg shadow-lg text-fg-primary"
       >
-        <div className="flex items-center justify-between p-4 border-b border-neutral-800 bg-neutral-900/50">
+        <div className="flex items-center justify-between p-4 border-b border-line-subtle">
           <div className="flex items-center gap-2">
-            <ImagePlus className="w-4 h-4 text-pink-500" aria-hidden="true" />
-            <h2 id={`${ids}-title`} className="text-base font-semibold">
+            <ImagePlus
+              className="w-4 h-4 text-fg-secondary"
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />
+            <h2 id={`${ids}-title`} className="text-base font-semibold text-fg-primary">
               {t('newSprite.title')}
             </h2>
           </div>
@@ -196,9 +202,9 @@ export function NewSpriteDialog(): ReactElement | null {
             type="button"
             aria-label={t('newSprite.close')}
             onClick={close}
-            className="rounded p-1 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-50"
+            className="rounded-full p-1 text-fg-secondary transition-colors hover:bg-surface-content-alt hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
           >
-            <X className="w-4 h-4" aria-hidden="true" />
+            <X className="w-4 h-4" strokeWidth={1.75} aria-hidden="true" />
           </button>
         </div>
 
@@ -213,7 +219,7 @@ export function NewSpriteDialog(): ReactElement | null {
               {t('newSprite.project')}
             </label>
             {projects.length === 0 ? (
-              <p className="text-xs text-neutral-500">{t('newSprite.noProjects')}</p>
+              <p className="text-xs text-fg-secondary">{t('newSprite.noProjects')}</p>
             ) : (
               <select
                 id={`${ids}-project`}
@@ -260,10 +266,10 @@ export function NewSpriteDialog(): ReactElement | null {
                     setKind(option);
                   }}
                   className={cn(
-                    'rounded border px-2.5 py-1 text-[11px] font-medium',
+                    'rounded-pill border px-2.5 py-1 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus',
                     kind === option
-                      ? 'bg-neutral-900 border-pink-500 text-pink-400'
-                      : 'border-neutral-800 text-neutral-400 hover:border-neutral-700 hover:text-neutral-100',
+                      ? 'border-accent bg-accent text-accent-fg hover:bg-accent-hover'
+                      : 'border-line-subtle bg-surface-content text-fg-secondary hover:border-line hover:text-fg-primary',
                   )}
                 >
                   {tp(`kinds.${option}`)}
@@ -319,12 +325,12 @@ export function NewSpriteDialog(): ReactElement | null {
                   onClick={() => {
                     setSize({ kind: 'custom' });
                   }}
-                  className="w-full text-left"
+                  className="w-full rounded-sm text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
                 >
-                  <span className="block text-xs font-semibold text-pink-400">
+                  <span className="block text-xs font-semibold text-fg-primary">
                     {t('newSprite.custom')}
                   </span>
-                  <span className="block text-[10px] text-neutral-500">
+                  <span className="block text-[11px] text-fg-secondary">
                     {t('newSprite.customRange')}
                   </span>
                 </button>
@@ -373,7 +379,7 @@ export function NewSpriteDialog(): ReactElement | null {
           <button
             type="submit"
             disabled={!valid}
-            className="w-full py-2.5 bg-pink-600 hover:bg-pink-500 text-white font-semibold text-xs rounded disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-pink-600"
+            className="w-full py-2.5 rounded-pill border border-accent bg-accent hover:bg-accent-hover text-accent-fg font-semibold text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus disabled:cursor-not-allowed disabled:border-line-subtle disabled:bg-surface-disabled disabled:text-fg-muted disabled:shadow-none"
           >
             {t('newSprite.submit', {
               width: Number.isFinite(dimensions.width) ? dimensions.width : 0,
@@ -401,15 +407,15 @@ function SizeLabel({
   return (
     <>
       <span className="flex items-center justify-between gap-2">
-        <span className="text-xs font-semibold text-pink-400">{size}</span>
+        <span className="text-xs font-semibold text-fg-primary">{size}</span>
         {marker !== undefined && (
-          <span className="rounded bg-pink-950/80 px-1.5 py-0.5 text-[9px] font-medium text-pink-400 border border-pink-700/50">
+          <span className="rounded-sm bg-accent px-1.5 py-0.5 text-[11px] leading-none font-medium text-accent-fg">
             {marker}
           </span>
         )}
       </span>
-      <span className="block text-[10px] text-neutral-500">{px}</span>
-      <span className="block text-[10px] text-neutral-400">{use}</span>
+      <span className="block text-[11px] text-fg-secondary">{px}</span>
+      <span className="block text-[11px] text-fg-secondary">{use}</span>
     </>
   );
 }

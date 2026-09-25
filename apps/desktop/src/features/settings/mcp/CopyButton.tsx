@@ -77,8 +77,10 @@ export function CopyButton({
       variant="secondary"
       className={cn(
         'px-2 py-1 text-[11px]',
-        outcome === 'copied' && 'border-emerald-500/60 text-emerald-400 hover:text-emerald-400',
-        outcome === 'failed' && 'border-red-500/60 text-red-400 hover:text-red-400',
+        outcome === 'copied' &&
+          'text-[color:var(--severity-success)] hover:text-[color:var(--severity-success)]',
+        outcome === 'failed' &&
+          'text-[color:var(--severity-error)] hover:text-[color:var(--severity-error)]',
       )}
       onClick={onClick}
       data-slot="copy-outcome"

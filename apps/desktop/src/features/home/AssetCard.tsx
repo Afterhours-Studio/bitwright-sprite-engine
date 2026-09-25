@@ -57,14 +57,14 @@ export function AssetCard({ asset, onOpen, onRename, onDelete }: AssetItemProps)
 
   return (
     <div className="group flex min-w-0 flex-col gap-1.5">
-      <div className="relative aspect-square bg-studio-card border border-neutral-800/80 hover:border-pink-500/50 rounded overflow-hidden flex items-center justify-center p-3">
+      <div className="relative aspect-square bg-surface-content border border-line-subtle transition-colors hover:border-accent rounded-md overflow-hidden flex items-center justify-center p-3">
         <button
           type="button"
           aria-label={t('card.open', { name: asset.name })}
           onClick={() => {
             onOpen(asset);
           }}
-          className="checkerboard-pattern absolute inset-0 flex items-center justify-center p-3 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-pink-500"
+          className="checkerboard-pattern absolute inset-0 flex items-center justify-center p-3 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-line-focus"
         >
           <AssetThumbnail
             asset={asset}
@@ -74,23 +74,23 @@ export function AssetCard({ asset, onOpen, onRename, onDelete }: AssetItemProps)
         {animated ? (
           <>
             <div className="pointer-events-none absolute bottom-1.5 left-1.5 flex gap-1">
-              <span className="rounded bg-black/75 px-1.5 py-0.5 text-[9px] text-neutral-300 border border-neutral-700/50">
+              <span className="rounded-sm border border-line-subtle bg-surface-float px-1.5 py-0.5 text-[11px] leading-none text-fg-secondary shadow-sm">
                 {t('card.size', { width: asset.width, height: asset.height })}
               </span>
-              <span className="rounded bg-pink-950/80 px-1.5 py-0.5 text-[9px] font-medium text-pink-400 border border-pink-700/50">
+              <span className="rounded-sm border border-line-subtle bg-surface-float px-1.5 py-0.5 text-[11px] leading-none font-medium text-fg-primary shadow-sm">
                 {tp(`steps.${asset.step}`)}
               </span>
             </div>
-            <span className="pointer-events-none absolute top-1.5 right-1.5 rounded bg-pink-950/80 px-1.5 py-0.5 text-[9px] font-medium text-pink-400 border border-pink-700/50">
+            <span className="pointer-events-none absolute top-1.5 right-1.5 rounded-sm border border-line-subtle bg-surface-float px-1.5 py-0.5 text-[11px] leading-none font-medium text-fg-primary shadow-sm">
               {t('card.frames', { count: asset.frames })}
             </span>
           </>
         ) : (
           <>
-            <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-black/75 px-1.5 py-0.5 text-[9px] text-neutral-300 border border-neutral-700/50">
+            <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded-sm border border-line-subtle bg-surface-float px-1.5 py-0.5 text-[11px] leading-none text-fg-secondary shadow-sm">
               {t('card.size', { width: asset.width, height: asset.height })}
             </span>
-            <span className="pointer-events-none absolute top-1.5 right-1.5 rounded bg-pink-950/80 px-1.5 py-0.5 text-[9px] font-medium text-pink-400 border border-pink-700/50">
+            <span className="pointer-events-none absolute top-1.5 right-1.5 rounded-sm border border-line-subtle bg-surface-float px-1.5 py-0.5 text-[11px] leading-none font-medium text-fg-primary shadow-sm">
               {tp(`steps.${asset.step}`)}
             </span>
           </>
@@ -103,9 +103,9 @@ export function AssetCard({ asset, onOpen, onRename, onDelete }: AssetItemProps)
             onClick={() => {
               onRename(asset);
             }}
-            className="rounded bg-black/75 p-1 text-neutral-300 border border-neutral-700/50 hover:text-white"
+            className="rounded-sm border border-line-subtle bg-surface-float p-1 text-fg-secondary shadow-sm transition-colors hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
           >
-            <Pencil className="w-3 h-3" aria-hidden="true" />
+            <Pencil className="w-3 h-3" strokeWidth={1.75} aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -114,15 +114,15 @@ export function AssetCard({ asset, onOpen, onRename, onDelete }: AssetItemProps)
             onClick={() => {
               onDelete(asset);
             }}
-            className="rounded bg-black/75 p-1 text-neutral-300 border border-neutral-700/50 hover:text-red-400"
+            className="rounded-sm border border-line-subtle bg-surface-float p-1 text-fg-secondary shadow-sm transition-colors hover:text-[color:var(--severity-error)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
           >
-            <Trash2 className="w-3 h-3" aria-hidden="true" />
+            <Trash2 className="w-3 h-3" strokeWidth={1.75} aria-hidden="true" />
           </button>
         </div>
       </div>
       <div className="min-w-0">
-        <p className="text-xs text-neutral-300 group-hover:text-pink-500 truncate">{asset.name}</p>
-        <p className="text-[11px] text-neutral-500">
+        <p className="text-xs text-fg-primary truncate">{asset.name}</p>
+        <p className="text-[11px] text-fg-secondary">
           {formatRelative(asset.updatedAt, Date.now(), i18n.language)}
         </p>
       </div>
@@ -142,7 +142,7 @@ export function AssetRow({
   const { t: tp } = useTranslation('projects');
 
   return (
-    <tr className="group border-b border-neutral-800/60 hover:bg-neutral-800/30">
+    <tr className="group border-b border-line-subtle transition-colors hover:bg-surface-content-alt">
       <td className="py-1.5 pr-3">
         <button
           type="button"
@@ -150,24 +150,22 @@ export function AssetRow({
           onClick={() => {
             onOpen(asset);
           }}
-          className="flex min-w-0 items-center gap-2.5 text-left"
+          className="flex min-w-0 items-center gap-2.5 rounded-sm text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
         >
-          <span className="checkerboard-pattern flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded border border-neutral-800/80 bg-studio-card p-0.5">
+          <span className="checkerboard-pattern flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-line-subtle bg-surface-content p-0.5">
             <AssetThumbnail asset={asset} />
           </span>
-          <span className="truncate text-xs text-neutral-300 group-hover:text-pink-500">
-            {asset.name}
-          </span>
+          <span className="truncate text-xs text-fg-primary">{asset.name}</span>
         </button>
       </td>
-      <td className="py-1.5 pr-3 text-neutral-500">{projectName ?? ''}</td>
-      <td className="py-1.5 pr-3 text-neutral-400">
+      <td className="py-1.5 pr-3 text-fg-secondary">{projectName ?? ''}</td>
+      <td className="py-1.5 pr-3 text-fg-secondary">
         {t('card.size', { width: asset.width, height: asset.height })}
       </td>
-      <td className="py-1.5 pr-3 text-neutral-400">{tp(`kinds.${asset.kind}`)}</td>
-      <td className="py-1.5 pr-3 text-neutral-400">{Math.max(asset.frames, 1)}</td>
-      <td className="py-1.5 pr-3 text-pink-400">{tp(`steps.${asset.step}`)}</td>
-      <td className="py-1.5 pr-3 text-neutral-500">
+      <td className="py-1.5 pr-3 text-fg-secondary">{tp(`kinds.${asset.kind}`)}</td>
+      <td className="py-1.5 pr-3 text-fg-secondary">{Math.max(asset.frames, 1)}</td>
+      <td className="py-1.5 pr-3 font-medium text-fg-primary">{tp(`steps.${asset.step}`)}</td>
+      <td className="py-1.5 pr-3 text-fg-secondary">
         {formatRelative(asset.updatedAt, Date.now(), i18n.language)}
       </td>
       <td className="py-1.5 text-right">
@@ -179,9 +177,9 @@ export function AssetRow({
             onClick={() => {
               onRename(asset);
             }}
-            className="rounded p-1 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-50"
+            className="rounded-sm p-1 text-fg-secondary transition-colors hover:bg-surface-content hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
           >
-            <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+            <Pencil className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -190,9 +188,9 @@ export function AssetRow({
             onClick={() => {
               onDelete(asset);
             }}
-            className="rounded p-1 text-neutral-400 hover:bg-neutral-800 hover:text-red-400"
+            className="rounded-sm p-1 text-fg-secondary transition-colors hover:bg-surface-content hover:text-[color:var(--severity-error)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
           >
-            <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+            <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
           </button>
         </div>
       </td>

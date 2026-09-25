@@ -180,8 +180,8 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
       </div>
     ) : (
       <table className="mt-2 w-full text-left text-xs">
-        <thead className="text-[11px] text-neutral-500">
-          <tr className="border-b border-neutral-800/60">
+        <thead className="text-[11px] text-fg-secondary">
+          <tr className="border-b border-line-subtle">
             <th className="py-1.5 pr-3 font-medium">{t('columns.name')}</th>
             <th className="py-1.5 pr-3 font-medium">{t('columns.project')}</th>
             <th className="py-1.5 pr-3 font-medium">{t('columns.size')}</th>
@@ -212,7 +212,7 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
   const body = ((): ReactNode => {
     if (!loadedAll && loading) {
       return (
-        <p role="status" className="py-10 text-center text-xs text-neutral-500">
+        <p role="status" className="py-10 text-center text-xs text-fg-secondary">
           {t('state.loading')}
         </p>
       );
@@ -237,19 +237,19 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
           const total = listed.filter((asset) => asset.projectId === project.id).length;
           return (
             <section key={project.id} aria-labelledby={`${ids}-${project.id}`}>
-              <div className="group flex flex-wrap items-center gap-2 border-b border-neutral-800/60 pb-2">
+              <div className="group flex flex-wrap items-center gap-2 border-b border-line-subtle pb-2">
                 <h2
                   id={`${ids}-${project.id}`}
-                  className="truncate text-sm font-semibold text-neutral-100"
+                  className="truncate text-sm font-semibold text-fg-primary"
                 >
                   {project.name}
                 </h2>
                 {preset !== undefined && (
-                  <span className="rounded bg-neutral-800/60 px-1.5 py-0.5 text-[10px] text-neutral-400 border border-neutral-700/50">
+                  <span className="rounded-sm border border-line-subtle bg-surface-content-alt px-1.5 py-0.5 text-[11px] text-fg-secondary">
                     {t('project.preset', { preset: tp(`presets.${preset}`) })}
                   </span>
                 )}
-                <span className="text-[11px] text-neutral-500">
+                <span className="text-[11px] text-fg-secondary">
                   {t('project.count', { count: total })}
                 </span>
                 <div className="ml-auto flex items-center gap-1">
@@ -260,9 +260,9 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
                         setNewSpriteOpen(true);
                       });
                     }}
-                    className="flex items-center gap-1.5 rounded px-2 py-1 text-[11px] font-medium text-neutral-400 hover:bg-neutral-800 hover:text-pink-400"
+                    className="flex items-center gap-1.5 rounded-pill px-2 py-1 text-[11px] font-medium text-fg-secondary transition-colors hover:bg-surface-content-alt hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
                   >
-                    <ImagePlus className="w-3.5 h-3.5" aria-hidden="true" />
+                    <ImagePlus className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
                     {t('project.newSprite')}
                   </button>
                   <button
@@ -272,9 +272,9 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
                     onClick={() => {
                       setPending({ kind: 'renameProject', project });
                     }}
-                    className="rounded p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-50"
+                    className="rounded-sm p-1.5 text-fg-secondary transition-colors hover:bg-surface-content-alt hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
                   >
-                    <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+                    <Pencil className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
                   </button>
                   <button
                     type="button"
@@ -283,16 +283,16 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
                     onClick={() => {
                       setPending({ kind: 'deleteProject', project });
                     }}
-                    className="rounded p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-red-400"
+                    className="rounded-sm p-1.5 text-fg-secondary transition-colors hover:bg-surface-content-alt hover:text-[color:var(--severity-error)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
                   >
-                    <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                    <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
                   </button>
                 </div>
               </div>
               {total === 0 ? (
-                <p className="pt-3 text-xs text-neutral-500">{t('state.emptyProject')}</p>
+                <p className="pt-3 text-xs text-fg-secondary">{t('state.emptyProject')}</p>
               ) : own.length === 0 ? (
-                <p className="pt-3 text-xs text-neutral-500">
+                <p className="pt-3 text-xs text-fg-secondary">
                   {t('state.noMatch', { query: query.trim() })}
                 </p>
               ) : (
@@ -319,15 +319,15 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
         : null;
 
   return (
-    <div className="relative flex h-full w-full bg-studio-home text-neutral-100 select-none overflow-hidden">
+    <div className="relative flex h-full w-full bg-surface-canvas text-fg-primary select-none overflow-hidden">
       <HomeSidebar active={view} onNavigate={navigate} />
 
-      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto bg-studio-home p-6 lg:p-8">
+      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto bg-surface-canvas p-6 lg:p-8">
         <div
           data-tauri-drag-region
-          className="flex items-center justify-between pb-3 border-b border-neutral-800/60"
+          className="flex items-center justify-between pb-3 border-b border-line-subtle"
         >
-          <h1 data-tauri-drag-region className="text-base font-semibold text-neutral-100">
+          <h1 data-tauri-drag-region className="text-base font-semibold text-fg-primary">
             {t(view === 'recent' ? 'sidebar.recent' : 'sidebar.projects')}
           </h1>
           <div className="flex items-center gap-1">
@@ -337,9 +337,9 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
                 onClick={() => {
                   setPending({ kind: 'newProject' });
                 }}
-                className="mr-2 flex items-center gap-1.5 rounded px-2 py-1 text-[11px] font-medium text-neutral-400 hover:bg-neutral-800 hover:text-pink-400"
+                className="mr-2 flex items-center gap-1.5 rounded-pill px-2 py-1 text-[11px] font-medium text-fg-secondary transition-colors hover:bg-surface-content-alt hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
               >
-                <FolderPlus className="w-3.5 h-3.5" aria-hidden="true" />
+                <FolderPlus className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
                 {t('sidebar.newProject')}
               </button>
             )}
@@ -350,7 +350,7 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
                 setLayout('grid');
               }}
             >
-              <LayoutGrid className="w-4 h-4" aria-hidden="true" />
+              <LayoutGrid className="w-4 h-4" strokeWidth={1.75} aria-hidden="true" />
             </LayoutToggle>
             <LayoutToggle
               label={t('toolbar.list')}
@@ -359,13 +359,13 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
                 setLayout('list');
               }}
             >
-              <List className="w-4 h-4" aria-hidden="true" />
+              <List className="w-4 h-4" strokeWidth={1.75} aria-hidden="true" />
             </LayoutToggle>
             {trailing}
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-4 py-3 text-xs text-neutral-400">
+        <div className="flex flex-wrap items-center justify-between gap-4 py-3 text-xs text-fg-secondary">
           <div className="flex items-center gap-2">
             <label htmlFor={`${ids}-sort`}>{t('toolbar.sort')}</label>
             <select
@@ -374,15 +374,15 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
               onChange={(event) => {
                 setSortKey(SORT_KEYS.find((key) => key === event.target.value) ?? 'recent');
               }}
-              className="bg-transparent text-neutral-200 focus:outline-none"
+              className="rounded-sm bg-transparent text-fg-primary focus:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
             >
               {SORT_KEYS.map((key) => (
-                <option key={key} value={key} className="bg-neutral-900">
+                <option key={key} value={key} className="bg-surface-float text-fg-primary">
                   {t(SORT_LABEL[key])}
                 </option>
               ))}
             </select>
-            <span className="h-4 border-l border-neutral-700" aria-hidden="true" />
+            <span className="h-4 border-l border-line" aria-hidden="true" />
             <button
               type="button"
               aria-label={direction === 'asc' ? t('toolbar.ascending') : t('toolbar.descending')}
@@ -390,12 +390,12 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
               onClick={() => {
                 setDirection(direction === 'asc' ? 'desc' : 'asc');
               }}
-              className="rounded p-1 hover:bg-neutral-800 hover:text-neutral-50"
+              className="rounded-sm p-1 transition-colors hover:bg-surface-content-alt hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
             >
               {direction === 'asc' ? (
-                <ArrowUp className="w-3.5 h-3.5" aria-hidden="true" />
+                <ArrowUp className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
               ) : (
-                <ArrowDown className="w-3.5 h-3.5" aria-hidden="true" />
+                <ArrowDown className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
               )}
             </button>
           </div>
@@ -409,7 +409,7 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
               onChange={(event) => {
                 setQuery(event.target.value);
               }}
-              className="bg-transparent border-b border-neutral-700 italic w-36 sm:w-48 text-neutral-200 placeholder:text-neutral-600 focus:border-pink-500 focus:outline-none"
+              className="bg-transparent border-b border-line-input italic w-36 sm:w-48 text-fg-primary placeholder:text-fg-placeholder focus:border-line-focus focus:outline-none"
             />
           </div>
         </div>
@@ -417,7 +417,7 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
         {failure !== null && (
           <div
             role="alert"
-            className="mb-3 flex items-center justify-between gap-3 rounded border border-red-700/50 bg-red-950/40 px-3 py-2 text-xs text-red-300"
+            className="mb-3 flex items-center justify-between gap-3 rounded-md border border-line bg-surface-content px-3 py-2 text-xs text-[color:var(--severity-error)]"
           >
             <span>{failure}</span>
             <button
@@ -425,7 +425,7 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
               onClick={() => {
                 void loadAll();
               }}
-              className="rounded px-2 py-1 font-medium text-red-200 hover:bg-red-900/40"
+              className="rounded-pill px-2 py-1 font-medium text-fg-primary transition-colors hover:bg-surface-content-alt focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
             >
               {tc('actions.retry')}
             </button>
@@ -507,8 +507,11 @@ function LayoutToggle({
       aria-pressed={on}
       onClick={onPress}
       className={cn(
-        'p-1.5 rounded',
-        on ? 'bg-neutral-800 text-neutral-50' : 'text-neutral-500 hover:text-neutral-200',
+        'p-1.5 rounded-sm border transition-colors',
+        'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus',
+        on
+          ? 'border-line-strong bg-surface-content-alt text-fg-primary'
+          : 'border-transparent text-fg-secondary hover:bg-surface-content-alt hover:text-fg-primary',
       )}
     >
       {children}
@@ -520,8 +523,8 @@ function LayoutToggle({
 function Empty({ title, hint }: { title: string; hint?: string }): ReactElement {
   return (
     <div className="py-16 text-center">
-      <p className="text-sm font-medium text-neutral-300">{title}</p>
-      {hint !== undefined && <p className="mt-1 text-xs text-neutral-500">{hint}</p>}
+      <p className="text-sm font-medium text-fg-primary">{title}</p>
+      {hint !== undefined && <p className="mt-1 text-xs text-fg-secondary">{hint}</p>}
     </div>
   );
 }

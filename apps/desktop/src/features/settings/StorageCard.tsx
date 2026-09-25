@@ -92,30 +92,30 @@ export function StorageCard(): ReactElement {
   return (
     <Card title={t('storage.title')} description={t('storage.description')}>
       <div className="flex flex-col gap-3">
-        <div className="rounded border border-neutral-800 bg-neutral-900/60 p-3">
+        <div className="rounded-md border border-line bg-surface-content-alt p-3">
           {/* Two columns, so the paths and the sizes line up with each other
               rather than starting wherever their label happens to end. */}
-          <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 text-xs text-neutral-500">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 text-xs text-fg-secondary">
             <dt>{t('storage.current')}</dt>
-            <dd className="break-all font-mono text-[11px] text-neutral-200">
+            <dd className="break-all font-mono text-[11px] text-fg-primary">
               {info === null ? '-' : info.root}
             </dd>
 
             <dt>{t('storage.free')}</dt>
-            <dd className="font-medium text-sky-400">
+            <dd className="font-medium text-fg-primary">
               {info === null || info.freeBytes === null
                 ? unknownSpace
                 : formatBytes(info.freeBytes, units)}
             </dd>
 
             <dt>{t('storage.used')}</dt>
-            <dd className="font-medium text-pink-400">
+            <dd className="font-medium text-fg-primary">
               {info === null ? '-' : formatBytes(info.usedBytes, units)}
             </dd>
           </dl>
 
           {info?.isDefault === true && (
-            <p className="mt-2 text-[11px] text-neutral-500">{t('storage.isDefault')}</p>
+            <p className="mt-2 text-xs text-fg-secondary">{t('storage.isDefault')}</p>
           )}
         </div>
 
@@ -162,13 +162,13 @@ export function StorageCard(): ReactElement {
         </div>
 
         {leftBehind !== null && (
-          <p className="rounded border border-amber-500/40 bg-amber-500/10 p-2 text-[11px] text-amber-400">
+          <p className="rounded-md border border-line bg-surface-content-alt p-2 text-xs text-[color:var(--severity-warning)]">
             {t('storage.leftBehind', { path: leftBehind })}
           </p>
         )}
 
         {failure !== null && (
-          <p className="rounded border border-red-500/40 bg-red-500/10 p-2 text-[11px] text-red-400">
+          <p className="rounded-md border border-line bg-surface-content-alt p-2 text-xs text-[color:var(--severity-error)]">
             {failure}
           </p>
         )}
@@ -208,14 +208,14 @@ function Proposal({ candidate, units, busy, onCancel, onConfirm }: ProposalProps
 
   return (
     <div role="dialog" aria-label={t('storage.confirmTitle')} className="flex flex-col gap-2">
-      <p className="text-xs font-semibold text-neutral-100">{t('storage.confirmTitle')}</p>
-      <p className="break-all font-mono text-[11px] text-neutral-200">{candidate.root}</p>
-      <p className="text-[11px] text-sky-400">
+      <p className="text-sm font-medium text-fg-primary">{t('storage.confirmTitle')}</p>
+      <p className="break-all font-mono text-[11px] text-fg-primary">{candidate.root}</p>
+      <p className="text-xs text-fg-secondary">
         {t('storage.free')}
         {': '}
         {free === null ? t('storage.unknownSpace') : formatBytes(free, units)}
       </p>
-      <p className="text-[11px] leading-relaxed text-neutral-400">{t('storage.confirmBody')}</p>
+      <p className="text-xs leading-relaxed text-fg-secondary">{t('storage.confirmBody')}</p>
 
       <div className="flex flex-wrap justify-end gap-2 pt-1">
         <Button variant="ghost" className="px-3 py-1 text-xs" onClick={onCancel}>

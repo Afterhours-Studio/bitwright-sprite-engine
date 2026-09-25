@@ -29,7 +29,7 @@ import { THEMES, useShellStore } from '@/stores/useShellStore';
 const REPOSITORY = 'https://github.com/Afterhours-Studio/bitwright-sprite-engine';
 
 /** The section surface every settings group sits on. */
-const SECTION = 'bg-neutral-900/40 border border-neutral-800 rounded p-4';
+const SECTION = 'rounded-md border border-line-subtle bg-surface-content p-4';
 
 /**
  * The settings screen, in home's frame: the same sidebar with Settings
@@ -56,15 +56,15 @@ export function SettingsScreen(): ReactElement {
   };
 
   return (
-    <div className="relative flex h-full w-full bg-studio-home text-neutral-100 overflow-hidden">
+    <div className="relative flex h-full w-full bg-surface-canvas text-fg-primary overflow-hidden">
       <HomeSidebar active="settings" onNavigate={navigate} />
 
-      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto bg-studio-home p-6 lg:p-8">
+      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto bg-surface-canvas p-6 lg:p-8">
         <div
           data-tauri-drag-region
-          className="flex items-center justify-between pb-3 border-b border-neutral-800/60"
+          className="flex items-center justify-between pb-3 border-b border-line-subtle"
         >
-          <h1 data-tauri-drag-region className="text-base font-semibold text-neutral-100">
+          <h1 data-tauri-drag-region className="text-base font-semibold text-fg-primary">
             {t('title')}
           </h1>
           <WindowControls />
@@ -100,10 +100,10 @@ function Section({
   const id = useId();
   return (
     <section aria-labelledby={id} className={SECTION}>
-      <h2 id={id} className="text-sm font-semibold text-neutral-100">
+      <h2 id={id} className="text-sm font-semibold text-fg-primary">
         {title}
       </h2>
-      {description !== undefined && <p className="mt-1 text-xs text-neutral-400">{description}</p>}
+      {description !== undefined && <p className="mt-1 text-xs text-fg-secondary">{description}</p>}
       <div className="mt-3">{children}</div>
     </section>
   );
@@ -141,10 +141,11 @@ function Choices<T extends string>({
               onChoose(option.value);
             }}
             className={cn(
-              'px-2.5 py-1.5 text-xs font-medium rounded border',
+              'rounded-pill border px-3 py-1.5 text-xs font-medium transition-colors',
+              'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus',
               on
-                ? 'bg-pink-600 hover:bg-pink-500 border-pink-500 text-white'
-                : 'bg-neutral-900 text-neutral-400 border-neutral-800 hover:text-neutral-100 hover:border-neutral-700',
+                ? 'border-accent bg-accent text-accent-fg hover:bg-accent-hover'
+                : 'border-line-subtle bg-surface-content-alt text-fg-secondary hover:border-line hover:text-fg-primary',
             )}
           >
             {option.label}
@@ -174,7 +175,7 @@ function AppearanceSection(): ReactElement {
         options={THEMES.map((option) => ({ value: option, label: tCommon(`theme.${option}`) }))}
         onChoose={setTheme}
       />
-      <p className="mt-3 text-xs text-neutral-400">
+      <p className="mt-3 text-xs text-fg-secondary">
         {t('appearance.vibrancy')}
         {': '}
         {vibrancy.applied
@@ -219,22 +220,22 @@ function AboutSection(): ReactElement {
           each row out as its own flex line puts the value wherever that row's
           label happens to end, and three labels of different lengths then
           read as three ragged gaps. */}
-      <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-xs text-neutral-400">
+      <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-xs text-fg-secondary">
         <dt>{t('about.appVersion')}</dt>
-        <dd className="text-neutral-200">{appVersion === '' ? '-' : appVersion}</dd>
+        <dd className="text-fg-primary">{appVersion === '' ? '-' : appVersion}</dd>
 
         {/* Read separately from the application's own version. A frozen
             sidecar reporting an old number looked like the application being
             stale, and showing only one of the two is what kept that mismatch
             invisible. */}
         <dt>{t('about.engineVersion')}</dt>
-        <dd className="text-neutral-200">{sidecar.version === '' ? '-' : sidecar.version}</dd>
+        <dd className="text-fg-primary">{sidecar.version === '' ? '-' : sidecar.version}</dd>
 
         <dt>{t('about.repository')}</dt>
-        <dd className="truncate text-neutral-200">{REPOSITORY}</dd>
+        <dd className="truncate text-fg-primary">{REPOSITORY}</dd>
       </dl>
-      <p className="mt-2 text-xs text-neutral-500">{t('about.license')}</p>
-      <p className="text-xs text-neutral-500">{t('about.copyright')}</p>
+      <p className="mt-2 text-xs text-fg-secondary">{t('about.license')}</p>
+      <p className="text-xs text-fg-secondary">{t('about.copyright')}</p>
     </Section>
   );
 }
