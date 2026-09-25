@@ -184,6 +184,17 @@ impl Store {
         Ok(rows)
     }
 
+    /// The newest seq in the asset's op log (0 for an empty log): what a
+    /// change event carries when a write elsewhere touched this asset.
+    pub fn op_head(&self, id: AssetId) -> Result<i64> {
+        self.asset_read(id)?;
+        Ok(self.connection.query_row(
+            "SELECT COALESCE(MAX(seq),0) FROM op WHERE asset_id=?1",
+            [id.0.to_string()],
+            |r| r.get(0),
+        )?)
+    }
+
     pub fn trim_history(&mut self, id: AssetId, limit: usize) -> Result<()> {
         if limit == 0 {
             return Err(AppError::new(
@@ -471,8 +482,19 @@ fn apply(c: &Connection, id: AssetId, mutation: &Mutation) -> Result<(Mutation, 
         }
         Mutation::Rename(value) => {
             super::name(value)?;
+            // A rename recorded while this asset was a root cannot be
+            // replayed once it is a later frame, whose name is derived.
+            // Refusing (rather than skipping) leaves the step in place, so
+            // moving the frame back to the front makes it undoable again.
+            if document.asset.root_id.is_some() {
+                return Err(AppError::new(
+                    "history.not_root",
+                    "this rename was made on the first frame; move the frame back to the front to undo or redo it",
+                ));
+            }
+            super::animation::check_reserved(c, document.asset.project_id, value, Some(id))?;
             // A frame's name is derived from its root's, so a rename (or its
-            // undo) inside an animation renames the whole row of frames.
+            // undo) of a root renames the whole row of frames.
             if !super::animation::rename(c, id, value)? {
                 c.execute(
                     "UPDATE asset SET name=?1 WHERE id=?2",
@@ -482,10 +504,15 @@ fn apply(c: &Connection, id: AssetId, mutation: &Mutation) -> Result<(Mutation, 
             Mutation::Rename(document.asset.name)
         }
         Mutation::Style(style) => {
-            c.execute(
-                "UPDATE asset SET style_id=?1 WHERE id=?2",
-                params![style.map(|s| s.to_string()), id.0.to_string()],
-            )?;
+            // Frames share a style, so the change and its undo or redo set
+            // it on every frame; it is logged on the frame it was made on.
+            let at = super::now();
+            for frame in super::animation::frame_ids(c, id)? {
+                c.execute(
+                    "UPDATE asset SET style_id=?1, updated_at=?2 WHERE id=?3",
+                    params![style.map(|s| s.to_string()), at, frame.0.to_string()],
+                )?;
+            }
             Mutation::Style(document.asset.style_id)
         }
     };

@@ -259,14 +259,21 @@ pub async fn asset_rename<R: Runtime>(
     id: AssetId,
     name: String,
 ) -> Result<Asset> {
-    let (asset, seq, animation) = run(&state, move |s| {
+    let (asset, touched, animation) = run(&state, move |s| {
+        let before = s.animation_read(id)?;
         let asset = s.asset_rename(id, &name)?;
-        let seq = s.op_log(id)?.last().map_or(0, |op| op.seq);
-        // Renaming a root renames its frames, which a timeline shows.
+        // Renaming a root renames its frames, which a timeline shows and
+        // each frame's own header has to hear about.
         let animation = s.animation_read(id)?;
+        let mut touched = vec![(id, super::animation::touched(s, id)?)];
+        for frame in super::animation::renamed_frames(&before, &animation) {
+            if frame != id {
+                touched.push((frame, super::animation::touched(s, frame)?));
+            }
+        }
         Ok((
             asset,
-            seq,
+            touched,
             (animation.frames.len() > 1).then_some(animation),
         ))
     })
@@ -274,17 +281,9 @@ pub async fn asset_rename<R: Runtime>(
     if let Some(animation) = animation {
         super::animation::emit_animation(&app, &animation);
     }
-    notify_changed(
-        &app,
-        &state,
-        id,
-        &OpResult {
-            changed: 0,
-            bounds: None,
-            roles: vec![],
-            seq,
-        },
-    );
+    for (frame, result) in touched {
+        notify_changed(&app, &state, frame, &result);
+    }
     Ok(asset)
 }
 #[tauri::command]
@@ -349,14 +348,25 @@ pub async fn document_write_ops<R: Runtime>(
     write_ops(&app, asset_id, ops, "user".into()).await
 }
 
+/// Every frame asset of the animation `id` belongs to, as stored now.
+fn frame_rows(store: &Store, id: AssetId) -> Result<Vec<Asset>> {
+    store
+        .animation_read(id)?
+        .frames
+        .iter()
+        .map(|frame| store.asset_read(frame.asset_id))
+        .collect()
+}
+
 async fn travel<R: Runtime>(
     app: &AppHandle<R>,
     state: &DocumentState,
     id: AssetId,
     redo: bool,
 ) -> Result<OpResult> {
-    let (result, palette_changed, gate) = run(state, move |s| {
+    let (result, palette_changed, gate, animation, touched) = run(state, move |s| {
         let before = s.asset_open(id)?;
+        let frames_before = frame_rows(s, id)?;
         let result = if redo {
             s.redo(id, "user")?
         } else {
@@ -368,10 +378,35 @@ async fn travel<R: Runtime>(
         } else {
             None
         };
-        Ok((result, before.palette != after.palette, gate))
+        // Undoing a root's rename renames its frames, and undoing a style
+        // restyles them: each such frame is announced, and the timeline
+        // (which shows every frame's name and step) is refreshed.
+        let animation = s.animation_read(id)?;
+        let mut touched = Vec::new();
+        for frame in frame_rows(s, id)? {
+            let changed = frames_before.iter().any(|old| {
+                old.id == frame.id && (old.name != frame.name || old.style_id != frame.style_id)
+            });
+            if frame.id != id && changed {
+                touched.push((frame.id, super::animation::touched(s, frame.id)?));
+            }
+        }
+        Ok((
+            result,
+            before.palette != after.palette,
+            gate,
+            (animation.frames.len() > 1).then_some(animation),
+            touched,
+        ))
     })
     .await?;
     notify_changed(app, state, id, &result);
+    for (frame, result) in touched {
+        notify_changed(app, state, frame, &result);
+    }
+    if let Some(animation) = animation {
+        super::animation::emit_animation(app, &animation);
+    }
     if palette_changed {
         emit(app, EVENT_PALETTE, PaletteEvent { asset_id: id });
     }

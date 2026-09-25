@@ -33,6 +33,9 @@ pub const PLAYBACKS: [&str; 3] = ["forward", "reverse", "pingpong"];
 /// A blank frame starts no later than this step: it has no pixels, so any
 /// gate past the silhouette would be judging work that is not there.
 const BLANK_STEP: &str = "silhouette";
+/// A background is a tilemap and a tileset a grid of tiles: neither is one
+/// drawing a frame could be a pose of, so neither gains frames.
+const UNANIMATED_KINDS: [&str; 2] = ["background", "tileset"];
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -139,11 +142,112 @@ pub(super) fn read(c: &Connection, any_frame: AssetId) -> Result<Animation> {
     })
 }
 
+/// The name a person or agent is refused because an animation derives it:
+/// `<base> #<n>` with `n` ≥ 2 written the way `layout` writes it. Returns
+/// the base, which is the root name that would derive `value`.
+fn derived_base(value: &str) -> Option<&str> {
+    let (base, n) = value.rsplit_once(" #")?;
+    let parsed: u32 = n.parse().ok()?;
+    (parsed >= 2 && parsed.to_string() == n).then_some(base)
+}
+
+fn name_taken(value: &str) -> AppError {
+    AppError::new("animation.name_taken", value)
+}
+
+/// Refuses `value` for a root or lone asset (`own`, or none when creating)
+/// when it is `<root> #<n>` of another animation's root: that name belongs to
+/// the animation's frames, taken now or once the animation grows, and letting
+/// an unrelated asset hold it would make the next frame add fail on a name
+/// the person never chose. An asset with animation rows is an animated root,
+/// whatever its frame count.
+pub(super) fn check_reserved(
+    c: &Connection,
+    project: Uuid,
+    value: &str,
+    own: Option<AssetId>,
+) -> Result<()> {
+    let Some(base) = derived_base(value) else {
+        return Ok(());
+    };
+    let owner: Option<Uuid> = c
+        .query_row(
+            "SELECT a.id FROM asset a JOIN frame f ON f.asset_id=a.id AND f.position=0
+             WHERE a.project_id=?1 AND a.name=?2",
+            params![project.to_string(), base],
+            |r| super::uuid(r, 0),
+        )
+        .optional()?;
+    match owner {
+        Some(owner) if own.map_or(true, |own| own.0 != owner) => Err(name_taken(value)),
+        _ => Ok(()),
+    }
+}
+
+/// Checks every name `layout` would write before it writes any: a derived
+/// name held by an asset outside the animation fails as
+/// `animation.name_taken` naming it, and one too long to be a name fails as
+/// `document.invalid_name` (the root name fits; the ` #n` pushed it over).
+fn check_derived(c: &Connection, slots: &[Slot], root_name: &str) -> Result<()> {
+    let project = read_asset(c, slots[0].0)?.project_id;
+    super::name(root_name)?;
+    for position in 1..slots.len() {
+        let value = format!("{root_name} #{}", position + 1);
+        super::name(&value)?;
+        let holder: Option<Uuid> = c
+            .query_row(
+                "SELECT id FROM asset WHERE project_id=?1 AND name=?2",
+                params![project.to_string(), value],
+                |r| super::uuid(r, 0),
+            )
+            .optional()?;
+        if holder.is_some_and(|holder| !slots.iter().any(|(id, _)| id.0 == holder)) {
+            return Err(name_taken(&value));
+        }
+    }
+    Ok(())
+}
+
+/// Gives a lone asset the rows an animation keeps its timing in, so a
+/// duration or playback set before a second frame exists is kept rather
+/// than dropped.
+fn ensure_rows(c: &Connection, root: AssetId) -> Result<()> {
+    if slots(c, root)?.is_empty() {
+        c.execute(
+            "INSERT INTO animation(root_id, playback) VALUES(?1, ?2)",
+            params![root.0.to_string(), PLAYBACKS[0]],
+        )?;
+        c.execute(
+            "INSERT INTO frame(asset_id, root_id, position, duration_ms) VALUES(?1, ?1, 0, ?2)",
+            params![root.0.to_string(), DEFAULT_DURATION_MS],
+        )?;
+    }
+    Ok(())
+}
+
+/// Drops the rows of a one-frame animation whose timing is the default, so
+/// they say no more than their absence would.
+fn tidy(c: &Connection, root: AssetId) -> Result<()> {
+    let stored = slots(c, root)?;
+    if stored.len() == 1 && stored[0].1 == DEFAULT_DURATION_MS && playback(c, root)? == PLAYBACKS[0]
+    {
+        c.execute("DELETE FROM frame WHERE root_id=?1", [root.0.to_string()])?;
+        c.execute(
+            "DELETE FROM animation WHERE root_id=?1",
+            [root.0.to_string()],
+        )?;
+    }
+    Ok(())
+}
+
 /// Rewrites the animation that was rooted at `old_root` as `slots`, in that
 /// order: the rows, the root (whoever is first now) and every frame's name.
 /// Rewriting rather than shifting positions and names in place means
 /// neither `UNIQUE (root_id, position)` nor `UNIQUE (project_id, name)` can
-/// be hit half way through. One frame left means no rows, as for a lone asset.
+/// be hit half way through. Every name is checked before anything is
+/// written, and a frame whose name changed has its `updated_at` bumped so
+/// lists sorted by it see the change. One frame left keeps its rows only
+/// while its timing differs from the default.
 fn layout(
     c: &Connection,
     old_root: AssetId,
@@ -151,6 +255,11 @@ fn layout(
     playback: &str,
     root_name: &str,
 ) -> Result<()> {
+    check_derived(c, slots, root_name)?;
+    let before = slots
+        .iter()
+        .map(|(id, _)| Ok(read_asset(c, *id)?.name))
+        .collect::<Result<Vec<_>>>()?;
     c.execute(
         "DELETE FROM frame WHERE root_id=?1",
         [old_root.0.to_string()],
@@ -167,51 +276,48 @@ fn layout(
             params![format!("\u{1}{}", id.0), id.0.to_string()],
         )?;
     }
-    if slots.len() > 1 {
-        let root = slots[0].0 .0.to_string();
+    let root = slots[0].0;
+    c.execute(
+        "INSERT INTO animation(root_id, playback) VALUES(?1, ?2)",
+        params![root.0.to_string(), playback],
+    )?;
+    for (position, (id, duration)) in slots.iter().enumerate() {
         c.execute(
-            "INSERT INTO animation(root_id, playback) VALUES(?1, ?2)",
-            params![root, playback],
+            "INSERT INTO frame(asset_id, root_id, position, duration_ms) VALUES(?1, ?2, ?3, ?4)",
+            params![
+                id.0.to_string(),
+                root.0.to_string(),
+                position as i64,
+                duration
+            ],
         )?;
-        for (position, (id, duration)) in slots.iter().enumerate() {
-            c.execute(
-                "INSERT INTO frame(asset_id, root_id, position, duration_ms) VALUES(?1, ?2, ?3, ?4)",
-                params![id.0.to_string(), root, position as i64, duration],
-            )?;
-        }
     }
-    for (position, (id, _)) in slots.iter().enumerate() {
+    let at = now();
+    for (position, ((id, _), old)) in slots.iter().zip(&before).enumerate() {
         let value = if position == 0 {
             root_name.to_string()
         } else {
             format!("{root_name} #{}", position + 1)
         };
-        super::name(&value)?;
         c.execute(
-            "UPDATE asset SET name=?1 WHERE id=?2",
-            params![value, id.0.to_string()],
+            "UPDATE asset SET name=?1, updated_at=CASE WHEN ?1=?2 THEN updated_at ELSE ?3 END
+             WHERE id=?4",
+            params![value, old, at, id.0.to_string()],
         )?;
     }
-    Ok(())
+    tidy(c, root)
 }
 
-/// Renames `id` to `value` inside its animation, renaming every frame after
-/// the root. A later frame's own name is derived, so renaming one (which only
-/// an undo of a rename made before it was a frame can do) restores the
-/// derived names instead. Returns false for a lone asset, which the caller
-/// renames itself.
-pub(super) fn rename(c: &Connection, id: AssetId, value: &str) -> Result<bool> {
-    let root = root_of(c, id)?;
+/// Renames the root `root` to `value` and every frame after it. The caller
+/// has already refused a non-root frame, whose name is derived. Returns
+/// false for an asset with no animation rows, which the caller renames
+/// itself.
+pub(super) fn rename(c: &Connection, root: AssetId, value: &str) -> Result<bool> {
     let stored = slots(c, root)?;
     if stored.is_empty() {
         return Ok(false);
     }
-    let root_name = if id == root {
-        value.to_string()
-    } else {
-        read_asset(c, root)?.name
-    };
-    layout(c, root, &stored, &playback(c, root)?, &root_name)?;
+    layout(c, root, &stored, &playback(c, root)?, value)?;
     Ok(true)
 }
 
@@ -260,6 +366,12 @@ impl Store {
             .ok_or_else(|| AppError::new("document.not_found", after.0.to_string()))?;
         let source = read_document(&tx, after)?;
         let root_asset = read_asset(&tx, root)?;
+        if UNANIMATED_KINDS.contains(&root_asset.kind.as_str()) {
+            return Err(AppError::new(
+                "animation.unsupported_kind",
+                format!("a {} cannot be animated", root_asset.kind),
+            ));
+        }
         let step = if copy || step_index(&source.asset.step) < step_index(BLANK_STEP) {
             source.asset.step.clone()
         } else {
@@ -380,31 +492,48 @@ impl Store {
         self.animation_read(frame)
     }
 
-    /// Sets one frame's duration. A lone asset has no row to hold one, so it
-    /// stays at the default until it has a second frame.
+    /// Runs one timing write on the animation `any_frame` belongs to, giving
+    /// a lone asset its rows first (so the timing is kept for when it gains
+    /// frames) and dropping them again if the write left the defaults.
+    fn retime(
+        &mut self,
+        any_frame: AssetId,
+        write: impl FnOnce(&Connection, AssetId) -> Result<()>,
+    ) -> Result<Animation> {
+        let tx = self.connection.transaction()?;
+        let root = root_of(&tx, any_frame)?;
+        ensure_rows(&tx, root)?;
+        write(&tx, root)?;
+        tidy(&tx, root)?;
+        tx.commit()?;
+        self.animation_read(root)
+    }
+
+    /// Sets one frame's duration.
     pub fn frame_set_duration(&mut self, frame: AssetId, ms: u32) -> Result<Animation> {
         check_duration(ms)?;
-        root_of(&self.connection, frame)?;
-        self.connection.execute(
-            "UPDATE frame SET duration_ms=?1 WHERE asset_id=?2",
-            params![ms, frame.0.to_string()],
-        )?;
-        self.animation_read(frame)
+        self.retime(frame, |c, _| {
+            c.execute(
+                "UPDATE frame SET duration_ms=?1 WHERE asset_id=?2",
+                params![ms, frame.0.to_string()],
+            )?;
+            Ok(())
+        })
     }
 
     /// Sets every frame's duration: the FPS control.
     pub fn animation_set_duration(&mut self, any_frame: AssetId, ms: u32) -> Result<Animation> {
         check_duration(ms)?;
-        let root = root_of(&self.connection, any_frame)?;
-        self.connection.execute(
-            "UPDATE frame SET duration_ms=?1 WHERE root_id=?2",
-            params![ms, root.0.to_string()],
-        )?;
-        self.animation_read(root)
+        self.retime(any_frame, |c, root| {
+            c.execute(
+                "UPDATE frame SET duration_ms=?1 WHERE root_id=?2",
+                params![ms, root.0.to_string()],
+            )?;
+            Ok(())
+        })
     }
 
-    /// Sets the playback mode. Like a duration, a lone asset has nowhere to
-    /// keep it and plays forward.
+    /// Sets the playback mode.
     pub fn animation_set_playback(&mut self, any_frame: AssetId, mode: &str) -> Result<Animation> {
         if !PLAYBACKS.contains(&mode) {
             return Err(AppError::new(
@@ -412,12 +541,13 @@ impl Store {
                 format!("playback is forward, reverse or pingpong, not {mode}"),
             ));
         }
-        let root = root_of(&self.connection, any_frame)?;
-        self.connection.execute(
-            "UPDATE animation SET playback=?1 WHERE root_id=?2",
-            params![mode, root.0.to_string()],
-        )?;
-        self.animation_read(root)
+        self.retime(any_frame, |c, root| {
+            c.execute(
+                "UPDATE animation SET playback=?1 WHERE root_id=?2",
+                params![mode, root.0.to_string()],
+            )?;
+            Ok(())
+        })
     }
 }
 
@@ -822,5 +952,222 @@ mod tests {
         assert_eq!(store.asset_read(hero).unwrap().style_id, Some(style.id));
         let third = store.frame_add(hero, true).unwrap().frames[1].asset_id;
         assert_eq!(store.asset_read(third).unwrap().style_id, Some(style.id));
+    }
+
+    fn create(store: &mut Store, project: Uuid, name: &str) -> Result<AssetId> {
+        Ok(store.asset_create(project, name, "prop", 4, 4)?.id)
+    }
+    fn asset_count(store: &Store) -> i64 {
+        store
+            .connection
+            .query_row("SELECT COUNT(*) FROM asset", [], |r| r.get(0))
+            .unwrap()
+    }
+
+    #[test]
+    fn a_derived_name_another_asset_holds_is_refused_before_anything_is_written() {
+        let (mut store, project, hero) = hero();
+        create(&mut store, project, "hero #2").unwrap();
+        let count = asset_count(&store);
+        let error = store.frame_add(hero, true).unwrap_err();
+        assert_eq!(
+            (error.code.as_str(), error.detail.as_str()),
+            ("animation.name_taken", "hero #2")
+        );
+        assert_eq!(asset_count(&store), count);
+        assert_eq!(rows(&store), (0, 0));
+
+        // Renaming an animated root onto a name whose frames are taken.
+        let (mut store, project, hero) = self::hero();
+        store.frame_add(hero, true).unwrap();
+        create(&mut store, project, "cat #2").unwrap();
+        let error = store.asset_rename(hero, "cat").unwrap_err();
+        assert_eq!(
+            (error.code.as_str(), error.detail.as_str()),
+            ("animation.name_taken", "cat #2")
+        );
+        assert_eq!(
+            names(&store.animation_read(hero).unwrap()),
+            ["hero", "hero #2"]
+        );
+    }
+
+    #[test]
+    fn undoing_a_rename_onto_taken_frame_names_is_refused_and_consumes_nothing() {
+        let (mut store, project, hero) = hero();
+        store.asset_rename(hero, "knight").unwrap();
+        store.frame_add(hero, true).unwrap();
+        // "hero" is no animation's root now, so "hero #2" is free to take.
+        create(&mut store, project, "hero #2").unwrap();
+        let log = store.op_log(hero).unwrap().len();
+        let error = store.undo(hero, "user").unwrap_err();
+        assert_eq!(
+            (error.code.as_str(), error.detail.as_str()),
+            ("animation.name_taken", "hero #2")
+        );
+        assert_eq!(store.op_log(hero).unwrap().len(), log);
+        assert_eq!(
+            names(&store.animation_read(hero).unwrap()),
+            ["knight", "knight #2"]
+        );
+    }
+
+    #[test]
+    fn a_name_an_animation_derives_is_reserved_for_its_frames() {
+        let (mut store, project, hero) = hero();
+        store.frame_add(hero, true).unwrap();
+        let rock = create(&mut store, project, "rock").unwrap();
+        for reserved in ["hero #3", "hero #99"] {
+            let error = create(&mut store, project, reserved).unwrap_err();
+            assert_eq!(
+                (error.code.as_str(), error.detail.as_str()),
+                ("animation.name_taken", reserved)
+            );
+            assert_eq!(
+                store.asset_rename(rock, reserved).unwrap_err().code,
+                "animation.name_taken"
+            );
+        }
+        // Only the form a frame could be named is reserved.
+        for free in ["hero #1", "hero #02", "hero #x", "hero#3"] {
+            create(&mut store, project, free).unwrap();
+        }
+        // Another project's animation reserves nothing here.
+        let other = store.project_create("other", "hd2d").unwrap().id;
+        create(&mut store, other, "hero #3").unwrap();
+    }
+
+    #[test]
+    fn a_root_name_too_long_to_number_is_an_invalid_name() {
+        let (mut store, _, hero) = hero();
+        store.frame_add(hero, true).unwrap();
+        let long = "x".repeat(1022);
+        assert_eq!(
+            store.asset_rename(hero, &long).unwrap_err().code,
+            "document.invalid_name"
+        );
+        assert_eq!(store.asset_read(hero).unwrap().name, "hero");
+        // A lone asset may take it, and then cannot gain frames.
+        let (mut lone, _, sprite) = self::hero();
+        lone.asset_rename(sprite, &long).unwrap();
+        assert_eq!(
+            lone.frame_add(sprite, true).unwrap_err().code,
+            "document.invalid_name"
+        );
+    }
+
+    #[test]
+    fn backgrounds_and_tilesets_cannot_be_animated() {
+        let (mut store, project, _) = hero();
+        for kind in ["background", "tileset"] {
+            let id = store.asset_create(project, kind, kind, 16, 16).unwrap().id;
+            assert_eq!(
+                store.frame_add(id, true).unwrap_err().code,
+                "animation.unsupported_kind"
+            );
+        }
+        assert_eq!(rows(&store), (0, 0));
+    }
+
+    #[test]
+    fn undoing_a_style_on_one_frame_restyles_every_frame() {
+        let (mut store, project, hero) = hero();
+        let second = store.frame_add(hero, true).unwrap().frames[1].asset_id;
+        let style = store
+            .style_create(
+                Some(project),
+                "terse",
+                "custom",
+                crate::raster::StyleRules::default(),
+            )
+            .unwrap();
+        let hero_log = store.op_log(hero).unwrap().len();
+        store.asset_set_style(second, Some(style.id)).unwrap();
+        // Logged on the frame it was set on only.
+        assert_eq!(store.op_log(hero).unwrap().len(), hero_log);
+        store.undo(second, "user").unwrap();
+        for frame in [hero, second] {
+            assert_eq!(store.asset_read(frame).unwrap().style_id, None);
+        }
+        store.redo(second, "user").unwrap();
+        for frame in [hero, second] {
+            assert_eq!(store.asset_read(frame).unwrap().style_id, Some(style.id));
+        }
+    }
+
+    #[test]
+    fn a_rename_made_as_root_is_refused_while_the_asset_is_a_later_frame() {
+        let (mut store, _, hero) = hero();
+        store.asset_rename(hero, "knight").unwrap();
+        store.frame_add(hero, true).unwrap();
+        store.frame_move(hero, 1).unwrap();
+        let log = store.op_log(hero).unwrap().len();
+        assert_eq!(
+            store.undo(hero, "user").unwrap_err().code,
+            "history.not_root"
+        );
+        assert_eq!(store.op_log(hero).unwrap().len(), log);
+        // The step is still there once the frame leads again.
+        store.frame_move(hero, 0).unwrap();
+        store.undo(hero, "user").unwrap();
+        assert_eq!(
+            names(&store.animation_read(hero).unwrap()),
+            ["hero", "hero #2"]
+        );
+    }
+
+    #[test]
+    fn only_the_frames_a_change_renamed_have_their_updated_at_bumped() {
+        let (mut store, _, hero) = hero();
+        store.frame_add(hero, true).unwrap();
+        let animation = store.frame_add(hero, true).unwrap();
+        let [_, b, c] = ids(&animation)[..] else {
+            panic!("three frames")
+        };
+        store
+            .connection
+            .execute("UPDATE asset SET updated_at=0", [])
+            .unwrap();
+        store.frame_move(c, 1).unwrap();
+        let updated = |id| store.asset_read(id).unwrap().updated_at;
+        assert_eq!(updated(hero), 0);
+        assert!(updated(b) > 0 && updated(c) > 0);
+    }
+
+    #[test]
+    fn timing_set_on_a_lone_asset_is_kept_until_it_is_the_default_again() {
+        let (mut store, _, hero) = hero();
+        let animation = store.animation_set_playback(hero, "pingpong").unwrap();
+        assert_eq!(animation.playback, "pingpong");
+        let animation = store.frame_set_duration(hero, 300).unwrap();
+        assert_eq!(animation.frames[0].duration_ms, 300);
+        assert_eq!(rows(&store), (1, 1));
+        let asset = store.asset_read(hero).unwrap();
+        assert_eq!((asset.root_id, asset.frames), (None, 1));
+        // Renaming still works with the rows in place, and the timing is
+        // what the next frame starts from.
+        store.asset_rename(hero, "knight").unwrap();
+        let animation = store.frame_add(hero, true).unwrap();
+        assert_eq!(names(&animation), ["knight", "knight #2"]);
+        assert_eq!(animation.frames[1].duration_ms, 300);
+        assert_eq!(animation.playback, "pingpong");
+        // Back down to one frame: non-default timing keeps the rows...
+        store.frame_delete(animation.frames[1].asset_id).unwrap();
+        assert_eq!(rows(&store), (1, 1));
+        assert_eq!(
+            store.animation_read(hero).unwrap().frames[0].duration_ms,
+            300
+        );
+        // ...and the defaults drop them.
+        store
+            .animation_set_duration(hero, DEFAULT_DURATION_MS)
+            .unwrap();
+        assert_eq!(rows(&store), (1, 1));
+        store.animation_set_playback(hero, "forward").unwrap();
+        assert_eq!(rows(&store), (0, 0));
+        store
+            .animation_set_duration(hero, DEFAULT_DURATION_MS)
+            .unwrap();
+        assert_eq!(rows(&store), (0, 0));
     }
 }

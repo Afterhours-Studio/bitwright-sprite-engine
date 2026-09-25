@@ -126,6 +126,11 @@
     "invalid_duration": "A frame lasts from 10 to 10000 milliseconds.",
     "invalid_playback": "Playback is forward, reverse or ping-pong.",
     "last_frame": "An animation keeps at least one frame.",
-    "mixed": "Frames can only move within their own animation."
+    "mixed": "Frames can only move within their own animation.",
+    "name_taken": "That name belongs to a frame of an animation, or a frame would need a name another sprite already has.",
+    "unsupported_kind": "Backgrounds and tilesets cannot have animation frames."
+  },
+  "history": {
+    "not_root": "That rename was made while this frame was the first one. Move it back to the front to undo or redo it."
   }
 }

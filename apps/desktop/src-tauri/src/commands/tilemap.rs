@@ -106,7 +106,14 @@ fn tiles(store: &mut Store, asset_id: AssetId) -> Result<Vec<TileAsset>> {
     let assets = store.asset_list(asset.project_id)?;
     assets
         .into_iter()
-        .filter(|a| a.kind == "tile" && a.width == map.tile_width && a.height == map.tile_height)
+        // A later frame of an animated tile is a pose of it, not a tile of
+        // its own: the picker offers the animation by its root only.
+        .filter(|a| {
+            a.kind == "tile"
+                && a.root_id.is_none()
+                && a.width == map.tile_width
+                && a.height == map.tile_height
+        })
         .map(|a| {
             let composite = store.asset_composite(a.id)?;
             let preview = format!(
@@ -293,6 +300,20 @@ mod tests {
         assert_eq!(listed.len(), 1);
         assert_eq!(listed[0].id, matching);
         assert!(listed[0].preview.starts_with("data:image/png;base64,"));
+    }
+
+    #[test]
+    fn tiles_offers_an_animated_tile_by_its_root_only() {
+        let mut store = Store::memory().unwrap();
+        let asset_id = background(&mut store);
+        create(&mut store, asset_id, 16, 16, 4, 4).unwrap();
+        let project_id = store.asset_read(asset_id).unwrap().project_id;
+        let water = tile(&mut store, project_id, 16, 16);
+        store.frame_add(water, true).unwrap();
+        store.frame_add(water, true).unwrap();
+
+        let listed = tiles(&mut store, asset_id).unwrap();
+        assert_eq!(listed.iter().map(|t| t.id).collect::<Vec<_>>(), vec![water]);
     }
 
     #[test]

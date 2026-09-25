@@ -22,8 +22,29 @@ This file is the contract every Phase 5 task builds from.
   each frame, or writing the palette again — documented, not hidden.)
 - Frame assets are named `<root name> #<position + 1>` (position 0 keeps the
   root's own name). Renaming the root renames the others; renaming a
-  non-root frame is refused with `animation.frame_name`.
-- Frames have the root's size, kind, project and style.
+  non-root frame is refused with `animation.frame_name`. Every derived name
+  is checked before anything is written: one held by an asset outside the
+  animation fails the add, move, delete, rename or undo as
+  `animation.name_taken` (detail: that name), and one longer than a name may
+  be (a root name within 1024 bytes whose ` #n` pushes it over) fails as
+  `document.invalid_name`, since the name is too long rather than taken.
+  A name of the form `<animated root name> #<n>` (n ≥ 2, written without
+  leading zeros) is reserved for that animation's frames: creating or
+  renaming any other asset to it is refused as `animation.name_taken`. An
+  animated root is any asset with animation rows (see Schema).
+- A frame whose name an add, move or delete changed has its `updated_at`
+  bumped, and the frame commands emit `document://changed` for it.
+- Frames have the root's size, kind, project and style. A style change is
+  logged on the frame it was made on and sets every frame; its undo and redo
+  set every frame too.
+- Backgrounds (tilemaps) and tilesets cannot be animated: `frame_add` on one
+  fails as `animation.unsupported_kind`. The tile picker lists an animated
+  tile by its root only.
+- Undo/redo of a rename recorded while the asset was the root, once it is a
+  later frame, is refused as `history.not_root` and consumes nothing; moving
+  the frame back to the front makes the step replayable. Undo/redo on a
+  frame of an animation of more than one frame emits `document://animation`,
+  plus `document://changed` for every other frame it renamed or restyled.
 - Playback is `forward | reverse | pingpong`, stored on the animation.
 - A frame's duration is 10..=10000 ms, default 125 (8 FPS).
 
@@ -43,10 +64,15 @@ CREATE TABLE animation (
 );
 ```
 
-Rows exist only once an asset has a second frame (then the root has a row at
-position 0 too, and an `animation` row). An asset with no `frame` row is a
-one-frame animation with duration 125 and playback forward. Removing frames
-back down to one deletes the rows again.
+Rows exist once an asset has a second frame (then the root has a row at
+position 0 too, and an `animation` row), or once a duration or playback is
+set on a lone asset (a root row at position 0 and an `animation` row, so the
+timing is kept for when it gains frames). An asset with no `frame` row is a
+one-frame animation with duration 125 and playback forward. Whenever an
+animation is left with one frame whose duration is 125 and playback forward
+(frames removed back down to one, or its timing set back to the defaults) the
+rows are deleted again; otherwise they are kept. `Asset.frames` is 1 for a
+one-frame animation either way, and its `root_id` is null.
 
 ## Store (Rust, `store/animation.rs`, methods on `Store`)
 
@@ -72,7 +98,10 @@ the animation; on a non-root frame it behaves as `frame_delete`.
 `asset_rename` follows the naming rule above. `palette_write(_as)` follows
 the sharing rule. Error codes: `animation.last_frame`,
 `animation.invalid_duration`, `animation.invalid_playback`,
-`animation.frame_name`, `animation.mixed` (reserved for cross-animation moves).
+`animation.frame_name`, `animation.name_taken`, `animation.unsupported_kind`,
+`history.not_root`, `animation.mixed` (reserved for cross-animation moves).
+`Store::op_head(id)` is the newest seq in an asset's log, for change events
+about a frame another write renamed.
 
 ## Tauri commands (`commands/animation.rs`)
 

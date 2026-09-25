@@ -18,8 +18,8 @@
 //! `Store::frame_*`) to the window. Every change is announced on
 //! `document://animation`, so a timeline stays live whoever made it.
 
-use crate::commands::document::{run, DocumentState, EVENT_ANIMATION};
-use crate::store::{Animation, AssetId, Result};
+use crate::commands::document::{notify_changed, run, DocumentState, EVENT_ANIMATION};
+use crate::store::{Animation, AssetId, OpResult, Result, Store};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Runtime, State};
 
@@ -42,13 +42,55 @@ pub fn emit_animation<R: Runtime>(app: &AppHandle<R>, animation: &Animation) {
     }
 }
 
+/// The frames present in both `before` and `after` whose name differs:
+/// adding, moving or deleting a frame renumbers the others, and a header or
+/// list showing one of them has to hear that it was renamed.
+pub fn renamed_frames(before: &Animation, after: &Animation) -> Vec<AssetId> {
+    after
+        .frames
+        .iter()
+        .filter(|frame| {
+            before
+                .frames
+                .iter()
+                .any(|old| old.asset_id == frame.asset_id && old.name != frame.name)
+        })
+        .map(|frame| frame.asset_id)
+        .collect()
+}
+
+/// A change event for an asset whose row (not its pixels) changed.
+pub(crate) fn touched(store: &Store, id: AssetId) -> Result<OpResult> {
+    Ok(OpResult {
+        changed: 0,
+        bounds: None,
+        roles: vec![],
+        seq: store.op_head(id)?,
+    })
+}
+
+/// Runs a frame command and announces the animation it left, plus a
+/// `document://changed` for every frame it renamed.
 async fn change<R: Runtime>(
     app: &AppHandle<R>,
     state: &DocumentState,
-    work: impl FnOnce(&mut crate::store::Store) -> Result<Animation> + Send + 'static,
+    asset_id: AssetId,
+    work: impl FnOnce(&mut Store) -> Result<Animation> + Send + 'static,
 ) -> Result<Animation> {
-    let animation = run(state, work).await?;
+    let (animation, renamed) = run(state, move |s| {
+        let before = s.animation_read(asset_id)?;
+        let after = work(s)?;
+        let renamed = renamed_frames(&before, &after)
+            .into_iter()
+            .map(|id| Ok((id, touched(s, id)?)))
+            .collect::<Result<Vec<_>>>()?;
+        Ok((after, renamed))
+    })
+    .await?;
     emit_animation(app, &animation);
+    for (id, result) in renamed {
+        notify_changed(app, state, id, &result);
+    }
     Ok(animation)
 }
 
@@ -67,7 +109,7 @@ pub async fn frame_add<R: Runtime>(
     asset_id: AssetId,
     copy: bool,
 ) -> Result<Animation> {
-    change(&app, &state, move |s| {
+    change(&app, &state, asset_id, move |s| {
         s.frame_add_as(asset_id, copy, "user")
     })
     .await
@@ -79,7 +121,7 @@ pub async fn frame_delete<R: Runtime>(
     state: State<'_, DocumentState>,
     asset_id: AssetId,
 ) -> Result<Animation> {
-    change(&app, &state, move |s| s.frame_delete(asset_id)).await
+    change(&app, &state, asset_id, move |s| s.frame_delete(asset_id)).await
 }
 
 #[tauri::command]
@@ -89,7 +131,7 @@ pub async fn frame_move<R: Runtime>(
     asset_id: AssetId,
     to: u32,
 ) -> Result<Animation> {
-    change(&app, &state, move |s| s.frame_move(asset_id, to)).await
+    change(&app, &state, asset_id, move |s| s.frame_move(asset_id, to)).await
 }
 
 #[tauri::command]
@@ -99,7 +141,10 @@ pub async fn frame_set_duration<R: Runtime>(
     asset_id: AssetId,
     ms: u32,
 ) -> Result<Animation> {
-    change(&app, &state, move |s| s.frame_set_duration(asset_id, ms)).await
+    change(&app, &state, asset_id, move |s| {
+        s.frame_set_duration(asset_id, ms)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -109,7 +154,7 @@ pub async fn animation_set_duration<R: Runtime>(
     asset_id: AssetId,
     ms: u32,
 ) -> Result<Animation> {
-    change(&app, &state, move |s| {
+    change(&app, &state, asset_id, move |s| {
         s.animation_set_duration(asset_id, ms)
     })
     .await
@@ -122,7 +167,7 @@ pub async fn animation_set_playback<R: Runtime>(
     asset_id: AssetId,
     mode: String,
 ) -> Result<Animation> {
-    change(&app, &state, move |s| {
+    change(&app, &state, asset_id, move |s| {
         s.animation_set_playback(asset_id, &mode)
     })
     .await
@@ -131,7 +176,6 @@ pub async fn animation_set_playback<R: Runtime>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::store::Store;
 
     #[test]
     fn the_event_carries_the_root_and_the_whole_animation_in_camel_case() {
@@ -155,5 +199,27 @@ mod tests {
         assert_eq!(frame["position"], 1);
         assert_eq!(frame["name"], "hero #2");
         assert!(frame.get("assetId").is_some() && frame.get("updatedAt").is_some());
+    }
+
+    #[test]
+    fn the_frames_a_move_or_delete_renumbered_are_the_renamed_ones() {
+        let mut store = Store::memory().unwrap();
+        let project = store.project_create("p", "hd2d").unwrap().id;
+        let hero = store
+            .asset_create(project, "hero", "prop", 4, 4)
+            .unwrap()
+            .id;
+        store.frame_add(hero, false).unwrap();
+        let before = store.frame_add(hero, false).unwrap();
+        let [_, b, c] = [0, 1, 2].map(|i| before.frames[i].asset_id);
+        // Moving the root to the end renames all three.
+        let after = store.frame_move(hero, 2).unwrap();
+        assert_eq!(renamed_frames(&before, &after), [b, c, hero]);
+        // Deleting the last frame renames no one, and the deleted frame is
+        // not reported: it is gone.
+        let before = after;
+        let after = store.frame_delete(hero).unwrap();
+        assert!(renamed_frames(&before, &after).is_empty());
+        assert_eq!(touched(&store, b).unwrap().seq, store.op_head(b).unwrap());
     }
 }

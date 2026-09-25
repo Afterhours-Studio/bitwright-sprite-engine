@@ -126,6 +126,11 @@
     "invalid_duration": "Một khung hình kéo dài từ 10 đến 10000 mili giây.",
     "invalid_playback": "Chế độ phát là xuôi, ngược hoặc qua lại.",
     "last_frame": "Hoạt ảnh luôn giữ ít nhất một khung hình.",
-    "mixed": "Khung hình chỉ di chuyển được trong hoạt ảnh của chính nó."
+    "mixed": "Khung hình chỉ di chuyển được trong hoạt ảnh của chính nó.",
+    "name_taken": "Tên đó thuộc về một khung hình của hoạt ảnh, hoặc một khung hình sẽ cần tên mà sprite khác đã dùng.",
+    "unsupported_kind": "Nền và bộ ô không thể có khung hình hoạt ảnh."
+  },
+  "history": {
+    "not_root": "Lần đổi tên đó được thực hiện khi khung hình này đứng đầu. Hãy chuyển nó về đầu để hoàn tác hoặc làm lại."
   }
 }

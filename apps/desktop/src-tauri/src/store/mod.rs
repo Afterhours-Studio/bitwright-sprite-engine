@@ -319,6 +319,7 @@ impl Store {
             return Err(AppError::new("asset.invalid_kind", kind));
         }
         let buffer = IndexedBuffer::new(width, height)?;
+        animation::check_reserved(&self.connection, project, value, None)?;
         let id = AssetId(Uuid::now_v7());
         let at = now();
         let tx = self.connection.transaction()?;
@@ -384,12 +385,14 @@ impl Store {
         Ok(())
     }
     /// Frames share their root's style, so setting it on one frame sets it on
-    /// every frame, each in its own op log.
+    /// every frame. It is logged on the frame it was set on, and undoing or
+    /// redoing it there sets every frame again (a per-frame log entry would
+    /// let one frame's undo split the animation across two styles).
     pub fn asset_set_style(&mut self, id: AssetId, style: Option<Uuid>) -> Result<Asset> {
         if let Some(style) = style {
             self.style_read(style)?;
         }
-        self.fan_out(id, &history::Mutation::Style(style), "user")?;
+        self.commit(id, history::Mutation::Style(style), "user")?;
         self.asset_read(id)
     }
     pub fn asset_open(&self, id: AssetId) -> Result<Document> {
