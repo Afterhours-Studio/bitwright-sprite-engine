@@ -58,8 +58,8 @@ export function NotificationList({ className }: NotificationListProps): ReactEle
 
   return (
     <div className={cn('flex min-w-[280px] flex-col', className)}>
-      <div className="flex items-center justify-between gap-3 border-b border-neutral-800/80 px-2 py-1.5">
-        <h2 className="text-xs font-semibold text-neutral-200">{t('notifications.title')}</h2>
+      <div className="flex items-center justify-between gap-3 px-2 py-1">
+        <h2 className="text-sm font-medium text-fg-primary">{t('notifications.title')}</h2>
         {history.length > 0 && (
           <Button variant="ghost" onClick={clearHistory}>
             {t('notifications.clear')}
@@ -68,14 +68,13 @@ export function NotificationList({ className }: NotificationListProps): ReactEle
       </div>
 
       {history.length === 0 ? (
-        <p className="px-2 py-6 text-center text-xs text-neutral-500">{t('notifications.empty')}</p>
+        <p className="px-2 py-6 text-center text-sm text-fg-secondary">
+          {t('notifications.empty')}
+        </p>
       ) : (
         <ul className="max-h-80 overflow-y-auto">
           {history.map((item) => (
-            <li
-              key={item.id}
-              className="flex items-start gap-3 rounded px-2 py-2 hover:bg-neutral-900/80"
-            >
+            <li key={item.id} className="flex items-start gap-3 rounded-sm px-2 py-2">
               <SeverityIcon severity={item.severity} />
               {/* Severity is drawn as a shape and a colour, neither of which a
                   screen reader reports. This is the only thing that tells one
@@ -84,14 +83,14 @@ export function NotificationList({ className }: NotificationListProps): ReactEle
 
               <div className="min-w-0 flex-1">
                 {item.titleKey !== null && (
-                  <p className="text-xs font-medium leading-snug text-neutral-100">
+                  <p className="text-sm font-medium leading-snug text-fg-primary">
                     {text(item.titleKey, item.values)}
                   </p>
                 )}
                 <p
                   className={cn(
-                    'break-words text-xs leading-snug',
-                    item.titleKey === null ? 'text-neutral-100' : 'text-neutral-400',
+                    'break-words text-sm leading-snug',
+                    item.titleKey === null ? 'text-fg-primary' : 'text-fg-secondary',
                   )}
                 >
                   {text(item.messageKey, item.values)}
@@ -100,7 +99,7 @@ export function NotificationList({ className }: NotificationListProps): ReactEle
 
               <time
                 dateTime={new Date(item.createdAt).toISOString()}
-                className="shrink-0 pt-0.5 text-[10px] tabular-nums text-neutral-500"
+                className="shrink-0 pt-0.5 text-xs tabular-nums text-fg-secondary"
               >
                 {time.format(item.createdAt)}
               </time>

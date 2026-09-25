@@ -18,20 +18,21 @@ import { useId, type InputHTMLAttributes, type ReactElement, type ReactNode } fr
 import { cn } from '@/lib/cn';
 
 /**
- * The studio's text field: the new sprite dialog's name input. A step darker
- * than the section it sits in, a hairline border, and pink when focused, which
- * is the one colour the layout keeps for "this is where you are".
+ * Inputs move away from the text colour: white in light mode, near black in
+ * dark. In light mode the field is the same white as the card it sits on, so
+ * its border is what separates the two, which is why it uses the stronger
+ * input border rather than the subtle one.
  *
  * Exported because `NumberField` is the same control with a stepper drawn on
  * top of it, and the two sit in the same column. Copying the classes over
  * there would make them identical today and similar later.
  */
 export const INPUT_CONTROL = cn(
-  'w-full rounded border border-neutral-800 bg-neutral-900 px-3 py-1.5',
-  'text-xs text-neutral-100 transition-colors',
-  'placeholder:text-neutral-500',
-  'focus:border-pink-500 focus:outline-none',
-  'disabled:cursor-not-allowed disabled:border-neutral-800/40 disabled:bg-neutral-900/40 disabled:text-neutral-600',
+  'w-full rounded-sm border border-line-input bg-surface-input px-3 py-2',
+  'text-sm text-fg-primary transition-colors',
+  'placeholder:text-fg-placeholder',
+  'focus:border-line-focus',
+  'disabled:cursor-not-allowed disabled:border-line-subtle disabled:bg-surface-disabled disabled:text-fg-muted',
 );
 
 export interface FieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'id'> {
@@ -54,7 +55,7 @@ export function Field({ label, hint, className, trailing, ...rest }: FieldProps)
   const id = useId();
   return (
     <div className={cn('flex flex-col gap-1', className)}>
-      <label htmlFor={id} className="text-[11px] font-medium text-neutral-400">
+      <label htmlFor={id} className="text-xs font-medium text-fg-secondary">
         {label}
       </label>
       {trailing === undefined ? (
@@ -67,7 +68,7 @@ export function Field({ label, hint, className, trailing, ...rest }: FieldProps)
           <span className="absolute inset-y-0 end-1 flex items-center">{trailing}</span>
         </div>
       )}
-      {hint !== undefined && <p className="text-[11px] text-neutral-500">{hint}</p>}
+      {hint !== undefined && <p className="text-xs text-fg-secondary">{hint}</p>}
     </div>
   );
 }
@@ -96,7 +97,7 @@ export function TextAreaField({
   const id = useId();
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-[11px] font-medium text-neutral-400">
+      <label htmlFor={id} className="text-xs font-medium text-fg-secondary">
         {label}
       </label>
       <textarea
@@ -140,10 +141,7 @@ export function Toggle({
       <div className="flex items-center justify-between gap-3">
         <label
           htmlFor={id}
-          className={cn(
-            'text-[11px] font-medium',
-            disabled ? 'text-neutral-600' : 'text-neutral-400',
-          )}
+          className={cn('text-xs font-medium', disabled ? 'text-fg-muted' : 'text-fg-secondary')}
         >
           {label}
         </label>
@@ -157,22 +155,21 @@ export function Toggle({
             onCheckedChange(!checked);
           }}
           className={cn(
-            'h-5 w-9 shrink-0 rounded-full border p-0.5 transition-colors',
-            'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-pink-500',
-            disabled && 'cursor-not-allowed border-neutral-800/40 bg-neutral-900/40',
-            !disabled && checked && 'border-sky-400 bg-sky-600',
-            !disabled && !checked && 'border-neutral-700 bg-neutral-800',
+            'h-5 w-9 shrink-0 rounded-pill border p-0.5 transition-colors',
+            disabled && 'cursor-not-allowed border-line-subtle bg-surface-disabled',
+            !disabled && checked && 'border-transparent bg-accent',
+            !disabled && !checked && 'border-line-input bg-surface-input',
           )}
         >
           <span
             className={cn(
               'block h-3.5 w-3.5 rounded-full transition-transform',
-              checked ? 'translate-x-4 bg-white' : 'translate-x-0 bg-neutral-400',
+              checked ? 'translate-x-4 bg-accent-fg' : 'translate-x-0 bg-fg-secondary',
             )}
           />
         </button>
       </div>
-      {hint !== undefined && <p className="text-[11px] text-neutral-500">{hint}</p>}
+      {hint !== undefined && <p className="text-xs text-fg-secondary">{hint}</p>}
     </div>
   );
 }
@@ -194,9 +191,9 @@ export function StatusDot({ tone, label, children }: StatusDotProps): ReactEleme
         aria-hidden="true"
         className={cn(
           'h-2 w-2 shrink-0 rounded-full',
-          tone === 'ready' && 'bg-emerald-400',
-          tone === 'busy' && 'bg-amber-400',
-          tone === 'off' && 'bg-neutral-600',
+          tone === 'ready' && 'bg-accent',
+          tone === 'busy' && 'bg-fg-secondary',
+          tone === 'off' && 'bg-fg-muted',
         )}
       />
       <span className="sr-only">{label}</span>

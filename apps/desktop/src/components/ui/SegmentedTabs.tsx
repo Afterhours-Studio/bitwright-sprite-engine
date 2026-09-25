@@ -96,18 +96,18 @@ export function SegmentedTabs({
       role="tablist"
       aria-label={label}
       className={cn(
-        'relative inline-flex items-center gap-1 rounded p-0.5',
-        'border border-neutral-800 bg-neutral-900',
+        'relative inline-flex items-center gap-1 rounded-lg p-1',
+        'border border-line-subtle bg-surface-content shadow-sm',
         className,
       )}
     >
       <span
         aria-hidden="true"
         className={cn(
-          // The colour panel's Swatches and Ramps tabs: a lifted neutral
-          // rather than a coloured block, so the tab row stays quieter than
-          // the pink of the one current thing on screen.
-          'absolute top-0.5 bottom-0.5 rounded bg-neutral-800',
+          // One step in from the track's own radius, which is what the 4px of
+          // padding leaves: 14 minus 4 is 10. Concentric, rather than a pill
+          // sitting inside a rounded rectangle.
+          'absolute top-1 bottom-1 rounded-md bg-accent',
           // Not animated until the first measurement, so it does not slide in
           // from the left edge on mount.
           indicator.ready && 'transition-[left,width] duration-200 ease-out',
@@ -132,8 +132,8 @@ export function SegmentedTabs({
             onValueChange(segment.value);
           }}
           className={cn(
-            'relative z-10 rounded px-2.5 py-0.5 text-[11px] font-medium transition-colors',
-            segment.value === value ? 'text-white' : 'text-neutral-400 hover:text-neutral-100',
+            'relative z-10 rounded-md px-4 py-1.5 text-sm font-medium transition-colors',
+            segment.value === value ? 'text-accent-fg' : 'text-fg-secondary hover:text-fg-primary',
           )}
         >
           {segment.label}

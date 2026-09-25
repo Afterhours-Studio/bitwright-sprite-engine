@@ -31,10 +31,7 @@
 
   body {
     margin: 0;
-    /* neutral-950, which is near black in dark mode and near white in light
-       mode, because tokens.css inverts the scale. Written through theme()
-       so the value stays the variable and never becomes a literal here. */
-    background-color: theme('colors.neutral.950');
+    background: transparent;
     color: var(--fg-primary);
     font-family: theme('fontFamily.sans');
     font-size: 14px;
@@ -210,40 +207,39 @@
     background-color: var(--swatch, transparent);
   }
 
-  /* The editor's workspace: a faint diagonal checker, 20px, over the
-     workspace colour. Four 45 degree gradients rather than two squares, which
-     is the reference's pattern exactly. The colours are tokens, because this
-     file may not hold a literal colour. */
-  .canvas-workspace-bg {
-    background-color: var(--workspace);
-    background-image:
-      linear-gradient(45deg, var(--workspace-checker) 25%, transparent 25%),
-      linear-gradient(-45deg, var(--workspace-checker) 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, var(--workspace-checker) 75%),
-      linear-gradient(-45deg, transparent 75%, var(--workspace-checker) 75%);
-    background-size: 20px 20px;
-    background-position:
-      0 0,
-      0 10px,
-      10px -10px,
-      -10px 0;
-  }
-
   /* The small checker behind a thumbnail, so a transparent pixel reads as
-     transparent. The same pattern at 8px, on neutral-950. */
+     transparent. The sprite checkerboard's pattern at 8px: the well, with the
+     squares in the subtle border colour. */
   .checkerboard-pattern {
-    background-color: theme('colors.neutral.950');
+    background-color: var(--surface-well);
     background-image:
-      linear-gradient(45deg, var(--workspace-checker) 25%, transparent 25%),
-      linear-gradient(-45deg, var(--workspace-checker) 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, var(--workspace-checker) 75%),
-      linear-gradient(-45deg, transparent 75%, var(--workspace-checker) 75%);
+      linear-gradient(45deg, var(--border-subtle) 25%, transparent 25%),
+      linear-gradient(-45deg, var(--border-subtle) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, var(--border-subtle) 75%),
+      linear-gradient(-45deg, transparent 75%, var(--border-subtle) 75%);
     background-size: 8px 8px;
     background-position:
       0 0,
       0 4px,
       4px -4px,
       -4px 0;
+  }
+
+  /* TRANSITIONAL (Phase 6, removed in wave 2): the old workspace class, now
+     only an alias of the well with the checker drawn in --border-subtle. */
+  .canvas-workspace-bg {
+    background-color: var(--surface-well);
+    background-image:
+      linear-gradient(45deg, var(--border-subtle) 25%, transparent 25%),
+      linear-gradient(-45deg, var(--border-subtle) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, var(--border-subtle) 75%),
+      linear-gradient(-45deg, transparent 75%, var(--border-subtle) 75%);
+    background-size: 20px 20px;
+    background-position:
+      0 0,
+      0 10px,
+      10px -10px,
+      -10px 0;
   }
 
   /* A sprite scaled up has to stay square pixels, not a blur. */

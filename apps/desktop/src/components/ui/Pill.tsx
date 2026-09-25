@@ -21,9 +21,9 @@ import { cn } from '@/lib/cn';
  * How an active pill is marked.
  *
  * Two levels, because the interface has two levels of pill row. Primary
- * choices take pink, the layout's colour for the current item. A secondary
- * row of filters takes sky, the colour of a toggle that is on, which reads as
- * selected without competing with the primary row for attention.
+ * navigation takes the accent, so that exactly one thing on screen is yellow.
+ * A secondary row of filters takes the anchor colour instead, which reads as
+ * selected without competing with the navigation for attention.
  */
 export type PillTone = 'accent' | 'anchor';
 
@@ -39,8 +39,8 @@ export interface PillProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const ACTIVE: Record<PillTone, string> = {
-  accent: 'bg-pink-600 border-pink-500 text-white',
-  anchor: 'bg-sky-600 border-sky-400 text-white',
+  accent: 'bg-accent text-accent-fg',
+  anchor: 'bg-surface-anchor text-fg-on-anchor',
 };
 
 /**
@@ -65,13 +65,13 @@ export function Pill({
       aria-pressed={active}
       disabled={disabled}
       className={cn(
-        'inline-flex items-center gap-1.5 rounded border px-2.5 py-1',
-        'text-left text-[11px] font-medium transition-colors',
-        disabled && 'cursor-not-allowed border-neutral-800/40 bg-neutral-900/40 text-neutral-600',
+        'inline-flex items-center gap-2 rounded-md px-4 py-2',
+        'text-left text-sm font-medium transition-colors',
+        disabled && 'cursor-not-allowed bg-surface-disabled text-fg-muted',
         !disabled && active && ACTIVE[tone],
         !disabled &&
           !active &&
-          'border-neutral-800 bg-neutral-900 text-neutral-400 hover:text-neutral-100',
+          'bg-surface-content text-fg-secondary shadow-sm hover:text-fg-primary',
         className,
       )}
       {...rest}

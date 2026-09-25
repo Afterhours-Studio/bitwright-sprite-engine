@@ -28,24 +28,24 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const VARIANTS: Record<ButtonVariant, string> = {
-  primary:
-    'bg-pink-600 hover:bg-pink-500 border border-pink-500 text-white font-semibold shadow-sm shadow-pink-600/30',
-  secondary:
-    'bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 hover:text-neutral-100',
-  ghost:
-    'bg-transparent border border-transparent text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100',
+  primary: 'bg-accent text-accent-fg hover:bg-accent-hover',
+  secondary: 'bg-surface-content text-fg-primary border border-line-subtle shadow-sm',
+  ghost: 'bg-transparent text-fg-secondary hover:bg-surface-content hover:text-fg-primary',
   // The one button that says what it will destroy has to look like it at rest,
   // not only under the pointer, because it is read before it is reached for.
-  danger: 'bg-red-600 hover:bg-red-500 border border-red-500 text-white font-semibold',
+  // There is no hover step because there is no danger-hover token; adding one
+  // is a change to `styles/tokens.css`, which is where every colour lives.
+  danger: 'bg-danger text-danger-fg',
 };
 
 /**
- * A button, in the studio's small type: `text-xs` on a 4px corner, the size
- * every control in the editor's header and panels is drawn at.
+ * A button.
  *
- * The disabled state is its own dim surface rather than opacity. Fading a
- * button lets whatever is underneath bleed through, and on the stage's
- * floating panels that is the checker, which reads as noise, not as "off".
+ * The disabled state uses the disabled surface and the muted text token rather
+ * than opacity. Fading a container lets the layer underneath bleed through,
+ * which breaks the separation the surface model depends on. It is also why the
+ * disabled surface is grey while every enabled content surface is white in
+ * light mode: grey now means unavailable, and nothing else.
  */
 export function Button({
   variant = 'secondary',
@@ -59,10 +59,10 @@ export function Button({
       type="button"
       disabled={disabled}
       className={cn(
-        'inline-flex items-center justify-center gap-1.5 rounded px-3 py-1.5',
-        'text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-pink-500',
+        'inline-flex items-center justify-center gap-2 rounded-md px-4 py-2',
+        'text-sm font-medium transition-colors',
         disabled
-          ? 'cursor-not-allowed border border-neutral-800/40 bg-neutral-900/40 text-neutral-600'
+          ? 'cursor-not-allowed border border-line-subtle bg-surface-disabled text-fg-muted'
           : VARIANTS[variant],
         className,
       )}

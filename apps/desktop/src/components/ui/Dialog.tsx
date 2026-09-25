@@ -42,7 +42,7 @@ export interface DialogProps {
   open: boolean;
   /** Heading. Always a translated string. */
   title: string;
-  /** An icon drawn before the heading, in the accent colour. */
+  /** An icon drawn before the heading, in the secondary text colour. */
   icon?: ReactNode;
   /** The body, above the buttons. */
   children: ReactNode;
@@ -74,9 +74,12 @@ export interface DialogProps {
 /**
  * A modal question, with one thing to press to answer it and one to leave.
  *
- * Drawn like the new sprite dialog: the whole window dimmed and blurred behind
- * it, a near-black panel with a large corner, and a heading strip. The panel
- * carries no transform, on purpose: a transformed ancestor becomes the box a
+ * Laid out like the new sprite dialog - a heading strip, the body, and a
+ * footer of buttons - on --surface-float, the only surface above a card, held
+ * apart from it by shadow in light mode and by a lightness step in dark. The
+ * layer covers the whole window but paints nothing itself, so the bezel and
+ * the window's rounded corner are never drawn over. The panel carries no
+ * transform, on purpose: a transformed ancestor becomes the box a
  * `fixed` descendant is laid out against, so a dialog opened from inside this
  * one (a confirmation inside the reference panel) would be squeezed into this
  * panel instead of covering the window.
@@ -147,7 +150,7 @@ export function Dialog({
       >
         {children}
       </div>
-      <div className="flex justify-end gap-2 rounded-b-xl border-t border-neutral-800 bg-neutral-900/30 px-5 py-3">
+      <div className="flex justify-end gap-2 border-t border-line-subtle px-5 py-3">
         <Button variant="ghost" onClick={dismiss}>
           {t('actions.cancel')}
         </Button>
@@ -166,7 +169,7 @@ export function Dialog({
   return (
     <div
       className={cn(
-        'fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm',
+        'fixed inset-0 z-50 flex items-center justify-center p-4',
         'transition-opacity duration-150',
         open ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0',
       )}
@@ -179,17 +182,17 @@ export function Dialog({
         aria-modal="true"
         aria-labelledby={id}
         className={cn(
-          'flex max-h-full w-full flex-col rounded-xl border border-neutral-800 bg-neutral-950 text-neutral-100 shadow-2xl',
+          'flex max-h-full w-full flex-col rounded-lg border border-line bg-surface-float text-fg-primary shadow-lg',
           SIZES[size],
         )}
       >
-        <div className="flex items-center gap-2 rounded-t-xl border-b border-neutral-800 bg-neutral-900/50 p-4">
+        <div className="flex items-center gap-2 border-b border-line-subtle p-4">
           {icon !== undefined && (
-            <span aria-hidden="true" className="flex text-pink-500 [&>svg]:h-4 [&>svg]:w-4">
+            <span aria-hidden="true" className="flex text-fg-secondary [&>svg]:h-4 [&>svg]:w-4">
               {icon}
             </span>
           )}
-          <h2 id={id} className="text-base font-semibold">
+          <h2 id={id} className="text-sm font-semibold text-fg-primary">
             {title}
           </h2>
         </div>
@@ -245,7 +248,7 @@ export function ConfirmDialog({
       onDismiss={onDismiss}
       onConfirm={onConfirm}
     >
-      <p className="text-xs leading-relaxed text-neutral-400">{body}</p>
+      <p className="text-xs text-fg-secondary">{body}</p>
     </Dialog>
   );
 }

@@ -99,10 +99,7 @@ export function ComboBox({
     <div className={cn('flex flex-col gap-1', className)}>
       <label
         htmlFor={id}
-        className={cn(
-          'text-[11px] font-medium',
-          disabled ? 'text-neutral-600' : 'text-neutral-400',
-        )}
+        className={cn('text-xs font-medium', disabled ? 'text-fg-muted' : 'text-fg-secondary')}
       >
         {label}
       </label>
@@ -162,7 +159,7 @@ export function ComboBox({
             viewBox="0 0 12 12"
             aria-hidden="true"
             className={cn(
-              'h-3 w-3 text-neutral-400 transition-transform duration-150',
+              'h-3 w-3 text-fg-secondary transition-transform duration-150',
               open && 'rotate-180',
             )}
             fill="none"
@@ -191,9 +188,9 @@ export function ComboBox({
                     setOpen(false);
                   }}
                   className={cn(
-                    'flex w-full items-center rounded px-2.5 py-1.5 text-left text-xs',
-                    'transition-colors hover:bg-neutral-800',
-                    option === value ? 'text-pink-400' : 'text-neutral-300',
+                    'flex w-full items-center rounded-sm px-3 py-2 text-left text-sm',
+                    'transition-colors hover:bg-surface-content-alt',
+                    option === value ? 'text-fg-primary' : 'text-fg-secondary',
                   )}
                 >
                   <span className="truncate">{option}</span>
@@ -206,13 +203,13 @@ export function ComboBox({
         {/* Something is always said while the list is open. A panel that
             opens on nothing is indistinguishable from one that failed. */}
         <Overlay open={open && shown.length === 0} className="p-2">
-          <p className="text-[11px] text-neutral-500">
+          <p className="text-xs text-fg-secondary">
             {options.length === 0 ? emptyHint : noMatchHint}
           </p>
         </Overlay>
       </div>
 
-      {hint !== undefined && <p className="text-[11px] text-neutral-500">{hint}</p>}
+      {hint !== undefined && <p className="text-xs text-fg-secondary">{hint}</p>}
     </div>
   );
 }

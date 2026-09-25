@@ -34,13 +34,13 @@ export interface CardProps {
 }
 
 /**
- * A group of related content: a settings section, in the studio's look.
+ * A group of related content.
  *
- * A faint lift off the page (`bg-neutral-900/40`) with a hairline border,
- * which is how the reference separates sections without a card stack. A card
- * nested inside another takes `surface="alt"`, a step stronger, so the two
- * still read as two when one sits on the other. The neutral scale inverts in
- * the light theme, so the same classes hold there.
+ * A card is the default text-bearing surface. In light mode it is white and is
+ * held apart from the grey canvas by lightness, and from a nested card by its
+ * border; in dark mode both boundaries are real lightness steps. A nested card
+ * uses `surface="alt"` and a full-strength border, because in light mode that
+ * border is the only thing separating two near-white surfaces.
  */
 export function Card({
   title,
@@ -52,17 +52,17 @@ export function Card({
   return (
     <section
       className={cn(
-        'rounded border border-neutral-800',
-        surface === 'content' && 'bg-neutral-900/40 p-4',
-        surface === 'alt' && 'bg-neutral-900/70 p-3',
+        'rounded-lg p-4',
+        surface === 'content' && 'border border-line-subtle bg-surface-content shadow-sm',
+        surface === 'alt' && 'border border-line bg-surface-content-alt',
         className,
       )}
     >
       {title !== undefined && (
         <header className="mb-3">
-          <h2 className="text-sm font-semibold text-neutral-100">{title}</h2>
+          <h2 className="text-sm font-semibold text-fg-primary">{title}</h2>
           {description !== undefined && (
-            <p className="mt-1 text-xs text-neutral-400">{description}</p>
+            <p className="mt-1 text-xs text-fg-secondary">{description}</p>
           )}
         </header>
       )}

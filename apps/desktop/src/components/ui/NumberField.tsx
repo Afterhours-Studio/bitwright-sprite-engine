@@ -411,10 +411,7 @@ export function NumberField(props: NumberFieldProps): ReactElement {
     <div className={cn('flex flex-col gap-1', className)}>
       <label
         htmlFor={id}
-        className={cn(
-          'text-[11px] font-medium',
-          disabled ? 'text-neutral-600' : 'text-neutral-400',
-        )}
+        className={cn('text-xs font-medium', disabled ? 'text-fg-muted' : 'text-fg-secondary')}
       >
         {label}
       </label>
@@ -441,7 +438,7 @@ export function NumberField(props: NumberFieldProps): ReactElement {
         />
 
         {stepper && (
-          <div className="absolute inset-y-px end-px flex w-7 flex-col overflow-hidden rounded-e border-s border-neutral-800">
+          <div className="absolute inset-y-px end-px flex w-7 flex-col overflow-hidden rounded-e-sm">
             <StepperButton
               label={t('actions.increase', { label })}
               direction={1}
@@ -460,7 +457,7 @@ export function NumberField(props: NumberFieldProps): ReactElement {
         )}
       </div>
 
-      {hint !== undefined && <p className="text-[11px] text-neutral-500">{hint}</p>}
+      {hint !== undefined && <p className="text-xs text-fg-secondary">{hint}</p>}
     </div>
   );
 }
@@ -515,8 +512,8 @@ function StepperButton({
       className={cn(
         'flex flex-1 items-center justify-center transition-colors',
         disabled
-          ? 'cursor-not-allowed text-neutral-600'
-          : 'text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100',
+          ? 'cursor-not-allowed text-fg-muted'
+          : 'text-fg-secondary hover:bg-surface-content-alt hover:text-fg-primary',
       )}
     >
       {/* The same weight as the chevron on `Select`, so a column of fields and
