@@ -21,6 +21,7 @@ import { DocumentCanvas } from '@/features/editor/canvas/DocumentCanvas';
 import { StudioHeader } from '@/features/editor/header/StudioHeader';
 import { AgentActivityIndicator } from '@/features/editor/live';
 import { TilemapEditor } from '@/features/editor/tilemap/TilemapEditor';
+import { TimelineStrip } from '@/features/editor/timeline/TimelineStrip';
 import { LayerList } from '@/features/editor/tools/LayerList';
 import { PalettePanel } from '@/features/editor/tools/PalettePanel';
 import { StepRail } from '@/features/editor/tools/StepRail';
@@ -111,6 +112,11 @@ export function EditorScreen(): ReactElement {
         </div>
       </div>
 
+      {bottomPanel === 'timeline' && (
+        <div className="relative shrink-0">
+          <TimelineStrip />
+        </div>
+      )}
       {bottomPanel === 'steps' && (
         <div className="relative shrink-0">
           <StepRail />
