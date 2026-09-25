@@ -83,3 +83,49 @@ store, opened from the project tree. The gallery showed a directory nothing
 writes to any more, so the screen, its store, the engine's sprite routes and
 the shell commands behind them are removed rather than kept as a view of
 leftovers.
+
+## 2026-09-25 — The studio layout is copied, the product is not
+
+The user asked for the reference studio's UI and layout one to one. The
+structure, spacing, type, icons and colours are reproduced exactly; the name,
+branding, account, cloud, marketplace and paid-plan controls are not, because
+Bitwright has none of them and a control that does nothing is not a copy of
+one that does something. Each is replaced by the Bitwright feature in the
+same place: the account card by the agent (MCP) card, Sign in by Connect an
+agent, Marketplace and Recycle Bin by Projects and Settings, AI Create by the
+Agent popover, Cloud Storage by the reference import, the avatar by Settings.
+
+## 2026-09-25 — The bottom strip is the step workflow, not an animation timeline
+
+The reference's bottom strip is an animation timeline. Bitwright's
+equivalent sequence is its drawing workflow — eleven steps, each with a
+layer, gates and an advance — and that is what the user asked to keep at the
+centre. The strip shows one card per step with its layer's thumbnail, and
+its bar carries check, advance, revisit and forced advance. Animation frames
+remain a separate feature for a later release: they change the document
+model, the store, the op log, the MCP tools and export, which is a phase of
+its own rather than a layout change.
+
+## 2026-09-25 — Tailwind's palette comes back, through variables
+
+The theme used to remove Tailwind's palette so that every colour went
+through a role token. The reference is written in Tailwind's neutral, pink,
+sky and purple, and copying it one to one means using those classes. The
+neutral scale reads CSS variables, so the light theme still works by
+inverting it, and the role tokens stay and are re-pointed so the contrast
+check keeps measuring them.
+
+## 2026-09-25 — Phase 4 is written by Claude subagents
+
+The router's free allowances are exhausted until 2026-09-30 and its Sonnet
+is rate-limited, so the crew's model pool cannot take work. Following the
+earlier decision for multi-file work, each task is written by a Claude
+subagent in its own crew worktree, owns its files, passes its verify, is
+reviewed by another subagent, and lands as one commit.
+
+## 2026-09-25 — With a selection, shapes are rasterised in the editor
+
+A selection clips every tool. `draw_shape` is rasterised by Rust and has no
+mask, so while a selection exists a shape is rasterised client-side and sent
+as `set_pixels`; without one it stays `draw_shape`, so the rasteriser an
+agent and a person share is still Rust's.
