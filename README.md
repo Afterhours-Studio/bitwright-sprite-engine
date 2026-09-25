@@ -232,14 +232,14 @@ The first launch is blocked, because pre-1.0 builds are not notarised. Open
 
 ```bash
 # AppImage
-chmod +x Bitwright_1.0.0_amd64.AppImage
-./Bitwright_1.0.0_amd64.AppImage
+chmod +x Bitwright_1.1.0_amd64.AppImage
+./Bitwright_1.1.0_amd64.AppImage
 
 # Debian and Ubuntu
-sudo apt install ./bitwright_1.0.0_amd64.deb
+sudo apt install ./bitwright_1.1.0_amd64.deb
 
 # Fedora
-sudo dnf install ./bitwright-1.0.0-1.x86_64.rpm
+sudo dnf install ./bitwright-1.1.0-1.x86_64.rpm
 ```
 
 If the window does not open, install the WebKit runtime:
@@ -470,6 +470,8 @@ in [the decision records](docs/architecture/decisions/0001-record-architecture-d
       command, tool and store action tested, this README and the documentation
       matched to the code, no TODO, mock or unexplained hardcoded value —
       version `1.0.0`
+- [x] Phase 4 — Studio: the interface rebuilt on a one-to-one studio layout,
+      with the full manual toolset beside the agent workflow — version `1.1.0`
 
 The phases, what each one delivers, and the exit criteria for each are in
 [the plan](docs/PLAN.md).

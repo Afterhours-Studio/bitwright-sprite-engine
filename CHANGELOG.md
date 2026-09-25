@@ -7,6 +7,55 @@ and the project follows [Semantic Versioning](https://semver.org/). Versions
 before 0.2.0 belong to the diffusion-based sprite generator this application
 used to be; they are kept below as history.
 
+## [1.1.0] - 2026-09-25
+
+The studio: the interface rebuilt on a one-to-one studio layout, with a full
+manual toolset beside the agent workflow. Documents, the MCP tools and the
+engine are unchanged.
+
+### Added
+
+- A home screen: the agent card, new sprite, new project and PNG to Pixel,
+  every sprite of every project in a grid or a list with thumbnails, sorting
+  and filtering, rename and delete, a projects view, and the language choice.
+- A new sprite dialog with the project, name, kind and a grid of canvas sizes
+  from 16 to 512 pixels, the style preset's size marked.
+- The editor's header: rename in place, undo and redo, clear the layer, the
+  pixel grid and a tile guide, the layers and steps toggles, the Agent
+  popover with the MCP state and what a connected agent is doing, the
+  reference import, export, notifications and settings.
+- A tools column with sixteen tools and their keys: pencil, eraser, paint
+  bucket, eyedropper, rectangle select, magic wand, move, pan, zoom, line,
+  curve, rectangle, circle, checker dither, lighten and darken, with filled
+  shapes and mirror symmetry. A selection clips every tool; shapes drawn in
+  one are rasterised by a port of the engine's own rasteriser.
+- A secondary colour on the right mouse button, swapped with X.
+- A floating toolbar on the stage for flipping the layer, replacing the
+  secondary colour with the primary, outlining and anti-aliasing, with a
+  cursor readout and a zoom control.
+- The colour panel (swatches, ramps, brush size, adding and removing colours
+  within the style's limit) and the layers panel (every role, the target
+  override behind its confirmation).
+- The step workflow as a strip along the bottom: one card per step with its
+  layer's thumbnail, the gate summary and report, check, advance, revisit and
+  forced advance.
+
+### Changed
+
+- The design system: Manrope, lucide icons, and Tailwind's neutral, pink, sky
+  and purple scales, the neutral scale read through variables so the light
+  theme inverts it. The role tokens remain and the contrast check still
+  measures them. The application now starts in the dark theme.
+- The shared dialogs, menus, fields, toasts, the export dialog, the tilemap
+  stage, the reference panel, the agent chip and the settings screen follow
+  the studio look. Only the newest open overlay answers Escape.
+
+### Removed
+
+- The title bar, the dock, the project sidebar and the tool panel. Their
+  functions live in the home screen, the header, the tools column and the
+  panels.
+
 ## [1.0.0] - 2026-09-24
 
 The first release to rely on: every feature the plan describes, documented,

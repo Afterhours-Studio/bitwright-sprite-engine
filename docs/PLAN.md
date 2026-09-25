@@ -79,7 +79,7 @@ tests, the contrast check, rustfmt, clippy with warnings as errors, 431 Rust
 tests, 91 Python tests), everything committed, version `1.0.0` tagged with
 its CHANGELOG.
 
-## Phase 4 — Studio · in progress
+## Phase 4 — Studio · done
 
 Goal: the interface rebuilt one to one on the reference studio layout in
 [architecture/studio-layout.md](architecture/studio-layout.md) — a home
@@ -89,17 +89,29 @@ workflow in it: the strip is the step workflow, the header's Agent button is
 the MCP state and live agent activity, the reference import sits in the
 header.
 
-| Task | What                                                                                                | Owns                                                                                                                                                                   | Wave | Status  |
-| ---- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | ------- |
-| S.0  | Design system and state: palettes, tokens, font, utilities, contrast check, shell and editor stores | `tailwind.config.ts`, `styles/**`, `main.tsx`, `scripts/check-contrast.ts`, `stores/useShellStore.ts`, `stores/useEditorStore.ts`, `lib/i18n.ts`, `types/i18next.d.ts` | 0    | pending |
-| S.1  | Home: sidebar, recent and projects grids, list view, sort and filter, new sprite dialog             | `features/home/**`, `locales/*/home.json`, `locales/*/projects.json`                                                                                                   | 1    | pending |
-| S.2  | Editor header: every control, the agent popover, window controls                                    | `features/editor/header/**`, `components/layout/WindowControls.tsx`, `locales/*/studio.json`                                                                           | 1    | pending |
-| S.3  | Tools column and keyboard shortcuts                                                                 | `features/editor/tools/ToolColumn.tsx`, `hooks/useToolShortcuts.ts`, `locales/*/tools.json`                                                                            | 1    | pending |
-| S.4  | Stage: the new tools' behaviour, selection, symmetry, floating panels, tile guide                   | `features/editor/canvas/**`, `features/editor/PixelGridOverlay.tsx`, `lib/pixels.ts`, `lib/shapes.ts`, `lib/selection.ts`, `locales/*/editor.json`                     | 1    | pending |
-| S.5  | Colour panel and layers panel                                                                       | `features/editor/tools/PalettePanel.tsx`, `features/editor/tools/LayerList.tsx`, `locales/*/panels.json`                                                               | 1    | pending |
-| S.6  | Steps strip                                                                                         | `features/editor/tools/StepRail.tsx` and its test, `locales/*/workflow.json`                                                                                           | 1    | pending |
-| S.7  | Integration: screens, shell, settings, dialogs restyled, old frame removed, docs, README, 1.1.0     | everything else                                                                                                                                                        | 2    | pending |
+| Task | What                                                                                                | Owns                                                                                                                                                                   | Wave | Status |
+| ---- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | ------ |
+| S.0  | Design system and state: palettes, tokens, font, utilities, contrast check, shell and editor stores | `tailwind.config.ts`, `styles/**`, `main.tsx`, `scripts/check-contrast.ts`, `stores/useShellStore.ts`, `stores/useEditorStore.ts`, `lib/i18n.ts`, `types/i18next.d.ts` | 0    | done   |
+| S.1  | Home: sidebar, recent and projects grids, list view, sort and filter, new sprite dialog             | `features/home/**`, `locales/*/home.json`, `locales/*/projects.json`                                                                                                   | 1    | done   |
+| S.2  | Editor header: every control, the agent popover, window controls                                    | `features/editor/header/**`, `components/layout/WindowControls.tsx`, `locales/*/studio.json`                                                                           | 1    | done   |
+| S.3  | Tools column and keyboard shortcuts                                                                 | `features/editor/tools/ToolColumn.tsx`, `hooks/useToolShortcuts.ts`, `locales/*/tools.json`                                                                            | 1    | done   |
+| S.4  | Stage: the new tools' behaviour, selection, symmetry, floating panels, tile guide                   | `features/editor/canvas/**`, `features/editor/PixelGridOverlay.tsx`, `lib/pixels.ts`, `lib/shapes.ts`, `lib/selection.ts`, `locales/*/editor.json`                     | 1    | done   |
+| S.5  | Colour panel and layers panel                                                                       | `features/editor/tools/PalettePanel.tsx`, `features/editor/tools/LayerList.tsx`, `locales/*/panels.json`                                                               | 1    | done   |
+| S.6  | Steps strip                                                                                         | `features/editor/tools/StepRail.tsx` and its test, `locales/*/workflow.json`                                                                                           | 1    | done   |
+| S.7  | Integration: screens, shell, settings, dialogs restyled, old frame removed, docs, README, 1.1.0     | everything else                                                                                                                                                        | 2    | done   |
 
 Exit criteria: every row done and cross-reviewed; the full gate green; the
 application checked in a browser against the reference at 1440×900; README
 and docs describe the new interface; version `1.1.0` tagged.
+
+S.0 ran first, S.1–S.6 in parallel, S.7 as two parallel halves (screens and
+shell; the restyled primitives and dialogs) and S.8 for the documentation.
+The stage (S.4) was cross-reviewed and its seven findings fixed; the rest
+were reviewed against the contract when they landed. The application was
+checked in the real window with a sprite an agent drew over MCP, which is
+where the README's screenshots come from.
+
+Exit criteria met: the full gate green (prettier, typecheck, lint, 505 TS
+tests, the contrast check, rustfmt, clippy with warnings as errors, 431 Rust
+tests, 91 Python tests), a release build of the installer, everything
+committed, version `1.1.0` tagged with its CHANGELOG.
