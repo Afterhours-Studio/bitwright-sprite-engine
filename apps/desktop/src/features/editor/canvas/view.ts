@@ -227,3 +227,30 @@ export function zoomAbout(
 export function stepZoom(zoom: number, direction: number): number {
   return clampZoom(direction > 0 ? zoom * 2 : zoom / 2);
 }
+
+/**
+ * Which document pixel a point in the stage is over, off the document or not.
+ *
+ * The move and the marquee follow the pointer past the sprite's edge - a drag
+ * that carries a selection off the canvas, or a box pulled out to the border
+ * from inside - so they need the pixel a pointer would be on if the document
+ * went on forever, which {@link toCanvasPoint} deliberately refuses to give.
+ *
+ * @param pointer - A point in the stage, in CSS pixels from its corner.
+ * @param view - The current zoom and pan.
+ * @param viewport - The room the stage has.
+ * @param canvas - The document's size.
+ * @returns The document pixel, which may be negative or past the far edge.
+ */
+export function toDocumentPoint(
+  pointer: Point,
+  view: View,
+  viewport: Viewport,
+  canvas: CanvasSize,
+): Point {
+  const rect = imageRect(view, viewport, canvas);
+  return {
+    x: Math.floor((pointer.x - rect.left) / view.zoom),
+    y: Math.floor((pointer.y - rect.top) / view.zoom),
+  };
+}

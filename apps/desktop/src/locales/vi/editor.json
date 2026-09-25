@@ -11,7 +11,20 @@
     "zoomIn": "Phóng to",
     "zoomOut": "Thu nhỏ",
     "zoomFit": "Vừa khung",
-    "zoomLevel": "{{percent}} phần trăm"
+    "zoomLevel": "{{percent}} phần trăm",
+    "zoomPercent": "{{percent}} %",
+    "zoomFitHint": "Vừa khung màn hình",
+    "zoomFactor": "{{zoom}} x",
+    "cursor": "{{x}} : {{y}}",
+    "cursorNone": "-- : --",
+    "size": "{{width}} x {{height}} px",
+    "toolbar": "Công cụ khung vẽ",
+    "flipHorizontal": "Lật ngang",
+    "flipVertical": "Lật dọc",
+    "replaceSecondary": "Thay màu phụ bằng màu chính",
+    "outline": "Tạo viền từ các mảng màu",
+    "outlineUnavailable": "Viền: hãy vẽ trên lớp viền để tạo viền từ các mảng màu",
+    "antialias": "Khử răng cưa"
   },
   "palette": {
     "title": "Bảng màu",

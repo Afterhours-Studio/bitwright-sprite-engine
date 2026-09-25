@@ -25,7 +25,14 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { brushOffsets, linePoints, pixelPerfect } from '@/lib/pixels';
+import {
+  brushOffsets,
+  ditherSlot,
+  linePoints,
+  mirrorPoints,
+  pixelPerfect,
+  rampStep,
+} from '@/lib/pixels';
 
 describe('brushOffsets', () => {
   it('is one pixel at size one, whatever the shape', () => {
@@ -114,5 +121,55 @@ describe('pixelPerfect', () => {
     ];
 
     expect(pixelPerfect(diagonal)).toEqual(diagonal);
+  });
+});
+
+describe('mirrorPoints', () => {
+  const canvas = { width: 8, height: 5 };
+
+  it('mirrors about the canvas centre on the chosen axes', () => {
+    const point = { x: 1, y: 1 };
+
+    expect(mirrorPoints(point, 'off', canvas)).toEqual([point]);
+    expect(mirrorPoints(point, 'horizontal', canvas)).toEqual([point, { x: 6, y: 1 }]);
+    expect(mirrorPoints(point, 'vertical', canvas)).toEqual([point, { x: 1, y: 3 }]);
+    expect(mirrorPoints(point, 'both', canvas)).toEqual([
+      point,
+      { x: 6, y: 1 },
+      { x: 1, y: 3 },
+      { x: 6, y: 3 },
+    ]);
+  });
+
+  it('maps the middle row of an odd canvas onto itself', () => {
+    expect(mirrorPoints({ x: 0, y: 2 }, 'vertical', canvas)).toEqual([
+      { x: 0, y: 2 },
+      { x: 0, y: 2 },
+    ]);
+  });
+});
+
+describe('ditherSlot', () => {
+  it('writes the first slot on even cells and the second on odd ones', () => {
+    expect(ditherSlot({ x: 0, y: 0 }, 3, 5)).toBe(3);
+    expect(ditherSlot({ x: 1, y: 0 }, 3, 5)).toBe(5);
+    expect(ditherSlot({ x: 1, y: 1 }, 3, 5)).toBe(3);
+  });
+});
+
+describe('rampStep', () => {
+  const ramps = [{ slots: [4, 5, 6] }, { slots: [10, 11] }];
+
+  it('moves one step toward the light end or the dark end', () => {
+    expect(rampStep(5, ramps, 1)).toBe(6);
+    expect(rampStep(5, ramps, -1)).toBe(4);
+    expect(rampStep(11, ramps, -1)).toBe(10);
+  });
+
+  it('has nowhere to go past either end, off every ramp, or on transparent', () => {
+    expect(rampStep(6, ramps, 1)).toBeNull();
+    expect(rampStep(4, ramps, -1)).toBeNull();
+    expect(rampStep(9, ramps, 1)).toBeNull();
+    expect(rampStep(0, ramps, 1)).toBeNull();
   });
 });

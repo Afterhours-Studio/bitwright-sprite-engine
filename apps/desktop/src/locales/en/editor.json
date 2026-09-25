@@ -11,7 +11,20 @@
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
     "zoomFit": "Fit",
-    "zoomLevel": "{{percent}} percent"
+    "zoomLevel": "{{percent}} percent",
+    "zoomPercent": "{{percent}} %",
+    "zoomFitHint": "Fit to screen",
+    "zoomFactor": "{{zoom}} x",
+    "cursor": "{{x}} : {{y}}",
+    "cursorNone": "-- : --",
+    "size": "{{width}} x {{height}} px",
+    "toolbar": "Canvas tools",
+    "flipHorizontal": "Flip horizontal",
+    "flipVertical": "Flip vertical",
+    "replaceSecondary": "Replace secondary with primary",
+    "outline": "Outline from the fills",
+    "outlineUnavailable": "Outline: draw on the outline layer to derive it from the fills",
+    "antialias": "Anti-alias"
   },
   "palette": {
     "title": "Palette",

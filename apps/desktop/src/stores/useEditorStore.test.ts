@@ -254,6 +254,14 @@ describe('selection', () => {
     }).toThrow(RangeError);
     expect(useEditorStore.getState().selection).toBeNull();
   });
+
+  it('keeps the asset a selection was made on', () => {
+    const mask = new Uint8Array(2).fill(1);
+    useEditorStore.getState().setSelection({ width: 2, height: 1, mask, assetId: 'asset-a' });
+
+    expect(useEditorStore.getState().selection?.assetId).toBe('asset-a');
+    useEditorStore.getState().clearSelection();
+  });
 });
 
 describe('view preferences', () => {

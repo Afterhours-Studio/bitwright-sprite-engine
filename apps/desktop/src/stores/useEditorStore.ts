@@ -115,6 +115,13 @@ export interface Selection {
   width: number;
   height: number;
   mask: Uint8Array;
+  /**
+   * The asset the mask was made on. This store outlives the canvas, which
+   * unmounts for other screens, so without it a mask made on one sprite would
+   * clip the next sprite of the same size. The canvas honours a selection only
+   * while its asset is the one open, and drops it otherwise.
+   */
+  assetId?: string;
 }
 
 /** The tools, in the order the rail lists them. */

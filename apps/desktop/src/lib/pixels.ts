@@ -33,7 +33,12 @@
  * then differ by who drew them. What is left is the part no op has an argument
  * for - the path a hand actually took between two pointer reports, and the
  * footprint of the brush that walked it - which has to be resolved here before
- * it can be sent as one `set_pixels` op.
+ * it can be sent as one `set_pixels` op. The same goes for the few per-pixel
+ * rules a freehand tool applies on the way: its mirror images, the dither's
+ * checker, and the one ramp step lighten and darken take. The fill and the
+ * shapes come back on this side only where a selection has to clip them (and
+ * for the preview), and live in `lib/selection.ts` and `lib/shapes.ts`,
+ * ported from Rust so the two agree.
  *
  * NO DOM. Nothing in this file touches a canvas, an element, or an event, so
  * every rule a stroke obeys can be tested without a browser.
@@ -188,4 +193,88 @@ function orthogonal(a: Point, b: Point): boolean {
  */
 function diagonal(a: Point, b: Point): boolean {
   return Math.abs(a.x - b.x) === 1 && Math.abs(a.y - b.y) === 1;
+}
+
+/** Which axes a stroke is mirrored about, through the canvas centre. */
+export type SymmetryAxes = 'off' | 'horizontal' | 'vertical' | 'both';
+
+/**
+ * A point and its mirror images about the canvas centre.
+ *
+ * `horizontal` mirrors left to right - the axis is the vertical centre line -
+ * because that is the symmetry a character facing the viewer has, and it is
+ * what the panel's split-square icon draws. The mirror of column `x` is
+ * `width - 1 - x`, so on an even canvas the axis falls between two columns and
+ * on an odd one it runs down the middle column, which mirrors onto itself.
+ *
+ * @param point - The pixel the brush landed on.
+ * @param axes - Which mirrors are on.
+ * @param canvas - The document's size.
+ * @returns The point first, then its images; repeats are left to the caller,
+ *   which already drops them.
+ */
+export function mirrorPoints(
+  point: Point,
+  axes: SymmetryAxes,
+  canvas: { width: number; height: number },
+): Point[] {
+  const across = canvas.width - 1 - point.x;
+  const down = canvas.height - 1 - point.y;
+  switch (axes) {
+    case 'off':
+      return [point];
+    case 'horizontal':
+      return [point, { x: across, y: point.y }];
+    case 'vertical':
+      return [point, { x: point.x, y: down }];
+    case 'both':
+      return [point, { x: across, y: point.y }, { x: point.x, y: down }, { x: across, y: down }];
+  }
+}
+
+/**
+ * The slot the checker dither writes at a pixel.
+ *
+ * Decided by the pixel's own position rather than by the order the stroke
+ * reached it, so a stroke that crosses an earlier one continues its checker
+ * instead of starting a second, out-of-phase one beside it.
+ *
+ * @param point - The pixel.
+ * @param even - The slot for cells where `x + y` is even.
+ * @param odd - The slot for the rest.
+ * @returns The slot to write.
+ */
+export function ditherSlot(point: Point, even: number, odd: number): number {
+  return (point.x + point.y) % 2 === 0 ? even : odd;
+}
+
+/**
+ * The slot one step along a slot's ramp.
+ *
+ * Ramps are listed darkest first, so lighter is one index on. A slot that is
+ * in no ramp, or already at the end the step is heading for, has nowhere to go
+ * and is reported as null rather than as itself, which lets the caller leave
+ * the pixel out of the batch instead of rewriting it with what it already is.
+ *
+ * @param slot - The slot a pixel is painted with.
+ * @param ramps - The palette's ramps.
+ * @param direction - `1` to lighten, `-1` to darken.
+ * @returns The slot to write, or null to leave the pixel alone.
+ */
+export function rampStep(
+  slot: number,
+  ramps: readonly { slots: readonly number[] }[],
+  direction: 1 | -1,
+): number | null {
+  if (slot === 0) {
+    return null;
+  }
+  for (const ramp of ramps) {
+    const index = ramp.slots.indexOf(slot);
+    if (index === -1) {
+      continue;
+    }
+    return ramp.slots[index + direction] ?? null;
+  }
+  return null;
 }

@@ -26,8 +26,15 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { strokeOps, strokePixels, TRANSPARENT, type Stroke } from '@/features/editor/canvas/stroke';
-import type { Point } from '@/types/document';
+import {
+  strokeOps,
+  strokePixels,
+  strokePreview,
+  TRANSPARENT,
+  type Stroke,
+} from '@/features/editor/canvas/stroke';
+import { rectSelection, type LayerPixels } from '@/lib/selection';
+import type { Point, Ramp } from '@/types/document';
 
 const CANVAS = { width: 16, height: 16 };
 
@@ -155,7 +162,7 @@ describe('strokeOps', () => {
     ]);
   });
 
-  it.each(['eyedropper', 'select', 'wand', 'move', 'pan', 'zoom'] as const)(
+  it.each(['eyedropper', 'select', 'wand', 'pan', 'zoom'] as const)(
     'writes nothing for the %s tool, which does not paint its path',
     (tool) => {
       const points = [
@@ -196,6 +203,7 @@ describe('strokeOps', () => {
         from: { x: 1, y: 1 },
         to: { x: 9, y: 9 },
         slot: 7,
+        fill: false,
         pixelPerfect: true,
       },
     ]);
@@ -213,5 +221,192 @@ describe('strokeOps', () => {
     expect(strokeOps(stroke({ points: [] }))).toEqual([]);
     expect(strokeOps(stroke({ points: [{ x: -4, y: -4 }] }))).toEqual([]);
     expect(strokeOps(stroke({ tool: 'fill', points: [{ x: 99, y: 99 }] }))).toEqual([]);
+  });
+});
+
+/**
+ * A layer of the test canvas, every pixel `fill` except the ones named.
+ *
+ * @param fill - The slot everywhere else.
+ * @param painted - Pixels to set, as `[x, y, slot]`.
+ * @returns The buffer.
+ */
+function layer(fill: number, painted: [number, number, number][] = []): LayerPixels {
+  const data = new Array<number>(CANVAS.width * CANVAS.height).fill(fill);
+  for (const [x, y, slot] of painted) {
+    data[y * CANVAS.width + x] = slot;
+  }
+  return { width: CANVAS.width, height: CANVAS.height, data };
+}
+
+describe('the tools that resolve pixels on the client', () => {
+  it('mirrors a freehand stroke about the canvas centre', () => {
+    const pixels = strokePixels(stroke({ points: [{ x: 1, y: 2 }], symmetry: 'both' }));
+
+    expect(pixels).toEqual([
+      { x: 1, y: 2, slot: 7 },
+      { x: 14, y: 2, slot: 7 },
+      { x: 1, y: 13, slot: 7 },
+      { x: 14, y: 13, slot: 7 },
+    ]);
+  });
+
+  it('dithers by each pixel parity, primary on even cells', () => {
+    const pixels = strokePixels(
+      stroke({
+        tool: 'dither',
+        slot: 3,
+        secondarySlot: 5,
+        points: [
+          { x: 0, y: 0 },
+          { x: 3, y: 0 },
+        ],
+      }),
+    );
+
+    expect(pixels.map((pixel) => pixel.slot)).toEqual([3, 5, 3, 5]);
+  });
+
+  it('lightens one ramp step and leaves slots with no step alone', () => {
+    const ramps: Ramp[] = [{ name: 'skin', material: 'skin', slots: [4, 5, 6] }];
+    const buffer = layer(0, [
+      [0, 0, 4],
+      [1, 0, 6],
+      [2, 0, 9],
+    ]);
+    const points = [
+      { x: 0, y: 0 },
+      { x: 3, y: 0 },
+    ];
+
+    expect(strokePixels(stroke({ tool: 'lighten', points, buffer, ramps }))).toEqual([
+      { x: 0, y: 0, slot: 5 },
+    ]);
+    expect(strokePixels(stroke({ tool: 'darken', points, buffer, ramps }))).toEqual([
+      { x: 1, y: 0, slot: 5 },
+    ]);
+  });
+
+  it('clips every freehand pixel to the selection', () => {
+    const selection = rectSelection({ x: 0, y: 0 }, { x: 1, y: 0 }, CANVAS);
+    const pixels = strokePixels(
+      stroke({
+        points: [
+          { x: 0, y: 0 },
+          { x: 5, y: 0 },
+        ],
+        selection,
+      }),
+    );
+
+    expect(pixels.map((pixel) => pixel.x)).toEqual([0, 1]);
+  });
+
+  it('fills inside a selection on the client, as one set_pixels of what changes', () => {
+    const selection = rectSelection({ x: 0, y: 0 }, { x: 2, y: 0 }, CANVAS);
+    const ops = strokeOps(
+      stroke({ tool: 'fill', points: [{ x: 0, y: 0 }], selection, buffer: layer(0, [[1, 0, 7]]) }),
+    );
+
+    expect(ops).toEqual([
+      {
+        kind: 'set_pixels',
+        layer: 'flats',
+        pixels: [{ x: 0, y: 0, slot: 7 }],
+      },
+    ]);
+  });
+
+  it('rasterises a shape on the client while a selection exists', () => {
+    const selection = rectSelection({ x: 0, y: 0 }, { x: 2, y: 15 }, CANVAS);
+    const ops = strokeOps(
+      stroke({
+        tool: 'line',
+        points: [
+          { x: 0, y: 1 },
+          { x: 9, y: 1 },
+        ],
+        selection,
+      }),
+    );
+
+    expect(ops).toEqual([
+      {
+        kind: 'set_pixels',
+        layer: 'flats',
+        pixels: [0, 1, 2].map((x) => ({ x, y: 1, slot: 7 })),
+      },
+    ]);
+  });
+
+  it('sends the fill flag for a closed shape', () => {
+    const [op] = strokeOps(
+      stroke({
+        tool: 'ellipse',
+        shapeFill: true,
+        points: [
+          { x: 1, y: 1 },
+          { x: 5, y: 5 },
+        ],
+      }),
+    );
+
+    expect(op).toMatchObject({ kind: 'draw_shape', shape: 'ellipse', fill: true });
+  });
+
+  it('translates the layer for a move with no selection', () => {
+    const ops = strokeOps(
+      stroke({
+        tool: 'move',
+        points: [
+          { x: 1, y: 1 },
+          { x: 4, y: 0 },
+        ],
+      }),
+    );
+
+    expect(ops).toEqual([{ kind: 'translate', layer: 'flats', dx: 3, dy: -1 }]);
+  });
+
+  it('lifts a selection and rewrites it at the offset in one batch', () => {
+    const selection = rectSelection({ x: 0, y: 0 }, { x: 0, y: 0 }, CANVAS);
+    const ops = strokeOps(
+      stroke({
+        tool: 'move',
+        points: [
+          { x: 0, y: 0 },
+          { x: 2, y: 0 },
+        ],
+        selection,
+        buffer: layer(0, [[0, 0, 9]]),
+      }),
+    );
+
+    expect(ops).toEqual([
+      {
+        kind: 'set_pixels',
+        layer: 'flats',
+        pixels: [
+          { x: 0, y: 0, slot: 0 },
+          { x: 2, y: 0, slot: 9 },
+        ],
+      },
+    ]);
+  });
+
+  it('previews an unclipped fill as the region Rust would flood', () => {
+    const buffer = layer(3, [
+      [2, 0, 1],
+      [2, 1, 1],
+      [0, 2, 1],
+      [1, 2, 1],
+      [2, 2, 1],
+    ]);
+    const pixels = strokePreview(stroke({ tool: 'fill', points: [{ x: 0, y: 0 }], buffer }));
+
+    expect(pixels).toHaveLength(4);
+    expect(strokeOps(stroke({ tool: 'fill', points: [{ x: 0, y: 0 }], buffer }))[0]).toMatchObject({
+      kind: 'fill_region',
+    });
   });
 });
