@@ -67,6 +67,8 @@ const ASSET: Asset = {
   step: 'flats',
   createdAt: 1,
   updatedAt: 1,
+  rootId: null,
+  frames: 1,
 };
 
 /**

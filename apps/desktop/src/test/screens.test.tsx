@@ -74,6 +74,8 @@ function asset(overrides: Partial<Asset> = {}): Asset {
     step: 'reference',
     createdAt: 0,
     updatedAt: 0,
+    rootId: null,
+    frames: 1,
     ...overrides,
   };
 }

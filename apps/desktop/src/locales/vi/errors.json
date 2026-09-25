@@ -120,5 +120,12 @@
     "mixed_sizes": "Một trang sprite cần mọi sprite có cùng kích thước.",
     "no_directory": "Thư mục đó không tồn tại.",
     "write_failed": "Không ghi được tệp. Hãy kiểm tra thư mục có quyền ghi và ổ đĩa chưa đầy."
+  },
+  "animation": {
+    "frame_name": "Khung hình được đặt tên theo hoạt ảnh của nó. Hãy đổi tên khung hình đầu tiên.",
+    "invalid_duration": "Một khung hình kéo dài từ 10 đến 10000 mili giây.",
+    "invalid_playback": "Chế độ phát là xuôi, ngược hoặc qua lại.",
+    "last_frame": "Hoạt ảnh luôn giữ ít nhất một khung hình.",
+    "mixed": "Khung hình chỉ di chuyển được trong hoạt ảnh của chính nó."
   }
 }

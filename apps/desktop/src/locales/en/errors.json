@@ -120,5 +120,12 @@
     "mixed_sizes": "A sheet needs every sprite to be the same size.",
     "no_directory": "That folder does not exist.",
     "write_failed": "The file could not be written. Check the folder is writable and the drive is not full."
+  },
+  "animation": {
+    "frame_name": "A frame is named after its animation. Rename the first frame instead.",
+    "invalid_duration": "A frame lasts from 10 to 10000 milliseconds.",
+    "invalid_playback": "Playback is forward, reverse or ping-pong.",
+    "last_frame": "An animation keeps at least one frame.",
+    "mixed": "Frames can only move within their own animation."
   }
 }

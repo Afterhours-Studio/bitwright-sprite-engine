@@ -37,6 +37,8 @@ function asset(overrides: Partial<Asset> & Pick<Asset, 'id' | 'name'>): Asset {
     step: 'reference',
     createdAt: 0,
     updatedAt: 0,
+    rootId: null,
+    frames: 1,
     ...overrides,
   };
 }

@@ -71,6 +71,8 @@ function asset(overrides: Partial<Asset> & Pick<Asset, 'id' | 'projectId' | 'nam
     step: 'flats',
     createdAt: 1,
     updatedAt: 1,
+    rootId: null,
+    frames: 1,
     ...overrides,
   };
 }

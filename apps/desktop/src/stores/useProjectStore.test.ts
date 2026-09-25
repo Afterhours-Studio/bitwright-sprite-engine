@@ -75,6 +75,8 @@ function asset(id: string, projectId: string, name: string): Asset {
     step: 'silhouette',
     createdAt: 1,
     updatedAt: 1,
+    rootId: null,
+    frames: 1,
   };
 }
 

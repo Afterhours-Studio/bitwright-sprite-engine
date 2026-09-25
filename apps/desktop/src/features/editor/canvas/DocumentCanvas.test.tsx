@@ -114,6 +114,8 @@ function open(step: StepState['step'], layers: Layer[] = [flats()]): void {
     step,
     createdAt: 0,
     updatedAt: 0,
+    rootId: null,
+    frames: 1,
   };
   useDocumentStore.setState({
     assetId: asset.id,

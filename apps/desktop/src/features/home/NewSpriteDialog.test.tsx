@@ -57,6 +57,8 @@ const CREATED: Asset = {
   step: 'reference',
   createdAt: 5,
   updatedAt: 5,
+  rootId: null,
+  frames: 1,
 };
 
 beforeEach(async () => {

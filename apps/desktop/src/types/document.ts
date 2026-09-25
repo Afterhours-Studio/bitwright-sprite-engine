@@ -313,6 +313,17 @@ export interface Asset {
   step: Step;
   createdAt: number;
   updatedAt: number;
+  /**
+   * The root of the animation this asset is a later frame of, or null for a
+   * root or a lone sprite. Lists hide rows where this is set, because an
+   * animation is named, listed and opened by its root.
+   */
+  rootId: string | null;
+  /**
+   * How many frames the animation this asset roots has: at least 1 for a root
+   * or a lone sprite, 0 for a non-root frame, which counts toward its root.
+   */
+  frames: number;
 }
 
 /**

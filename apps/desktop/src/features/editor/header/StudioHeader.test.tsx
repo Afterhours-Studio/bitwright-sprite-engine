@@ -62,6 +62,8 @@ const ASSET: Asset = {
   step: 'flats',
   createdAt: 0,
   updatedAt: 0,
+  rootId: null,
+  frames: 1,
 };
 
 const FLATS = { id: 'layer-1', role: 'flats', locked: false } as Layer;
