@@ -28,7 +28,7 @@ real; nothing here is a placeholder.
 | 8. Palette            | `set_palette`, `create_variation`, `extract_palette`                                                                        | yes           | Phase 2/3    |
 | 9. The workflow       | `get_step`, `check_step`, `advance_step`, `revisit_step`                                                                    | yes           | Phase 2      |
 | 10. Tilemaps          | `create_tilemap`, `read_tilemap`, `place_tiles`, `tilemap_layers`                                                           | yes           | Phase 3      |
-| 11. Export            | `export_png`, `export_sheet`                                                                                                | yes           | Phase 4      |
+| 11. Export            | `export_png`, `export_sheet`, `export_gif`                                                                                  | yes           | Phase 4      |
 | 12. Animation         | `read_animation`, `add_frame`, `delete_frame`, `move_frame`, `set_frame_duration`, `set_animation_duration`, `set_playback` | yes           | Phase 5      |
 | 13. History           | `undo`, `redo`, `read_history`                                                                                              | yes           | Phase 2      |
 
@@ -553,7 +553,7 @@ tilemap's only remaining layer, `tilemap.invalid_layer` for a parallax outside
 
 ## 11. Export
 
-Writes a PNG to disk: a background asset's tilemap render, or any other
+Writes a PNG or a GIF to disk: a background asset's tilemap render, or any other
 kind's layer composite. An agent cannot choose where the file lands — every
 export goes to
 `<data root>/exports/<safe project name>-<last 8 hex characters of the project id>/`,
@@ -599,19 +599,55 @@ cannot be created.
 ```
 
 Lays the assets left to right, wrapped after `columns`, into one sheet, then
-writes it the same way `export_png` does. Returns `{ path, width, height }`.
-Fails `export.empty` with no assets, `export.mixed_sizes` when they are not
-all the same size, `export.mixed_projects` when they do not all belong to one
-project, and the same `export.invalid_scale` — for a scale outside `1..=16`,
-or one that would scale the sheet past 8192px on either side —
+writes it the same way `export_png` does. An id that belongs to an animation
+of more than one frame — its root or any other frame — stands for all of that
+animation's frames in timeline order, so one id exports the whole cycle; the
+default `columns` (one row) counts the frames after that expansion. Returns
+`{ path, width, height }`. Fails `export.empty` with no assets,
+`export.mixed_sizes` when they are not all the same size,
+`export.mixed_projects` when they do not all belong to one project, and the
+same `export.invalid_scale` — for a scale outside `1..=16`, or one that would
+scale the sheet past 8192px on either side — `export.invalid_pattern`,
+`export.exists`, `export.write_failed` and `export.no_directory` as
+`export_png`.
+
+### `export_gif`
+
+```jsonc
+{
+  "assetId": "…", // optional; any frame of the animation, defaults to the session's open asset
+  "scale": 1, // 1..=16, nearest-neighbour upscale; defaults to 1
+  "name": "{asset}@{scale}x", // optional; a file name pattern, ending in .gif
+  "overwrite": false, // optional; defaults to false
+}
+```
+
+Writes the animation `assetId` belongs to as a GIF that loops forever; a lone
+asset is a one-frame animation and exports a one-frame GIF. Frames play in the
+animation's playback order — `forward` is `0..n-1`, `reverse` is `n-1..0`, and
+`pingpong` is `0..n-1` then `n-2..1`, so a pingpong of `n` frames holds
+`2n - 2` — each for its own duration as a GIF delay: centiseconds, rounded,
+never under 2 (browsers play 0 and 1 far slower). Every frame shares one
+palette built from the frames' colours; a pixel with alpha under 128 is written
+transparent and each frame clears to the background before the next, so a
+transparent pixel never shows the frame before it. In the rare composite with
+more than 255 colours (blended layer opacity), the most used 255 are kept and
+the rest are written as their nearest kept colour. `name` substitutes as for
+`export_png`, with `{asset}` and `{kind}` taken from the animation's root, and
+the file lands in the same project folder. Returns
+`{ path, width, height, frames }` — where the file landed, its scaled pixel
+size, and how many frames the GIF holds. Fails `export.invalid_scale` for a
+scale outside `1..=16` or one that would scale a frame past 8192px on either
+side, `export.mixed_sizes` when the frames are not all one size,
+`export.encode_failed` when the encoder refuses the image, and
 `export.invalid_pattern`, `export.exists`, `export.write_failed` and
 `export.no_directory` as `export_png`.
 
-Both fail the store's own reason code, `document.not_found`, when an asset id
+All three fail the store's own reason code, `document.not_found`, when an asset id
 is a well-formed uuid that does not resolve to an asset, and `asset.not_found`
 when it is not a uuid at all — malformed input is caught before the store is
-ever asked. `export_png` also fails `asset.not_open` when `assetId` is
-omitted with no session asset open, since only it has a session to fall back
+ever asked. `export_png` and `export_gif` also fail `asset.not_open` when `assetId` is
+omitted with no session asset open, since only they have a session to fall back
 on.
 
 ---
