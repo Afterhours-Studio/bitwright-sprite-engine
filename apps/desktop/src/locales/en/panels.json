@@ -1,3 +1,66 @@
 {
-  "title": "Panels"
+  "title": "Panels",
+  "colour": {
+    "region": "Colour panel",
+    "title": "Color Palette",
+    "tabs": {
+      "label": "Palette view",
+      "swatches": "Swatches",
+      "ramps": "Ramps"
+    },
+    "primary": "Primary colour, slot {{index}}",
+    "secondary": "Secondary colour, slot {{index}}",
+    "swap": "Swap primary and secondary (X)",
+    "pri": "Pri",
+    "sec": "Sec",
+    "missing": "none",
+    "brush": {
+      "label": "Brush size",
+      "value": "{{size}} px",
+      "size": "{{size}} px brush",
+      "footprint": "Brush footprint",
+      "circle": "Round",
+      "square": "Square",
+      "smaller": "Smaller brush",
+      "larger": "Larger brush"
+    },
+    "style": {
+      "label": "Style preset",
+      "none": "No style",
+      "reading": "Reading…"
+    },
+    "presets": {
+      "hd2d": "HD-2D",
+      "snes": "SNES",
+      "gameboy": "Game Boy",
+      "custom": "Custom"
+    },
+    "count": "Colors in palette ({{count}})",
+    "add": "Add color",
+    "addHint": "Adds slot {{index}} as a copy of the primary colour.",
+    "full": "The palette already holds {{max}} colours, the most this style allows.",
+    "remove": "Remove color",
+    "removeHint": "Removes slot {{index}}. Slots are numbered without gaps, so only the last one can go.",
+    "inUse": "Slot {{index}} is painted on {{count}} pixels, so it was kept. Paint over them first, then remove it.",
+    "keepOne": "A palette keeps at least one colour.",
+    "grid": "Swatches. Left click picks the primary colour, right click the secondary.",
+    "noRamps": "This palette has no ramps yet.",
+    "rampSlots": "{{count}} slots",
+    "chosen": "Primary slot"
+  },
+  "layers": {
+    "region": "Layers panel",
+    "drawOn": "Draw on…",
+    "drawOnLabel": "Choose the layer strokes go to",
+    "followStep": "Follow the step",
+    "list": "Layers, top first",
+    "ownedBy": "{{step}} step",
+    "thisStep": "this step",
+    "visible": "Visible",
+    "hidden": "Hidden",
+    "locked": "Locked",
+    "pixels": "{{count}} px",
+    "opacity": "{{percent}}% opacity",
+    "missing": "Not created yet"
+  }
 }

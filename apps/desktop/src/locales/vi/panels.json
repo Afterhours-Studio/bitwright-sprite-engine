@@ -1,3 +1,66 @@
 {
-  "title": "Bảng"
+  "title": "Bảng",
+  "colour": {
+    "region": "Khung màu",
+    "title": "Bảng màu",
+    "tabs": {
+      "label": "Cách xem bảng màu",
+      "swatches": "Ô màu",
+      "ramps": "Dải màu"
+    },
+    "primary": "Màu chính, ô {{index}}",
+    "secondary": "Màu phụ, ô {{index}}",
+    "swap": "Đổi màu chính và màu phụ (X)",
+    "pri": "Chính",
+    "sec": "Phụ",
+    "missing": "không có",
+    "brush": {
+      "label": "Cỡ cọ",
+      "value": "{{size}} px",
+      "size": "Cọ {{size}} px",
+      "footprint": "Hình đầu cọ",
+      "circle": "Tròn",
+      "square": "Vuông",
+      "smaller": "Cọ nhỏ hơn",
+      "larger": "Cọ lớn hơn"
+    },
+    "style": {
+      "label": "Phong cách",
+      "none": "Chưa có phong cách",
+      "reading": "Đang đọc…"
+    },
+    "presets": {
+      "hd2d": "HD-2D",
+      "snes": "SNES",
+      "gameboy": "Game Boy",
+      "custom": "Tùy chỉnh"
+    },
+    "count": "Màu trong bảng ({{count}})",
+    "add": "Thêm màu",
+    "addHint": "Thêm ô {{index}}, sao chép từ màu chính.",
+    "full": "Bảng màu đã có {{max}} màu, mức tối đa phong cách này cho phép.",
+    "remove": "Xóa màu",
+    "removeHint": "Xóa ô {{index}}. Các ô được đánh số liền nhau nên chỉ xóa được ô cuối.",
+    "inUse": "Ô {{index}} đang được tô trên {{count}} điểm ảnh nên vẫn được giữ lại. Hãy tô đè lên chúng trước rồi mới xóa.",
+    "keepOne": "Bảng màu phải còn ít nhất một màu.",
+    "grid": "Ô màu. Nhấp chuột trái để chọn màu chính, chuột phải để chọn màu phụ.",
+    "noRamps": "Bảng màu này chưa có dải màu nào.",
+    "rampSlots": "{{count}} ô",
+    "chosen": "Ô màu chính"
+  },
+  "layers": {
+    "region": "Khung lớp",
+    "drawOn": "Vẽ lên…",
+    "drawOnLabel": "Chọn lớp mà nét vẽ sẽ rơi vào",
+    "followStep": "Theo bước hiện tại",
+    "list": "Các lớp, trên cùng trước",
+    "ownedBy": "Bước {{step}}",
+    "thisStep": "bước này",
+    "visible": "Đang hiện",
+    "hidden": "Đang ẩn",
+    "locked": "Đã khóa",
+    "pixels": "{{count}} px",
+    "opacity": "Độ mờ đục {{percent}}%",
+    "missing": "Chưa được tạo"
+  }
 }
