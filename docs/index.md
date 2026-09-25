@@ -32,6 +32,7 @@ phase it belongs to.
 | Know what a document is made of | [Document model](architecture/document-model.md)              |
 | Build from source               | [Development setup](development/setup.md)                     |
 | Translate the interface         | [Internationalization](development/i18n.md)                   |
+| Know what each screen holds     | [Studio layout](architecture/studio-layout.md)                |
 | Change how it looks             | [Design system](development/design-system.md)                 |
 | Configure the engine            | [Configuration](reference/configuration.md)                   |
 | Call the engine API             | [API reference](reference/api.md)                             |
@@ -41,8 +42,8 @@ phase it belongs to.
 ### Getting started
 
 - [Installation](getting-started/installation.md) - install on each platform.
-- [Quick start](getting-started/quick-start.md) - a project, an agent connected,
-  and a sprite drawn.
+- [Quick start](getting-started/quick-start.md) - a project and a sprite from
+  home, an agent connected, a sprite drawn, and the editor's tools and keys.
 - [System requirements](getting-started/system-requirements.md) - what the
   hardware needs to be, which is not much.
 
@@ -54,6 +55,8 @@ phase it belongs to.
 ### Architecture
 
 - [Overview](architecture/overview.md) - how the three parts fit together.
+- [Studio layout](architecture/studio-layout.md) - the 1.1 interface, screen by
+  screen and region by region: home, the editor, Settings, and the keys.
 - [Document model](architecture/document-model.md) - the schema and the IPC
   contract for projects, assets, documents and layers.
 - [MCP tools](architecture/mcp-tools.md) - every tool an agent can call, its
@@ -61,7 +64,7 @@ phase it belongs to.
 - [IPC protocol](architecture/ipc-protocol.md) - how the shell and the sidecar
   find each other.
 - [Pixel editing plan](architecture/pixel-editing-plan.md) - the mathematics of
-  conform, and where the editing controls belong.
+  conform. Its layout part predates the studio layout.
 - [Decision records](architecture/decisions/0001-record-architecture-decisions.md) -
   why the project is built the way it is, including
   [the pivot](architecture/decisions/0012-pivot-to-an-agent-driven-pixel-editor.md),

@@ -1,5 +1,10 @@
 # 10. Draw our own dropdowns, and keep the native keyboard model
 
+> Superseded in 1.1 by the studio layout ([docs/architecture/studio-layout.md](../studio-layout.md)).
+> The overlay controls and their keyboard and dismissal model stand, but the
+> title bar, its menu, the segmented navigation, the engine control and the
+> dock they are described in here are gone.
+
 Date: 2026-02-12
 
 ## Status

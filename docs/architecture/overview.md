@@ -43,8 +43,8 @@ two kinds of work want different homes.
 |  +---------------------------------------------------------------------+  |
 |  |  React 18 + TypeScript  (webview)                                   |  |
 |  |                                                                     |  |
-|  |   Canvas, layers, palette editor, tool panel, project tree,         |  |
-|  |   workflow rail, Settings. Zustand stores, tokens.css.              |  |
+|  |   Home, the editor (header, tools, stage, colour and layers         |  |
+|  |   panels, steps strip), Settings. Zustand stores, tokens.css.       |  |
 |  +---------------------------------------------------------------------+  |
 |                                                                           |
 +------------------------------------|--------------------------------------+
@@ -65,11 +65,9 @@ two kinds of work want different homes.
               +--------------------------------------------+
 ```
 
-The MCP server, the SQLite store, the raster core and the workflow gates are
-scheduled work rather than shipped work; [the plan](../plan/PLAN.md) says which
-phase each belongs to. The shell, the sidecar, the conform pipeline and the
-design system exist today. This document describes the architecture as decided,
-because that is what the parts being built now are being built against.
+Every part in the diagram is shipped: the MCP server, the SQLite store, the
+raster core, the workflow gates, the shell, the sidecar and the conform
+pipeline. [The plan](../PLAN.md) records what each phase delivered.
 
 ## The three parts
 
@@ -105,7 +103,8 @@ Its jobs:
 - Pass its own process id to the sidecar, so a crash here does not leave an
   orphan behind.
 - Make the sidecar's calls on the renderer's behalf, adding the token.
-- Serve window controls, since the title bar is ours to draw.
+- Serve window controls, since the window has no system decorations and each
+  screen draws its own.
 
 ### React, in the webview
 
@@ -125,7 +124,36 @@ request carrying an `Origin`, which a webview always sends. See
 [decision 0008](decisions/0008-authenticate-the-sidecar.md).
 
 Every user-visible string comes from i18next. Every colour comes from
-`tokens.css`.
+`tokens.css`, through the Tailwind palette and the role tokens described in
+[the design system](../development/design-system.md).
+
+#### Frontend structure
+
+The interface is the 1.1 studio layout, and
+[the studio layout](studio-layout.md) is its contract, region by region.
+`useShellStore.screen` is `'home' | 'editor' | 'settings'`, and `App.tsx`
+renders one of the three inside `AppShell`. The editor with no document open is
+shown as home, because every route into the editor opens an asset first.
+
+| Path under `apps/desktop/src/`                   | What it holds                                                                                                                            |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `components/layout/AppShell.tsx`                 | The opaque window frame, and the layers every screen shares: the new sprite dialog, the command palette, the toasts                      |
+| `components/layout/WindowControls.tsx`           | Minimise, maximise and close, at the end of each screen's top row                                                                        |
+| `components/ui/`                                 | Shared primitives: dialogs, `Overlay` and what is built on it, the command palette, notifications, toasts                                |
+| `features/home/`                                 | The home sidebar, the recent and projects grids and list, sort and filter, asset cards, the new sprite and project dialogs, PNG to Pixel |
+| `features/editor/EditorScreen.tsx`               | The editor's layout: header, tools column, stage, colour and layers panels, steps strip                                                  |
+| `features/editor/header/`                        | `StudioHeader` and the Agent popover                                                                                                     |
+| `features/editor/tools/`                         | `ToolColumn`, `PalettePanel`, `LayerList`, `StepRail` (the steps strip)                                                                  |
+| `features/editor/canvas/`                        | `DocumentCanvas`: the stage, strokes, selection, symmetry, the floating panels and readouts                                              |
+| `features/editor/tilemap/`                       | The tilemap editor, shown on the stage for a background asset                                                                            |
+| `features/editor/reference/`, `export/`, `live/` | The reference panel, the export dialog, and the agent-activity chip and `open_asset` follow                                              |
+| `features/settings/`                             | The Settings screen: storage, the agent connection card, appearance, language, about                                                     |
+| `stores/`                                        | Zustand stores: shell, projects, document, editor (tools, colours, selection, view toggles), command palette, toasts                     |
+| `hooks/`                                         | Side effects: bootstrap, tool and palette shortcuts, dismissal, asset name sync                                                          |
+
+A stroke is an op on the document, one batch per stroke and one undo per
+batch. Nothing is painted locally but the preview, so a stroke and an agent's
+tool call reach the stage by the same `document://changed` event.
 
 ### Python, the sidecar
 

@@ -1,5 +1,11 @@
 # 6. Draw our own window decorations
 
+> Superseded in 1.1 by the studio layout ([docs/architecture/studio-layout.md](../studio-layout.md)).
+> System decorations are still off and the window controls are still drawn by
+> the application, but the title bar, the bezel and the translucent chrome
+> described here are gone: each screen's top row is the drag region and
+> carries the window controls, and the frame is opaque.
+
 Date: 2026-02-04
 
 ## Status

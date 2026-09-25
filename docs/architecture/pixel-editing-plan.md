@@ -880,6 +880,11 @@ routinely zoom past the point where the sprite stops fitting.
 
 # Part 3: The layout
 
+> Superseded in 1.1 by the studio layout ([studio-layout.md](studio-layout.md)).
+> The title bar, the rail, the right panel with its sub-tabs and the dock
+> described in this part are gone; the editor's regions and where each
+> control lives are now set out there.
+
 ## Taking the split seriously
 
 The stated suggestion is to split the canvas area in two. The geometry supports
