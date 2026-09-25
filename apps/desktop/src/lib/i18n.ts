@@ -30,6 +30,7 @@ import enHome from '@/locales/en/home.json';
 import enStudio from '@/locales/en/studio.json';
 import enTools from '@/locales/en/tools.json';
 import enPanels from '@/locales/en/panels.json';
+import enTimeline from '@/locales/en/timeline.json';
 import viCommon from '@/locales/vi/common.json';
 import viEditor from '@/locales/vi/editor.json';
 import viErrors from '@/locales/vi/errors.json';
@@ -43,6 +44,7 @@ import viHome from '@/locales/vi/home.json';
 import viStudio from '@/locales/vi/studio.json';
 import viTools from '@/locales/vi/tools.json';
 import viPanels from '@/locales/vi/panels.json';
+import viTimeline from '@/locales/vi/timeline.json';
 
 /** Languages the application ships. Adding one is documented in docs/development/i18n.md. */
 export const LANGUAGES = ['en', 'vi'] as const;
@@ -68,6 +70,7 @@ export const NAMESPACES = [
   'studio',
   'tools',
   'panels',
+  'timeline',
 ] as const;
 
 /** A translation namespace. */
@@ -95,6 +98,7 @@ export const resources = {
     studio: enStudio,
     tools: enTools,
     panels: enPanels,
+    timeline: enTimeline,
   },
   vi: {
     common: viCommon,
@@ -110,6 +114,7 @@ export const resources = {
     studio: viStudio,
     tools: viTools,
     panels: viPanels,
+    timeline: viTimeline,
   },
 } as const;
 

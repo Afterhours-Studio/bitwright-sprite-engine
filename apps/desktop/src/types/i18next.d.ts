@@ -36,6 +36,7 @@ import type home from '@/locales/en/home.json';
 import type studio from '@/locales/en/studio.json';
 import type tools from '@/locales/en/tools.json';
 import type panels from '@/locales/en/panels.json';
+import type timeline from '@/locales/en/timeline.json';
 
 declare module 'i18next' {
   interface CustomTypeOptions {
@@ -54,6 +55,7 @@ declare module 'i18next' {
       studio: typeof studio;
       tools: typeof tools;
       panels: typeof panels;
+      timeline: typeof timeline;
     };
     returnNull: false;
   }
