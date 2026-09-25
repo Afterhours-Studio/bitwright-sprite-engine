@@ -384,21 +384,19 @@ export function TimelineStrip(): ReactElement {
                   void select(frame.assetId);
                 }}
               >
-                <span className="flex w-16 items-center justify-between gap-1">
-                  <span
-                    className={cn(
-                      'text-[11px] tabular-nums',
-                      current ? 'text-fg-primary font-semibold' : 'text-fg-secondary',
-                    )}
-                  >
-                    {t('frameNumber', { number })}
-                  </span>
-                  <span className="truncate rounded-sm bg-surface-content-alt px-1 text-[11px] leading-tight text-fg-secondary">
-                    {labels.step[frame.step]}
-                  </span>
+                <span
+                  className={cn(
+                    'whitespace-nowrap text-[11px] tabular-nums',
+                    current ? 'text-fg-primary font-semibold' : 'text-fg-secondary',
+                  )}
+                >
+                  {t('frameNumber', { number })}
                 </span>
                 <span className="block w-16 h-16 rounded-sm bg-surface-well border border-line-subtle checkerboard-pattern p-1">
                   <FrameThumbnail assetId={frame.assetId} revision={revisionOf(frame)} />
+                </span>
+                <span className="block w-16 truncate text-center text-[11px] leading-tight text-fg-secondary">
+                  {labels.step[frame.step]}
                 </span>
               </button>
               <div className="absolute inset-x-0 bottom-0 flex justify-between rounded-b-md border-t border-line-subtle bg-surface-float px-1 py-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">

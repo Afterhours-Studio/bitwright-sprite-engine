@@ -105,9 +105,10 @@ export function PalettePanel(): ReactElement {
       className="w-64 bg-surface-canvas border-l border-line-subtle flex flex-col h-full shrink-0"
     >
       <div className="p-3 border-b border-line-subtle shrink-0">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2">
           <h3 className="text-xs font-semibold text-fg-primary">{t('colour.title')}</h3>
           <SegmentedTabs
+            className="self-start"
             label={t('colour.tabs.label')}
             value={tab}
             segments={[
