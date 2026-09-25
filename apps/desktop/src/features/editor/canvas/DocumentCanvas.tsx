@@ -128,10 +128,17 @@ import type { LayerRole, Op, PixelSet, Point } from '@/types/document';
  */
 const FIT_MARGIN = 56;
 
-/** How opaque the frame before the open one is drawn under it. */
+/**
+ * How opaque the frame before the open one is drawn over it.
+ *
+ * Over, not under: a sprite is mostly opaque pixels, and a ghost drawn
+ * beneath them shows only where the open frame is empty - which is exactly
+ * where it is least needed. Drawn faintly on top, it shows where every
+ * moving part was, which is what onion skinning is for.
+ */
 const ONION_PREVIOUS = 0.3;
 
-/** How opaque the frame after the open one is drawn under it. */
+/** How opaque the frame after the open one is drawn over it. */
 const ONION_NEXT = 0.15;
 
 /** The floating panel look, from the studio layout. */
@@ -1107,6 +1114,14 @@ export function DocumentCanvas(): ReactElement {
                 style={{ ['--sprite-checker-size' as string]: `${String(checkerSize)}px` }}
               />
             )}
+            {shown !== null && (
+              <DocumentSurface
+                image={shown}
+                width={rect.width}
+                height={rect.height}
+                label={t('canvas.surface')}
+              />
+            )}
             {previousImage !== undefined && (
               <FrameGhost
                 image={previousImage}
@@ -1121,14 +1136,6 @@ export function DocumentCanvas(): ReactElement {
                 opacity={ONION_NEXT}
                 width={rect.width}
                 height={rect.height}
-              />
-            )}
-            {shown !== null && (
-              <DocumentSurface
-                image={shown}
-                width={rect.width}
-                height={rect.height}
-                label={t('canvas.surface')}
               />
             )}
             <StrokePreview

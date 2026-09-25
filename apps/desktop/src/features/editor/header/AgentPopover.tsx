@@ -100,7 +100,7 @@ export function AgentPopover(): ReactElement {
         }}
       >
         <Brain aria-hidden="true" className="w-3.5 h-3.5" />
-        <span>{t('header.agent')}</span>
+        <span className="sr-only min-[1400px]:not-sr-only">{t('header.agent')}</span>
       </button>
 
       {/* Kept mounted while closed, only hidden, so the live chip inside has

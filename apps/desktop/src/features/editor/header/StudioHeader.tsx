@@ -91,11 +91,11 @@ const ICON_ON = 'no-drag p-1.5 rounded border bg-sky-600 text-white border-sky-4
 
 /** A text toggle, on. */
 const TOGGLE_ON =
-  'no-drag flex items-center space-x-1.5 px-2.5 py-1.5 text-xs font-medium rounded border bg-neutral-800 text-neutral-200 border-neutral-700';
+  'no-drag flex shrink-0 items-center whitespace-nowrap space-x-1.5 px-2.5 py-1.5 text-xs font-medium rounded border bg-neutral-800 text-neutral-200 border-neutral-700';
 
 /** A text toggle, off. */
 const TOGGLE_OFF =
-  'no-drag flex items-center space-x-1.5 px-2.5 py-1.5 text-xs font-medium rounded border bg-neutral-900 text-neutral-500 border-neutral-800';
+  'no-drag flex shrink-0 items-center whitespace-nowrap space-x-1.5 px-2.5 py-1.5 text-xs font-medium rounded border bg-neutral-900 text-neutral-500 border-neutral-800';
 
 /** The small vertical rule between groups of controls. */
 function Divider(): ReactElement {
@@ -219,7 +219,7 @@ function NameBox(): ReactElement {
         }}
         onBlur={commit}
         onKeyDown={onKeyDown}
-        className="bg-transparent text-sm font-medium text-neutral-200 w-44 outline-none placeholder:text-neutral-600"
+        className="bg-transparent text-sm font-medium text-neutral-200 w-28 2xl:w-44 outline-none placeholder:text-neutral-600"
       />
       {asset !== null && (
         <span className="text-[10px] text-pink-400 bg-neutral-800 px-2 py-0.5 rounded border border-neutral-700/60 whitespace-nowrap">
@@ -407,7 +407,7 @@ export function StudioHeader(): ReactElement {
         <Divider />
         <span
           data-tauri-drag-region
-          className="font-semibold text-sm tracking-tight text-neutral-200"
+          className="w-16 leading-tight font-semibold text-sm tracking-tight text-neutral-200"
         >
           {t('title')}
         </span>
@@ -468,7 +468,7 @@ export function StudioHeader(): ReactElement {
           }}
         >
           <Layers aria-hidden="true" className="w-3.5 h-3.5" />
-          <span>{t('header.layers')}</span>
+          <span className="sr-only min-[1400px]:not-sr-only">{t('header.layers')}</span>
         </button>
         <button
           type="button"
@@ -501,23 +501,24 @@ export function StudioHeader(): ReactElement {
         <button
           type="button"
           title={t('header.newHint')}
-          className="no-drag flex items-center space-x-1.5 px-3 py-1.5 rounded text-xs bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800"
+          className="no-drag flex shrink-0 items-center whitespace-nowrap space-x-1.5 px-3 py-1.5 rounded text-xs bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800"
           onClick={() => {
             setNewSpriteOpen(true);
           }}
         >
           <Plus aria-hidden="true" className="w-3.5 h-3.5" />
-          <span>{t('header.new')}</span>
+          <span className="sr-only min-[1400px]:not-sr-only">{t('header.new')}</span>
         </button>
         <button
           type="button"
           disabled={!hasAsset}
           className={cn(
-            'no-drag flex items-center space-x-1.5 px-3 py-1.5 rounded text-xs border',
+            'no-drag flex shrink-0 items-center whitespace-nowrap space-x-1.5 px-3 py-1.5 rounded text-xs border',
             hasAsset
               ? 'bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border-neutral-800'
               : 'bg-neutral-900/40 text-neutral-600 border-neutral-800/40 cursor-not-allowed',
           )}
+          title={t('header.reference')}
           onClick={() => {
             setReferenceOpen(true);
           }}
@@ -526,13 +527,13 @@ export function StudioHeader(): ReactElement {
             aria-hidden="true"
             className={cn('w-3.5 h-3.5', hasAsset ? 'text-sky-400' : 'text-neutral-600')}
           />
-          <span>{t('header.reference')}</span>
+          <span className="sr-only min-[1400px]:not-sr-only">{t('header.reference')}</span>
         </button>
         <button
           type="button"
           disabled={!hasAsset}
           className={cn(
-            'no-drag flex items-center space-x-1.5 px-3 py-1.5 rounded text-xs font-semibold',
+            'no-drag flex shrink-0 items-center whitespace-nowrap space-x-1.5 px-3 py-1.5 rounded text-xs font-semibold',
             hasAsset
               ? 'bg-sky-600 hover:bg-sky-500 border border-sky-400 text-white shadow-md shadow-sky-600/30'
               : 'bg-neutral-900/40 text-neutral-600 border border-neutral-800/40 cursor-not-allowed',

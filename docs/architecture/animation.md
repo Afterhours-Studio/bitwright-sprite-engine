@@ -191,7 +191,7 @@ Clicking a card opens that frame. During playback the stage shows the
 playhead frame's composite over the canvas (drawing is disabled while
 playing); the bar's mini preview always animates while playing. Onion skin
 draws the previous frame's composite at 30% opacity (and the next at 15%)
-under the current frame's pixels on the stage.
+over the current frame's pixels on the stage, faintly, so every moving part shows even where the frame is opaque.
 
 ### Elsewhere
 

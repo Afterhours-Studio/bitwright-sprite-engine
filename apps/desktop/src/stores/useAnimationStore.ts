@@ -71,7 +71,7 @@ interface AnimationState {
   playing: boolean;
   /** Index into `animation.frames`: the frame shown while playing, else the open one. */
   playhead: number;
-  /** Whether the stage draws the neighbouring frames under the open one. */
+  /** Whether the stage draws the neighbouring frames over the open one. */
   onionSkin: boolean;
   /** Stable reason code for the last failure, or null. */
   error: string | null;

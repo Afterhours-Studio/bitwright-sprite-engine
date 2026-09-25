@@ -138,7 +138,7 @@ export interface FrameGhostProps {
 }
 
 /**
- * A neighbouring frame, drawn faintly under the open one: the onion skin.
+ * A neighbouring frame, drawn faintly over the open one: the onion skin.
  *
  * The same canvas as the document's own, stretched the same way, so at every
  * zoom and pan its pixels sit exactly on the sprite's. The opacity is the

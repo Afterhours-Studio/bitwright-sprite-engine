@@ -649,7 +649,7 @@ describe('DocumentCanvas with an animation', () => {
     });
   });
 
-  it('draws the previous frame at 30% and the next at 15% under the open one, in the sprite box', async () => {
+  it('draws the previous frame at 30% and the next at 15% over the open one, in the sprite box', async () => {
     open('flats');
     useAnimationStore.setState({
       animation: animationOf(['onion-prev', 'asset-1', 'onion-next']),
