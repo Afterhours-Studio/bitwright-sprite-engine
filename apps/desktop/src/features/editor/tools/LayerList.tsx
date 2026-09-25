@@ -50,6 +50,7 @@ import { useRef, useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, Eye, EyeOff, Layers, Lock } from 'lucide-react';
 
+import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/Dialog';
 import { ownedRoles, paintTarget } from '@/features/editor/activeLayer';
 import { useWorkflowLabels } from '@/features/editor/labels';
@@ -118,16 +119,16 @@ export function LayerList(): ReactElement {
   return (
     <aside
       aria-label={t('layers.region')}
-      className="w-64 bg-neutral-950 border-l border-neutral-800 flex flex-col h-full shrink-0"
+      className="w-64 bg-surface-canvas border-l border-line-subtle flex flex-col h-full shrink-0"
     >
-      <div className="p-3 border-b border-neutral-800 bg-neutral-900/40 flex items-center justify-between shrink-0">
+      <div className="p-3 border-b border-line-subtle flex items-center justify-between shrink-0">
         <div className="flex items-center space-x-2">
-          <Layers className="w-4 h-4 text-purple-400" />
-          <h3 className="text-xs font-semibold text-neutral-200">{te('layers.title')}</h3>
+          <Layers strokeWidth={1.75} className="w-4 h-4 text-fg-secondary" />
+          <h3 className="text-xs font-semibold text-fg-primary">{te('layers.title')}</h3>
         </div>
         <div ref={menu} className="relative">
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             title={t('layers.drawOnLabel')}
@@ -135,15 +136,15 @@ export function LayerList(): ReactElement {
             onClick={() => {
               setMenuOpen((was) => !was);
             }}
-            className="bg-purple-600 hover:bg-purple-500 px-2 py-0.5 rounded text-[11px] text-white disabled:bg-neutral-800 disabled:text-neutral-500 disabled:cursor-not-allowed"
+            className="px-2 py-0.5 text-[11px]"
           >
             {t('layers.drawOn')}
-          </button>
+          </Button>
           {menuOpen && (
             <ul
               role="menu"
               aria-label={t('layers.drawOnLabel')}
-              className="absolute right-0 top-full mt-1 z-30 w-48 bg-neutral-950/90 backdrop-blur border border-neutral-800 p-1 rounded shadow-md"
+              className="absolute right-0 top-full mt-1 z-30 w-48 bg-surface-float border border-line-subtle p-1 rounded-lg shadow-md"
             >
               <MenuRow
                 label={t('layers.followStep')}
@@ -172,7 +173,7 @@ export function LayerList(): ReactElement {
 
       <div className="flex-1 overflow-y-auto p-2">
         {step === null && layers.length === 0 ? (
-          <p className="p-1 text-xs text-neutral-500">{te('layers.none')}</p>
+          <p className="p-1 text-xs text-fg-secondary">{te('layers.none')}</p>
         ) : (
           <ul aria-label={t('layers.list')} className="space-y-1.5">
             {TOP_FIRST.map((role) => {
@@ -189,11 +190,15 @@ export function LayerList(): ReactElement {
                       choose(role);
                     }}
                     className={cn(
-                      'w-full p-2 rounded border text-left transition-colors',
-                      current
-                        ? 'bg-neutral-900 border-purple-500/80 shadow-sm shadow-purple-500/10'
-                        : 'bg-neutral-900/40 border-neutral-800 hover:bg-neutral-900',
-                      layer === undefined && 'opacity-60 cursor-not-allowed',
+                      'w-full p-2 rounded-md border text-left transition-colors',
+                      'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus',
+                      // A layer not made yet is a disabled row: its own dim
+                      // surface, not a faded copy of an enabled one.
+                      layer === undefined
+                        ? 'bg-surface-disabled border-line-subtle cursor-not-allowed'
+                        : current
+                          ? 'bg-surface-content-alt border-accent shadow-sm'
+                          : 'bg-surface-content border-line-subtle hover:bg-surface-content-alt',
                     )}
                   >
                     <span className="flex items-center space-x-2">
@@ -202,19 +207,25 @@ export function LayerList(): ReactElement {
                           <Eye
                             role="img"
                             aria-label={t('layers.visible')}
-                            className="w-3.5 h-3.5 shrink-0 text-neutral-400"
+                            strokeWidth={1.75}
+                            className="w-3.5 h-3.5 shrink-0 text-fg-secondary"
                           />
                         ) : (
                           <EyeOff
                             role="img"
                             aria-label={t('layers.hidden')}
-                            className="w-3.5 h-3.5 shrink-0 text-neutral-600"
+                            strokeWidth={1.75}
+                            className="w-3.5 h-3.5 shrink-0 text-fg-secondary"
                           />
                         ))}
                       <span
                         className={cn(
                           'min-w-0 flex-1 truncate text-xs',
-                          current ? 'text-purple-300 font-semibold' : 'text-neutral-200',
+                          layer === undefined
+                            ? 'text-fg-muted'
+                            : current
+                              ? 'text-fg-primary font-semibold'
+                              : 'text-fg-primary',
                         )}
                       >
                         {labels.layer[role]}
@@ -223,10 +234,16 @@ export function LayerList(): ReactElement {
                         <Lock
                           role="img"
                           aria-label={t('layers.locked')}
-                          className="w-3 h-3 shrink-0 text-amber-400"
+                          strokeWidth={1.75}
+                          className="w-3 h-3 shrink-0 text-[color:var(--severity-warning)]"
                         />
                       )}
-                      <span className="shrink-0 text-[10px] text-neutral-500">
+                      <span
+                        className={cn(
+                          'shrink-0 text-[11px]',
+                          layer === undefined ? 'text-fg-muted' : 'text-fg-secondary',
+                        )}
+                      >
                         {owned.includes(role)
                           ? t('layers.thisStep')
                           : owner === undefined
@@ -234,7 +251,12 @@ export function LayerList(): ReactElement {
                             : t('layers.ownedBy', { step: labels.step[owner] })}
                       </span>
                     </span>
-                    <span className="mt-2 pt-1.5 border-t border-neutral-800/80 flex justify-between text-[10px] text-neutral-500">
+                    <span
+                      className={cn(
+                        'mt-2 pt-1.5 border-t border-line-subtle flex justify-between text-[11px] tabular-nums',
+                        layer === undefined ? 'text-fg-muted' : 'text-fg-secondary',
+                      )}
+                    >
                       {layer === undefined ? (
                         <span>{t('layers.missing')}</span>
                       ) : (
@@ -302,10 +324,10 @@ function MenuRow({ label, checked, disabled = false, onSelect }: MenuRowProps): 
         aria-checked={checked}
         disabled={disabled}
         onClick={onSelect}
-        className="w-full flex items-center justify-between px-2 py-1 rounded text-left text-[11px] text-neutral-300 hover:bg-neutral-800 hover:text-neutral-100 disabled:text-neutral-600 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+        className="w-full flex items-center justify-between px-2 py-1 rounded-sm text-left text-xs text-fg-primary hover:bg-surface-content-alt disabled:text-fg-muted disabled:hover:bg-transparent disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
       >
         <span className="truncate">{label}</span>
-        {checked && <Check className="w-3 h-3 text-purple-400" />}
+        {checked && <Check strokeWidth={1.75} className="w-3 h-3 text-fg-primary" />}
       </button>
     </li>
   );

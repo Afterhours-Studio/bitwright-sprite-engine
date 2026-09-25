@@ -47,6 +47,7 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeftRight, Circle, Minus, Plus, Square } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
+import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { fromHex, toHex, toHexa } from '@/features/editor/colour';
 import { useErrorMessage } from '@/hooks/useErrorMessage';
 import { cn } from '@/lib/cn';
@@ -101,34 +102,22 @@ export function PalettePanel(): ReactElement {
   return (
     <aside
       aria-label={t('colour.region')}
-      className="w-64 bg-neutral-950 border-l border-neutral-800 flex flex-col h-full shrink-0"
+      className="w-64 bg-surface-canvas border-l border-line-subtle flex flex-col h-full shrink-0"
     >
-      <div className="p-3 border-b border-neutral-800 bg-neutral-900/40 shrink-0">
+      <div className="p-3 border-b border-line-subtle shrink-0">
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-semibold text-neutral-300">{t('colour.title')}</h3>
-          <div
-            role="tablist"
-            aria-label={t('colour.tabs.label')}
-            className="flex space-x-1 bg-neutral-900 p-0.5 rounded border border-neutral-800"
-          >
-            {(['swatches', 'ramps'] as const).map((name) => (
-              <button
-                key={name}
-                type="button"
-                role="tab"
-                aria-selected={tab === name}
-                onClick={() => {
-                  setTab(name);
-                }}
-                className={cn(
-                  'px-2 py-0.5 text-[11px] font-medium rounded',
-                  tab === name ? 'bg-neutral-800 text-neutral-50' : 'text-neutral-400',
-                )}
-              >
-                {name === 'swatches' ? t('colour.tabs.swatches') : t('colour.tabs.ramps')}
-              </button>
-            ))}
-          </div>
+          <h3 className="text-xs font-semibold text-fg-primary">{t('colour.title')}</h3>
+          <SegmentedTabs
+            label={t('colour.tabs.label')}
+            value={tab}
+            segments={[
+              { value: 'swatches', label: t('colour.tabs.swatches') },
+              { value: 'ramps', label: t('colour.tabs.ramps') },
+            ]}
+            onValueChange={(value) => {
+              setTab(value === 'ramps' ? 'ramps' : 'swatches');
+            }}
+          />
         </div>
 
         <SlotChips palette={palette} />
@@ -156,7 +145,7 @@ export function PalettePanel(): ReactElement {
  */
 function NoDocument(): ReactElement {
   const { t } = useTranslation('editor');
-  return <p className="text-xs text-neutral-500">{t('palette.noDocument')}</p>;
+  return <p className="text-xs text-fg-secondary">{t('palette.noDocument')}</p>;
 }
 
 /**
@@ -176,7 +165,10 @@ function Refusal(): ReactElement | null {
     return null;
   }
   return (
-    <p role="alert" className="rounded bg-neutral-900 p-2 text-[11px] text-red-400">
+    <p
+      role="alert"
+      className="rounded-md border border-line-subtle bg-surface-content p-2 text-[11px] text-[color:var(--severity-error)]"
+    >
       {t('palette.refused', { reason: translateError(error) })}
     </p>
   );
@@ -207,13 +199,13 @@ function SlotChips({ palette }: { palette: Palette | null }): ReactElement {
         <span
           role="img"
           aria-label={t('colour.secondary', { index: secondarySlot })}
-          className="palette-swatch absolute bottom-0 right-0 w-7 h-7 border border-neutral-800"
+          className="palette-swatch absolute bottom-0 right-0 w-7 h-7 rounded-sm border border-line"
           style={swatchStyle(secondary)}
         />
         <span
           role="img"
           aria-label={t('colour.primary', { index: slot })}
-          className="palette-swatch absolute top-0 left-0 w-8 h-8 ring-1 ring-white z-20"
+          className="palette-swatch absolute top-0 left-0 w-8 h-8 rounded-sm border border-line ring-2 ring-surface-canvas z-20"
           style={swatchStyle(primary)}
         />
       </div>
@@ -222,13 +214,16 @@ function SlotChips({ palette }: { palette: Palette | null }): ReactElement {
         aria-label={t('colour.swap')}
         title={t('colour.swap')}
         onClick={swapSlots}
-        className="p-1 rounded text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800"
+        className="p-1 rounded-sm text-fg-secondary hover:text-fg-primary hover:bg-surface-content-alt focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
       >
-        <ArrowLeftRight className="w-3.5 h-3.5" />
+        <ArrowLeftRight strokeWidth={1.75} className="w-3.5 h-3.5" />
       </button>
-      <div className="flex-1 min-w-0 bg-neutral-900 border border-neutral-800 px-2 py-1 rounded">
-        <p className="text-[10px] text-neutral-500 uppercase">{t('colour.pri')}</p>
-        <p className="text-xs font-medium text-neutral-200 truncate" data-testid="slot-readout">
+      <div className="flex-1 min-w-0 bg-surface-content border border-line-subtle px-2 py-1 rounded-md">
+        <p className="text-[11px] text-fg-secondary uppercase">{t('colour.pri')}</p>
+        <p
+          className="text-xs font-medium text-fg-primary truncate tabular-nums"
+          data-testid="slot-readout"
+        >
           {primary === null ? t('colour.missing') : toHex(primary.rgba)} / {slot}
         </p>
       </div>
@@ -252,15 +247,25 @@ function BrushBlock(): ReactElement {
   const setBrushShape = useEditorStore((state) => state.setBrushShape);
 
   const footprints: readonly { shape: BrushShape; label: string; icon: ReactElement }[] = [
-    { shape: 'circle', label: t('colour.brush.circle'), icon: <Circle className="w-3 h-3" /> },
-    { shape: 'square', label: t('colour.brush.square'), icon: <Square className="w-3 h-3" /> },
+    {
+      shape: 'circle',
+      label: t('colour.brush.circle'),
+      icon: <Circle strokeWidth={1.75} className="w-3 h-3" />,
+    },
+    {
+      shape: 'square',
+      label: t('colour.brush.square'),
+      icon: <Square strokeWidth={1.75} className="w-3 h-3" />,
+    },
   ];
 
   return (
-    <div className="mt-3 pt-2.5 border-t border-neutral-800/80">
-      <div className="flex items-center justify-between text-[11px] font-semibold text-neutral-300">
+    <div className="mt-3 pt-2.5 border-t border-line-subtle">
+      <div className="flex items-center justify-between text-[11px] font-semibold text-fg-primary">
         <span>{t('colour.brush.label')}</span>
-        <span className="text-pink-400">{t('colour.brush.value', { size: brushSize })}</span>
+        <span className="font-medium text-fg-primary">
+          {t('colour.brush.value', { size: brushSize })}
+        </span>
       </div>
       <div className="mt-2 grid grid-cols-4 gap-1.5">
         {BRUSH_CARDS.map((size) => (
@@ -273,10 +278,11 @@ function BrushBlock(): ReactElement {
               setBrushSize(size);
             }}
             className={cn(
-              'py-2 px-1 rounded flex flex-col items-center border',
+              'py-2 px-1 rounded-md flex flex-col items-center border transition-colors',
+              'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus',
               brushSize === size
-                ? 'bg-pink-600 border-pink-500 text-white'
-                : 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-neutral-200',
+                ? 'bg-accent hover:bg-accent-hover border-accent text-accent-fg shadow-sm'
+                : 'bg-surface-content border-line-subtle text-fg-secondary hover:bg-surface-content-alt hover:text-fg-primary',
             )}
           >
             <span className="flex h-3 items-center">
@@ -288,7 +294,7 @@ function BrushBlock(): ReactElement {
                 )}
               />
             </span>
-            <span className="mt-1 text-[10px]">{size}</span>
+            <span className="mt-1 text-[11px] tabular-nums">{size}</span>
           </button>
         ))}
       </div>
@@ -296,7 +302,7 @@ function BrushBlock(): ReactElement {
         <div
           role="group"
           aria-label={t('colour.brush.footprint')}
-          className="flex space-x-1 bg-neutral-900 p-0.5 rounded border border-neutral-800"
+          className="flex gap-0.5 bg-surface-content p-0.5 rounded-md border border-line-subtle"
         >
           {footprints.map(({ shape, label, icon }) => (
             <button
@@ -309,8 +315,10 @@ function BrushBlock(): ReactElement {
                 setBrushShape(shape);
               }}
               className={cn(
-                'p-1 rounded',
-                brushShape === shape ? 'bg-neutral-800 text-neutral-50' : 'text-neutral-400',
+                'p-1 rounded-sm border transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus',
+                brushShape === shape
+                  ? 'bg-surface-content-alt text-fg-primary border-line-strong'
+                  : 'border-transparent text-fg-secondary hover:bg-surface-content-alt hover:text-fg-primary',
               )}
             >
               {icon}
@@ -325,11 +333,13 @@ function BrushBlock(): ReactElement {
             onClick={() => {
               setBrushSize(brushSize - 1);
             }}
-            className="p-1 rounded border border-neutral-800 bg-neutral-900 text-neutral-400 hover:text-neutral-100 disabled:text-neutral-600 disabled:cursor-not-allowed"
+            className="p-1 rounded-sm border border-line-subtle bg-surface-content text-fg-secondary hover:bg-surface-content-alt hover:text-fg-primary disabled:bg-surface-disabled disabled:text-fg-muted disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
           >
-            <Minus className="w-3 h-3" />
+            <Minus strokeWidth={1.75} className="w-3 h-3" />
           </button>
-          <span className="w-6 text-center text-xs tabular-nums text-neutral-200">{brushSize}</span>
+          <span className="w-6 text-center text-xs font-medium tabular-nums text-fg-primary">
+            {brushSize}
+          </span>
           <button
             type="button"
             aria-label={t('colour.brush.larger')}
@@ -337,9 +347,9 @@ function BrushBlock(): ReactElement {
             onClick={() => {
               setBrushSize(brushSize + 1);
             }}
-            className="p-1 rounded border border-neutral-800 bg-neutral-900 text-neutral-400 hover:text-neutral-100 disabled:text-neutral-600 disabled:cursor-not-allowed"
+            className="p-1 rounded-sm border border-line-subtle bg-surface-content text-fg-secondary hover:bg-surface-content-alt hover:text-fg-primary disabled:bg-surface-disabled disabled:text-fg-muted disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
           >
-            <Plus className="w-3 h-3" />
+            <Plus strokeWidth={1.75} className="w-3 h-3" />
           </button>
         </div>
       </div>
@@ -434,8 +444,8 @@ function SwatchesTab({ palette }: PaletteProps): ReactElement {
   return (
     <>
       <div className="flex items-center justify-between text-[11px]">
-        <span className="text-neutral-500">{t('colour.style.label')}</span>
-        <span className="font-medium text-neutral-200" data-testid="style-preset">
+        <span className="text-fg-secondary">{t('colour.style.label')}</span>
+        <span className="font-medium text-fg-primary" data-testid="style-preset">
           {style.reading
             ? t('colour.style.reading')
             : style.value === null
@@ -446,7 +456,7 @@ function SwatchesTab({ palette }: PaletteProps): ReactElement {
 
       <div className="space-y-2">
         <div className="flex items-center justify-between text-[11px]">
-          <span className="min-w-0 truncate font-semibold text-neutral-300">
+          <span className="min-w-0 truncate font-semibold text-fg-primary">
             {t('colour.count', { count })}
           </span>
           <span className="flex shrink-0 items-center space-x-1.5 whitespace-nowrap">
@@ -461,11 +471,11 @@ function SwatchesTab({ palette }: PaletteProps): ReactElement {
               onClick={() => {
                 void add();
               }}
-              className="text-pink-400 hover:text-pink-300 disabled:text-neutral-600 disabled:cursor-not-allowed"
+              className="rounded-sm px-1 font-medium text-fg-primary hover:bg-surface-content-alt disabled:bg-transparent disabled:text-fg-muted disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
             >
               {t('colour.add')}
             </button>
-            <span className="text-neutral-600">|</span>
+            <span className="text-line">|</span>
             <button
               type="button"
               disabled={count <= 1}
@@ -477,7 +487,7 @@ function SwatchesTab({ palette }: PaletteProps): ReactElement {
               onClick={() => {
                 void remove();
               }}
-              className="text-neutral-400 hover:text-red-400 disabled:text-neutral-600 disabled:cursor-not-allowed"
+              className="rounded-sm px-1 text-fg-secondary hover:bg-surface-content-alt hover:text-[color:var(--severity-error)] disabled:bg-transparent disabled:text-fg-muted disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
             >
               {t('colour.remove')}
             </button>
@@ -485,7 +495,7 @@ function SwatchesTab({ palette }: PaletteProps): ReactElement {
         </div>
 
         {notice !== null && (
-          <p role="status" className="text-[11px] text-amber-400">
+          <p role="status" className="text-[11px] text-[color:var(--severity-warning)]">
             {notice}
           </p>
         )}
@@ -493,7 +503,7 @@ function SwatchesTab({ palette }: PaletteProps): ReactElement {
         <div
           role="group"
           aria-label={t('colour.grid')}
-          className="grid grid-cols-7 gap-1.5 p-2 bg-neutral-900/60 rounded border border-neutral-800/80 max-h-48 overflow-y-auto"
+          className="grid grid-cols-7 gap-1.5 p-2 bg-surface-content rounded-md border border-line-subtle max-h-48 overflow-y-auto"
         >
           {palette.slots.map((entry) => (
             <Swatch
@@ -562,9 +572,9 @@ function RampsTab({ palette }: PaletteProps): ReactElement {
 
   return (
     <>
-      <div className="rounded border border-neutral-800 bg-neutral-900 p-2">
-        <p className="text-[10px] text-neutral-500 uppercase">{t('colour.chosen')}</p>
-        <p className="mt-1 text-[11px] text-neutral-300">
+      <div className="rounded-md border border-line-subtle bg-surface-content p-2">
+        <p className="text-[11px] text-fg-secondary uppercase">{t('colour.chosen')}</p>
+        <p className="mt-1 text-[11px] text-fg-primary">
           {chosen === null
             ? te('palette.noSlot', { index: slot })
             : describe(chosen, palette, (key, options) => te(key, options))}
@@ -573,11 +583,11 @@ function RampsTab({ palette }: PaletteProps): ReactElement {
           <div className="mt-2 flex items-center gap-2">
             {editing ? (
               <>
-                <label className="flex items-center gap-2 text-[11px] text-neutral-400">
+                <label className="flex items-center gap-2 text-[11px] text-fg-secondary">
                   {te('palette.colour')}
                   <input
                     type="color"
-                    className="h-6 w-10 cursor-pointer rounded border border-neutral-700 bg-transparent"
+                    className="h-6 w-10 cursor-pointer rounded-sm border border-line-input bg-surface-input"
                     defaultValue={toHex(chosen.rgba)}
                     onChange={(event) => {
                       recolour(chosen.index, fromHex(event.target.value, chosen.rgba[3]));
@@ -610,16 +620,16 @@ function RampsTab({ palette }: PaletteProps): ReactElement {
       </div>
 
       {palette.ramps.length === 0 && (
-        <p className="text-[11px] text-neutral-500">{t('colour.noRamps')}</p>
+        <p className="text-[11px] text-fg-secondary">{t('colour.noRamps')}</p>
       )}
 
       {palette.ramps.map((ramp) => (
         <section key={ramp.name} className="space-y-1.5">
           <div className="flex items-baseline justify-between text-[11px]">
-            <span className="font-medium text-neutral-300">
+            <span className="font-medium text-fg-primary">
               {te('palette.ramp', { name: ramp.name, material: ramp.material })}
             </span>
-            <span className="text-[10px] text-neutral-500">
+            <span className="text-[11px] text-fg-secondary">
               {t('colour.rampSlots', { count: ramp.slots.length })}
             </span>
           </div>
@@ -647,7 +657,7 @@ function RampsTab({ palette }: PaletteProps): ReactElement {
           {/* Named rather than left unlabelled, because a slot outside every
               ramp is the one a shading op will skip, and the count of skipped
               pixels it reports afterwards does not say which slot did it. */}
-          <p className="text-[11px] font-medium text-neutral-300">{te('palette.unramped')}</p>
+          <p className="text-[11px] font-medium text-fg-primary">{te('palette.unramped')}</p>
           <div className="flex flex-wrap gap-1.5">
             {loose.map((entry) => swatch(entry, te('palette.swatch', { index: entry.index })))}
           </div>
@@ -698,8 +708,12 @@ function Swatch({
         onSecondary(slot.index);
       }}
       className={cn(
-        'palette-swatch w-6 h-6 rounded-sm hover:scale-110 transition-transform',
-        primary ? 'ring-2 ring-white' : secondary ? 'ring-2 ring-sky-400' : '',
+        'palette-swatch w-6 h-6 rounded-sm border border-line-subtle hover:scale-110 transition-transform',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-line-focus',
+        // The primary takes the text colour and the secondary the accent, so
+        // the pair reads the same in both themes and never as a sprite colour.
+        (primary || secondary) && 'ring-2 ring-offset-1 ring-offset-surface-content',
+        primary ? 'ring-fg-primary' : secondary ? 'ring-accent' : '',
       )}
       // Handed over as a custom property, never as `background-color`. A
       // component that writes a colour into its own markup is what the token

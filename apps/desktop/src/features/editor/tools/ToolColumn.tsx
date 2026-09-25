@@ -97,13 +97,23 @@ const SYMMETRY_ICONS: Readonly<Record<Symmetry, LucideIcon | null>> = {
  */
 const FILLABLE: ReadonlySet<Tool> = new Set<Tool>(['rectangle', 'ellipse']);
 
-/** The small toggle style shared by the fill switch and the symmetry buttons. */
-function toggleClass(on: boolean): string {
+/**
+ * The small toggle style shared by the fill switch and the symmetry buttons.
+ *
+ * A toggle that is on reads as pressed - a lifted surface, the primary text
+ * and a stronger edge - rather than taking the accent, which belongs to the
+ * one current tool.
+ */
+function toggleClass(
+  on: boolean,
+  off = 'bg-transparent border-transparent hover:bg-surface-content-alt',
+): string {
   return cn(
-    'py-1 px-1.5 text-[11px] rounded border flex items-center justify-center gap-1',
+    'py-1 px-1.5 text-[11px] rounded-sm border flex items-center justify-center gap-1 transition-colors',
+    'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus',
     on
-      ? 'bg-sky-500/15 text-sky-300 border-sky-500/60'
-      : 'bg-neutral-900 text-neutral-400 border-neutral-800 hover:text-neutral-200',
+      ? 'bg-surface-content-alt text-fg-primary border-line-strong font-medium'
+      : cn('text-fg-secondary hover:text-fg-primary', off),
   );
 }
 
@@ -129,15 +139,15 @@ export function ToolColumn({ className }: ToolColumnProps): ReactElement {
   return (
     <aside
       className={cn(
-        'w-64 bg-neutral-950 border-r border-neutral-800 flex flex-col h-full shrink-0 overflow-y-auto',
+        'w-64 bg-surface-canvas border-r border-line-subtle flex flex-col h-full shrink-0 overflow-y-auto',
         className,
       )}
     >
-      <div className="p-3 border-b border-neutral-800/80 bg-neutral-900/40 flex justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+      <div className="p-3 border-b border-line-subtle flex items-baseline justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wider text-fg-secondary">
           {t('title')}
         </span>
-        <span className="text-[10px] text-neutral-500">{t('shortcuts')}</span>
+        <span className="text-[11px] text-fg-secondary">{t('shortcuts')}</span>
       </div>
 
       <div className="p-2 space-y-1" role="group" aria-label={t('listLabel')}>
@@ -162,23 +172,25 @@ export function ToolColumn({ className }: ToolColumnProps): ReactElement {
                 setTool(entry);
               }}
               className={cn(
-                'w-full flex items-center justify-between px-2.5 py-1.5 rounded text-left',
+                'w-full flex items-center justify-between px-2.5 py-1.5 rounded-md border text-left transition-colors',
+                'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus',
                 active
-                  ? 'bg-pink-600 hover:bg-pink-500 border border-pink-500 text-white shadow-md shadow-pink-600/20 font-semibold'
-                  : 'text-neutral-300 hover:text-neutral-50 hover:bg-neutral-900/80 bg-neutral-900/20',
+                  ? 'bg-accent hover:bg-accent-hover border-accent text-accent-fg shadow-sm font-semibold'
+                  : 'border-transparent text-fg-primary hover:bg-surface-content-alt',
               )}
             >
               <span className="flex items-center gap-2 min-w-0">
                 <Icon
                   aria-hidden
-                  className={cn('w-4 h-4 shrink-0', !active && 'text-neutral-400')}
+                  strokeWidth={1.75}
+                  className={cn('w-4 h-4 shrink-0', !active && 'text-fg-secondary')}
                 />
                 <span className="flex flex-col min-w-0">
                   <span className="text-xs leading-tight">{name}</span>
                   <span
                     className={cn(
-                      'text-[9px] leading-tight truncate',
-                      active ? 'text-pink-200' : 'text-neutral-500',
+                      'text-[11px] leading-tight truncate',
+                      active ? 'text-accent-fg' : 'text-fg-secondary',
                     )}
                   >
                     {hint}
@@ -187,10 +199,10 @@ export function ToolColumn({ className }: ToolColumnProps): ReactElement {
               </span>
               <kbd
                 className={cn(
-                  'kbd ml-1 px-1.5 py-0.5 text-[10px] rounded',
+                  'ml-1 min-w-[1.25rem] px-1.5 py-0.5 text-center font-mono text-[11px] leading-none rounded-sm border',
                   active
-                    ? 'bg-pink-700/80 text-white border border-pink-400/40'
-                    : 'bg-neutral-800 text-neutral-400 border border-neutral-700',
+                    ? 'bg-accent-hover text-accent-fg border-transparent'
+                    : 'bg-surface-content text-fg-secondary border-line-subtle',
                 )}
               >
                 {key}
@@ -208,7 +220,13 @@ export function ToolColumn({ className }: ToolColumnProps): ReactElement {
             onClick={() => {
               setShapeFill(!shapeFill);
             }}
-            className={cn(toggleClass(shapeFill), 'w-full justify-between px-2.5')}
+            className={cn(
+              toggleClass(
+                shapeFill,
+                'bg-surface-content border-line-subtle hover:bg-surface-content-alt',
+              ),
+              'w-full justify-between px-2.5',
+            )}
           >
             <span className="font-semibold">{t('fill.label')}</span>
             <span>{shapeFill ? t('fill.on') : t('fill.off')}</span>
@@ -216,14 +234,18 @@ export function ToolColumn({ className }: ToolColumnProps): ReactElement {
         </div>
       )}
 
-      <div className="h-px bg-neutral-800/80 mx-2.5 my-1" />
+      <div className="h-px bg-line-subtle mx-2.5 my-1" />
 
       <div className="p-2 space-y-1.5 pb-3">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-semibold text-neutral-300">{t('symmetry.label')}</span>
-          <span className="text-[11px] text-sky-400">{t(`symmetry.${symmetry}`)}</span>
+          <span className="text-[11px] font-semibold text-fg-primary">{t('symmetry.label')}</span>
+          <span className="text-[11px] text-fg-secondary">{t(`symmetry.${symmetry}`)}</span>
         </div>
-        <div className="grid grid-cols-2 gap-1" role="group" aria-label={t('symmetry.label')}>
+        <div
+          className="grid grid-cols-2 gap-0.5 rounded-md border border-line-subtle bg-surface-content p-0.5"
+          role="group"
+          aria-label={t('symmetry.label')}
+        >
           {SYMMETRIES.map((entry) => {
             const Icon = SYMMETRY_ICONS[entry];
             const on = entry === symmetry;
@@ -237,7 +259,7 @@ export function ToolColumn({ className }: ToolColumnProps): ReactElement {
                 }}
                 className={toggleClass(on)}
               >
-                {Icon && <Icon aria-hidden className="w-3 h-3" />}
+                {Icon && <Icon aria-hidden strokeWidth={1.75} className="w-3 h-3" />}
                 <span>{t(`symmetry.${entry}`)}</span>
               </button>
             );
