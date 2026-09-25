@@ -46,7 +46,7 @@ pub type ToolObserver = Arc<dyn Fn(&str, &str) + Send + Sync>;
 /// The instructions an agent reads once, at initialize.
 const INSTRUCTIONS: &str = "Bitwright is a pixel art editor. Start with list_projects and \
 open_asset, read get_style_rules before drawing, work through the steps with get_step, \
-check_step and advance_step, and read_canvas after every few writes.";
+check_step and advance_step, and read_canvas after every few writes. To animate, read_guide animating: add_frame copies the open frame and opens the copy.";
 
 /// What an agent is told to do before anything else: read the manual.
 const INSTRUCTIONS_PREFIX: &str = "Call read_guide first: it is the operating manual. ";
@@ -300,7 +300,7 @@ mod tests {
     fn resource_list_returns_every_guide() {
         let listed = resource_list();
         assert_eq!(listed.len(), guide::GUIDES.len());
-        assert_eq!(listed.len(), 5);
+        assert_eq!(listed.len(), 6);
         for (resource, entry) in listed.iter().zip(guide::GUIDES.iter()) {
             assert_eq!(resource.uri, guide::uri(entry.topic));
             assert_eq!(resource.name, entry.topic);

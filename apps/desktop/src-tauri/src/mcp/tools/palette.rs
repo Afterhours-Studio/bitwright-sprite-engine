@@ -250,8 +250,20 @@ fn set_palette(host: &dyn DocumentHost, session: &Session, args: Value) -> ToolR
     let rules = with_store(host, |store| store.asset_rules(asset))?;
     check_palette(&palette, &rules)?;
     let actor = session.actor();
-    let (stored, op) = with_store(host, |store| store.palette_write_as(asset, palette, &actor))?;
-    host.palette_changed(asset);
+    // Frames share one palette, so the write lands on every frame of the
+    // animation; each open view of any of them has to hear that it moved.
+    let (stored, written) = with_store(host, |store| {
+        store.palette_write_frames_as(asset, palette, &actor)
+    })?;
+    for (frame, op) in &written {
+        host.changed(*frame, op);
+        host.palette_changed(*frame);
+    }
+    let seq = written
+        .iter()
+        .find(|(frame, _)| *frame == asset)
+        .map(|(_, op)| op.seq)
+        .unwrap_or_default();
     let slots = stored
         .slots
         .iter()
@@ -263,7 +275,7 @@ fn set_palette(host: &dyn DocumentHost, session: &Session, args: Value) -> ToolR
             })
         })
         .collect::<Vec<_>>();
-    Ok(json!({ "slots": slots, "seq": op.seq }))
+    Ok(json!({ "slots": slots, "seq": seq }))
 }
 
 // ---------------------------------------------------------------------------
@@ -653,6 +665,36 @@ mod tests {
             writes.iter().any(|actor| *actor == session.actor()),
             "the fork's palette is the agent's own write"
         );
+    }
+
+    #[test]
+    fn a_palette_set_on_one_frame_reaches_and_notifies_every_frame() {
+        use crate::mcp::host::{Notice, RecordingHost};
+        let mut store = Store::memory().unwrap();
+        let project = store.project_create("demo", "hd2d").unwrap();
+        let hero = store
+            .asset_create(project.id, "hero", "character", 48, 64)
+            .unwrap()
+            .id;
+        let animation = store.frame_add(hero, true).unwrap();
+        let second = animation.frames[1].asset_id;
+        let host = RecordingHost::new(store);
+        let session = Session::new("test");
+        let args = json!({ "assetId": second.0.to_string(), "ramps": example_ramps() });
+        call(&host, &session, "set_palette", args).unwrap();
+
+        let notices = host.notices();
+        assert!(notices.contains(&Notice::Palette(hero)), "{notices:?}");
+        assert!(notices.contains(&Notice::Palette(second)), "{notices:?}");
+        assert!(notices.contains(&Notice::Changed(hero)), "{notices:?}");
+        assert!(notices.contains(&Notice::Changed(second)), "{notices:?}");
+        let store = host.store();
+        let store = store.lock().unwrap();
+        for frame in [hero, second] {
+            assert_eq!(store.asset_open(frame).unwrap().palette.slots.len(), 22);
+            let log = store.op_log(frame).unwrap();
+            assert_eq!(log.last().unwrap().actor, session.actor());
+        }
     }
 
     #[test]

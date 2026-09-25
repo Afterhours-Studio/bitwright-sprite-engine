@@ -114,7 +114,7 @@ mod tests {
             .as_str()
             .expect("text is a string")
             .starts_with("---\nname: bitwright-pixel-art"));
-        assert_eq!(value["topics"].as_array().expect("topics").len(), 5);
+        assert_eq!(value["topics"].as_array().expect("topics").len(), 6);
     }
 
     #[test]
@@ -144,7 +144,7 @@ mod tests {
         let enum_ = schema["properties"]["topic"]["enum"]
             .as_array()
             .expect("topic enum");
-        assert_eq!(enum_.len(), 5);
+        assert_eq!(enum_.len(), 6);
         assert_eq!(enum_[0], "overview");
         assert_eq!(schema["properties"]["topic"]["default"], "overview");
     }

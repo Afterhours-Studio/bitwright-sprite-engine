@@ -102,6 +102,18 @@ impl From<AppError> for ToolError {
                 "Run check_step to see which checks failed, fix those, then step \
                  again.",
             ),
+            "animation.last_frame" => (
+                "animation.last_frame",
+                "An animation keeps at least one frame. Add another frame first,                  or leave this one and redraw it.",
+            ),
+            "animation.invalid_duration" => (
+                "animation.invalid_duration",
+                "A frame is shown for 10 to 10000 ms; 125 ms is 8 FPS, 83 ms is                  about 12 FPS.",
+            ),
+            "animation.invalid_playback" => (
+                "animation.invalid_playback",
+                "Playback is forward, reverse or pingpong.",
+            ),
             other => (other, UNKNOWN_HINT),
         };
         Self {
@@ -127,6 +139,19 @@ mod tests {
 
     fn translated(code: &str) -> ToolError {
         ToolError::from(store_error(code))
+    }
+
+    #[test]
+    fn animation_refusals_keep_their_code_and_say_what_is_allowed() {
+        let last = translated("animation.last_frame");
+        assert_eq!(last.code, "animation.last_frame");
+        assert!(last.hint.contains("at least one frame"), "{}", last.hint);
+        let duration = translated("animation.invalid_duration");
+        assert_eq!(duration.code, "animation.invalid_duration");
+        assert!(duration.hint.contains("10000"), "{}", duration.hint);
+        let playback = translated("animation.invalid_playback");
+        assert_eq!(playback.code, "animation.invalid_playback");
+        assert!(playback.hint.contains("pingpong"), "{}", playback.hint);
     }
 
     #[test]

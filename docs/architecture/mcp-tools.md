@@ -15,21 +15,22 @@ It assumes [the document model](document-model.md).
 
 ## Status
 
-Phase 2 through Phase 4 are built. Every tool in the catalogue answers for
+Phase 2 through Phase 5 are built. Every tool in the catalogue answers for
 real; nothing here is a placeholder.
 
-| Section               | Tools                                                                                                      | Available now | Delivered by |
-| --------------------- | ---------------------------------------------------------------------------------------------------------- | ------------- | ------------ |
-| 3. The guide          | `read_guide`                                                                                               | yes           | Phase 1      |
-| 4. Orientation        | `list_projects`, `create_project`, `list_assets`, `create_asset`, `open_asset`, `get_style_rules`          | yes           | Phase 2      |
-| 5. Reading the canvas | `read_canvas`, `read_region`, `describe_palette`, `diff_layers`, `read_reference`                          | yes           | Phase 2/3    |
-| 6. Writing            | `paste_grid`, `draw_runs`, `set_pixels`, `draw_shape`, `fill_region`, `mirror`, `translate`, `clear_layer` | yes           | Phase 2      |
-| 7. The shading tools  | `shade`, `outline`, `antialias`                                                                            | yes           | Phase 2      |
-| 8. Palette            | `set_palette`, `create_variation`, `extract_palette`                                                       | yes           | Phase 2/3    |
-| 9. The workflow       | `get_step`, `check_step`, `advance_step`, `revisit_step`                                                   | yes           | Phase 2      |
-| 10. Tilemaps          | `create_tilemap`, `read_tilemap`, `place_tiles`, `tilemap_layers`                                          | yes           | Phase 3      |
-| 11. Export            | `export_png`, `export_sheet`                                                                               | yes           | Phase 4      |
-| 12. History           | `undo`, `redo`, `read_history`                                                                             | yes           | Phase 2      |
+| Section               | Tools                                                                                                                       | Available now | Delivered by |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------- | ------------ |
+| 3. The guide          | `read_guide`                                                                                                                | yes           | Phase 1      |
+| 4. Orientation        | `list_projects`, `create_project`, `list_assets`, `create_asset`, `open_asset`, `get_style_rules`                           | yes           | Phase 2      |
+| 5. Reading the canvas | `read_canvas`, `read_region`, `describe_palette`, `diff_layers`, `read_reference`                                           | yes           | Phase 2/3    |
+| 6. Writing            | `paste_grid`, `draw_runs`, `set_pixels`, `draw_shape`, `fill_region`, `mirror`, `translate`, `clear_layer`                  | yes           | Phase 2      |
+| 7. The shading tools  | `shade`, `outline`, `antialias`                                                                                             | yes           | Phase 2      |
+| 8. Palette            | `set_palette`, `create_variation`, `extract_palette`                                                                        | yes           | Phase 2/3    |
+| 9. The workflow       | `get_step`, `check_step`, `advance_step`, `revisit_step`                                                                    | yes           | Phase 2      |
+| 10. Tilemaps          | `create_tilemap`, `read_tilemap`, `place_tiles`, `tilemap_layers`                                                           | yes           | Phase 3      |
+| 11. Export            | `export_png`, `export_sheet`                                                                                                | yes           | Phase 4      |
+| 12. Animation         | `read_animation`, `add_frame`, `delete_frame`, `move_frame`, `set_frame_duration`, `set_animation_duration`, `set_playback` | yes           | Phase 5      |
+| 13. History           | `undo`, `redo`, `read_history`                                                                                              | yes           | Phase 2      |
 
 There is no skills installer: the drawing manual is served by the server itself,
 through `read_guide` and the `bitwright://guide/*` resources, so every client
@@ -109,7 +110,7 @@ wrong.
 ### `read_guide`
 
 `{ topic?: string }` — `topic` is one of `overview` (the default), `workflow`,
-`palette`, `recipes` or `troubleshooting`. Returns `{ topic, title, text,
+`palette`, `recipes`, `troubleshooting` or `animating`. Returns `{ topic, title, text,
 topics }`: the requested document's text, and the full topic list so an agent
 that wants another one does not have to guess the name.
 
@@ -615,7 +616,85 @@ on.
 
 ---
 
-## 12. History
+## 12. Animation
+
+An animation is a row of frames, and every frame is an ordinary asset — its
+own layers, step, gates and op log — so every other tool works on a frame
+unchanged. These tools arrange the row; [the animation contract](animation.md)
+has the model. A sprite with no second frame is an animation of one frame,
+125 ms, playing forward.
+
+Every tool here but `read_animation` announces the new animation to the
+window (`document://animation`, `{ rootId, animation }`), so a timeline follows
+the agent. Each returns the animation:
+
+```jsonc
+{
+  "rootId": "…", // the frame at position 0; the animation is listed under it
+  "playback": "forward", // forward | reverse | pingpong
+  "frames": [
+    {
+      "assetId": "…",
+      "position": 0,
+      "durationMs": 125,
+      "name": "hero-walk", // later frames are "hero-walk #2", …
+      "step": "cleanup",
+      "updatedAt": 0,
+    },
+  ],
+}
+```
+
+### `read_animation`
+
+`{ assetId? }` — any frame of the animation; defaults to the session's open
+asset. Returns the animation.
+
+### `add_frame`
+
+`{ assetId?, copy?: true }` — inserts a frame right after `assetId` (or the
+open asset). `copy` takes that frame's layers, palette and step (not its
+references); `copy: false` starts empty layers with the same palette at the
+earlier of the source's step and `silhouette`. The new frame's writes are
+recorded under the agent. Returns `{ animation, frame }`, `frame` being the
+new asset's id, and makes it the session's open asset and brings it up in the
+window, as `open_asset` does — the next thing an agent does is draw on it.
+
+### `delete_frame`
+
+`{ assetId }` — deletes one frame and its asset. Fails `animation.last_frame`
+for the only frame. Deleting the root makes the next frame the root under the
+animation's name. When the deleted frame is the session's open asset, the
+session moves to the frame that took its place (or the one before it, for the
+last frame) and the window opens it.
+
+### `move_frame`
+
+`{ assetId, to }` — moves a frame to position `to`, from 0, clamped to the
+last position.
+
+### `set_frame_duration` / `set_animation_duration`
+
+`{ assetId, ms }` for one frame; `{ assetId?, ms }` for every frame of the
+animation (the FPS control: 125 ms is 8 FPS). Fails
+`animation.invalid_duration` outside `10..=10000`.
+
+### `set_playback`
+
+`{ assetId?, mode }` — `forward`, `reverse` or `pingpong`; fails
+`animation.invalid_playback` otherwise. A lone sprite has nowhere to keep a
+mode and returns `forward` until it has a second frame.
+
+Frames share one palette: `set_palette` on any frame writes every frame, each
+in its own op log, and announces each. `undo` on one frame undoes that frame's
+copy only; an undo or redo on a frame of a multi-frame animation also
+announces the animation, since undoing the root's rename renames every frame.
+Every tool fails `asset.not_found` for an unknown or malformed id, and the
+`assetId`-optional ones `asset.not_open` with no session asset.
+
+---
+
+## 13. History
 
 ### `undo` / `redo`
 
@@ -630,7 +709,7 @@ resuming a session finds out what it, or the person, last did.
 
 ---
 
-## 13. Transports, sessions and trust
+## 14. Transports, sessions and trust
 
 Two transports, chosen in Settings.
 

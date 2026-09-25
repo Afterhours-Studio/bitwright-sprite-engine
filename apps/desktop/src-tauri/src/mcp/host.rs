@@ -26,7 +26,7 @@ use super::error::ToolError;
 use crate::commands::document::{
     self, DocumentState, PaletteEvent, StepEvent, EVENT_PALETTE, EVENT_STEP,
 };
-use crate::store::{AssetId, GateReport, OpResult, Result, Store};
+use crate::store::{Animation, AssetId, GateReport, OpResult, Result, Store};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Runtime};
 
@@ -45,6 +45,9 @@ pub trait DocumentHost: Send + Sync {
     fn activity(&self, session: &str, tool: &str, asset: AssetId);
     /// After a tilemap write, so an open view reloads.
     fn tilemap_changed(&self, asset: AssetId);
+    /// After a frame is added, deleted, moved or retimed, or the playback
+    /// changes, so a timeline someone is watching follows the agent.
+    fn animation_changed(&self, animation: &Animation);
 }
 
 /// Takes the lock the store is held behind and runs one unit of work on it.
@@ -128,6 +131,10 @@ impl<R: Runtime> DocumentHost for TauriHost<R> {
             log::warn!("failed to emit tilemap://changed for {asset:?}");
         }
     }
+
+    fn animation_changed(&self, animation: &Animation) {
+        crate::commands::animation::emit_animation(&self.app, animation);
+    }
 }
 
 /// The host for stdio and for tests: it drives the document and tells nobody.
@@ -154,6 +161,79 @@ impl DocumentHost for HeadlessHost {
     fn opened(&self, _asset: AssetId) {}
     fn activity(&self, _session: &str, _tool: &str, _asset: AssetId) {}
     fn tilemap_changed(&self, _asset: AssetId) {}
+    fn animation_changed(&self, _animation: &Animation) {}
+}
+
+/// A headless host that writes down every notification, so a test can check
+/// that a tool announced what it changed — the part the stdio host cannot
+/// show, because it tells nobody.
+#[cfg(test)]
+pub struct RecordingHost {
+    inner: HeadlessHost,
+    events: Mutex<Vec<Notice>>,
+}
+
+/// One notification a tool sent, as [`RecordingHost`] saw it.
+#[cfg(test)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Notice {
+    Changed(AssetId),
+    Palette(AssetId),
+    Step(AssetId),
+    Opened(AssetId),
+    Tilemap(AssetId),
+    Animation(Animation),
+}
+
+#[cfg(test)]
+impl RecordingHost {
+    pub fn new(store: Store) -> Self {
+        Self {
+            inner: HeadlessHost::new(store),
+            events: Mutex::new(Vec::new()),
+        }
+    }
+
+    /// Every notification so far, oldest first.
+    pub fn notices(&self) -> Vec<Notice> {
+        self.events
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
+    }
+
+    fn push(&self, notice: Notice) {
+        self.events
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .push(notice);
+    }
+}
+
+#[cfg(test)]
+impl DocumentHost for RecordingHost {
+    fn store(&self) -> Arc<Mutex<Store>> {
+        self.inner.store()
+    }
+    fn changed(&self, asset: AssetId, _result: &OpResult) {
+        self.push(Notice::Changed(asset));
+    }
+    fn palette_changed(&self, asset: AssetId) {
+        self.push(Notice::Palette(asset));
+    }
+    fn step_changed(&self, asset: AssetId, _gate: &GateReport) {
+        self.push(Notice::Step(asset));
+    }
+    fn opened(&self, asset: AssetId) {
+        self.push(Notice::Opened(asset));
+    }
+    fn activity(&self, _session: &str, _tool: &str, _asset: AssetId) {}
+    fn tilemap_changed(&self, asset: AssetId) {
+        self.push(Notice::Tilemap(asset));
+    }
+    fn animation_changed(&self, animation: &Animation) {
+        self.push(Notice::Animation(animation.clone()));
+    }
 }
 
 #[cfg(test)]

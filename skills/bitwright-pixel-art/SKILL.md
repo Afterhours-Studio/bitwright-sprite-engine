@@ -226,3 +226,6 @@ direction, the ramp bounds and the canvas defaults you are about to be gated aga
   a colour variation.
 - `references/troubleshooting.md` — the failure modes, the heuristic that detects each,
   and the tool calls that fix it.
+- `references/animating.md` — animation frames: draw frame 1 through the workflow,
+  `add_frame` a copy per pose, change only what moves, keep the palette, gate every
+  frame, time it and export a GIF or sheet.

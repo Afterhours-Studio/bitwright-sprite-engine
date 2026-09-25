@@ -69,6 +69,7 @@ fn undo_handler(host: &dyn DocumentHost, session: &Session, args: Value) -> Tool
     let actor = session.actor();
     let mut done = 0u32;
     let mut last_summary: Option<Value> = None;
+    let before = with_store(host, |store| store.palette_read(id))?;
     for _ in 0..args.count {
         match with_store(host, |store| store.undo(id, &actor)) {
             Ok(result) => {
@@ -85,7 +86,32 @@ fn undo_handler(host: &dyn DocumentHost, session: &Session, args: Value) -> Tool
             }
         }
     }
+    if done > 0 {
+        announce_travel(host, id, &before)?;
+    }
     Ok(json!({ "done": done, "last": last_summary }))
+}
+
+/// What an undo or redo moved besides pixels, told to the window the way the
+/// person's own undo tells it. A palette op that walked back changes the
+/// palette view, and an op on a frame can rename every frame of its
+/// animation (undoing a rename of the first frame renames the rest), so a
+/// timeline has to reload whenever the asset has frames beside it.
+fn announce_travel(
+    host: &dyn DocumentHost,
+    id: crate::store::AssetId,
+    before: &crate::raster::Palette,
+) -> Result<(), ToolError> {
+    let (after, animation) = with_store(host, |store| {
+        Ok((store.palette_read(id)?, store.animation_read(id)?))
+    })?;
+    if after != *before {
+        host.palette_changed(id);
+    }
+    if animation.frames.len() > 1 {
+        host.animation_changed(&animation);
+    }
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -130,6 +156,7 @@ fn redo_handler(host: &dyn DocumentHost, session: &Session, args: Value) -> Tool
     let actor = session.actor();
     let mut done = 0u32;
     let mut last_summary: Option<Value> = None;
+    let before = with_store(host, |store| store.palette_read(id))?;
     for _ in 0..args.count {
         match with_store(host, |store| store.redo(id, &actor)) {
             Ok(result) => {
@@ -145,6 +172,9 @@ fn redo_handler(host: &dyn DocumentHost, session: &Session, args: Value) -> Tool
                 return Err(err);
             }
         }
+    }
+    if done > 0 {
+        announce_travel(host, id, &before)?;
     }
     Ok(json!({ "done": done, "last": last_summary }))
 }
@@ -575,5 +605,121 @@ mod tests {
         let result = super::super::call(&host, &session, "redo", json!(null)).unwrap();
         assert_eq!(result["done"].as_u64().unwrap(), 0);
         assert!(result["last"].is_null());
+    }
+
+    /// A root and one more frame behind a host that records what it is told.
+    fn animated() -> (
+        crate::mcp::host::RecordingHost,
+        Session,
+        crate::store::AssetId,
+        crate::store::AssetId,
+    ) {
+        let mut store = Store::memory().unwrap();
+        let project = store.project_create("P", "hd2d").unwrap();
+        let root = store
+            .asset_create(project.id, "walk", "prop", 4, 4)
+            .unwrap()
+            .id;
+        let second = store.frame_add(root, false).unwrap().frames[1].asset_id;
+        (
+            crate::mcp::host::RecordingHost::new(store),
+            Session::new("t"),
+            root,
+            second,
+        )
+    }
+
+    #[test]
+    fn undoing_a_root_rename_announces_the_renamed_animation() {
+        use crate::mcp::host::Notice;
+        let (host, session, root, _) = animated();
+        host.store()
+            .lock()
+            .unwrap()
+            .asset_rename(root, "run")
+            .unwrap();
+        let args = json!({ "assetId": root.0.to_string() });
+        super::super::call(&host, &session, "undo", args.clone()).unwrap();
+        let announced: Vec<_> = host
+            .notices()
+            .into_iter()
+            .filter_map(|notice| match notice {
+                Notice::Animation(animation) => Some(animation),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(announced.len(), 1);
+        assert_eq!(announced[0].frames[0].name, "walk");
+        assert_eq!(announced[0].frames[1].name, "walk #2");
+
+        super::super::call(&host, &session, "redo", args).unwrap();
+        let last = host
+            .notices()
+            .into_iter()
+            .rev()
+            .find_map(|notice| match notice {
+                Notice::Animation(animation) => Some(animation),
+                _ => None,
+            });
+        assert_eq!(last.unwrap().frames[1].name, "run #2");
+    }
+
+    #[test]
+    fn undoing_a_palette_write_on_a_frame_announces_the_palette() {
+        use crate::mcp::host::Notice;
+        let (host, session, root, second) = animated();
+        host.store()
+            .lock()
+            .unwrap()
+            .palette_write(
+                root,
+                Palette {
+                    slots: vec![PaletteSlot {
+                        index: 1,
+                        rgba: [10, 20, 30, 255],
+                        name: None,
+                        ramp: None,
+                        step: None,
+                    }],
+                    ramps: vec![],
+                },
+            )
+            .unwrap();
+        super::super::call(
+            &host,
+            &session,
+            "undo",
+            json!({ "assetId": second.0.to_string() }),
+        )
+        .unwrap();
+        let notices = host.notices();
+        assert!(notices.contains(&Notice::Changed(second)), "{notices:?}");
+        assert!(notices.contains(&Notice::Palette(second)), "{notices:?}");
+        assert!(!notices.contains(&Notice::Palette(root)), "{notices:?}");
+    }
+
+    #[test]
+    fn undo_on_a_lone_asset_announces_no_animation() {
+        use crate::mcp::host::Notice;
+        let mut store = Store::memory().unwrap();
+        let project = store.project_create("P", "hd2d").unwrap();
+        let lone = store
+            .asset_create(project.id, "rock", "prop", 4, 4)
+            .unwrap()
+            .id;
+        store.asset_rename(lone, "boulder").unwrap();
+        let host = crate::mcp::host::RecordingHost::new(store);
+        let session = Session::new("t");
+        super::super::call(
+            &host,
+            &session,
+            "undo",
+            json!({ "assetId": lone.0.to_string() }),
+        )
+        .unwrap();
+        assert!(host
+            .notices()
+            .iter()
+            .all(|notice| !matches!(notice, Notice::Animation(_))));
     }
 }

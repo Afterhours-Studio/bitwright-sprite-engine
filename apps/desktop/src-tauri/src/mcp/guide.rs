@@ -40,7 +40,7 @@ pub struct Guide {
 }
 
 /// The whole manual, in the order an agent should read it.
-pub const GUIDES: [Guide; 5] = [
+pub const GUIDES: [Guide; 6] = [
     Guide {
         topic: "overview",
         title: "Drawing in Bitwright",
@@ -67,6 +67,11 @@ pub const GUIDES: [Guide; 5] = [
         text: include_str!(
             "../../../../../skills/bitwright-pixel-art/references/troubleshooting.md"
         ),
+    },
+    Guide {
+        topic: "animating",
+        title: "Animating: frames, timing and playback",
+        text: include_str!("../../../../../skills/bitwright-pixel-art/references/animating.md"),
     },
 ];
 
@@ -99,7 +104,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_manual_has_the_five_topics_in_reading_order() {
+    fn the_manual_has_the_six_topics_in_reading_order() {
         assert_eq!(
             topics(),
             vec![
@@ -107,7 +112,8 @@ mod tests {
                 "workflow",
                 "palette",
                 "recipes",
-                "troubleshooting"
+                "troubleshooting",
+                "animating"
             ]
         );
     }
