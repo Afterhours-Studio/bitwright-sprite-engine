@@ -11,5 +11,13 @@
   "export": "Export",
   "exporting": "Exporting…",
   "success": "Wrote {{path}} ({{width}} × {{height}})",
-  "existsHint": "Tick \"Overwrite existing file\" to replace it."
+  "existsHint": "Tick \"Overwrite existing file\" to replace it.",
+  "output": "Output",
+  "outputPng": "This frame (PNG)",
+  "outputGif": "Animation (GIF)",
+  "outputSheet": "Sprite sheet",
+  "gifHint": "Plays the {{count}} frames with the playback and frame durations set on the timeline, looping forever.",
+  "sheetHint": "All {{count}} frames in timeline order, side by side.",
+  "columns": "Columns",
+  "successGif": "Wrote {{path}} ({{width}} × {{height}}, {{count}} frames)"
 }

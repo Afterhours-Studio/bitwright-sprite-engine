@@ -30,7 +30,9 @@
  *
  * Deleting a sprite takes its layers, its palette and its op log with it, and
  * the op log is what undo reads from, so there is nothing left to undo it with.
- * The confirmation says that rather than asking whether the user is sure.
+ * The confirmation says that rather than asking whether the user is sure, and
+ * for the root of an animation it says how many frames go with it, because
+ * deleting the root deletes them all.
  */
 
 import {
@@ -59,7 +61,7 @@ import {
 } from '@/features/home/sortAssets';
 import { useErrorMessage } from '@/hooks/useErrorMessage';
 import { cn } from '@/lib/cn';
-import { useProjectStore } from '@/stores/useProjectStore';
+import { listedAssets, useProjectStore } from '@/stores/useProjectStore';
 import { useShellStore } from '@/stores/useShellStore';
 import type { Asset, Project } from '@/types/document';
 
@@ -88,6 +90,7 @@ const SORT_LABEL = {
   name: 'toolbar.sortName',
   size: 'toolbar.sortSize',
   kind: 'toolbar.sortKind',
+  frames: 'toolbar.sortFrames',
 } as const satisfies Record<SortKey, string>;
 
 const GRID =
@@ -128,9 +131,12 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
     void loadAll();
   }, [loadAll]);
 
+  // Later frames of an animation stay in the store, where the editor can look
+  // them up, but every list and count here is of roots and lone sprites.
+  const listed = useMemo(() => listedAssets(allAssets), [allAssets]);
   const visible = useMemo(
-    () => sortAssets(filterAssets(allAssets, query), sortKey, direction),
-    [allAssets, query, sortKey, direction],
+    () => sortAssets(filterAssets(listed, query), sortKey, direction),
+    [listed, query, sortKey, direction],
   );
   const projectNames = useMemo(
     () => new Map(projects.map((project) => [project.id, project.name])),
@@ -180,6 +186,7 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
             <th className="py-1.5 pr-3 font-medium">{t('columns.project')}</th>
             <th className="py-1.5 pr-3 font-medium">{t('columns.size')}</th>
             <th className="py-1.5 pr-3 font-medium">{t('columns.kind')}</th>
+            <th className="py-1.5 pr-3 font-medium">{t('columns.frames')}</th>
             <th className="py-1.5 pr-3 font-medium">{t('columns.step')}</th>
             <th className="py-1.5 pr-3 font-medium">{t('columns.updated')}</th>
             <th className="py-1.5 text-right font-medium">
@@ -211,7 +218,7 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
       );
     }
     if (view === 'recent') {
-      if (allAssets.length === 0) {
+      if (listed.length === 0) {
         return <Empty title={t('state.emptyRecent')} hint={t('state.emptyRecentHint')} />;
       }
       if (visible.length === 0) {
@@ -227,7 +234,7 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
         {projects.map((project) => {
           const preset = presets[project.id];
           const own = visible.filter((asset) => asset.projectId === project.id);
-          const total = allAssets.filter((asset) => asset.projectId === project.id).length;
+          const total = listed.filter((asset) => asset.projectId === project.id).length;
           return (
             <section key={project.id} aria-labelledby={`${ids}-${project.id}`}>
               <div className="group flex flex-wrap items-center gap-2 border-b border-neutral-800/60 pb-2">
@@ -456,11 +463,15 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
             : 'confirm.deleteAssetTitle',
           { name: deleting?.name ?? '' },
         )}
-        body={tp(
-          pending.kind === 'deleteProject'
-            ? 'confirm.deleteProjectBody'
-            : 'confirm.deleteAssetBody',
-        )}
+        body={
+          pending.kind === 'deleteAsset' && pending.asset.frames > 1
+            ? t('confirm.deleteAnimationBody', { count: pending.asset.frames })
+            : tp(
+                pending.kind === 'deleteProject'
+                  ? 'confirm.deleteProjectBody'
+                  : 'confirm.deleteAssetBody',
+              )
+        }
         confirmLabel={tp('confirm.delete')}
         onDismiss={close}
         onConfirm={() => {

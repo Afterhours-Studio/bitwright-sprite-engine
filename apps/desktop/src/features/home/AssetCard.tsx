@@ -20,6 +20,9 @@
  * The card is not one big button. Opening, renaming and deleting are three
  * different acts, and a button cannot contain buttons, so the thumbnail is the
  * open control and the two hover actions sit beside it in the same box.
+ *
+ * An animation is shown by its root, so the card is the root's and the frame
+ * count is the only sign that there is more behind it.
  */
 
 import { Pencil, Trash2 } from 'lucide-react';
@@ -47,6 +50,10 @@ export interface AssetItemProps {
 export function AssetCard({ asset, onOpen, onRename, onDelete }: AssetItemProps): ReactElement {
   const { t, i18n } = useTranslation('home');
   const { t: tp } = useTranslation('projects');
+  // The frame count takes the top-right corner, where the eye goes first,
+  // because it is what sets an animation apart from a sprite; the step moves
+  // down beside the size rather than being dropped.
+  const animated = asset.frames > 1;
 
   return (
     <div className="group flex min-w-0 flex-col gap-1.5">
@@ -64,12 +71,30 @@ export function AssetCard({ asset, onOpen, onRename, onDelete }: AssetItemProps)
             className="transition-transform duration-150 group-hover:scale-105"
           />
         </button>
-        <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-black/75 px-1.5 py-0.5 text-[9px] text-neutral-300 border border-neutral-700/50">
-          {t('card.size', { width: asset.width, height: asset.height })}
-        </span>
-        <span className="pointer-events-none absolute top-1.5 right-1.5 rounded bg-pink-950/80 px-1.5 py-0.5 text-[9px] font-medium text-pink-400 border border-pink-700/50">
-          {tp(`steps.${asset.step}`)}
-        </span>
+        {animated ? (
+          <>
+            <div className="pointer-events-none absolute bottom-1.5 left-1.5 flex gap-1">
+              <span className="rounded bg-black/75 px-1.5 py-0.5 text-[9px] text-neutral-300 border border-neutral-700/50">
+                {t('card.size', { width: asset.width, height: asset.height })}
+              </span>
+              <span className="rounded bg-pink-950/80 px-1.5 py-0.5 text-[9px] font-medium text-pink-400 border border-pink-700/50">
+                {tp(`steps.${asset.step}`)}
+              </span>
+            </div>
+            <span className="pointer-events-none absolute top-1.5 right-1.5 rounded bg-pink-950/80 px-1.5 py-0.5 text-[9px] font-medium text-pink-400 border border-pink-700/50">
+              {t('card.frames', { count: asset.frames })}
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-black/75 px-1.5 py-0.5 text-[9px] text-neutral-300 border border-neutral-700/50">
+              {t('card.size', { width: asset.width, height: asset.height })}
+            </span>
+            <span className="pointer-events-none absolute top-1.5 right-1.5 rounded bg-pink-950/80 px-1.5 py-0.5 text-[9px] font-medium text-pink-400 border border-pink-700/50">
+              {tp(`steps.${asset.step}`)}
+            </span>
+          </>
+        )}
         <div className="absolute bottom-1.5 right-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
           <button
             type="button"
@@ -140,6 +165,7 @@ export function AssetRow({
         {t('card.size', { width: asset.width, height: asset.height })}
       </td>
       <td className="py-1.5 pr-3 text-neutral-400">{tp(`kinds.${asset.kind}`)}</td>
+      <td className="py-1.5 pr-3 text-neutral-400">{Math.max(asset.frames, 1)}</td>
       <td className="py-1.5 pr-3 text-pink-400">{tp(`steps.${asset.step}`)}</td>
       <td className="py-1.5 pr-3 text-neutral-500">
         {formatRelative(asset.updatedAt, Date.now(), i18n.language)}

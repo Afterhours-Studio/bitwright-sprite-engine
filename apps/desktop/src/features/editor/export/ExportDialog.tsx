@@ -29,6 +29,14 @@
  * again. It is kept in `localStorage` under one key rather than the document
  * store, because it has nothing to do with any one asset and should survive
  * switching between them.
+ *
+ * AN ANIMATION HAS THREE OUTPUTS. When the open asset is a frame of an
+ * animation of more than one frame, the dialog offers this frame as a PNG (as
+ * for a lone sprite), the whole animation as a looping GIF, and a sprite sheet
+ * of every frame in timeline order. Folder, scale and pattern are the same
+ * three choices for all of them, so switching output never loses what was
+ * set; the pattern's `{asset}` is the animation's name - its root's - for the
+ * GIF and the sheet. A lone sprite's dialog is the PNG one and nothing else.
  */
 
 import { Download } from 'lucide-react';
@@ -38,16 +46,36 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
 import { Field } from '@/components/ui/Field';
+import { NumberField } from '@/components/ui/NumberField';
+import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { Select } from '@/components/ui/Select';
+import { expandPattern, gifPath, type NameParts } from '@/features/editor/export/exportName';
 import { useErrorMessage } from '@/hooks/useErrorMessage';
+import { exportGif } from '@/lib/animation';
 import { pickDirectory } from '@/lib/api';
-import { exportPng } from '@/lib/export';
+import { exportPng, exportSheet } from '@/lib/export';
+import type { ShellResult } from '@/lib/tauri';
+import { useAnimationStore } from '@/stores/useAnimationStore';
+import { useProjectStore } from '@/stores/useProjectStore';
+import type { Frame } from '@/types/animation';
 import { DEFAULT_PATTERN, type ExportResult } from '@/types/export';
 
 /** Scales the dialog offers, in ascending order. */
 const SCALES = [1, 2, 4, 8, 16] as const;
 
 const STORAGE_KEY = 'bitwright.export';
+
+/** What an animation can be exported as. */
+type Output = 'png' | 'gif' | 'sheet';
+
+/** Every output, in the order the tabs offer them. */
+const OUTPUTS: readonly Output[] = ['png', 'gif', 'sheet'];
+
+const OUTPUT_LABEL = {
+  png: 'outputPng',
+  gif: 'outputGif',
+  sheet: 'outputSheet',
+} as const satisfies Record<Output, string>;
 
 /** What is remembered for the session. */
 interface ExportPrefs {
@@ -113,7 +141,8 @@ export interface ExportDialogProps {
  * The export dialog.
  *
  * @returns A folder picker, a scale, a name pattern and an overwrite switch,
- *   which together export the asset as a PNG.
+ *   which together export the asset as a PNG - or, for an animation, as a PNG
+ *   of this frame, a GIF or a sprite sheet.
  */
 export function ExportDialog({ assetId, open, onClose }: ExportDialogProps): ReactElement {
   const { t } = useTranslation('export');
@@ -124,6 +153,27 @@ export function ExportDialog({ assetId, open, onClose }: ExportDialogProps): Rea
   const [exporting, setExporting] = useState(false);
   const [result, setResult] = useState<ExportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [output, setOutput] = useState<Output>('png');
+  const [columns, setColumns] = useState<number | null>(null);
+
+  const animation = useAnimationStore((state) => state.animation);
+  const allAssets = useProjectStore((state) => state.allAssets);
+  const projectAssets = useProjectStore((state) => state.assets);
+  const projects = useProjectStore((state) => state.projects);
+
+  // Only an animation this asset is a frame of counts: the store follows the
+  // open document, and the dialog could be asked about another asset.
+  const frames: Frame[] | null =
+    animation !== null &&
+    animation.frames.length > 1 &&
+    animation.frames.some((frame) => frame.assetId === assetId)
+      ? animation.frames
+      : null;
+  const mode: Output = frames === null ? 'png' : output;
+  const frameCount = frames?.length ?? 1;
+  // Columns follow the frame count until someone sets them, so a frame added
+  // while the dialog is open still lands on the one row.
+  const sheetColumns = Math.min(Math.max(columns ?? frameCount, 1), frameCount);
 
   const update = (next: Partial<ExportPrefs>): void => {
     setPrefs((was) => {
@@ -142,6 +192,57 @@ export function ExportDialog({ assetId, open, onClose }: ExportDialogProps): Rea
     }
   };
 
+  /**
+   * What the pattern's placeholders stand for when the dialog fills them in
+   * itself: the animation is named by its root, the kind is the open asset's.
+   *
+   * @param all - The animation's frames, root first.
+   * @returns The parts, at the chosen scale.
+   */
+  const nameParts = (all: Frame[]): NameParts => {
+    const row =
+      allAssets.find((asset) => asset.id === assetId) ??
+      projectAssets.find((asset) => asset.id === assetId);
+    const project = projects.find((entry) => entry.id === row?.projectId);
+    return {
+      project: project?.name ?? '',
+      asset: all[0]?.name ?? '',
+      kind: row?.kind ?? '',
+      scale: prefs.scale,
+    };
+  };
+
+  /**
+   * Exports the animation as a GIF or a sheet into `directory`.
+   *
+   * @param directory - The folder the person picked.
+   * @param all - The animation's frames, in timeline order.
+   * @returns What the shell answered.
+   */
+  const exportAnimation = (directory: string, all: Frame[]): Promise<ShellResult<ExportResult>> => {
+    const parts = nameParts(all);
+    if (mode === 'gif') {
+      const path = gifPath(directory, prefs.pattern, parts);
+      if (path === null) {
+        return Promise.resolve({
+          ok: false,
+          error: { code: 'export.invalid_pattern', detail: prefs.pattern },
+        });
+      }
+      return exportGif(assetId, prefs.scale, path);
+    }
+    // `{project}` is left for the shell, which reads it from the first frame;
+    // `{asset}` and `{kind}` are filled here, or they would come out "sheet".
+    return exportSheet(
+      all.map((frame) => frame.assetId),
+      directory,
+      sheetColumns,
+      prefs.scale,
+      expandPattern(prefs.pattern, parts, true),
+      overwrite,
+    );
+  };
+
   const runExport = async (): Promise<void> => {
     if (prefs.directory === null) {
       return;
@@ -149,13 +250,10 @@ export function ExportDialog({ assetId, open, onClose }: ExportDialogProps): Rea
     setExporting(true);
     setError(null);
     setResult(null);
-    const exported = await exportPng(
-      assetId,
-      prefs.directory,
-      prefs.scale,
-      prefs.pattern,
-      overwrite,
-    );
+    const exported =
+      mode === 'png' || frames === null
+        ? await exportPng(assetId, prefs.directory, prefs.scale, prefs.pattern, overwrite)
+        : await exportAnimation(prefs.directory, frames);
     setExporting(false);
     if (!exported.ok) {
       setError(exported.error.code);
@@ -179,6 +277,29 @@ export function ExportDialog({ assetId, open, onClose }: ExportDialogProps): Rea
         void runExport();
       }}
     >
+      {frames !== null && (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[11px] font-medium text-neutral-300">{t('output')}</span>
+          <SegmentedTabs
+            label={t('output')}
+            value={mode}
+            segments={OUTPUTS.map((value) => ({ value, label: t(OUTPUT_LABEL[value]) }))}
+            onValueChange={(value) => {
+              setOutput(OUTPUTS.find((entry) => entry === value) ?? 'png');
+              setResult(null);
+              setError(null);
+            }}
+            className="self-start"
+          />
+          {mode === 'gif' && (
+            <p className="text-[11px] text-neutral-500">{t('gifHint', { count: frameCount })}</p>
+          )}
+          {mode === 'sheet' && (
+            <p className="text-[11px] text-neutral-500">{t('sheetHint', { count: frameCount })}</p>
+          )}
+        </div>
+      )}
+
       <Field
         label={t('folder')}
         value={prefs.directory ?? t('noFolder')}
@@ -214,21 +335,45 @@ export function ExportDialog({ assetId, open, onClose }: ExportDialogProps): Rea
         }}
       />
 
-      <label className="flex items-center gap-2 text-[11px] font-medium text-neutral-300">
-        <input
-          type="checkbox"
-          checked={overwrite}
-          onChange={(event) => {
-            setOverwrite(event.target.checked);
+      {mode === 'sheet' && (
+        <NumberField
+          label={t('columns')}
+          value={sheetColumns}
+          min={1}
+          max={frameCount}
+          stepper
+          onValueChange={(value) => {
+            setColumns(value);
           }}
-          className="h-3.5 w-3.5 rounded-sm border-neutral-700 accent-pink-600"
         />
-        {t('overwrite')}
-      </label>
+      )}
+
+      {/* `export_gif` takes a finished path and has no overwrite switch, so
+          the box is not offered where it would do nothing. */}
+      {mode !== 'gif' && (
+        <label className="flex items-center gap-2 text-[11px] font-medium text-neutral-300">
+          <input
+            type="checkbox"
+            checked={overwrite}
+            onChange={(event) => {
+              setOverwrite(event.target.checked);
+            }}
+            className="h-3.5 w-3.5 rounded-sm border-neutral-700 accent-pink-600"
+          />
+          {t('overwrite')}
+        </label>
+      )}
 
       {result !== null && (
         <p className="rounded border border-emerald-500/30 bg-emerald-500/10 p-2 text-[11px] break-all text-emerald-400">
-          {t('success', { path: result.path, width: result.width, height: result.height })}
+          {mode === 'gif'
+            ? t('successGif', {
+                path: result.path,
+                width: result.width,
+                height: result.height,
+                count: frameCount,
+              })
+            : t('success', { path: result.path, width: result.width, height: result.height })}
         </p>
       )}
 

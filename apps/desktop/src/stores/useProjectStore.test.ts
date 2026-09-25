@@ -26,7 +26,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useDocumentStore } from '@/stores/useDocumentStore';
-import { useProjectStore } from '@/stores/useProjectStore';
+import { isListed, listedAssets, useProjectStore } from '@/stores/useProjectStore';
 import { useToastStore } from '@/stores/useToastStore';
 import type { Asset, Project, Style } from '@/types/document';
 
@@ -385,6 +385,32 @@ describe('useProjectStore', () => {
 
       await useProjectStore.getState().deleteProject('project-2');
       expect(useProjectStore.getState().allAssets).toEqual([]);
+    });
+  });
+
+  describe('animations', () => {
+    const ROOT = { ...asset('root', 'project-1', 'walk'), frames: 3 };
+    const F1 = { ...asset('f1', 'project-1', 'walk 2'), rootId: 'root', frames: 0 };
+    const F2 = { ...asset('f2', 'project-1', 'walk 3'), rootId: 'root', frames: 0 };
+
+    it('lists roots and lone sprites, not later frames', () => {
+      expect(listedAssets([HERO, ROOT, F1, F2]).map((row) => row.id)).toEqual(['asset-1', 'root']);
+      expect(isListed(F1)).toBe(false);
+      expect(isListed(ROOT)).toBe(true);
+    });
+
+    it('drops every frame of a deleted root, and closes a frame that was open', async () => {
+      vi.mocked(documents.assetList).mockResolvedValue({ ok: true, value: [HERO, ROOT, F1, F2] });
+      vi.mocked(documents.assetDelete).mockResolvedValue({ ok: true, value: null });
+      await useProjectStore.getState().selectProject('project-1');
+      useProjectStore.setState({ allAssets: [HERO, ROOT, F1, F2] });
+      await useProjectStore.getState().selectAsset('f2');
+
+      await useProjectStore.getState().deleteAsset('root');
+
+      expect(useProjectStore.getState().assets).toEqual([HERO]);
+      expect(useProjectStore.getState().allAssets).toEqual([HERO]);
+      expect(useProjectStore.getState().assetId).toBeNull();
     });
   });
 });

@@ -26,10 +26,10 @@
 import { ASSET_KINDS, type Asset } from '@/types/document';
 
 /** What a list can be ordered by. */
-export type SortKey = 'recent' | 'name' | 'size' | 'kind';
+export type SortKey = 'recent' | 'name' | 'size' | 'kind' | 'frames';
 
 /** Every sort key, in the order the select offers them. */
-export const SORT_KEYS: readonly SortKey[] = ['recent', 'name', 'size', 'kind'];
+export const SORT_KEYS: readonly SortKey[] = ['recent', 'name', 'size', 'kind', 'frames'];
 
 /** Which way a sort runs. */
 export type SortDirection = 'asc' | 'desc';
@@ -65,6 +65,10 @@ function compare(key: SortKey, a: Asset, b: Asset): number {
       // The order the kinds are offered in, not their translated names, so a
       // language change does not reshuffle the grid.
       return ASSET_KINDS.indexOf(a.kind) - ASSET_KINDS.indexOf(b.kind);
+    case 'frames':
+      // A lone sprite counts as one frame, the same as the root of an
+      // animation of one, so the two sort together.
+      return Math.max(a.frames, 1) - Math.max(b.frames, 1);
   }
 }
 

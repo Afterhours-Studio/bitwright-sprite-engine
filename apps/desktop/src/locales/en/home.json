@@ -29,13 +29,16 @@
     "ascending": "Ascending",
     "descending": "Descending",
     "filter": "Filter",
-    "filterPlaceholder": "Type to filter"
+    "filterPlaceholder": "Type to filter",
+    "sortFrames": "Frames"
   },
   "card": {
     "open": "Open {{name}}",
     "delete": "Delete {{name}}",
     "rename": "Rename {{name}}",
-    "size": "{{width}} x {{height}}"
+    "size": "{{width}} x {{height}}",
+    "frames_one": "{{count}} frame",
+    "frames_other": "{{count}} frames"
   },
   "columns": {
     "name": "Name",
@@ -44,7 +47,8 @@
     "kind": "Kind",
     "step": "Step",
     "updated": "Updated",
-    "actions": "Actions"
+    "actions": "Actions",
+    "frames": "Frames"
   },
   "state": {
     "loading": "Reading your sprites…",
@@ -97,5 +101,8 @@
       "512": "Whole scenes",
       "preset": "This project's style"
     }
+  },
+  "confirm": {
+    "deleteAnimationBody": "This deletes the animation and all {{count}} of its frames, with every layer, palette and edit log they have, which is what undo reads from. There is nothing left to undo it with afterwards."
   }
 }

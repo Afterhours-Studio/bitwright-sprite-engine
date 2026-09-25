@@ -260,3 +260,70 @@ describe('HomeScreen', () => {
     expect(screen.getByText('window controls')).toBeInTheDocument();
   });
 });
+
+describe('HomeScreen with an animation', () => {
+  const WALK = asset({ id: 'w0', projectId: 'p2', name: 'walk', updatedAt: 50, frames: 3 });
+  const WALK_1 = asset({ id: 'w1', projectId: 'p2', name: 'walk 2', rootId: 'w0', frames: 0 });
+  const WALK_2 = asset({ id: 'w2', projectId: 'p2', name: 'walk 3', rootId: 'w0', frames: 0 });
+
+  beforeEach(() => {
+    vi.mocked(documents.assetList).mockImplementation((id) =>
+      Promise.resolve({
+        ok: true,
+        value: [HERO, TREE, BAT, WALK, WALK_1, WALK_2].filter((entry) => entry.projectId === id),
+      }),
+    );
+  });
+
+  it('lists the root only, and counts it once in its project', async () => {
+    render(<HomeScreen />);
+    await screen.findByRole('button', { name: 'Open walk' });
+    expect(cardOrder()).toEqual(['tree', 'bat', 'hero', 'walk']);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Projects' }));
+    const cave = screen.getByRole('region', { name: 'cave' });
+    expect(within(cave).getByText('2 sprites')).toBeInTheDocument();
+    expect(within(cave).getAllByRole('button', { name: /^Open / })).toHaveLength(2);
+  });
+
+  it('badges the root with its frame count, and only the root', async () => {
+    render(<HomeScreen />);
+    await screen.findByRole('button', { name: 'Open walk' });
+    expect(screen.getAllByText(/^\d+ frames?$/)).toHaveLength(1);
+    expect(screen.getByText('3 frames')).toBeInTheDocument();
+  });
+
+  it('sorts by frames and shows a Frames column in the list', async () => {
+    render(<HomeScreen />);
+    await screen.findByRole('button', { name: 'Open walk' });
+    fireEvent.change(screen.getByLabelText('Sort'), { target: { value: 'frames' } });
+    expect(cardOrder()[0]).toBe('walk');
+
+    fireEvent.click(screen.getByRole('button', { name: 'List view' }));
+    const table = screen.getByRole('table');
+    expect(within(table).getByRole('columnheader', { name: 'Frames' })).toBeInTheDocument();
+    expect(within(table).getAllByRole('row')).toHaveLength(5);
+  });
+
+  it('warns that deleting the root takes every frame with it', async () => {
+    render(<HomeScreen />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete walk' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Delete walk' });
+    expect(within(dialog).getByText(/all 3 of its frames/)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Open walk' })).not.toBeInTheDocument();
+    });
+    expect(documents.assetDelete).toHaveBeenCalledWith('w0');
+    expect(useProjectStore.getState().allAssets.some((row) => row.rootId === 'w0')).toBe(false);
+  });
+
+  it('keeps the ordinary warning for a lone sprite', async () => {
+    render(<HomeScreen />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete hero' }));
+    const dialog = screen.getByRole('dialog', { name: 'Delete hero' });
+    expect(within(dialog).queryByText(/of its frames/)).not.toBeInTheDocument();
+  });
+});

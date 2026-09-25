@@ -11,5 +11,13 @@
   "export": "Xuất",
   "exporting": "Đang xuất…",
   "success": "Đã ghi {{path}} ({{width}} × {{height}})",
-  "existsHint": "Chọn \"Ghi đè tệp đã có\" để thay thế tệp đó."
+  "existsHint": "Chọn \"Ghi đè tệp đã có\" để thay thế tệp đó.",
+  "output": "Đầu ra",
+  "outputPng": "Khung hình này (PNG)",
+  "outputGif": "Hoạt ảnh (GIF)",
+  "outputSheet": "Sprite sheet",
+  "gifHint": "Phát {{count}} khung hình theo chế độ phát và thời lượng từng khung đặt trên dòng thời gian, lặp mãi.",
+  "sheetHint": "Cả {{count}} khung hình theo thứ tự trên dòng thời gian, xếp cạnh nhau.",
+  "columns": "Số cột",
+  "successGif": "Đã ghi {{path}} ({{width}} × {{height}}, {{count}} khung hình)"
 }

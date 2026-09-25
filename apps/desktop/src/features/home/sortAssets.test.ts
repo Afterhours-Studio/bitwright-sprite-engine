@@ -75,6 +75,18 @@ describe('sortAssets', () => {
     expect(names(sortAssets(ALL, 'kind', 'asc'))).toEqual(['Hero', 'tree', 'grass']);
   });
 
+  it('orders by frame count, most frames first when descending', () => {
+    const walk = asset({ id: 'w', name: 'walk', frames: 6 });
+    const idle = asset({ id: 'i', name: 'idle', frames: 3 });
+    expect(names(sortAssets([...ALL, walk, idle], 'frames', 'desc'))).toEqual([
+      'walk',
+      'idle',
+      'grass',
+      'Hero',
+      'tree',
+    ]);
+  });
+
   it('breaks ties by name whichever way the sort runs', () => {
     const b = asset({ id: 'x', name: 'b', updatedAt: 5 });
     const a = asset({ id: 'y', name: 'a', updatedAt: 5 });

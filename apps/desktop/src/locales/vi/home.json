@@ -29,13 +29,16 @@
     "ascending": "Tăng dần",
     "descending": "Giảm dần",
     "filter": "Lọc",
-    "filterPlaceholder": "Gõ để lọc"
+    "filterPlaceholder": "Gõ để lọc",
+    "sortFrames": "Khung hình"
   },
   "card": {
     "open": "Mở {{name}}",
     "delete": "Xoá {{name}}",
     "rename": "Đổi tên {{name}}",
-    "size": "{{width}} x {{height}}"
+    "size": "{{width}} x {{height}}",
+    "frames_one": "{{count}} khung hình",
+    "frames_other": "{{count}} khung hình"
   },
   "columns": {
     "name": "Tên",
@@ -44,7 +47,8 @@
     "kind": "Loại",
     "step": "Bước",
     "updated": "Cập nhật",
-    "actions": "Thao tác"
+    "actions": "Thao tác",
+    "frames": "Khung hình"
   },
   "state": {
     "loading": "Đang đọc các sprite của bạn…",
@@ -97,5 +101,8 @@
       "512": "Cả một cảnh",
       "preset": "Phong cách của dự án này"
     }
+  },
+  "confirm": {
+    "deleteAnimationBody": "Thao tác này xóa hoạt ảnh cùng cả {{count}} khung hình của nó, với mọi lớp, bảng màu và nhật ký chỉnh sửa của chúng, thứ mà hoàn tác dựa vào. Sau đó không còn gì để hoàn tác lại nữa."
   }
 }

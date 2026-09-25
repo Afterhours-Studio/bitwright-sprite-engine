@@ -108,7 +108,10 @@ interface ProjectState {
   createAsset: (name: string, kind: AssetKind, width: number, height: number) => Promise<void>;
   /** Renames an asset. */
   renameAsset: (id: string, name: string) => Promise<void>;
-  /** Deletes an asset, its layers, its palette and its op log. */
+  /**
+   * Deletes an asset, its layers, its palette and its op log; a root takes
+   * every frame of its animation with it.
+   */
   deleteAsset: (id: string) => Promise<void>;
   /**
    * Reads every project, every project's assets and every project's preset.
@@ -130,6 +133,46 @@ interface ProjectState {
   ) => Promise<Asset | null>;
   /** Clears the last error. */
   clearError: () => void;
+}
+
+/**
+ * Whether an asset is listed on its own: a root or a lone sprite.
+ *
+ * A later frame of an animation is an asset too, and `allAssets` keeps it so
+ * that anything looking one up by id still finds it, but an animation is
+ * named, listed and counted by its root. Every list a person reads goes
+ * through this rather than repeating the test.
+ *
+ * @param asset - The row to test.
+ * @returns True when the row should appear in a list.
+ */
+export function isListed(asset: Asset): boolean {
+  return asset.rootId === null;
+}
+
+/**
+ * The rows a list shows, in the order given.
+ *
+ * @param assets - Every row, frames included.
+ * @returns The roots and lone sprites.
+ */
+export function listedAssets(assets: readonly Asset[]): Asset[] {
+  return assets.filter(isListed);
+}
+
+/**
+ * Whether deleting `deletedId` took `asset` with it.
+ *
+ * `asset_delete` on a root deletes every frame of its animation, so the
+ * frames go from the lists in the same step rather than lingering until the
+ * next read.
+ *
+ * @param asset - A listed row.
+ * @param deletedId - The asset that was deleted.
+ * @returns True when the row is gone.
+ */
+function deletedWith(asset: Asset, deletedId: string): boolean {
+  return asset.id === deletedId || asset.rootId === deletedId;
 }
 
 export const useProjectStore = create<ProjectState>((set, get) => {
@@ -393,12 +436,15 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         fail(deleted.error.code, 'projects:toast.deleteAssetFailed');
         return;
       }
+      const openId = get().assetId;
+      const openRow = get().allAssets.find((asset) => asset.id === openId);
+      const openGone = openId === id || (openRow !== undefined && deletedWith(openRow, id));
       set({
-        assets: get().assets.filter((asset) => asset.id !== id),
-        allAssets: get().allAssets.filter((asset) => asset.id !== id),
+        assets: get().assets.filter((asset) => !deletedWith(asset, id)),
+        allAssets: get().allAssets.filter((asset) => !deletedWith(asset, id)),
         loading: false,
       });
-      if (get().assetId === id) {
+      if (openGone) {
         await get().selectAsset(null);
       }
     },
