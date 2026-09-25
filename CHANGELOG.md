@@ -7,6 +7,27 @@ and the project follows [Semantic Versioning](https://semver.org/). Versions
 before 0.2.0 belong to the diffusion-based sprite generator this application
 used to be; they are kept below as history.
 
+## [1.2.1] - 2026-09-25
+
+The studio keeps the reference's layout and gets Bitwright's own look back.
+
+### Fixed
+
+- The interface no longer copies the reference studio's theme. The colours,
+  type, corners and shadows are Bitwright's again — the role tokens with the
+  yellow accent and warm neutrals, the radius and shadow tokens, the system
+  type stack — and so are the shared components, the window bezel with its
+  background effect, and the command palette. The layout, every control and
+  every behaviour are unchanged.
+- The frame cards show their number and step without truncating, and the
+  colour panel's tabs sit under its title.
+
+### Removed
+
+- Tailwind's stock palette and the Manrope font. A test now fails on any
+  palette class in the source, so the look cannot drift from the tokens
+  again.
+
 ## [1.2.0] - 2026-09-25
 
 Animation. A sprite can have frames; each frame is an ordinary asset, so

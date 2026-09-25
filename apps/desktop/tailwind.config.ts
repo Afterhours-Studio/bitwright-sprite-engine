@@ -26,9 +26,9 @@ import type { Config } from 'tailwindcss';
  * The studio keeps the reference's layout but not its look
  * (docs/architecture/studio-style.md): shapes come from the radius tokens,
  * elevation from the three shadow tokens, and pass/fail or warning marks from
- * the `severity-*` colours. During Phase 6 a clearly marked block below still
- * carries Tailwind's palettes for the files not converted yet; it goes in
- * wave 2, and a test then fails on any palette class in `src`.
+ * the `severity-*` colours. A test in `src/test/tokens.test.ts` fails on any
+ * stock palette class in `src`, because such a class compiles to nothing here
+ * and the element would silently lose its colour.
  *
  * Note for anyone adding a token here: Tailwind does not pick up a change to
  * this file while the dev server is running. Restart it, or the new class will
@@ -86,7 +86,6 @@ export default {
         DEFAULT: '#c42b1c',
         fg: '#ffffff',
       },
-
     },
     borderColor: ({ theme }) => ({
       ...theme('colors'),

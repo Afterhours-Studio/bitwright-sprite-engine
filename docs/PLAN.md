@@ -152,7 +152,7 @@ tests, the contrast check, the licence check, rustfmt, clippy with warnings
 as errors, 502 Rust tests, 91 Python tests), a release build of the
 installer, everything committed, version `1.2.0` tagged with its CHANGELOG.
 
-## Phase 6 — Own style · in progress
+## Phase 6 — Own style · done
 
 Goal: keep the studio layout, give it back Bitwright's own look. Phase 4
 copied the reference's theme and component styling along with its layout,
@@ -161,16 +161,28 @@ which the user did not ask for. The contract is
 the 1.0 type stack, radii, shadows, bezel and `components/ui`, and a mapping
 from every reference class to its Bitwright equivalent.
 
-| Task | What                                                                               | Owns                                                                                                    | Wave | Status  |
-| ---- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ---- | ------- |
-| R.0  | Tokens, type, radii, shadows back to 1.0; shared components back to their 1.0 look | `styles/**`, `tailwind.config.ts`, `main.tsx`, `components/ui/**`, `package.json`                       | 0    | pending |
-| R.1  | Home and settings in Bitwright's style                                             | `features/home/**`, `features/settings/**`                                                              | 1    | pending |
-| R.2  | Frame: bezel, header, window controls, command palette                             | `components/layout/**`, `features/editor/header/**`, `App.tsx`                                          | 1    | pending |
-| R.3  | Tools column, colour panel, layers panel                                           | `features/editor/tools/{ToolColumn,PalettePanel,LayerList}.tsx`                                         | 1    | pending |
-| R.4  | Stage, tilemap stage, reference, export, agent chip                                | `features/editor/{canvas,tilemap,reference,export,live}/**`, `PixelGridOverlay.tsx`, `EditorScreen.tsx` | 1    | pending |
-| R.5  | Steps strip and timeline                                                           | `features/editor/tools/StepRail.tsx`, `features/editor/timeline/**`                                     | 1    | pending |
-| R.6  | The palette removed, a test that bans it, docs, 1.2.1                              | everything else                                                                                         | 2    | pending |
+| Task | What                                                                               | Owns                                                                                                    | Wave | Status |
+| ---- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ---- | ------ |
+| R.0  | Tokens, type, radii, shadows back to 1.0; shared components back to their 1.0 look | `styles/**`, `tailwind.config.ts`, `main.tsx`, `components/ui/**`, `package.json`                       | 0    | done   |
+| R.1  | Home and settings in Bitwright's style                                             | `features/home/**`, `features/settings/**`                                                              | 1    | done   |
+| R.2  | Frame: bezel, header, window controls, command palette                             | `components/layout/**`, `features/editor/header/**`, `App.tsx`                                          | 1    | done   |
+| R.3  | Tools column, colour panel, layers panel                                           | `features/editor/tools/{ToolColumn,PalettePanel,LayerList}.tsx`                                         | 1    | done   |
+| R.4  | Stage, tilemap stage, reference, export, agent chip                                | `features/editor/{canvas,tilemap,reference,export,live}/**`, `PixelGridOverlay.tsx`, `EditorScreen.tsx` | 1    | done   |
+| R.5  | Steps strip and timeline                                                           | `features/editor/tools/StepRail.tsx`, `features/editor/timeline/**`                                     | 1    | done   |
+| R.6  | The palette removed, a test that bans it, docs, 1.2.1                              | everything else                                                                                         | 2    | done   |
 
 Exit criteria: no Tailwind palette class left in `src` (a test says so); the
 contrast check green; both themes checked in the real window; the full gate
 green; version `1.2.1` tagged.
+
+R.0 restored the tokens and the shared components first; R.1–R.5 converted
+their screens in parallel while a marked transitional block kept the old
+palette rendering; R.6 removed it, added the test that bans it, and brought
+the design-system and theming guides back. Home, the editor with the
+timeline and the steps, the dialogs and settings were checked in the real
+window in both themes, and the header at 1280px.
+
+Exit criteria met: no palette class in `src`, the full gate green (prettier,
+typecheck, lint, 585 TS tests, the contrast check, the licence check,
+rustfmt, clippy with warnings as errors, 502 Rust tests, 91 Python tests), a
+release build of the installer, version `1.2.1` tagged with its CHANGELOG.
