@@ -91,21 +91,20 @@ export function animationSetPlayback(
 
 /**
  * Renders the animation at `scale` as a looping GIF, honouring its playback
- * and durations.
+ * and durations, and writes it into `directory`.
  *
- * `path` is the file to write; without one the shell writes into the exports
- * folder, as it does for an agent. The key is left out entirely when there is
- * no path, which the Rust side reads as `None`.
+ * Takes what `exportPng` takes and follows its rules: `pattern` names the
+ * file (its `{asset}` and `{kind}` are the animation root's), and an existing
+ * file is refused with `export.exists` unless `overwrite` is true.
  */
 export function exportGif(
   assetId: string,
+  directory: string,
   scale: number,
-  path?: string,
+  pattern: string,
+  overwrite: boolean,
 ): Promise<ShellResult<ExportResult>> {
-  return invoke<ExportResult>(
-    'export_gif',
-    path === undefined ? { assetId, scale } : { assetId, scale, path },
-  );
+  return invoke<ExportResult>('export_gif', { assetId, directory, scale, pattern, overwrite });
 }
 
 /**

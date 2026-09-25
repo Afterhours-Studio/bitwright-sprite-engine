@@ -231,7 +231,7 @@ describe('ExportDialog for an animation', () => {
     expect(animationLib.exportGif).not.toHaveBeenCalled();
   });
 
-  it('exports a GIF named from the pattern and the root, at the chosen scale', async () => {
+  it('exports a GIF into the folder with the pattern, scale and overwrite flag', async () => {
     window.localStorage.setItem('bitwright.export', JSON.stringify({ scale: 2 }));
     useAnimationStore.setState({ animation: walk(3) });
     vi.mocked(animationLib.exportGif).mockResolvedValue(
@@ -243,14 +243,40 @@ describe('ExportDialog for an animation', () => {
     expect(
       screen.getByText(/playback and frame durations set on the timeline/),
     ).toBeInTheDocument();
-    expect(screen.queryByLabelText('Overwrite existing file')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('File name pattern')).toHaveValue('{asset}@{scale}x');
+    fireEvent.click(screen.getByLabelText('Overwrite existing file'));
     fireEvent.click(screen.getByRole('button', { name: 'Export' }));
 
-    expect(animationLib.exportGif).toHaveBeenCalledWith('asset-1', 2, 'D:/exports/walk@2x.gif');
+    expect(animationLib.exportGif).toHaveBeenCalledWith(
+      'asset-1',
+      'D:/exports',
+      2,
+      '{asset}@{scale}x',
+      true,
+    );
     expect(exportLib.exportPng).not.toHaveBeenCalled();
     expect(
       await screen.findByText('Wrote D:/exports/walk@2x.gif (64 × 64, 3 frames)'),
     ).toBeInTheDocument();
+  });
+
+  it('refuses to replace an existing GIF unless overwrite is ticked, with the hint', async () => {
+    useAnimationStore.setState({ animation: walk(3) });
+    vi.mocked(animationLib.exportGif).mockResolvedValue(err('export.exists'));
+    await openWithFolder();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Animation (GIF)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+
+    expect(animationLib.exportGif).toHaveBeenCalledWith(
+      'asset-1',
+      'D:/exports',
+      1,
+      '{asset}@{scale}x',
+      false,
+    );
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.getByText('Tick "Overwrite existing file" to replace it.')).toBeInTheDocument();
   });
 
   it('exports a sheet of every frame in order, one row by default', async () => {

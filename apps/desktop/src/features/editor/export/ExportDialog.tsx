@@ -18,9 +18,9 @@
  * The export dialog: one asset, rendered at a chosen scale, written as a PNG
  * into a folder the person picks.
  *
- * THE FOLDER IS CHOSEN, NEVER TYPED. `export_png` writes wherever
- * `directory` names, so the only thing standing between this dialog and an
- * arbitrary write is the system picker in `pickDirectory` - there is no text
+ * THE FOLDER IS CHOSEN, NEVER TYPED. `export_png`, `export_gif` and
+ * `export_sheet` write wherever `directory` names, so the only thing standing
+ * between this dialog and an arbitrary write is the system picker in `pickDirectory` - there is no text
  * field for a path here, only the button that opens it.
  *
  * SCALE, PATTERN AND FOLDER ARE REMEMBERED FOR THE SESSION. Exporting is a
@@ -36,7 +36,9 @@
  * of every frame in timeline order. Folder, scale and pattern are the same
  * three choices for all of them, so switching output never loses what was
  * set; the pattern's `{asset}` is the animation's name - its root's - for the
- * GIF and the sheet. A lone sprite's dialog is the PNG one and nothing else.
+ * GIF and the sheet. The overwrite switch applies to every output alike: an
+ * existing file is refused with `export.exists` unless it is ticked. A lone
+ * sprite's dialog is the PNG one and nothing else.
  */
 
 import { Download } from 'lucide-react';
@@ -49,7 +51,7 @@ import { Field } from '@/components/ui/Field';
 import { NumberField } from '@/components/ui/NumberField';
 import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { Select } from '@/components/ui/Select';
-import { expandPattern, gifPath, type NameParts } from '@/features/editor/export/exportName';
+import { expandPattern, type NameParts } from '@/features/editor/export/exportName';
 import { useErrorMessage } from '@/hooks/useErrorMessage';
 import { exportGif } from '@/lib/animation';
 import { pickDirectory } from '@/lib/api';
@@ -220,16 +222,9 @@ export function ExportDialog({ assetId, open, onClose }: ExportDialogProps): Rea
    * @returns What the shell answered.
    */
   const exportAnimation = (directory: string, all: Frame[]): Promise<ShellResult<ExportResult>> => {
-    const parts = nameParts(all);
     if (mode === 'gif') {
-      const path = gifPath(directory, prefs.pattern, parts);
-      if (path === null) {
-        return Promise.resolve({
-          ok: false,
-          error: { code: 'export.invalid_pattern', detail: prefs.pattern },
-        });
-      }
-      return exportGif(assetId, prefs.scale, path);
+      // The shell names the GIF after the animation's root itself.
+      return exportGif(assetId, directory, prefs.scale, prefs.pattern, overwrite);
     }
     // `{project}` is left for the shell, which reads it from the first frame;
     // `{asset}` and `{kind}` are filled here, or they would come out "sheet".
@@ -238,7 +233,7 @@ export function ExportDialog({ assetId, open, onClose }: ExportDialogProps): Rea
       directory,
       sheetColumns,
       prefs.scale,
-      expandPattern(prefs.pattern, parts, true),
+      expandPattern(prefs.pattern, nameParts(all), true),
       overwrite,
     );
   };
@@ -348,21 +343,17 @@ export function ExportDialog({ assetId, open, onClose }: ExportDialogProps): Rea
         />
       )}
 
-      {/* `export_gif` takes a finished path and has no overwrite switch, so
-          the box is not offered where it would do nothing. */}
-      {mode !== 'gif' && (
-        <label className="flex items-center gap-2 text-[11px] font-medium text-neutral-300">
-          <input
-            type="checkbox"
-            checked={overwrite}
-            onChange={(event) => {
-              setOverwrite(event.target.checked);
-            }}
-            className="h-3.5 w-3.5 rounded-sm border-neutral-700 accent-pink-600"
-          />
-          {t('overwrite')}
-        </label>
-      )}
+      <label className="flex items-center gap-2 text-[11px] font-medium text-neutral-300">
+        <input
+          type="checkbox"
+          checked={overwrite}
+          onChange={(event) => {
+            setOverwrite(event.target.checked);
+          }}
+          className="h-3.5 w-3.5 rounded-sm border-neutral-700 accent-pink-600"
+        />
+        {t('overwrite')}
+      </label>
 
       {result !== null && (
         <p className="rounded border border-emerald-500/30 bg-emerald-500/10 p-2 text-[11px] break-all text-emerald-400">

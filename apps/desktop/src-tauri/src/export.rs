@@ -979,18 +979,70 @@ pub async fn export_sheet(
     })
 }
 
-/// The file name an animation's GIF gets when no path is chosen, as
-/// `export_png`'s default pattern names a PNG.
+/// The file name an agent's GIF gets when it names none, as the MCP
+/// `export_png` default names a PNG.
 pub const DEFAULT_GIF_PATTERN: &str = "{asset}@{scale}x";
+
+/// Renders the animation `asset_id` belongs to and names its GIF from
+/// `pattern`. The pattern's `{asset}` and `{kind}` are the animation root's,
+/// not the frame's, so one animation exports under one name whichever of its
+/// frames is open.
+///
+/// # Errors
+///
+/// Returns the store's reason code when an asset is missing, and
+/// [`render_gif_frames`]'s and [`gif_file_name`]'s `export.*` codes.
+fn named_gif_frames(
+    store: &Store,
+    asset_id: AssetId,
+    scale: u8,
+    pattern: &str,
+) -> Result<(GifFrames, String), CommandError> {
+    let frames = render_gif_frames(store, asset_id, scale)?;
+    let root = store.asset_read(frames.root_id).map_err(app_failed)?;
+    let project = store.project_read(root.project_id).map_err(app_failed)?;
+    let name = gif_file_name(pattern, &project.name, &root.name, &root.kind, scale)?;
+    Ok((frames, name))
+}
+
+/// Encodes `frames` and writes them as `directory/name` under
+/// [`write_file`]'s rules, the GIF counterpart of [`write_png`].
+///
+/// # Errors
+///
+/// Returns `export.no_directory` before encoding anything when `directory`
+/// is not a directory, `export.encode_failed`, and [`write_file`]'s codes,
+/// `export.exists` among them when `overwrite` is false.
+fn write_gif(
+    directory: &Path,
+    name: &str,
+    frames: &GifFrames,
+    overwrite: bool,
+) -> Result<ExportResult, CommandError> {
+    if !directory.is_dir() {
+        return Err(CommandError::new(
+            "export.no_directory",
+            format!("{} is not a directory", directory.display()),
+        ));
+    }
+    let bytes = encode_gif(frames)?;
+    let path = write_file(directory, name, &bytes, overwrite)?;
+    Ok(ExportResult {
+        path: path.to_string_lossy().into_owned(),
+        width: frames.width(),
+        height: frames.height(),
+    })
+}
 
 /// Exports the animation `asset_id` belongs to (a lone asset exports a
 /// one-frame GIF) as a looping GIF, in its playback order and durations.
 ///
-/// `path` is the file the person chose in the system save dialog, which has
-/// already asked before replacing a file there, so it is written over. With
-/// no path the GIF goes to the project's folder under the exports root,
-/// named from the animation's root by [`DEFAULT_GIF_PATTERN`], and an
-/// existing file is refused as an agent's would be.
+/// It takes exactly what [`export_png`] takes and follows the same rules: the
+/// file lands in `directory` under a safe name built from `pattern` (ending
+/// in `.gif`), and an existing file is refused with `export.exists` unless
+/// `overwrite` is set. The dialog offers both exports side by side with one
+/// overwrite switch, so a GIF must never replace a file the PNG would have
+/// refused to.
 ///
 /// # Errors
 ///
@@ -1001,51 +1053,19 @@ pub const DEFAULT_GIF_PATTERN: &str = "{asset}@{scale}x";
 pub async fn export_gif(
     state: State<'_, DocumentState>,
     asset_id: AssetId,
+    directory: String,
     scale: u8,
-    path: Option<String>,
+    pattern: String,
+    overwrite: bool,
 ) -> Result<ExportResult, CommandError> {
-    let (frames, name, project_name, project_id) = run(&state, move |store| {
-        let frames = render_gif_frames(store, asset_id, scale)?;
-        let root = store.asset_read(frames.root_id).map_err(app_failed)?;
-        let project = store.project_read(root.project_id).map_err(app_failed)?;
-        let name = gif_file_name(
-            DEFAULT_GIF_PATTERN,
-            &project.name,
-            &root.name,
-            &root.kind,
-            scale,
-        )?;
-        Ok((frames, name, project.name, project.id))
+    let (frames, name) = run(&state, move |store| {
+        named_gif_frames(store, asset_id, scale, &pattern)
     })
     .await?;
 
-    let bytes = encode_gif(&frames)?;
-    let path = match path {
-        Some(chosen) => {
-            let chosen = PathBuf::from(chosen);
-            let directory = chosen.parent().map(Path::to_path_buf).unwrap_or_default();
-            let file = chosen
-                .file_name()
-                .and_then(|file| file.to_str())
-                .ok_or_else(|| {
-                    CommandError::new(
-                        "export.invalid_pattern",
-                        format!("{} names no file", chosen.display()),
-                    )
-                })?
-                .to_string();
-            write_file(&directory, &file, &bytes, true)?
-        }
-        None => {
-            let directory = project_folder(&exports_root()?, &project_name, project_id)?;
-            write_file(&directory, &name, &bytes, false)?
-        }
-    };
-    Ok(ExportResult {
-        path: path.to_string_lossy().into_owned(),
-        width: frames.width(),
-        height: frames.height(),
-    })
+    // Encoding happens after the lock is released: the frames are already
+    // rendered and the encoder does not need the store.
+    write_gif(Path::new(&directory), &name, &frames, overwrite)
 }
 
 /// The MCP exports folder for the current data root.
@@ -1768,6 +1788,59 @@ mod tests {
         let error = write_file(&directory.path, "run.gif", &bytes, false).unwrap_err();
         assert_eq!(code_of(&error), "export.exists");
         write_file(&directory.path, "run.gif", &bytes, true).unwrap();
+    }
+
+    #[test]
+    fn export_gif_names_the_file_from_the_pattern_and_the_animation_root() {
+        let directory = TempDir::new();
+        let (store, ids) = animation([100, 100, 100]);
+        // Opened on the last frame, the GIF is still named after the root.
+        let (frames, name) =
+            named_gif_frames(&store, ids[2], 2, "{project}-{asset}-{kind}@{scale}x").unwrap();
+        assert_eq!(name, "Demo-hero-character@2x.gif");
+        let result = write_gif(&directory.path, &name, &frames, false).unwrap();
+        assert_eq!((result.width, result.height), (4, 2));
+        assert_eq!(PathBuf::from(&result.path), directory.path.join(&name));
+        let decoded = decode(&fs::read(&result.path).unwrap());
+        assert_eq!(decoded.frames.len(), 3);
+    }
+
+    #[test]
+    fn export_gif_makes_a_hostile_pattern_a_safe_name_inside_the_directory() {
+        let (store, ids) = animation([100, 100, 100]);
+        let (_, name) = named_gif_frames(&store, ids[0], 1, "../{asset}").unwrap();
+        assert_eq!(name, "_hero.gif");
+        let (_, name) = named_gif_frames(&store, ids[0], 1, "con").unwrap();
+        assert_eq!(name, "_con.gif");
+        let error = named_gif_frames(&store, ids[0], 1, " .. ").err().unwrap();
+        assert_eq!(code_of(&error), "export.invalid_pattern");
+    }
+
+    #[test]
+    fn export_gif_refuses_an_existing_file_unless_told_to_overwrite() {
+        let directory = TempDir::new();
+        let (store, ids) = animation([100, 100, 100]);
+        let (frames, name) = named_gif_frames(&store, ids[0], 1, "{asset}").unwrap();
+        let target = directory.path.join(&name);
+        fs::write(&target, b"keep me").unwrap();
+
+        let error = write_gif(&directory.path, &name, &frames, false).unwrap_err();
+        assert_eq!(code_of(&error), "export.exists");
+        assert_eq!(fs::read(&target).unwrap(), b"keep me");
+        assert_eq!(entries(&directory.path), vec![target.clone()]);
+
+        write_gif(&directory.path, &name, &frames, true).unwrap();
+        assert_eq!(decode(&fs::read(&target).unwrap()).frames.len(), 3);
+    }
+
+    #[test]
+    fn export_gif_refuses_a_missing_directory() {
+        let directory = TempDir::new();
+        let (store, ids) = animation([100, 100, 100]);
+        let (frames, name) = named_gif_frames(&store, ids[0], 1, "{asset}").unwrap();
+        let missing = directory.path.join("missing");
+        let error = write_gif(&missing, &name, &frames, false).unwrap_err();
+        assert_eq!(code_of(&error), "export.no_directory");
     }
 
     #[test]

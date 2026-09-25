@@ -14,11 +14,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-/** The names the export dialog builds for an animation's GIF and sheet. */
+/** The names the export dialog builds for an animation's sheet. */
 
 import { describe, expect, it } from 'vitest';
 
-import { expandPattern, gifPath } from '@/features/editor/export/exportName';
+import { expandPattern } from '@/features/editor/export/exportName';
 
 const PARTS = { project: 'forest', asset: 'walk', kind: 'character', scale: 2 };
 
@@ -31,21 +31,5 @@ describe('expandPattern', () => {
 
   it('can leave the project for the shell', () => {
     expect(expandPattern('{project}/{asset}', PARTS, true)).toBe('{project}/walk');
-  });
-});
-
-describe('gifPath', () => {
-  it('joins the folder and the expanded pattern with a .gif extension', () => {
-    expect(gifPath('D:/exports', '{asset}@{scale}x', PARTS)).toBe('D:/exports/walk@2x.gif');
-    expect(gifPath('D:\\exports\\', '{asset}', PARTS)).toBe('D:\\exports\\walk.gif');
-  });
-
-  it('replaces separators and swaps a .png extension for .gif', () => {
-    expect(gifPath('/out', '../{asset}.png', PARTS)).toBe('/out/_walk.gif');
-  });
-
-  it('escapes a reserved stem and refuses an empty one', () => {
-    expect(gifPath('/out', 'con', PARTS)).toBe('/out/_con.gif');
-    expect(gifPath('/out', ' .. ', PARTS)).toBeNull();
   });
 });

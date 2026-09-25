@@ -15,31 +15,15 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Names for the exports the shell does not name itself.
+ * The name of a sheet of an animation's frames.
  *
- * `export_png` expands the dialog's pattern on the Rust side (`file_name` in
- * `export.rs`). `export_gif` takes a finished file path instead, and
- * `export_sheet` fills `{asset}` and `{kind}` with the word "sheet", so for an
- * animation the dialog does that part of the work here, the same way, so that
- * one pattern names all three outputs alike: `walk@2x.png`, `walk@2x.gif`.
+ * `export_png` and `export_gif` expand the dialog's pattern on the Rust side
+ * (`file_name` and `gif_file_name` in `export.rs`), with the animation root's
+ * name for a GIF. `export_sheet` fills `{asset}` and `{kind}` with the word
+ * "sheet", though, so for an animation's sheet the dialog fills those two in
+ * here, so that one pattern names all three outputs alike: `walk@2x.png`,
+ * `walk@2x.gif`, `walk@2x.png` for the sheet.
  */
-
-/** Windows reserves these stems regardless of extension or case. */
-const RESERVED = new Set([
-  'CON',
-  'PRN',
-  'AUX',
-  'NUL',
-  'CONIN$',
-  'CONOUT$',
-  ...['1', '2', '3', '4', '5', '6', '7', '8', '9', '¹', '²', '³'].flatMap((digit) => [
-    `COM${digit}`,
-    `LPT${digit}`,
-  ]),
-]);
-
-/** The longest stem written, as in `export.rs`. */
-const MAX_STEM_CHARS = 120;
 
 /** What a pattern's placeholders are replaced with. */
 export interface NameParts {
@@ -64,52 +48,4 @@ export function expandPattern(pattern: string, parts: NameParts, keepProject = f
     .replaceAll('{kind}', parts.kind)
     .replaceAll('{scale}', String(parts.scale));
   return keepProject ? expanded : expanded.replaceAll('{project}', parts.project);
-}
-
-/**
- * Makes expanded text safe as a file stem: separators, reserved and control
- * characters become `_`, spaces and dots are trimmed from both ends, a
- * reserved stem is escaped and a long one is cut.
- *
- * @param text - The expanded pattern.
- * @returns The stem, or null when nothing is left of it.
- */
-function safeStem(text: string): string | null {
-  const replaced = Array.from(text, (char) =>
-    char.charCodeAt(0) < 0x20 || char.charCodeAt(0) === 0x7f || '<>:"/\\|?*'.includes(char)
-      ? '_'
-      : char,
-  ).join('');
-  const trimmed = replaced.replace(/^[ .]+|[ .]+$/g, '');
-  // A pattern written for the PNG export may carry its extension; the GIF
-  // gets its own instead of `name.png.gif`.
-  let stem = trimmed.replace(/\.(png|gif)$/i, '');
-  if (stem === '') {
-    return null;
-  }
-  const head = (stem.split('.')[0] ?? '').replace(/ +$/, '').toUpperCase();
-  if (RESERVED.has(head)) {
-    stem = `_${stem}`;
-  }
-  return Array.from(stem).slice(0, MAX_STEM_CHARS).join('');
-}
-
-/**
- * The file an animation's GIF is written to.
- *
- * @param directory - The folder the person picked.
- * @param pattern - The dialog's pattern.
- * @param parts - What the placeholders stand for.
- * @returns The full path, or null when the pattern names nothing.
- */
-export function gifPath(directory: string, pattern: string, parts: NameParts): string | null {
-  const stem = safeStem(expandPattern(pattern, parts));
-  if (stem === null) {
-    return null;
-  }
-  // The picker hands back a native path; the separator it already uses is
-  // the one to join with.
-  const separator = directory.includes('\\') && !directory.includes('/') ? '\\' : '/';
-  const base = directory.endsWith(separator) ? directory.slice(0, -1) : directory;
-  return `${base}${separator}${stem}.gif`;
 }

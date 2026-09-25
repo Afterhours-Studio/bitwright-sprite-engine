@@ -86,17 +86,14 @@ describe('animation commands', () => {
 });
 
 describe('exportGif', () => {
-  it('leaves the path out when none is given', async () => {
-    await exportGif('asset-1', 2);
-    expect(tauri.invoke).toHaveBeenCalledWith('export_gif', { assetId: 'asset-1', scale: 2 });
-  });
-
-  it('sends the path when one is given', async () => {
-    await exportGif('asset-1', 4, 'D:/exports/hero.gif');
+  it('sends the folder, scale, pattern and overwrite switch by their camelCase names', async () => {
+    await exportGif('asset-1', 'D:/exports', 4, '{asset}@{scale}x', true);
     expect(tauri.invoke).toHaveBeenCalledWith('export_gif', {
       assetId: 'asset-1',
+      directory: 'D:/exports',
       scale: 4,
-      path: 'D:/exports/hero.gif',
+      pattern: '{asset}@{scale}x',
+      overwrite: true,
     });
   });
 });

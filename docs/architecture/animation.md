@@ -105,16 +105,16 @@ about a frame another write renamed.
 
 ## Tauri commands (`commands/animation.rs`)
 
-| command                  | args                        | returns                          |
-| ------------------------ | --------------------------- | -------------------------------- |
-| `animation_read`         | `{ assetId }`               | `Animation`                      |
-| `frame_add`              | `{ assetId, copy }`         | `Animation`                      |
-| `frame_delete`           | `{ assetId }`               | `Animation`                      |
-| `frame_move`             | `{ assetId, to }`           | `Animation`                      |
-| `frame_set_duration`     | `{ assetId, ms }`           | `Animation`                      |
-| `animation_set_duration` | `{ assetId, ms }`           | `Animation`                      |
-| `animation_set_playback` | `{ assetId, mode }`         | `Animation`                      |
-| `export_gif`             | `{ assetId, scale, path? }` | `ExportResult` (as `export_png`) |
+| command                  | args                                                | returns                                                              |
+| ------------------------ | --------------------------------------------------- | -------------------------------------------------------------------- |
+| `animation_read`         | `{ assetId }`                                       | `Animation`                                                          |
+| `frame_add`              | `{ assetId, copy }`                                 | `Animation`                                                          |
+| `frame_delete`           | `{ assetId }`                                       | `Animation`                                                          |
+| `frame_move`             | `{ assetId, to }`                                   | `Animation`                                                          |
+| `frame_set_duration`     | `{ assetId, ms }`                                   | `Animation`                                                          |
+| `animation_set_duration` | `{ assetId, ms }`                                   | `Animation`                                                          |
+| `animation_set_playback` | `{ assetId, mode }`                                 | `Animation`                                                          |
+| `export_gif`             | `{ assetId, directory, scale, pattern, overwrite }` | `ExportResult` (as `export_png`; `export.exists` unless `overwrite`) |
 
 Every command that changes an animation emits `document://animation` with
 `{ rootId, animation }` — as does the MCP host when an agent changes one — so
