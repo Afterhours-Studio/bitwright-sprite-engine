@@ -269,8 +269,8 @@ per batch; nothing paints locally except the preview.
   (wand: contiguous same slot on the active layer; Shift: every such pixel).
   While a selection exists, every pixel tool is clipped to it, shapes are
   rasterised client-side (`lib/shapes.ts`: line from `linePoints`, rectangle
-  as four lines or a filled box, midpoint ellipse, curve as a sampled
-  quadratic through the drag's midpoint) and clipped, and the marching-ants
+  as four lines or a filled box, midpoint ellipse, and Rust's cubic elbow curve, each ported
+  with Rust's rounding and pixel-perfect pass) and clipped, and the marching-ants
   outline is drawn. Without a selection shapes stay `draw_shape`, so Rust's
   pixel-perfect rasteriser remains the one an agent and a person share.
 - Move: with no selection, `translate` the active layer; with one, lift the
