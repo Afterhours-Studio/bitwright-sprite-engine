@@ -69,7 +69,6 @@ import { Tooltip } from '@/components/ui/Tooltip';
 import { PixelGridOverlay, MIN_GRID_CELL } from '@/features/editor/PixelGridOverlay';
 import { paintTarget } from '@/features/editor/activeLayer';
 import { useWorkflowLabels } from '@/features/editor/labels';
-import { AgentActivityIndicator } from '@/features/editor/live';
 import { DocumentSurface, StrokePreview } from '@/features/editor/canvas/DocumentSurface';
 import { SelectionOutline } from '@/features/editor/canvas/SelectionOutline';
 import { isFreehand, strokeOps, strokePreview, type Stroke } from '@/features/editor/canvas/stroke';
@@ -1071,10 +1070,6 @@ export function DocumentCanvas(): ReactElement {
             </div>
           </div>
         )}
-      </div>
-
-      <div className="absolute left-4 top-4 z-10">
-        <AgentActivityIndicator />
       </div>
 
       <div

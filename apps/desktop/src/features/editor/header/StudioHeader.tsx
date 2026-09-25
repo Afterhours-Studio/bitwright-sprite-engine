@@ -21,8 +21,8 @@
  * DRAGGING. The bar carries `data-tauri-drag-region` and each control opts
  * out with `no-drag` on itself, not on the groups around it, so the gaps
  * between controls still move the window the way an empty stretch of any
- * title bar does. See the note in `components/layout/TitleBar.tsx`, which
- * this replaces, for why a no-drag container is dead space.
+ * title bar does. A container marked no-drag would be dead space: the
+ * window could not be dragged from the gaps inside it.
  *
  * NOTHING OPEN, NOTHING TO ACT ON. Every control that acts on the sprite is
  * disabled while no asset is open; the ones that move around the application
@@ -538,6 +538,9 @@ export function StudioHeader(): ReactElement {
         confirmLabel={t('header.referenceDone')}
         onDismiss={dismissReference}
         onConfirm={dismissReference}
+        asForm={false}
+        size="lg"
+        icon={<ImageUp aria-hidden="true" className="w-5 h-5" />}
       >
         {/* Mounted only while showing: the panel reads the asset's references
             on mount, and there is no reason to fetch them behind a closed

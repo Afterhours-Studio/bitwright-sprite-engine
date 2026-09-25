@@ -13,7 +13,17 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-import { useEffect, type RefObject } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
+
+/**
+ * The overlays that are open, oldest first.
+ *
+ * Every open overlay listens on the document, so without an order a single
+ * Escape inside a confirmation would close the confirmation and the dialog
+ * behind it at once. Only the newest overlay answers Escape; the one beneath
+ * it answers the next press.
+ */
+const stack: symbol[] = [];
 
 /**
  * Closes an overlay on Escape, or on a press outside it.
@@ -31,10 +41,28 @@ export function useDismiss(
   ref: RefObject<HTMLElement | null>,
   onDismiss: () => void,
 ): void {
+  const tokenRef = useRef(Symbol('overlay'));
+
+  // Its place in the stack is taken when it opens and kept until it closes,
+  // in an effect of its own: the listeners below are re-attached whenever
+  // `onDismiss` changes identity, and doing this there would move a parent
+  // that merely re-rendered above the confirmation it opened.
   useEffect(() => {
     if (!open) {
       return;
     }
+    const token = tokenRef.current;
+    stack.push(token);
+    return () => {
+      stack.splice(stack.indexOf(token), 1);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const token = tokenRef.current;
 
     const onPointerDown = (event: PointerEvent): void => {
       const target = event.target;
@@ -45,7 +73,7 @@ export function useDismiss(
     };
 
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && stack[stack.length - 1] === token) {
         event.stopPropagation();
         onDismiss();
       }
