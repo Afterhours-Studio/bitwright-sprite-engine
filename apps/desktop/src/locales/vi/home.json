@@ -1,3 +1,101 @@
 {
-  "title": "Trang chủ"
+  "title": "Trang chủ",
+  "sidebar": {
+    "label": "Trang chủ",
+    "agentConnected": "Đã kết nối agent",
+    "agentDisconnected": "Chưa kết nối agent",
+    "connectAgent": "Kết nối agent",
+    "manageAgent": "Quản lý agent",
+    "actions": "Tạo mới",
+    "newSprite": "Sprite mới",
+    "newProject": "Dự án mới",
+    "pngToPixel": "PNG sang Pixel",
+    "pngToPixelHint": "Hãy tạo một dự án trước",
+    "nav": "Mục",
+    "recent": "Gần đây",
+    "projects": "Dự án",
+    "settings": "Cài đặt",
+    "copyright": "Bitwright {{mark}} 2026",
+    "studio": "Afterhours Studio · v{{version}}"
+  },
+  "toolbar": {
+    "grid": "Dạng lưới",
+    "list": "Dạng danh sách",
+    "sort": "Sắp xếp",
+    "sortRecent": "Gần đây",
+    "sortName": "Tên",
+    "sortSize": "Kích thước",
+    "sortKind": "Loại",
+    "ascending": "Tăng dần",
+    "descending": "Giảm dần",
+    "filter": "Lọc",
+    "filterPlaceholder": "Gõ để lọc"
+  },
+  "card": {
+    "open": "Mở {{name}}",
+    "delete": "Xoá {{name}}",
+    "rename": "Đổi tên {{name}}",
+    "size": "{{width}} x {{height}}"
+  },
+  "columns": {
+    "name": "Tên",
+    "project": "Dự án",
+    "size": "Kích thước",
+    "kind": "Loại",
+    "step": "Bước",
+    "updated": "Cập nhật",
+    "actions": "Thao tác"
+  },
+  "state": {
+    "loading": "Đang đọc các sprite của bạn…",
+    "error": "Không đọc được các sprite.",
+    "emptyRecent": "Chưa có sprite nào",
+    "emptyRecentHint": "Hãy tạo một sprite, hoặc biến một ảnh PNG thành sprite, nó sẽ hiện ở đây.",
+    "emptyProjects": "Chưa có dự án nào",
+    "emptyProjectsHint": "Mỗi dự án mang phong cách mà các sprite của nó được vẽ theo. Hãy tạo một dự án để bắt đầu.",
+    "emptyProject": "Dự án này chưa có sprite nào.",
+    "noMatch": "Không có sprite nào khớp với “{{query}}”."
+  },
+  "project": {
+    "preset": "Mẫu: {{preset}}",
+    "count_one": "{{count}} sprite",
+    "count_other": "{{count}} sprite",
+    "newSprite": "Sprite mới",
+    "rename": "Đổi tên {{name}}",
+    "delete": "Xoá {{name}}"
+  },
+  "png": {
+    "failedTitle": "PNG sang Pixel",
+    "importFailed": "Không nhập được ảnh. Sprite đã được tạo; hãy nhập lại ảnh từ bảng tham chiếu của nó."
+  },
+  "newSprite": {
+    "title": "Sprite mới",
+    "close": "Đóng",
+    "project": "Dự án",
+    "noProjects": "Hãy tạo một dự án trước, rồi thêm sprite vào đó.",
+    "name": "Tên sprite",
+    "namePlaceholder": "nhân vật chính",
+    "kind": "Loại",
+    "size": "Kích thước canvas",
+    "px": "{{size}} px",
+    "preset": "Mẫu",
+    "custom": "Tuỳ chỉnh",
+    "customRange": "Mỗi cạnh từ 16 đến 512 px",
+    "width": "Rộng",
+    "height": "Cao",
+    "submit": "Tạo sprite ({{width}}x{{height}} px)",
+    "use": {
+      "16": "Biểu tượng và vật phẩm nhặt",
+      "24": "Vật phẩm nhỏ",
+      "32": "Nhân vật cổ điển",
+      "48": "Nhân vật chi tiết",
+      "64": "Nhân vật lớn",
+      "96": "Chân dung",
+      "128": "Trùm",
+      "192": "Đạo cụ lớn",
+      "256": "Phông nền",
+      "512": "Cả một cảnh",
+      "preset": "Phong cách của dự án này"
+    }
+  }
 }

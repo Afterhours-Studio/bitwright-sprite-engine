@@ -52,6 +52,7 @@ import {
   projectDelete,
   projectList,
   projectRename,
+  styleRead,
 } from '@/lib/document';
 import { useDocumentStore } from '@/stores/useDocumentStore';
 import { useToastStore } from '@/stores/useToastStore';
@@ -80,6 +81,16 @@ interface ProjectState {
   loading: boolean;
   /** Stable reason code for the last failure, or null. */
   error: string | null;
+  /**
+   * Every asset of every project, as `loadAll` last read it and the actions
+   * here have kept it since. Home lists sprites across projects, which the
+   * selected project's `assets` cannot answer.
+   */
+  allAssets: Asset[];
+  /** Each project's style preset, by project id, for the projects that have one. */
+  presets: Record<string, StylePreset>;
+  /** True once `loadAll` has finished at least once, whether or not it failed. */
+  loadedAll: boolean;
 
   /** Reads every project, and the assets of whichever is selected. */
   load: () => Promise<void>;
@@ -99,6 +110,24 @@ interface ProjectState {
   renameAsset: (id: string, name: string) => Promise<void>;
   /** Deletes an asset, its layers, its palette and its op log. */
   deleteAsset: (id: string) => Promise<void>;
+  /**
+   * Reads every project, every project's assets and every project's preset.
+   * Keeps the selection when the selected project still exists.
+   */
+  loadAll: () => Promise<void>;
+  /** Opens an asset of any project: selects its project, then the asset. */
+  openAsset: (asset: Asset) => Promise<void>;
+  /**
+   * Creates an asset in a named project, selects both, and returns the row
+   * the shell sent back, or null when the create was refused.
+   */
+  createAssetIn: (
+    projectId: string,
+    name: string,
+    kind: AssetKind,
+    width: number,
+    height: number,
+  ) => Promise<Asset | null>;
   /** Clears the last error. */
   clearError: () => void;
 }
@@ -135,6 +164,20 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     return true;
   };
 
+  /**
+   * Reads one project's preset through its style row.
+   *
+   * @param project - The project to read.
+   * @returns The preset, or null when it has no style or the read failed.
+   */
+  const readPreset = async (project: Project): Promise<StylePreset | null> => {
+    if (project.styleId === null) {
+      return null;
+    }
+    const style = await styleRead(project.styleId);
+    return style.ok ? style.value.preset : null;
+  };
+
   return {
     projects: [],
     assets: [],
@@ -142,6 +185,9 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     assetId: null,
     loading: false,
     error: null,
+    allAssets: [],
+    presets: {},
+    loadedAll: false,
 
     load: async () => {
       set({ loading: true, error: null });
@@ -195,6 +241,82 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       await useDocumentStore.getState().open(id);
     },
 
+    loadAll: async () => {
+      set({ loading: true, error: null });
+      const projects = await projectList();
+      if (!projects.ok) {
+        // No notification, for the same reason `load` raises none: the home
+        // screen says so in place, and a toast on every launch is noise.
+        set({ error: projects.error.code, loading: false, loadedAll: true });
+        return;
+      }
+
+      const lists = await Promise.all(projects.value.map((project) => assetList(project.id)));
+      const failed = lists.find((list) => !list.ok);
+      if (failed !== undefined) {
+        set({
+          projects: projects.value,
+          error: failed.error.code,
+          loading: false,
+          loadedAll: true,
+        });
+        return;
+      }
+
+      const presetList = await Promise.all(projects.value.map(readPreset));
+      const presets: Record<string, StylePreset> = {};
+      projects.value.forEach((project, index) => {
+        const preset = presetList[index];
+        if (preset !== undefined && preset !== null) {
+          presets[project.id] = preset;
+        }
+      });
+
+      const allAssets = lists.flatMap((list) => (list.ok ? list.value : []));
+      const selected = projects.value.some((project) => project.id === get().projectId)
+        ? get().projectId
+        : null;
+      set({
+        projects: projects.value,
+        allAssets,
+        presets,
+        loading: false,
+        loadedAll: true,
+        // The selected project's list was just read with the rest, so it is
+        // refreshed from the same answer rather than asked for twice.
+        assets: selected === null ? [] : allAssets.filter((asset) => asset.projectId === selected),
+      });
+      if (selected === null && get().projectId !== null) {
+        await get().selectProject(null);
+      }
+    },
+
+    openAsset: async (asset) => {
+      if (get().projectId !== asset.projectId) {
+        await get().selectProject(asset.projectId);
+      }
+      await get().selectAsset(asset.id);
+    },
+
+    createAssetIn: async (projectId, name, kind, width, height) => {
+      set({ loading: true, error: null });
+      const created = await assetCreate(projectId, name, kind, width, height);
+      if (!created.ok) {
+        fail(created.error.code, 'projects:toast.createAssetFailed');
+        return null;
+      }
+      const row = created.value;
+      set({ allAssets: [...get().allAssets, row], loading: false });
+      if (get().projectId === projectId) {
+        set({ assets: [...get().assets, row] });
+      } else {
+        // Selecting lists the project afresh, which already includes the row.
+        await get().selectProject(projectId);
+      }
+      await get().selectAsset(row.id);
+      return row;
+    },
+
     createProject: async (name, preset) => {
       set({ loading: true, error: null });
       const created = await projectCreate(name, preset);
@@ -202,7 +324,11 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         fail(created.error.code, 'projects:toast.createProjectFailed');
         return;
       }
-      set({ projects: [...get().projects, created.value], loading: false });
+      set({
+        projects: [...get().projects, created.value],
+        presets: { ...get().presets, [created.value.id]: preset },
+        loading: false,
+      });
       await get().selectProject(created.value.id);
     },
 
@@ -227,7 +353,11 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         fail(deleted.error.code, 'projects:toast.deleteProjectFailed');
         return;
       }
-      set({ projects: get().projects.filter((project) => project.id !== id), loading: false });
+      set({
+        projects: get().projects.filter((project) => project.id !== id),
+        allAssets: get().allAssets.filter((asset) => asset.projectId !== id),
+        loading: false,
+      });
       if (get().projectId === id) {
         await get().selectProject(null);
       }
@@ -238,15 +368,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       if (projectId === null) {
         return;
       }
-
-      set({ loading: true, error: null });
-      const created = await assetCreate(projectId, name, kind, width, height);
-      if (!created.ok) {
-        fail(created.error.code, 'projects:toast.createAssetFailed');
-        return;
-      }
-      set({ assets: [...get().assets, created.value], loading: false });
-      await get().selectAsset(created.value.id);
+      await get().createAssetIn(projectId, name, kind, width, height);
     },
 
     renameAsset: async (id, name) => {
@@ -259,6 +381,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       const asset = renamed.value;
       set({
         assets: get().assets.map((current) => (current.id === id ? asset : current)),
+        allAssets: get().allAssets.map((current) => (current.id === id ? asset : current)),
         loading: false,
       });
     },
@@ -270,7 +393,11 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         fail(deleted.error.code, 'projects:toast.deleteAssetFailed');
         return;
       }
-      set({ assets: get().assets.filter((asset) => asset.id !== id), loading: false });
+      set({
+        assets: get().assets.filter((asset) => asset.id !== id),
+        allAssets: get().allAssets.filter((asset) => asset.id !== id),
+        loading: false,
+      });
       if (get().assetId === id) {
         await get().selectAsset(null);
       }

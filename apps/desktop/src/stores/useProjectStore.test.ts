@@ -28,7 +28,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useDocumentStore } from '@/stores/useDocumentStore';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { useToastStore } from '@/stores/useToastStore';
-import type { Asset, Project } from '@/types/document';
+import type { Asset, Project, Style } from '@/types/document';
 
 vi.mock('@/lib/document', () => ({
   projectList: vi.fn(),
@@ -39,6 +39,7 @@ vi.mock('@/lib/document', () => ({
   assetCreate: vi.fn(),
   assetRename: vi.fn(),
   assetDelete: vi.fn(),
+  styleRead: vi.fn(),
 }));
 
 const documents = await import('@/lib/document');
@@ -92,6 +93,13 @@ beforeEach(() => {
     assetId: null,
     loading: false,
     error: null,
+    allAssets: [],
+    presets: {},
+    loadedAll: false,
+  });
+  vi.mocked(documents.styleRead).mockResolvedValue({
+    ok: true,
+    value: { preset: 'snes' } as Style,
   });
   useToastStore.setState({ visible: [], queued: [], unread: 0 });
   // Opening a document is a side effect of selecting an asset, and it belongs
@@ -285,5 +293,96 @@ describe('useProjectStore', () => {
     useProjectStore.getState().clearError();
 
     expect(useProjectStore.getState().error).toBeNull();
+  });
+
+  describe('across projects', () => {
+    const CAVE = project('project-2', 'cave');
+    const BAT = asset('asset-3', 'project-2', 'bat');
+
+    beforeEach(() => {
+      vi.mocked(documents.projectList).mockResolvedValue({
+        ok: true,
+        value: [project('project-1', 'forest'), CAVE],
+      });
+      vi.mocked(documents.assetList).mockImplementation((id) =>
+        Promise.resolve({ ok: true, value: id === 'project-1' ? [HERO] : [BAT] }),
+      );
+    });
+
+    it('loadAll reads every project, its assets and its preset', async () => {
+      await useProjectStore.getState().loadAll();
+
+      const state = useProjectStore.getState();
+      expect(state.allAssets).toEqual([HERO, BAT]);
+      expect(state.presets).toEqual({ 'project-1': 'snes', 'project-2': 'snes' });
+      expect(state.loadedAll).toBe(true);
+      expect(state.error).toBeNull();
+    });
+
+    it('loadAll reports a refused asset list without a toast', async () => {
+      vi.mocked(documents.assetList).mockResolvedValue({
+        ok: false,
+        error: { code: 'store.io', detail: '' },
+      });
+      await useProjectStore.getState().loadAll();
+
+      expect(useProjectStore.getState().error).toBe('store.io');
+      expect(useProjectStore.getState().loadedAll).toBe(true);
+      expect(useToastStore.getState().visible).toHaveLength(0);
+    });
+
+    it('openAsset selects the asset and the project it belongs to', async () => {
+      await useProjectStore.getState().loadAll();
+      await useProjectStore.getState().openAsset(BAT);
+
+      expect(useProjectStore.getState().projectId).toBe('project-2');
+      expect(useProjectStore.getState().assetId).toBe('asset-3');
+      expect(useDocumentStore.getState().open).toHaveBeenLastCalledWith('asset-3');
+    });
+
+    it('createAssetIn creates into the named project and returns the row', async () => {
+      const slime = asset('asset-4', 'project-2', 'slime');
+      vi.mocked(documents.assetCreate).mockResolvedValue({ ok: true, value: slime });
+      await useProjectStore.getState().loadAll();
+      await useProjectStore.getState().selectProject('project-1');
+
+      const created = await useProjectStore
+        .getState()
+        .createAssetIn('project-2', 'slime', 'character', 32, 32);
+
+      expect(created).toEqual(slime);
+      expect(documents.assetCreate).toHaveBeenLastCalledWith(
+        'project-2',
+        'slime',
+        'character',
+        32,
+        32,
+      );
+      expect(useProjectStore.getState().projectId).toBe('project-2');
+      expect(useProjectStore.getState().assetId).toBe('asset-4');
+      expect(useProjectStore.getState().allAssets).toContainEqual(slime);
+    });
+
+    it('keeps allAssets fresh after a rename and a delete', async () => {
+      vi.mocked(documents.assetRename).mockResolvedValue({
+        ok: true,
+        value: { ...BAT, name: 'vampire' },
+      });
+      vi.mocked(documents.assetDelete).mockResolvedValue({ ok: true, value: null });
+      vi.mocked(documents.projectDelete).mockResolvedValue({ ok: true, value: null });
+      await useProjectStore.getState().loadAll();
+
+      await useProjectStore.getState().renameAsset('asset-3', 'vampire');
+      expect(useProjectStore.getState().allAssets.map((entry) => entry.name)).toEqual([
+        'hero',
+        'vampire',
+      ]);
+
+      await useProjectStore.getState().deleteAsset('asset-1');
+      expect(useProjectStore.getState().allAssets.map((entry) => entry.id)).toEqual(['asset-3']);
+
+      await useProjectStore.getState().deleteProject('project-2');
+      expect(useProjectStore.getState().allAssets).toEqual([]);
+    });
   });
 });

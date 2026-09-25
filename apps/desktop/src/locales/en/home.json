@@ -1,3 +1,101 @@
 {
-  "title": "Home"
+  "title": "Home",
+  "sidebar": {
+    "label": "Home",
+    "agentConnected": "Agent connected",
+    "agentDisconnected": "No agent connected",
+    "connectAgent": "Connect an agent",
+    "manageAgent": "Manage agents",
+    "actions": "Create",
+    "newSprite": "New sprite",
+    "newProject": "New project",
+    "pngToPixel": "PNG to Pixel",
+    "pngToPixelHint": "Create a project first",
+    "nav": "Sections",
+    "recent": "Recent",
+    "projects": "Projects",
+    "settings": "Settings",
+    "copyright": "Bitwright {{mark}} 2026",
+    "studio": "Afterhours Studio · v{{version}}"
+  },
+  "toolbar": {
+    "grid": "Grid view",
+    "list": "List view",
+    "sort": "Sort",
+    "sortRecent": "Recent",
+    "sortName": "Name",
+    "sortSize": "Size",
+    "sortKind": "Kind",
+    "ascending": "Ascending",
+    "descending": "Descending",
+    "filter": "Filter",
+    "filterPlaceholder": "Type to filter"
+  },
+  "card": {
+    "open": "Open {{name}}",
+    "delete": "Delete {{name}}",
+    "rename": "Rename {{name}}",
+    "size": "{{width}} x {{height}}"
+  },
+  "columns": {
+    "name": "Name",
+    "project": "Project",
+    "size": "Size",
+    "kind": "Kind",
+    "step": "Step",
+    "updated": "Updated",
+    "actions": "Actions"
+  },
+  "state": {
+    "loading": "Reading your sprites…",
+    "error": "The sprites could not be read.",
+    "emptyRecent": "No sprites yet",
+    "emptyRecentHint": "Create a sprite, or turn a PNG into one, and it shows up here.",
+    "emptyProjects": "No projects yet",
+    "emptyProjectsHint": "A project carries the style its sprites are drawn to. Create one to start.",
+    "emptyProject": "No sprites in this project yet.",
+    "noMatch": "No sprite matches “{{query}}”."
+  },
+  "project": {
+    "preset": "Preset: {{preset}}",
+    "count_one": "{{count}} sprite",
+    "count_other": "{{count}} sprites",
+    "newSprite": "New sprite",
+    "rename": "Rename {{name}}",
+    "delete": "Delete {{name}}"
+  },
+  "png": {
+    "failedTitle": "PNG to Pixel",
+    "importFailed": "The picture could not be imported. The sprite was created; import the picture again from its reference panel."
+  },
+  "newSprite": {
+    "title": "New sprite",
+    "close": "Close",
+    "project": "Project",
+    "noProjects": "Create a project first, then add sprites to it.",
+    "name": "Sprite name",
+    "namePlaceholder": "hero",
+    "kind": "Kind",
+    "size": "Canvas size",
+    "px": "{{size}} px",
+    "preset": "Preset",
+    "custom": "Custom",
+    "customRange": "16 to 512 px on each side",
+    "width": "Width",
+    "height": "Height",
+    "submit": "Create sprite ({{width}}x{{height}} px)",
+    "use": {
+      "16": "Icons and pickups",
+      "24": "Small items",
+      "32": "Classic characters",
+      "48": "Detailed characters",
+      "64": "Large characters",
+      "96": "Portraits",
+      "128": "Bosses",
+      "192": "Large props",
+      "256": "Backgrounds",
+      "512": "Whole scenes",
+      "preset": "This project's style"
+    }
+  }
 }
