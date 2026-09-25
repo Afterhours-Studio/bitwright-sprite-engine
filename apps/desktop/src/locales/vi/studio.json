@@ -1,3 +1,49 @@
 {
-  "title": "Bitwright Studio"
+  "title": "Bitwright Studio",
+  "header": {
+    "home": "Trang chủ",
+    "nameLabel": "Tên sprite",
+    "noSprite": "Chưa mở sprite nào",
+    "size": "{{width}} x {{height}}",
+    "undo": "Hoàn tác (Ctrl+Z)",
+    "redo": "Làm lại (Ctrl+Y)",
+    "clear": "Xoá lớp đang vẽ",
+    "pixelGrid": "Lưới điểm ảnh",
+    "tileGuide": "Lưới ô",
+    "tileOff": "Tắt lưới ô",
+    "tileSize": "{{size}} px",
+    "layers": "Lớp",
+    "layersHint": "Hiện hoặc ẩn bảng lớp",
+    "steps": "Bước ({{current}}/{{total}})",
+    "stepsHint": "Hiện hoặc ẩn dải các bước",
+    "agent": "Agent",
+    "agentHint": "Kết nối và hoạt động của agent",
+    "new": "Mới",
+    "newHint": "Sprite mới",
+    "reference": "Ảnh tham chiếu",
+    "referenceTitle": "Ảnh tham chiếu",
+    "referenceDone": "Xong",
+    "export": "Xuất tệp",
+    "settings": "Cài đặt"
+  },
+  "agent": {
+    "title": "Agent",
+    "server": "Máy chủ MCP",
+    "running": "Đang chạy",
+    "stopped": "Đã dừng",
+    "unknown": "Chưa đọc được",
+    "address": "Địa chỉ",
+    "sessions": "Phiên",
+    "noSessions": "Chưa có agent nào kết nối",
+    "sessionCount": "Số agent đang kết nối: {{count}}",
+    "lastTool": "Lệnh gần nhất: {{tool}}",
+    "idle": "Chưa có lệnh nào",
+    "configure": "Cấu hình client trong Cài đặt"
+  },
+  "window": {
+    "minimize": "Thu nhỏ",
+    "maximize": "Phóng to",
+    "restore": "Khôi phục",
+    "close": "Đóng"
+  }
 }

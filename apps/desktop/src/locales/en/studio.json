@@ -1,3 +1,49 @@
 {
-  "title": "Bitwright Studio"
+  "title": "Bitwright Studio",
+  "header": {
+    "home": "Home",
+    "nameLabel": "Sprite name",
+    "noSprite": "No sprite open",
+    "size": "{{width}} x {{height}}",
+    "undo": "Undo (Ctrl+Z)",
+    "redo": "Redo (Ctrl+Y)",
+    "clear": "Clear active layer",
+    "pixelGrid": "Pixel grid",
+    "tileGuide": "Tile guide",
+    "tileOff": "Tile off",
+    "tileSize": "{{size}} px",
+    "layers": "Layer",
+    "layersHint": "Show or hide the layers panel",
+    "steps": "Steps ({{current}}/{{total}})",
+    "stepsHint": "Show or hide the steps strip",
+    "agent": "Agent",
+    "agentHint": "Agent connection and activity",
+    "new": "New",
+    "newHint": "New sprite",
+    "reference": "Reference",
+    "referenceTitle": "Reference",
+    "referenceDone": "Done",
+    "export": "Export File",
+    "settings": "Settings"
+  },
+  "agent": {
+    "title": "Agent",
+    "server": "MCP server",
+    "running": "Running",
+    "stopped": "Stopped",
+    "unknown": "Not read yet",
+    "address": "Address",
+    "sessions": "Sessions",
+    "noSessions": "No agent connected",
+    "sessionCount": "Agents connected: {{count}}",
+    "lastTool": "Last call: {{tool}}",
+    "idle": "No calls yet",
+    "configure": "Configure clients in Settings"
+  },
+  "window": {
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore",
+    "close": "Close"
+  }
 }
