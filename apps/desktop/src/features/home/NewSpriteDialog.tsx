@@ -196,7 +196,7 @@ export function NewSpriteDialog(): ReactElement | null {
             type="button"
             aria-label={t('newSprite.close')}
             onClick={close}
-            className="rounded p-1 text-neutral-400 hover:bg-neutral-800 hover:text-white"
+            className="rounded p-1 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-50"
           >
             <X className="w-4 h-4" aria-hidden="true" />
           </button>

@@ -122,7 +122,7 @@ export function PalettePanel(): ReactElement {
                 }}
                 className={cn(
                   'px-2 py-0.5 text-[11px] font-medium rounded',
-                  tab === name ? 'bg-neutral-800 text-white' : 'text-neutral-400',
+                  tab === name ? 'bg-neutral-800 text-neutral-50' : 'text-neutral-400',
                 )}
               >
                 {name === 'swatches' ? t('colour.tabs.swatches') : t('colour.tabs.ramps')}
@@ -310,7 +310,7 @@ function BrushBlock(): ReactElement {
               }}
               className={cn(
                 'p-1 rounded',
-                brushShape === shape ? 'bg-neutral-800 text-white' : 'text-neutral-400',
+                brushShape === shape ? 'bg-neutral-800 text-neutral-50' : 'text-neutral-400',
               )}
             >
               {icon}
@@ -446,8 +446,10 @@ function SwatchesTab({ palette }: PaletteProps): ReactElement {
 
       <div className="space-y-2">
         <div className="flex items-center justify-between text-[11px]">
-          <span className="font-semibold text-neutral-300">{t('colour.count', { count })}</span>
-          <span className="flex items-center space-x-1.5">
+          <span className="min-w-0 truncate font-semibold text-neutral-300">
+            {t('colour.count', { count })}
+          </span>
+          <span className="flex shrink-0 items-center space-x-1.5 whitespace-nowrap">
             <button
               type="button"
               disabled={full}

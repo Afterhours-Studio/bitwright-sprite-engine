@@ -136,7 +136,7 @@ describe('PalettePanel', () => {
     const written = writePalette.mock.calls[0]?.[0];
     expect(written?.slots.map((slot) => slot.index)).toEqual([1, 2, 3, 4]);
     expect(written?.slots[3]?.rgba).toEqual([252, 211, 116, 255]);
-    expect(screen.getByText('Colors in palette (4)')).toBeInTheDocument();
+    expect(screen.getByText('Colors in set (4)')).toBeInTheDocument();
   });
 
   it('removes the last slot and takes it out of its ramp', async () => {

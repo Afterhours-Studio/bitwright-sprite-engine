@@ -165,7 +165,7 @@ export function ToolColumn({ className }: ToolColumnProps): ReactElement {
                 'w-full flex items-center justify-between px-2.5 py-1.5 rounded text-left',
                 active
                   ? 'bg-pink-600 hover:bg-pink-500 border border-pink-500 text-white shadow-md shadow-pink-600/20 font-semibold'
-                  : 'text-neutral-300 hover:text-white hover:bg-neutral-900/80 bg-neutral-900/20',
+                  : 'text-neutral-300 hover:text-neutral-50 hover:bg-neutral-900/80 bg-neutral-900/20',
               )}
             >
               <span className="flex items-center gap-2 min-w-0">

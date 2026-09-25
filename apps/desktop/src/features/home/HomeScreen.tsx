@@ -265,7 +265,7 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
                     onClick={() => {
                       setPending({ kind: 'renameProject', project });
                     }}
-                    className="rounded p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-white"
+                    className="rounded p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-50"
                   >
                     <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
                   </button>
@@ -383,7 +383,7 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
               onClick={() => {
                 setDirection(direction === 'asc' ? 'desc' : 'asc');
               }}
-              className="rounded p-1 hover:bg-neutral-800 hover:text-white"
+              className="rounded p-1 hover:bg-neutral-800 hover:text-neutral-50"
             >
               {direction === 'asc' ? (
                 <ArrowUp className="w-3.5 h-3.5" aria-hidden="true" />
@@ -497,7 +497,7 @@ function LayoutToggle({
       onClick={onPress}
       className={cn(
         'p-1.5 rounded',
-        on ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-200',
+        on ? 'bg-neutral-800 text-neutral-50' : 'text-neutral-500 hover:text-neutral-200',
       )}
     >
       {children}

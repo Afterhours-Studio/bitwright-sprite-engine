@@ -35,7 +35,7 @@
       "gameboy": "Game Boy",
       "custom": "Custom"
     },
-    "count": "Colors in palette ({{count}})",
+    "count": "Colors in set ({{count}})",
     "add": "Add color",
     "addHint": "Adds slot {{index}} as a copy of the primary colour.",
     "full": "The palette already holds {{max}} colours, the most this style allows.",

@@ -153,7 +153,7 @@ export function AssetRow({
             onClick={() => {
               onRename(asset);
             }}
-            className="rounded p-1 text-neutral-400 hover:bg-neutral-800 hover:text-white"
+            className="rounded p-1 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-50"
           >
             <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
           </button>
