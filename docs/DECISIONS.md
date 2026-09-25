@@ -147,3 +147,16 @@ transaction — rather than by pointing at one row.
 The reference layout has one bottom strip, the timeline; Bitwright also has
 its steps strip there. Two stacked strips would take a fifth of the window,
 so the header has a toggle for each and the panel shows one at a time.
+
+## 2026-09-25 — The reference gives the layout, Bitwright keeps its look
+
+"One to one" was read in Phase 4 as the reference's structure and its theme:
+Tailwind's neutral, pink, sky and purple, Manrope, 4px corners, coloured
+shadows, and the shared components restyled to match. The user wanted the
+layout only; Bitwright has its own design system — the role tokens, the
+yellow accent, warm neutrals, the radius and shadow tokens, the bezel, the
+components in `components/ui` — and it is what the application should look
+like. The layout stays; every colour and shape goes back through the tokens,
+the Tailwind palette is removed again, and a test keeps it out. lucide icons
+stay: they are an icon set, not a theme, and they replace nothing Bitwright
+had drawn. It is released as 1.2.1, a correction rather than a feature.
