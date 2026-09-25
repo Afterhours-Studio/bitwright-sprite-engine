@@ -79,14 +79,14 @@ export function SelectionOutline({
       <path
         d={d}
         fill="none"
-        className="stroke-black"
+        className="stroke-surface-canvas"
         strokeWidth={1}
         vectorEffect="non-scaling-stroke"
       />
       <path
         d={d}
         fill="none"
-        className="stroke-white"
+        className="stroke-fg-primary"
         strokeWidth={1}
         strokeDasharray={`${String(DASH)} ${String(DASH)}`}
         vectorEffect="non-scaling-stroke"

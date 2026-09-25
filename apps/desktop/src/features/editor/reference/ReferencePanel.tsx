@@ -38,8 +38,9 @@ import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
+import { Pill } from '@/components/ui/Pill';
 import { useErrorMessage } from '@/hooks/useErrorMessage';
-import { cn } from '@/lib/cn';
+
 import {
   referenceApplyPalette,
   referenceDelete,
@@ -132,7 +133,7 @@ export function ReferencePanel(): ReactElement {
   }, [assetId, selected]);
 
   if (assetId === null) {
-    return <p className="text-xs text-neutral-500">{t('noDocument')}</p>;
+    return <p className="text-xs text-fg-secondary">{t('noDocument')}</p>;
   }
 
   const chosen = references.find((reference) => reference.id === selected) ?? null;
@@ -189,9 +190,9 @@ export function ReferencePanel(): ReactElement {
   const refusal = error !== null ? translateError(error) : null;
 
   return (
-    <div className="flex flex-col gap-4 text-neutral-100">
+    <div className="flex flex-col gap-4 text-fg-primary">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-fg-secondary">
           {t('title')}
         </h3>
         <Button
@@ -202,41 +203,35 @@ export function ReferencePanel(): ReactElement {
             void handleImport();
           }}
         >
-          <ImageUp aria-hidden="true" className="w-3.5 h-3.5 text-sky-400" />
+          <ImageUp aria-hidden="true" className="w-3.5 h-3.5" strokeWidth={1.75} />
           {importing ? t('importing') : t('import')}
         </Button>
       </div>
 
       {references.length === 0 ? (
-        <p className="rounded border border-dashed border-neutral-800 px-3 py-6 text-center text-xs text-neutral-500">
+        <p className="rounded-md border border-dashed border-line px-3 py-6 text-center text-xs text-fg-secondary">
           {t('empty')}
         </p>
       ) : (
         <div className="flex flex-wrap gap-1.5">
           {references.map((reference) => (
-            <button
+            <Pill
               key={reference.id}
-              type="button"
-              aria-pressed={reference.id === selected}
+              active={reference.id === selected}
+              className="max-w-full"
               onClick={() => {
                 setSelected(reference.id);
               }}
-              className={cn(
-                'max-w-full truncate rounded border px-2.5 py-1 text-[11px] font-medium',
-                reference.id === selected
-                  ? 'bg-neutral-900 border-pink-500 text-pink-400'
-                  : 'border-neutral-800 text-neutral-400 hover:border-neutral-700 hover:text-neutral-100',
-              )}
             >
               {reference.name}
-            </button>
+            </Pill>
           ))}
         </div>
       )}
 
       {chosen !== null && (
-        <div className="flex flex-col gap-3 rounded border border-neutral-800 bg-neutral-900/40 p-3 sm:flex-row">
-          <div className="checkerboard-pattern flex h-40 w-full shrink-0 items-center justify-center overflow-hidden rounded border border-neutral-800 p-2 sm:w-40">
+        <div className="flex flex-col gap-3 rounded-md border border-line-subtle bg-surface-content p-3 sm:flex-row">
+          <div className="checkerboard-pattern flex h-40 w-full shrink-0 items-center justify-center overflow-hidden rounded-sm border border-line-subtle p-2 sm:w-40">
             {preview !== null && (
               <img
                 src={preview}
@@ -247,11 +242,11 @@ export function ReferencePanel(): ReactElement {
           </div>
 
           <div className="flex min-w-0 flex-1 flex-col gap-2">
-            <p className="truncate text-xs font-semibold text-neutral-100">{chosen.name}</p>
-            <p className="text-[11px] font-medium text-pink-400">
+            <p className="truncate text-xs font-semibold text-fg-primary">{chosen.name}</p>
+            <p className="text-[11px] font-medium text-fg-primary">
               {t('size', { width: chosen.width, height: chosen.height })}
             </p>
-            <p className="text-[11px] text-neutral-400">
+            <p className="text-[11px] text-fg-secondary">
               {chosen.detected === null
                 ? t('noGrid')
                 : t('grid', {
@@ -261,19 +256,19 @@ export function ReferencePanel(): ReactElement {
                   })}
             </p>
             {chosen.palette.length > 0 && (
-              <div className="grid grid-cols-8 gap-1 rounded border border-neutral-800/80 bg-neutral-900/60 p-1.5">
+              <div className="grid grid-cols-8 gap-1 rounded-sm border border-line-subtle bg-surface-well p-1.5">
                 {chosen.palette.map((hex, index) => (
                   <span
                     key={`${hex}-${index}`}
                     title={hex}
-                    className="palette-swatch aspect-square rounded-sm ring-1 ring-neutral-800"
+                    className="palette-swatch aspect-square rounded-sm ring-1 ring-line-subtle"
                     style={{ '--swatch': hex } as CSSProperties}
                   />
                 ))}
               </div>
             )}
             {chosen.warnings.map((code) => (
-              <p key={code} className="text-[11px] text-amber-400">
+              <p key={code} className="text-[11px] text-severity-warning">
                 {t(`warnings.${code}`, { defaultValue: code })}
               </p>
             ))}
@@ -290,7 +285,7 @@ export function ReferencePanel(): ReactElement {
               </Button>
               <Button
                 variant="ghost"
-                className="px-2.5 py-1 text-[11px] hover:text-red-400"
+                className="px-2.5 py-1 text-[11px] hover:text-severity-error"
                 onClick={() => {
                   setConfirmingDelete(true);
                 }}
@@ -305,7 +300,7 @@ export function ReferencePanel(): ReactElement {
       {refusal !== null && (
         <p
           role="alert"
-          className="rounded border border-red-500/40 bg-red-500/10 p-2 text-[11px] text-red-400"
+          className="rounded-md border border-line-subtle bg-surface-content p-2 text-[11px] text-severity-error"
         >
           {refusal}
         </p>
@@ -323,7 +318,7 @@ export function ReferencePanel(): ReactElement {
           void handleDelete();
         }}
       >
-        <p className="text-xs leading-relaxed text-neutral-400">
+        <p className="text-xs leading-relaxed text-fg-secondary">
           {chosen === null ? '' : t('deleteBody', { name: chosen.name })}
         </p>
       </Dialog>

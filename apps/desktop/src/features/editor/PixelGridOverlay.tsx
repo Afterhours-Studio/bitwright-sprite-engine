@@ -171,7 +171,7 @@ export function PixelGridOverlay({
         ref={tiles}
         aria-hidden="true"
         data-tile-guide={tileGuide > 0 ? tileGuide : undefined}
-        className="pointer-events-none absolute inset-0 h-full w-full text-neutral-300/70"
+        className="pointer-events-none absolute inset-0 h-full w-full text-line-strong"
       />
     </>
   );

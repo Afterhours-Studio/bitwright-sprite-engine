@@ -86,7 +86,7 @@ export function EditorScreen(): ReactElement {
   }, []);
 
   return (
-    <div className="flex flex-col h-full w-full overflow-hidden bg-neutral-950 text-neutral-100">
+    <div className="flex flex-col h-full w-full overflow-hidden bg-surface-canvas text-fg-primary">
       <StudioHeader />
 
       <div className="flex flex-1 overflow-hidden relative min-h-0">
@@ -94,7 +94,7 @@ export function EditorScreen(): ReactElement {
 
         <main
           aria-label={t('stage.label')}
-          className="relative flex min-w-0 flex-1 h-full overflow-hidden canvas-workspace-bg"
+          className="relative flex min-w-0 flex-1 h-full overflow-hidden bg-surface-well"
         >
           {assetId !== null && background ? (
             <TilemapEditor key={assetId} assetId={assetId} />

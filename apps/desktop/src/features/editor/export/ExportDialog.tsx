@@ -263,7 +263,7 @@ export function ExportDialog({ assetId, open, onClose }: ExportDialogProps): Rea
     <Dialog
       open={open}
       title={t('title')}
-      icon={<Download />}
+      icon={<Download strokeWidth={1.75} />}
       size="md"
       confirmLabel={exporting ? t('exporting') : t('export')}
       confirmDisabled={prefs.directory === null || exporting}
@@ -274,7 +274,7 @@ export function ExportDialog({ assetId, open, onClose }: ExportDialogProps): Rea
     >
       {frames !== null && (
         <div className="flex flex-col gap-1.5">
-          <span className="text-[11px] font-medium text-neutral-300">{t('output')}</span>
+          <span className="text-[11px] font-medium text-fg-secondary">{t('output')}</span>
           <SegmentedTabs
             label={t('output')}
             value={mode}
@@ -287,10 +287,10 @@ export function ExportDialog({ assetId, open, onClose }: ExportDialogProps): Rea
             className="self-start"
           />
           {mode === 'gif' && (
-            <p className="text-[11px] text-neutral-500">{t('gifHint', { count: frameCount })}</p>
+            <p className="text-[11px] text-fg-secondary">{t('gifHint', { count: frameCount })}</p>
           )}
           {mode === 'sheet' && (
-            <p className="text-[11px] text-neutral-500">{t('sheetHint', { count: frameCount })}</p>
+            <p className="text-[11px] text-fg-secondary">{t('sheetHint', { count: frameCount })}</p>
           )}
         </div>
       )}
@@ -343,20 +343,20 @@ export function ExportDialog({ assetId, open, onClose }: ExportDialogProps): Rea
         />
       )}
 
-      <label className="flex items-center gap-2 text-[11px] font-medium text-neutral-300">
+      <label className="flex items-center gap-2 text-[11px] font-medium text-fg-secondary">
         <input
           type="checkbox"
           checked={overwrite}
           onChange={(event) => {
             setOverwrite(event.target.checked);
           }}
-          className="h-3.5 w-3.5 rounded-sm border-neutral-700 accent-pink-600"
+          className="h-3.5 w-3.5 rounded-sm border-line-input accent-accent"
         />
         {t('overwrite')}
       </label>
 
       {result !== null && (
-        <p className="rounded border border-emerald-500/30 bg-emerald-500/10 p-2 text-[11px] break-all text-emerald-400">
+        <p className="rounded-md border border-line-subtle bg-surface-content p-2 text-[11px] break-all text-severity-success">
           {mode === 'gif'
             ? t('successGif', {
                 path: result.path,
@@ -372,12 +372,12 @@ export function ExportDialog({ assetId, open, onClose }: ExportDialogProps): Rea
         <div className="flex flex-col gap-1">
           <p
             role="alert"
-            className="rounded border border-red-500/40 bg-red-500/10 p-2 text-[11px] text-red-400"
+            className="rounded-md border border-line-subtle bg-surface-content p-2 text-[11px] text-severity-error"
           >
             {refusal}
           </p>
           {error === 'export.exists' && (
-            <p className="text-[11px] text-neutral-500">{t('existsHint')}</p>
+            <p className="text-[11px] text-fg-secondary">{t('existsHint')}</p>
           )}
         </div>
       )}

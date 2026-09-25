@@ -88,14 +88,14 @@ const DEFAULT_ROWS = 12;
 const ZOOM = 2;
 
 /** The stage's floating panel, as the sprite stage draws its zoom box and actions. */
-const FLOAT = 'bg-neutral-950/90 backdrop-blur border border-neutral-800 rounded shadow-md';
+const FLOAT = 'bg-surface-float border border-line-subtle rounded-lg shadow-md';
 
 /** A compact field on a floating panel. */
 const SMALL_INPUT =
-  'rounded border border-neutral-800 bg-neutral-900 px-1.5 py-0.5 text-[11px] text-neutral-100 focus:border-pink-500 focus:outline-none';
+  'rounded-sm border border-line-input bg-surface-input px-1.5 py-0.5 text-[11px] text-fg-primary focus:border-line-focus focus:outline-none';
 
 /** A label with its control at the trailing end. */
-const FIELD_ROW = 'flex items-center justify-between gap-2 text-[11px] text-neutral-400';
+const FIELD_ROW = 'flex items-center justify-between gap-2 text-[11px] text-fg-secondary';
 
 /** Parallax is refused outside this range, by the create form and by a layer's own field. */
 const MIN_PARALLAX = 0;
@@ -458,7 +458,7 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
   const refusal = error !== null ? translateError(error) : null;
 
   return (
-    <div className="canvas-workspace-bg relative h-full w-full overflow-hidden text-neutral-100">
+    <div className="sprite-checkerboard relative h-full w-full overflow-hidden bg-surface-well text-fg-primary">
       {/* Named for assistive technology from the first render, before the map
           has answered and any panel is on screen; the panels show it too. */}
       <h3 className="sr-only">{t('title')}</h3>
@@ -470,7 +470,7 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
         <div className="flex min-h-full min-w-full w-max items-center justify-center p-24">
           {tilemap !== null && activeLayer !== null && (
             <div
-              className="grid gap-px bg-neutral-800/70 shadow-2xl ring-1 ring-white/15"
+              className="grid gap-px bg-line shadow-lg ring-1 ring-line"
               style={{
                 gridTemplateColumns: `repeat(${tilemap.columns}, ${tilemap.tileWidth * ZOOM}px)`,
               }}
@@ -493,7 +493,7 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
                         width: tilemap.tileWidth * ZOOM,
                         height: tilemap.tileHeight * ZOOM,
                       }}
-                      className="flex items-center justify-center bg-neutral-950/70 p-0 hover:bg-neutral-800/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-pink-500"
+                      className="flex items-center justify-center bg-surface-well p-0 hover:bg-surface-content-alt focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-line-focus"
                     >
                       {tile !== null && (
                         <img
@@ -515,11 +515,15 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
         <div className="absolute inset-0 flex items-center justify-center p-4">
           <div className={cn(FLOAT, 'flex w-full max-w-xs flex-col gap-3 p-4')}>
             <div className="flex items-center gap-2">
-              <MapIcon aria-hidden="true" className="w-4 h-4 text-pink-500" />
-              <p className="text-xs font-semibold text-neutral-200">{t('title')}</p>
+              <MapIcon
+                aria-hidden="true"
+                className="w-4 h-4 text-fg-secondary"
+                strokeWidth={1.75}
+              />
+              <p className="text-xs font-semibold text-fg-primary">{t('title')}</p>
             </div>
-            <p className="text-xs font-semibold text-neutral-100">{t('create.heading')}</p>
-            <p className="text-[11px] leading-relaxed text-neutral-400">{t('create.body')}</p>
+            <p className="text-xs font-semibold text-fg-primary">{t('create.heading')}</p>
+            <p className="text-[11px] leading-relaxed text-fg-secondary">{t('create.body')}</p>
 
             <label className={FIELD_ROW}>
               {t('create.tileSize')}
@@ -587,8 +591,8 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
             className={cn(FLOAT, 'absolute bottom-3 left-3 flex max-w-[18rem] flex-col gap-2 p-2')}
           >
             <div className="flex items-center justify-between gap-2 px-0.5">
-              <p className="text-xs font-semibold text-neutral-200">{t('title')}</p>
-              <p className="text-[10px] font-medium uppercase tracking-wider text-neutral-500">
+              <p className="text-xs font-semibold text-fg-primary">{t('title')}</p>
+              <p className="text-[11px] font-medium uppercase tracking-wider text-fg-secondary">
                 {t('tiles.title')}
               </p>
             </div>
@@ -604,10 +608,10 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
                     setActiveTile(tile.id);
                   }}
                   className={cn(
-                    'checkerboard-pattern flex h-8 w-8 items-center justify-center rounded border p-0.5',
+                    'checkerboard-pattern flex h-8 w-8 items-center justify-center rounded-sm border p-0.5',
                     activeTile === tile.id
-                      ? 'border-pink-500 ring-1 ring-pink-500/50'
-                      : 'border-neutral-800 hover:border-neutral-600',
+                      ? 'border-accent ring-1 ring-accent'
+                      : 'border-line-subtle hover:border-line-strong',
                   )}
                 >
                   <img
@@ -625,12 +629,12 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
                   setActiveTile(null);
                 }}
               >
-                <Eraser aria-hidden="true" className="w-3.5 h-3.5" />
+                <Eraser aria-hidden="true" className="w-3.5 h-3.5" strokeWidth={1.75} />
                 {t('tiles.eraser')}
               </Button>
             </div>
             {tiles.length === 0 && (
-              <p className="px-0.5 text-[11px] text-neutral-500">{t('tiles.empty')}</p>
+              <p className="px-0.5 text-[11px] text-fg-secondary">{t('tiles.empty')}</p>
             )}
           </section>
 
@@ -642,9 +646,9 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
               'absolute right-4 top-4 flex max-h-[calc(100%-2rem)] w-72 flex-col p-0',
             )}
           >
-            <div className="flex items-center gap-2 rounded-t border-b border-neutral-800 bg-neutral-900/40 p-3">
-              <Layers aria-hidden="true" className="w-4 h-4 text-purple-400" />
-              <p className="text-xs font-semibold text-neutral-200">{t('layers.title')}</p>
+            <div className="flex items-center gap-2 rounded-t-lg border-b border-line-subtle p-3">
+              <Layers aria-hidden="true" className="w-4 h-4 text-fg-secondary" strokeWidth={1.75} />
+              <p className="text-xs font-semibold text-fg-primary">{t('layers.title')}</p>
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto p-2">
@@ -652,10 +656,10 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
                 <div
                   key={layer.name}
                   className={cn(
-                    'rounded border p-2 text-[11px]',
+                    'rounded-md border p-2 text-[11px]',
                     layer.name === activeLayer
-                      ? 'bg-neutral-900 border-purple-500/80 shadow-sm shadow-purple-500/10'
-                      : 'bg-neutral-900/40 border-neutral-800',
+                      ? 'bg-surface-content-alt border-accent'
+                      : 'bg-surface-content border-line-subtle',
                   )}
                 >
                   <div className="flex items-center gap-2">
@@ -667,13 +671,13 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
                       }}
                       className={cn(
                         'min-w-0 flex-1 truncate text-start text-xs font-medium',
-                        layer.name === activeLayer ? 'text-neutral-100' : 'text-neutral-300',
+                        layer.name === activeLayer ? 'text-fg-primary' : 'text-fg-secondary',
                       )}
                     >
                       {layer.name}
                     </button>
 
-                    <label className="flex items-center gap-1 text-neutral-400">
+                    <label className="flex items-center gap-1 text-fg-secondary">
                       <input
                         type="checkbox"
                         checked={layer.visible}
@@ -681,14 +685,14 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
                         onChange={(event) => {
                           void handleToggleVisible(layer.name, event.target.checked);
                         }}
-                        className="h-3 w-3 accent-sky-500"
+                        className="h-3 w-3 accent-accent"
                       />
                       {t('layers.visible')}
                     </label>
 
                     <Button
                       variant="ghost"
-                      className="px-1.5 py-0.5 text-[11px] hover:text-red-400"
+                      className="px-1.5 py-0.5 text-[11px] hover:text-severity-error"
                       disabled={tilemap.layers.length === 1}
                       onClick={() => {
                         void handleRemoveLayer(layer.name);
@@ -698,7 +702,7 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
                     </Button>
                   </div>
 
-                  <label className="mt-2 flex items-center justify-between gap-2 border-t border-neutral-800/80 pt-1.5 text-neutral-500">
+                  <label className="mt-2 flex items-center justify-between gap-2 border-t border-line-subtle pt-1.5 text-fg-secondary">
                     {t('layers.parallax')}
                     <input
                       type="number"
@@ -719,15 +723,15 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
                           void handleSetParallax(layer, event.currentTarget.value);
                         }
                       }}
-                      className={cn(SMALL_INPUT, 'w-16 text-purple-400')}
+                      className={cn(SMALL_INPUT, 'w-16 font-medium')}
                     />
                   </label>
                 </div>
               ))}
             </div>
 
-            <div className="flex flex-col gap-2 border-t border-neutral-800/80 p-2 text-[11px]">
-              <label className="flex flex-col gap-1 text-neutral-400">
+            <div className="flex flex-col gap-2 border-t border-line-subtle p-2 text-[11px]">
+              <label className="flex flex-col gap-1 text-fg-secondary">
                 {t('layers.name')}
                 <input
                   type="text"
@@ -739,7 +743,7 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
                 />
               </label>
               <div className="flex items-end gap-2">
-                <label className="flex flex-1 items-center justify-between gap-2 text-neutral-400">
+                <label className="flex flex-1 items-center justify-between gap-2 text-fg-secondary">
                   {t('layers.parallax')}
                   <input
                     type="number"
@@ -760,7 +764,7 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
                     void handleAddLayer();
                   }}
                 >
-                  <Plus aria-hidden="true" className="w-3 h-3" />
+                  <Plus aria-hidden="true" className="w-3 h-3" strokeWidth={1.75} />
                   {t('layers.add')}
                 </Button>
               </div>
@@ -774,13 +778,13 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
                 'absolute bottom-3 right-3 flex max-w-[16rem] flex-col gap-1.5 p-2',
               )}
             >
-              <p className="px-0.5 text-[10px] font-medium uppercase tracking-wider text-neutral-500">
+              <p className="px-0.5 text-[11px] font-medium uppercase tracking-wider text-fg-secondary">
                 {t('preview.title')}
               </p>
               <img
                 src={preview}
                 alt={t('preview.title')}
-                className="pixelated checkerboard-pattern max-h-40 max-w-full rounded border border-neutral-800 object-contain"
+                className="pixelated checkerboard-pattern max-h-40 max-w-full rounded-sm border border-line-subtle object-contain"
               />
             </section>
           )}
@@ -790,7 +794,7 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
       {refusal !== null && (
         <p
           role="alert"
-          className="absolute left-1/2 top-4 max-w-[calc(100%-2rem)] -translate-x-1/2 rounded border border-red-500/40 bg-neutral-950/90 px-3 py-1.5 text-xs text-red-400 shadow-md backdrop-blur"
+          className="absolute left-1/2 top-4 max-w-[calc(100%-2rem)] -translate-x-1/2 rounded-lg border border-line-subtle bg-surface-float px-3 py-1.5 text-xs text-severity-error shadow-md"
         >
           {refusal}
         </p>

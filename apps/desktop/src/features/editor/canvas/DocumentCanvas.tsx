@@ -82,6 +82,7 @@ import {
   ZoomOut,
 } from 'lucide-react';
 
+import { IconButton } from '@/components/ui/IconButton';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { PixelGridOverlay, MIN_GRID_CELL } from '@/features/editor/PixelGridOverlay';
 import { paintTarget } from '@/features/editor/activeLayer';
@@ -143,11 +144,13 @@ const ONION_PREVIOUS = 0.3;
 const ONION_NEXT = 0.15;
 
 /** The floating panel look, from the studio layout. */
-const PANEL = 'bg-neutral-950/90 backdrop-blur border border-neutral-800 p-1 rounded shadow-md';
+const PANEL = 'bg-surface-float border border-line-subtle p-1 rounded-lg shadow-md';
 
-/** A floating panel's button. */
-const PANEL_BUTTON =
-  'p-1.5 text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800 rounded disabled:cursor-not-allowed disabled:text-neutral-600 disabled:hover:bg-transparent';
+/**
+ * A floating panel's button: the shared icon button at the panel's own size,
+ * a 16px icon in 6px of padding.
+ */
+const PANEL_BUTTON = 'h-7 w-7';
 
 /** The drag in progress, whichever kind it is. */
 type Drag =
@@ -267,9 +270,8 @@ interface PanelButtonProps {
 function PanelButton({ label, disabled, onClick, children }: PanelButtonProps): ReactElement {
   return (
     <Tooltip label={label}>
-      <button
-        type="button"
-        aria-label={label}
+      <IconButton
+        label={label}
         disabled={disabled}
         className={PANEL_BUTTON}
         onMouseDown={(event) => {
@@ -278,7 +280,7 @@ function PanelButton({ label, disabled, onClick, children }: PanelButtonProps): 
         onClick={onClick}
       >
         {children}
-      </button>
+      </IconButton>
     </Tooltip>
   );
 }
@@ -1086,7 +1088,7 @@ export function DocumentCanvas(): ReactElement {
   return (
     <div
       ref={ref}
-      className="relative h-full min-h-0 min-w-0 flex-1 overflow-hidden canvas-workspace-bg cursor-crosshair"
+      className="relative h-full min-h-0 min-w-0 flex-1 overflow-hidden sprite-checkerboard bg-surface-well cursor-crosshair"
     >
       <div
         ref={stage}
@@ -1106,7 +1108,7 @@ export function DocumentCanvas(): ReactElement {
       >
         {asset !== null && (
           <div
-            className="absolute shadow-2xl ring-1 ring-white/15"
+            className="absolute shadow-lg ring-1 ring-line"
             style={{ left: rect.left, top: rect.top, width: rect.width, height: rect.height }}
           >
             {showCheckerboard && (
@@ -1170,8 +1172,8 @@ export function DocumentCanvas(): ReactElement {
         {asset === null && (
           <div className="flex h-full items-center justify-center">
             <div className={cn(PANEL, 'px-4 py-3 text-center')}>
-              <p className="text-sm text-neutral-200">{t('canvas.empty')}</p>
-              <p className="mt-1 text-xs text-neutral-500">{t('canvas.hint')}</p>
+              <p className="text-sm text-fg-primary">{t('canvas.empty')}</p>
+              <p className="mt-1 text-xs text-fg-secondary">{t('canvas.hint')}</p>
             </div>
           </div>
         )}
@@ -1191,7 +1193,7 @@ export function DocumentCanvas(): ReactElement {
             }
           }}
         >
-          <FlipHorizontal2 className="h-4 w-4" />
+          <FlipHorizontal2 className="h-4 w-4" strokeWidth={1.75} />
         </PanelButton>
         <PanelButton
           label={t('canvas.flipVertical')}
@@ -1202,9 +1204,9 @@ export function DocumentCanvas(): ReactElement {
             }
           }}
         >
-          <FlipVertical2 className="h-4 w-4" />
+          <FlipVertical2 className="h-4 w-4" strokeWidth={1.75} />
         </PanelButton>
-        <div className="mx-0.5 h-4 w-px bg-neutral-800" />
+        <div className="mx-0.5 h-4 w-px bg-line-subtle" />
         <PanelButton
           label={t('canvas.replaceSecondary')}
           disabled={role === null || buffer === null || slot === secondarySlot}
@@ -1215,7 +1217,7 @@ export function DocumentCanvas(): ReactElement {
             }
           }}
         >
-          <Replace className="h-4 w-4" />
+          <Replace className="h-4 w-4" strokeWidth={1.75} />
         </PanelButton>
         <PanelButton
           label={
@@ -1230,7 +1232,7 @@ export function DocumentCanvas(): ReactElement {
             }
           }}
         >
-          <Square className="h-4 w-4" />
+          <Square className="h-4 w-4" strokeWidth={1.75} />
         </PanelButton>
         <PanelButton
           label={t('canvas.antialias')}
@@ -1241,7 +1243,7 @@ export function DocumentCanvas(): ReactElement {
             }
           }}
         >
-          <Blend className="h-4 w-4" />
+          <Blend className="h-4 w-4" strokeWidth={1.75} />
         </PanelButton>
       </div>
 
@@ -1249,7 +1251,7 @@ export function DocumentCanvas(): ReactElement {
         data-testid="canvas-readout"
         className={cn(
           PANEL,
-          'pointer-events-none absolute bottom-3 left-3 z-10 flex max-w-[60%] space-x-3 px-3 py-1.5 text-xs text-neutral-300',
+          'pointer-events-none absolute bottom-3 left-3 z-10 flex max-w-[60%] space-x-3 px-3 py-1.5 text-xs text-fg-secondary',
         )}
       >
         <span className="shrink-0 tabular-nums">
@@ -1257,24 +1259,22 @@ export function DocumentCanvas(): ReactElement {
             ? t('canvas.cursorNone')
             : t('canvas.cursor', { x: cursor.x, y: cursor.y })}
         </span>
-        <span className="text-neutral-600">|</span>
-        <span className="shrink-0 font-semibold text-pink-400">
+        <span className="text-fg-muted">|</span>
+        <span className="shrink-0 font-medium text-fg-primary">
           {t('canvas.size', { width: canvas.width, height: canvas.height })}
         </span>
-        <span className="text-neutral-600">|</span>
-        <span className="shrink-0 font-semibold text-sky-400">
+        <span className="text-fg-muted">|</span>
+        <span className="shrink-0 font-medium text-fg-primary">
           {t('canvas.zoomFactor', { zoom: zoomFactor })}
         </span>
-        <span className="text-neutral-600">|</span>
+        <span className="text-fg-muted">|</span>
         <span
           aria-live="polite"
           className={cn(
             'min-w-0 truncate',
-            playing
-              ? 'text-sky-400'
-              : role !== null && message === null
-                ? 'text-purple-400'
-                : 'text-amber-400',
+            playing || (role !== null && message === null)
+              ? 'text-fg-primary'
+              : 'text-severity-warning',
           )}
         >
           {playing
@@ -1291,14 +1291,14 @@ export function DocumentCanvas(): ReactElement {
             zoomStep(-1);
           }}
         >
-          <ZoomOut className="h-4 w-4" />
+          <ZoomOut className="h-4 w-4" strokeWidth={1.75} />
         </PanelButton>
         <Tooltip label={t('canvas.zoomFitHint')}>
           <button
             type="button"
             aria-label={t('canvas.zoomFitHint')}
             disabled={asset === null}
-            className="rounded px-2 py-1 text-xs font-medium tabular-nums text-neutral-300 hover:bg-neutral-800 hover:text-neutral-100 disabled:cursor-not-allowed disabled:text-neutral-600"
+            className="rounded-sm px-2 py-1 text-xs font-medium tabular-nums text-fg-primary transition-colors hover:bg-surface-content-alt focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus disabled:cursor-not-allowed disabled:text-fg-muted disabled:hover:bg-transparent"
             onClick={() => {
               if (asset !== null) {
                 setView(fitWithMargin(stageWidth, stageHeight, asset.width, asset.height));
@@ -1315,7 +1315,7 @@ export function DocumentCanvas(): ReactElement {
             zoomStep(1);
           }}
         >
-          <ZoomIn className="h-4 w-4" />
+          <ZoomIn className="h-4 w-4" strokeWidth={1.75} />
         </PanelButton>
       </div>
     </div>
