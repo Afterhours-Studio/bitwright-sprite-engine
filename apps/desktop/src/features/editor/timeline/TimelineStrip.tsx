@@ -39,6 +39,7 @@ import { ChevronLeft, ChevronRight, Copy, Eye, Pause, Play, Plus, Trash2 } from 
 import { useEffect, useState, type KeyboardEvent, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/Dialog';
 import { useWorkflowLabels } from '@/features/editor/labels';
 import { FrameThumbnail } from '@/features/editor/timeline/FrameThumbnail';
@@ -66,15 +67,15 @@ const PLAYBACK_GLYPHS: Readonly<Record<Playback, string>> = {
 
 /** Every card's frame; the state adds its border, fill and ring. */
 const CARD =
-  'group relative flex flex-shrink-0 flex-col items-center cursor-pointer rounded p-1 border';
+  'group relative flex flex-shrink-0 flex-col items-center cursor-pointer rounded-md p-1 border bg-surface-content';
 
 /** The small square buttons at the end of the bar. */
 const ICON_BUTTON =
-  'p-1 rounded text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100 disabled:pointer-events-none disabled:opacity-40';
+  'p-1 rounded-sm text-fg-secondary hover:bg-surface-content-alt hover:text-fg-primary disabled:pointer-events-none disabled:text-fg-muted';
 
 /** The move buttons in a card's hover footer. */
 const MOVE_BUTTON =
-  'rounded p-0.5 text-neutral-300 hover:bg-neutral-800 hover:text-white disabled:pointer-events-none disabled:opacity-30';
+  'rounded-sm p-0.5 text-fg-secondary hover:bg-surface-content-alt hover:text-fg-primary disabled:pointer-events-none disabled:text-fg-muted';
 
 /**
  * The frames per second a duration amounts to, as the slider can show it.
@@ -159,10 +160,10 @@ export function TimelineStrip(): ReactElement {
     return (
       <section
         aria-label={t('label')}
-        className="h-40 w-full bg-neutral-950 border-t border-neutral-800 flex flex-col shrink-0 select-none"
+        className="h-40 w-full bg-surface-canvas border-t border-line-subtle flex flex-col shrink-0 select-none"
       >
-        <div className="h-10 px-3 border-b border-neutral-800/80 bg-neutral-900/50 flex items-center text-xs text-neutral-300">
-          <p className="text-[11px] text-neutral-400">{t('noDocument')}</p>
+        <div className="h-10 px-3 border-b border-line-subtle flex items-center text-xs text-fg-primary">
+          <p className="text-[11px] text-fg-secondary">{t('noDocument')}</p>
         </div>
       </section>
     );
@@ -200,15 +201,15 @@ export function TimelineStrip(): ReactElement {
   return (
     <section
       aria-label={t('label')}
-      className="h-40 w-full bg-neutral-950 border-t border-neutral-800 flex flex-col shrink-0 select-none"
+      className="h-40 w-full bg-surface-canvas border-t border-line-subtle flex flex-col shrink-0 select-none"
     >
-      <div className="h-10 px-3 border-b border-neutral-800/80 bg-neutral-900/50 flex items-center justify-between gap-3 text-xs text-neutral-300">
+      <div className="h-10 px-3 border-b border-line-subtle flex items-center justify-between gap-3 text-xs text-fg-primary">
         <div className="flex min-w-0 items-center space-x-2">
-          <span className="text-[11px] text-neutral-400">{t('playback')}</span>
+          <span className="text-[11px] text-fg-secondary">{t('playback')}</span>
           <div
             role="group"
             aria-label={t('playbackModes')}
-            className="flex bg-neutral-900 border border-neutral-800 rounded p-0.5"
+            className="flex gap-0.5 bg-surface-content border border-line-subtle rounded-pill p-0.5"
           >
             {PLAYBACKS.map((mode) => {
               const on = animation.playback === mode;
@@ -220,10 +221,10 @@ export function TimelineStrip(): ReactElement {
                   title={t(mode)}
                   aria-pressed={on}
                   className={cn(
-                    'w-6 h-5 rounded text-[11px] font-semibold',
+                    'w-6 h-5 rounded-pill text-[11px] font-semibold transition-colors',
                     on
-                      ? 'bg-pink-600 text-white'
-                      : 'text-neutral-500 hover:text-neutral-200 hover:bg-neutral-800',
+                      ? 'bg-accent text-accent-fg'
+                      : 'text-fg-secondary hover:text-fg-primary hover:bg-surface-content-alt',
                   )}
                   onClick={() => {
                     if (!on) {
@@ -237,22 +238,22 @@ export function TimelineStrip(): ReactElement {
             })}
           </div>
 
-          <div className="flex min-w-0 items-center gap-2 pl-2 border-l border-neutral-800">
+          <div className="flex min-w-0 items-center gap-2 pl-2 border-l border-line-subtle">
             <div
               role="img"
               aria-label={t('preview')}
-              className="w-6 h-6 shrink-0 rounded bg-neutral-900 border border-neutral-700 checkerboard-pattern p-0.5"
+              className="w-6 h-6 shrink-0 rounded-sm bg-surface-well border border-line-subtle checkerboard-pattern p-0.5"
             >
               <FrameThumbnail assetId={shown.assetId} revision={revisionOf(shown)} />
             </div>
-            <span className="whitespace-nowrap text-[11px] text-neutral-400">
+            <span className="whitespace-nowrap text-[11px] text-fg-secondary">
               {t('frameOf', { index: shownIndex + 1, count: frames.length })}
             </span>
-            <span className="truncate text-[11px] font-medium text-pink-400">{shown.name}</span>
+            <span className="truncate text-[11px] font-medium text-fg-primary">{shown.name}</span>
           </div>
 
-          <label className="flex items-center gap-2 pl-3 border-l border-neutral-800">
-            <span className="text-[11px] font-medium text-neutral-400">{t('fps')}</span>
+          <label className="flex items-center gap-2 pl-3 border-l border-line-subtle">
+            <span className="text-[11px] font-medium text-fg-secondary">{t('fps')}</span>
             <input
               type="range"
               min={FPS_MIN}
@@ -260,7 +261,7 @@ export function TimelineStrip(): ReactElement {
               step={1}
               value={fps}
               aria-label={t('fpsLabel')}
-              className="w-20 h-1.5 bg-neutral-800 accent-pink-500"
+              className="w-20 h-1.5 [accent-color:var(--accent)]"
               onChange={(event) => {
                 const next = Number(event.target.value);
                 setFpsDraft(next);
@@ -269,13 +270,13 @@ export function TimelineStrip(): ReactElement {
                 });
               }}
             />
-            <span className="text-[11px] tabular-nums text-neutral-200 w-10">
+            <span className="text-[11px] tabular-nums font-medium text-fg-primary w-10">
               {t('fpsValue', { fps })}
             </span>
           </label>
 
-          <label className="flex items-center gap-1.5 pl-3 border-l border-neutral-800">
-            <span className="text-[11px] font-medium text-neutral-400">{t('frameDuration')}</span>
+          <label className="flex items-center gap-1.5 pl-3 border-l border-line-subtle">
+            <span className="text-[11px] font-medium text-fg-secondary">{t('frameDuration')}</span>
             <input
               type="text"
               inputMode="numeric"
@@ -284,22 +285,22 @@ export function TimelineStrip(): ReactElement {
                 min: FRAME_DURATION_MIN,
                 max: FRAME_DURATION_MAX,
               })}
-              className="w-14 bg-neutral-900 border border-neutral-800 rounded px-1.5 py-0.5 text-[11px] tabular-nums text-neutral-200 focus:border-pink-500 focus:outline-none"
+              className="w-14 bg-surface-input border border-line-input rounded-md px-1.5 py-0.5 text-[11px] tabular-nums font-medium text-fg-primary focus:border-line-focus focus:outline-none"
               onChange={(event) => {
                 setDurationDraft(event.target.value);
               }}
               onKeyDown={onDurationKey}
               onBlur={commitDuration}
             />
-            <span className="text-[11px] text-neutral-500">{t('ms')}</span>
+            <span className="text-[11px] text-fg-secondary">{t('ms')}</span>
           </label>
         </div>
 
         <div className="flex shrink-0 items-center space-x-2">
-          <button
-            type="button"
+          <Button
+            variant="primary"
             aria-pressed={playing}
-            className="flex items-center gap-1.5 px-3 py-1 rounded font-semibold text-xs bg-pink-600 hover:bg-pink-500 border border-pink-500 text-white shadow-sm shadow-pink-600/30"
+            className="px-3 py-1"
             onClick={() => {
               if (playing) {
                 pause();
@@ -309,27 +310,27 @@ export function TimelineStrip(): ReactElement {
             }}
           >
             {playing ? (
-              <Pause aria-hidden="true" className="h-3 w-3" />
+              <Pause aria-hidden="true" strokeWidth={1.75} className="h-3 w-3" />
             ) : (
-              <Play aria-hidden="true" className="h-3 w-3 fill-current" />
+              <Play aria-hidden="true" strokeWidth={1.75} className="h-3 w-3 fill-current" />
             )}
             {playing ? t('pause') : t('play')}
-          </button>
+          </Button>
           <button
             type="button"
             aria-pressed={onionSkin}
             className={cn(
-              'flex items-center gap-1.5 px-2.5 py-1 rounded text-xs border',
+              'flex items-center gap-1.5 px-2.5 py-1 rounded-pill text-xs font-medium border transition-colors',
               onionSkin
-                ? 'bg-sky-600 text-white border-sky-400'
-                : 'bg-neutral-900 text-neutral-400 border-neutral-800 hover:text-neutral-200',
+                ? 'bg-surface-content-alt text-fg-primary border-line-strong'
+                : 'bg-surface-content text-fg-secondary border-line-subtle hover:bg-surface-content-alt hover:text-fg-primary',
             )}
             onClick={toggleOnionSkin}
           >
-            <Eye aria-hidden="true" className="h-3.5 w-3.5" />
+            <Eye aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5" />
             {t('onionSkin')}
           </button>
-          <span aria-hidden="true" className="h-4 w-px bg-neutral-800" />
+          <span aria-hidden="true" className="h-4 w-px bg-line-subtle" />
           <button
             type="button"
             aria-label={t('duplicate')}
@@ -339,19 +340,19 @@ export function TimelineStrip(): ReactElement {
               void add(true);
             }}
           >
-            <Copy aria-hidden="true" className="h-3.5 w-3.5" />
+            <Copy aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5" />
           </button>
           <button
             type="button"
             aria-label={t('delete')}
             title={lastFrame ? t('deleteLast') : t('delete')}
             disabled={lastFrame}
-            className={cn(ICON_BUTTON, 'hover:text-red-400')}
+            className={cn(ICON_BUTTON, 'hover:text-severity-error')}
             onClick={() => {
               setConfirmingDelete(true);
             }}
           >
-            <Trash2 aria-hidden="true" className="h-3.5 w-3.5" />
+            <Trash2 aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
@@ -370,8 +371,8 @@ export function TimelineStrip(): ReactElement {
               className={cn(
                 CARD,
                 current
-                  ? 'bg-neutral-900 border-pink-500 shadow-md shadow-pink-500/10 ring-1 ring-pink-500'
-                  : 'bg-neutral-900/60 border-neutral-800 hover:border-neutral-700 hover:bg-neutral-900',
+                  ? 'border-accent ring-2 ring-accent'
+                  : 'border-line-subtle hover:border-line hover:bg-surface-content-alt',
               )}
             >
               <button
@@ -386,21 +387,21 @@ export function TimelineStrip(): ReactElement {
                 <span className="flex w-16 items-center justify-between gap-1">
                   <span
                     className={cn(
-                      'text-[10px] tabular-nums',
-                      current ? 'text-pink-400 font-semibold' : 'text-neutral-500',
+                      'text-[11px] tabular-nums',
+                      current ? 'text-fg-primary font-semibold' : 'text-fg-secondary',
                     )}
                   >
                     {t('frameNumber', { number })}
                   </span>
-                  <span className="truncate rounded bg-neutral-800 px-1 text-[9px] leading-tight text-neutral-400">
+                  <span className="truncate rounded-sm bg-surface-content-alt px-1 text-[11px] leading-tight text-fg-secondary">
                     {labels.step[frame.step]}
                   </span>
                 </span>
-                <span className="block w-16 h-16 rounded bg-neutral-950 border border-neutral-800 checkerboard-pattern p-1">
+                <span className="block w-16 h-16 rounded-sm bg-surface-well border border-line-subtle checkerboard-pattern p-1">
                   <FrameThumbnail assetId={frame.assetId} revision={revisionOf(frame)} />
                 </span>
               </button>
-              <div className="absolute inset-x-0 bottom-0 flex justify-between rounded-b bg-gradient-to-t from-neutral-950/80 px-1 pb-1 pt-3 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+              <div className="absolute inset-x-0 bottom-0 flex justify-between rounded-b-md border-t border-line-subtle bg-surface-float px-1 py-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                 <button
                   type="button"
                   aria-label={t('moveLeft', { number })}
@@ -410,7 +411,7 @@ export function TimelineStrip(): ReactElement {
                     void move(frame.assetId, index - 1);
                   }}
                 >
-                  <ChevronLeft aria-hidden="true" className="h-3.5 w-3.5" />
+                  <ChevronLeft aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5" />
                 </button>
                 <button
                   type="button"
@@ -421,7 +422,7 @@ export function TimelineStrip(): ReactElement {
                     void move(frame.assetId, index + 1);
                   }}
                 >
-                  <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
+                  <ChevronRight aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5" />
                 </button>
               </div>
             </li>
@@ -432,12 +433,12 @@ export function TimelineStrip(): ReactElement {
             type="button"
             aria-label={t('addLabel')}
             title={t('addLabel')}
-            className="flex h-full w-[76px] flex-col items-center justify-center gap-1 rounded border-2 border-dashed border-neutral-800 text-[11px] text-neutral-500 hover:border-neutral-600 hover:text-neutral-300"
+            className="flex h-full w-[76px] flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed border-line text-[11px] text-fg-secondary transition-colors hover:border-line-strong hover:bg-surface-content-alt hover:text-fg-primary"
             onClick={() => {
               void add(true);
             }}
           >
-            <Plus aria-hidden="true" className="h-4 w-4" />
+            <Plus aria-hidden="true" strokeWidth={1.75} className="h-4 w-4" />
             {t('add')}
           </button>
         </li>

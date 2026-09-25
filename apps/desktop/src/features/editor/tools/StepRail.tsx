@@ -73,6 +73,7 @@ import {
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
 import { useWorkflowLabels } from '@/features/editor/labels';
 import { useDismiss } from '@/hooks/useDismiss';
@@ -102,12 +103,11 @@ const STEP_ICONS: Partial<Record<Step, LucideIcon>> = {
   variation: Copy,
 };
 
-/** The quiet buttons in the bar: Check, Revisit and Force advance. */
-const BAR_BUTTON =
-  'flex items-center gap-1 rounded border border-neutral-800 bg-neutral-900 px-2 py-1 text-[11px] text-neutral-300 hover:bg-neutral-800 hover:text-neutral-100 disabled:pointer-events-none disabled:opacity-50';
+/** The bar's buttons at the strip's small size: Check, Advance, Revisit, Force. */
+const BAR_BUTTON = 'gap-1 px-2 py-1 text-[11px]';
 
 /** Every card's frame; the state adds its border, fill and ring. */
-const CARD = 'group relative flex flex-shrink-0 flex-col items-center rounded border p-1';
+const CARD = 'group relative flex flex-shrink-0 flex-col items-center rounded-md border p-1';
 
 /**
  * The steps strip.
@@ -147,9 +147,9 @@ export function StepRail(): ReactElement {
 
   if (step === null) {
     return (
-      <section className="flex h-40 w-full shrink-0 flex-col border-t border-neutral-800 bg-neutral-950">
-        <div className="flex h-10 items-center justify-between border-b border-neutral-800/80 bg-neutral-900/50 px-3 text-xs">
-          <p className="text-[11px] text-neutral-400">{t('step.noDocument')}</p>
+      <section className="flex h-40 w-full shrink-0 flex-col border-t border-line-subtle bg-surface-canvas">
+        <div className="flex h-10 items-center justify-between border-b border-line-subtle px-3 text-xs text-fg-primary">
+          <p className="text-[11px] text-fg-secondary">{t('step.noDocument')}</p>
         </div>
       </section>
     );
@@ -170,24 +170,24 @@ export function StepRail(): ReactElement {
     roles.length === 0 ? tw('noLayer') : roles.map((role) => labels.layer[role]).join(' + ');
 
   return (
-    <section className="flex h-40 w-full shrink-0 flex-col border-t border-neutral-800 bg-neutral-950">
-      <div className="flex h-10 items-center justify-between gap-3 border-b border-neutral-800/80 bg-neutral-900/50 px-3 text-xs">
+    <section className="flex h-40 w-full shrink-0 flex-col border-t border-line-subtle bg-surface-canvas">
+      <div className="flex h-10 items-center justify-between gap-3 border-b border-line-subtle px-3 text-xs text-fg-primary">
         <div className="flex min-w-0 items-center gap-3">
           <p
             className="flex items-baseline gap-1.5 whitespace-nowrap"
             title={expects(step.step, t)}
           >
-            <span className="text-[11px] text-neutral-400">{tw('currentStep')}</span>
-            <span className="font-medium text-pink-400">{labels.step[step.step]}</span>
-            <span className="text-[11px] tabular-nums text-neutral-500">
+            <span className="text-[11px] text-fg-secondary">{tw('currentStep')}</span>
+            <span className="font-medium text-fg-primary">{labels.step[step.step]}</span>
+            <span className="text-[11px] tabular-nums text-fg-secondary">
               {t('step.position', { position: position + 1, of: STEPS.length })}
             </span>
           </p>
 
-          <div ref={reportAnchor} className="relative border-l border-neutral-800 pl-3">
+          <div ref={reportAnchor} className="relative border-l border-line-subtle pl-3">
             <button
               type="button"
-              className="flex items-center gap-2 rounded px-1.5 py-0.5 hover:bg-neutral-800"
+              className="flex items-center gap-2 rounded-pill px-1.5 py-0.5 transition-colors hover:bg-surface-content-alt"
               aria-haspopup="true"
               aria-expanded={reportOpen}
               aria-controls={reportOpen ? reportId : undefined}
@@ -201,15 +201,15 @@ export function StepRail(): ReactElement {
               }}
             >
               {gate === null ? (
-                <span className="text-[11px] text-neutral-500">{tw('notChecked')}</span>
+                <span className="text-[11px] text-fg-secondary">{tw('notChecked')}</span>
               ) : (
                 <>
-                  <span className="flex items-center gap-1 tabular-nums text-emerald-400">
-                    <CheckCircle2 aria-hidden="true" className="h-3.5 w-3.5" />
+                  <span className="flex items-center gap-1 font-medium tabular-nums text-severity-success">
+                    <CheckCircle2 aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5" />
                     {passed.length}
                   </span>
-                  <span className="flex items-center gap-1 tabular-nums text-red-400">
-                    <XCircle aria-hidden="true" className="h-3.5 w-3.5" />
+                  <span className="flex items-center gap-1 font-medium tabular-nums text-severity-error">
+                    <XCircle aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5" />
                     {failed.length}
                   </span>
                 </>
@@ -221,21 +221,21 @@ export function StepRail(): ReactElement {
                 id={reportId}
                 role="region"
                 aria-label={tw('gateReport')}
-                className="absolute bottom-full left-0 z-40 mb-2 flex max-h-72 w-80 flex-col gap-2 overflow-y-auto rounded border border-neutral-800 bg-neutral-950/90 p-3 shadow-md backdrop-blur"
+                className="absolute bottom-full left-0 z-40 mb-2 flex max-h-72 w-80 flex-col gap-2 overflow-y-auto rounded-lg border border-line-subtle bg-surface-float p-3 shadow-md"
               >
                 {/* What the step expects, before the report about whether it
                     got it. The gate's own prose says what is wrong; this says
                     what was asked for, which is the thing a reader needs first
                     and the thing Rust never sends. */}
-                <p className="text-[11px] text-neutral-400">{expects(step.step, t)}</p>
+                <p className="text-[11px] text-fg-secondary">{expects(step.step, t)}</p>
                 {gate === null ? (
-                  <p className="text-[11px] text-neutral-400">{t('step.noReport')}</p>
+                  <p className="text-[11px] text-fg-secondary">{t('step.noReport')}</p>
                 ) : (
                   <>
                     <p
                       className={cn(
                         'text-[11px] font-medium',
-                        gate.pass ? 'text-emerald-400' : 'text-red-400',
+                        gate.pass ? 'text-severity-success' : 'text-severity-error',
                       )}
                     >
                       {gate.pass
@@ -252,7 +252,7 @@ export function StepRail(): ReactElement {
                       // A step with nothing to measure is not a step that
                       // passed by luck, and saying so is what stops an empty
                       // green line from reading as a verdict about the pixels.
-                      <p className="text-[11px] text-neutral-400">{t('step.noChecks')}</p>
+                      <p className="text-[11px] text-fg-secondary">{t('step.noChecks')}</p>
                     )}
                   </>
                 )}
@@ -260,8 +260,8 @@ export function StepRail(): ReactElement {
             )}
           </div>
 
-          <p className="flex min-w-0 items-center gap-1 text-[11px] text-purple-400">
-            <LayersIcon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+          <p className="flex min-w-0 items-center gap-1 text-[11px] text-fg-secondary">
+            <LayersIcon aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">{tw('stepLayer', { layer: layerName })}</span>
           </p>
 
@@ -269,17 +269,21 @@ export function StepRail(): ReactElement {
             <p
               role="alert"
               title={refusal}
-              className="flex min-w-0 items-center gap-1 text-[11px] text-red-400"
+              className="flex min-w-0 items-center gap-1 text-[11px] text-severity-error"
             >
-              <TriangleAlert aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+              <TriangleAlert
+                aria-hidden="true"
+                strokeWidth={1.75}
+                className="h-3.5 w-3.5 shrink-0"
+              />
               <span className="truncate">{refusal}</span>
             </p>
           )}
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             className={BAR_BUTTON}
             disabled={loading}
             onClick={() => {
@@ -287,10 +291,10 @@ export function StepRail(): ReactElement {
             }}
           >
             {t('step.check')}
-          </button>
-          <button
-            type="button"
-            className="flex items-center gap-1 rounded border border-pink-500 bg-pink-600 px-2 py-1 text-[11px] font-medium text-white shadow-sm shadow-pink-600/30 hover:bg-pink-500 disabled:pointer-events-none disabled:opacity-50"
+          </Button>
+          <Button
+            variant="primary"
+            className={BAR_BUTTON}
             // Disabled from `canAdvance`, which Rust computes as the gate passing
             // and the step not being the last one. Guessing it here from the
             // report alone would offer an advance off the end of the workflow.
@@ -299,12 +303,12 @@ export function StepRail(): ReactElement {
               void advance();
             }}
           >
-            <Play aria-hidden="true" className="h-3 w-3 fill-current" />
+            <Play aria-hidden="true" strokeWidth={1.75} className="h-3 w-3 fill-current" />
             {t('step.advance')}
-          </button>
-          <span aria-hidden="true" className="mx-1 h-5 w-px bg-neutral-800" />
-          <button
-            type="button"
+          </Button>
+          <span aria-hidden="true" className="mx-1 h-5 w-px bg-line-subtle" />
+          <Button
+            variant="secondary"
             className={BAR_BUTTON}
             disabled={loading || previous === undefined}
             // Named after the step it goes back to, so it is never mistaken
@@ -321,12 +325,12 @@ export function StepRail(): ReactElement {
               }
             }}
           >
-            <RotateCcw aria-hidden="true" className="h-3 w-3" />
+            <RotateCcw aria-hidden="true" strokeWidth={1.75} className="h-3 w-3" />
             {tw('revisitConfirm')}
-          </button>
+          </Button>
           {offerForce && (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               className={BAR_BUTTON}
               disabled={loading}
               onClick={() => {
@@ -334,7 +338,7 @@ export function StepRail(): ReactElement {
               }}
             >
               {tw('forceAdvance')}
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -363,7 +367,7 @@ export function StepRail(): ReactElement {
                   type="button"
                   className={cn(
                     CARD,
-                    'border-neutral-800 bg-neutral-900/60 hover:border-neutral-700 hover:bg-neutral-900',
+                    'border-line-subtle bg-surface-content transition-colors hover:border-line hover:bg-surface-content-alt',
                   )}
                   aria-label={tw('revisitStep', { step: label })}
                   onClick={() => {
@@ -378,8 +382,8 @@ export function StepRail(): ReactElement {
                   className={cn(
                     CARD,
                     state === 'current'
-                      ? 'border-pink-500 bg-neutral-900 shadow-md shadow-pink-500/10 ring-1 ring-pink-500'
-                      : 'border-neutral-800 bg-neutral-900/60 opacity-60',
+                      ? 'border-accent bg-surface-content ring-2 ring-accent'
+                      : 'border-line-subtle bg-surface-content opacity-60',
                   )}
                 >
                   {content}
@@ -469,39 +473,38 @@ function StepCardContent({
   const Icon = STEP_ICONS[step];
   return (
     <>
-      <span className="mb-1 flex items-baseline gap-1 whitespace-nowrap text-[10px]">
-        <span aria-hidden="true" className="tabular-nums text-neutral-500">
+      <span className="mb-1 flex items-baseline gap-1 whitespace-nowrap text-[11px]">
+        <span aria-hidden="true" className="tabular-nums text-fg-secondary">
           {tw('stepNumber', { number })}
         </span>
-        <span className={state === 'current' ? 'font-medium text-pink-400' : 'text-neutral-300'}>
-          {label}
-        </span>
+        <span className={cn('text-fg-primary', state === 'current' && 'font-medium')}>{label}</span>
       </span>
-      <span className="checkerboard-pattern flex h-16 w-16 items-center justify-center rounded border border-neutral-800 bg-neutral-950 p-1">
+      <span className="checkerboard-pattern flex h-16 w-16 items-center justify-center rounded-sm border border-line-subtle bg-surface-well p-1">
         {Icon === undefined ? (
           <StepThumbnail step={step} layers={layers} palette={palette} />
         ) : (
           <Icon
             aria-hidden="true"
             data-testid={`step-icon-${step}`}
-            className="h-6 w-6 text-neutral-500"
+            strokeWidth={1.75}
+            className="h-6 w-6 text-fg-secondary"
           />
         )}
       </span>
       {state === 'done' && (
         <span
           title={tw('stepDone')}
-          className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-neutral-950"
+          className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border border-line-subtle bg-surface-content text-severity-success"
         >
-          <CheckIcon aria-hidden="true" className="h-3 w-3" />
+          <CheckIcon aria-hidden="true" strokeWidth={2.5} className="h-3 w-3" />
         </span>
       )}
       {state === 'ahead' && (
         <span
           title={tw('stepLocked')}
-          className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border border-neutral-700 bg-neutral-900 text-neutral-400"
+          className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border border-line bg-surface-content text-fg-secondary"
         >
-          <Lock aria-hidden="true" className="h-2.5 w-2.5" />
+          <Lock aria-hidden="true" strokeWidth={1.75} className="h-2.5 w-2.5" />
         </span>
       )}
     </>
@@ -625,21 +628,21 @@ function Check({ check, failing }: CheckProps): ReactElement {
     <div
       className={cn(
         'rounded-sm border-s-2 ps-2 text-[11px]',
-        failing ? 'border-s-red-500' : 'border-s-emerald-500',
+        failing ? 'border-s-severity-error' : 'border-s-severity-success',
       )}
     >
-      <p className="font-medium text-neutral-100">
+      <p className="font-medium text-fg-primary">
         {/* The check's own stable name, shown as it is. It is the word that
             appears in the MCP report an agent reads and in this strip, and
             translating it would leave the two unable to refer to the same
             check. */}
         <span className="font-mono">{check.name}</span>
-        <span className="ms-1 font-normal text-neutral-500">
+        <span className="ms-1 font-normal text-fg-secondary">
           {failing ? t('step.checkFailed') : t('step.checkVerified')}
         </span>
       </p>
-      {check.detail !== undefined && <p className="text-neutral-400">{check.detail}</p>}
-      {check.hint !== undefined && <p className="text-neutral-200">{check.hint}</p>}
+      {check.detail !== undefined && <p className="text-fg-secondary">{check.detail}</p>}
+      {check.hint !== undefined && <p className="text-fg-primary">{check.hint}</p>}
     </div>
   );
 }
