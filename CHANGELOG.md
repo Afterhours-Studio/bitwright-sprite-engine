@@ -7,6 +7,43 @@ and the project follows [Semantic Versioning](https://semver.org/). Versions
 before 0.2.0 belong to the diffusion-based sprite generator this application
 used to be; they are kept below as history.
 
+## [1.2.0] - 2026-09-25
+
+Animation. A sprite can have frames; each frame is an ordinary asset, so
+every tool, the workflow and its gates, undo and every MCP tool work on a
+frame exactly as they work on a sprite.
+
+### Added
+
+- Frames: add a copy of a frame or a blank one, delete, reorder, give each a
+  duration of 10 ms to 10 s or set them all by FPS, and play forward, in
+  reverse or ping-pong. Frames share a palette, follow their root's name,
+  size, kind and style, and go with it when it is deleted.
+- The timeline, in the bottom panel beside the steps: playback modes, a live
+  preview, the frame's name and position, FPS and duration, play and pause,
+  onion skin, duplicate and delete, and a card per frame with its thumbnail.
+- Onion skin: the frames before and after the open one, drawn faintly over
+  it. Playback in place on the stage, with drawing held off while it plays.
+  Comma and full stop step between frames.
+- Home lists an animation once, with its frame count, and sorts by frames.
+- Export as an animated GIF that loops, honours the playback mode and each
+  frame's duration and keeps transparency, and as a sprite sheet of every
+  frame, from the export dialog and over MCP (`export_gif`; `export_sheet`
+  expands an animation into its frames).
+- MCP tools for animating: `read_animation`, `add_frame` (which opens the new
+  frame for the session), `delete_frame`, `move_frame`, `set_frame_duration`,
+  `set_animation_duration` and `set_playback`, and an "Animating" page in the
+  guide an agent reads.
+
+### Changed
+
+- A palette write to any frame is written to every frame of its animation.
+- The header's Steps toggle shares the bottom panel with the new Timeline
+  toggle; the secondary header buttons show their icon alone below 1400px so
+  the header fits the default window.
+- Backgrounds and tilesets cannot be animated, and frames are not offered as
+  tiles.
+
 ## [1.1.0] - 2026-09-25
 
 The studio: the interface rebuilt on a one-to-one studio layout, with a full

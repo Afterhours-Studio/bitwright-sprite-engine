@@ -43,8 +43,9 @@
  * grid and tile guide, and the marching ants. The floating panels sit over the
  * stage, not the sprite, so zooming never moves them.
  *
- * THE ONION SKIN is the previous frame at 30% and the next at 15%, under the
- * open frame's pixels, as Aseprite and Piskel draw it: the frame being drawn
+ * THE ONION SKIN is the previous frame at 30% and the next at 15%, drawn
+ * faintly over the open frame's pixels: a sprite is mostly opaque, so a ghost
+ * beneath it would show only where the frame is empty. The frame being drawn
  * stays the strongest thing on the stage, and the one it follows reads more
  * strongly than the one it leads into. Each is another asset's composite in
  * the same sprite box, so it lines up at every zoom and pan without any
