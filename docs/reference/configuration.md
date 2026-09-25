@@ -52,8 +52,8 @@ The database that holds every project, asset, document and op log entry lives
 under that root, as `bitwright.db`. Exported PNGs live there too, under
 `exports/<project name>/`; that folder is owned by the Rust shell rather than
 the sidecar, since export never goes through the engine. An agent exporting
-through MCP cannot name a folder of its own — `export_png` and `export_sheet`
-always write into it.
+through MCP cannot name a folder of its own — `export_png`, `export_sheet`
+and `export_gif` always write into it.
 
 Move the root from Settings, under Storage location, or by setting
 `BITWRIGHT_DATA_ROOT`. Changing the location never moves what is already there:

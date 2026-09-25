@@ -9,7 +9,8 @@ This assumes Bitwright is installed. If it is not, see
 **Where this stands.** Everything below works today: the document store and
 the canvas, the sixteen manual tools, the workflow steps and their gates, the
 MCP server with both transports, the client configuration, the live sync,
-reference import, tilemap backgrounds and export. The screens are the 1.1
+reference import, tilemap backgrounds, animation frames and export. The screens
+are the 1.1
 studio layout, described region by region in
 [the studio layout](../architecture/studio-layout.md).
 
@@ -168,9 +169,11 @@ The editor is laid out in regions:
 | Colour panel | Right  | Primary and secondary colours, brush size and footprint, the palette as swatches or ramps                                                    |
 | Layers panel | Right  | The workflow's layers, top first, with visibility and pixel counts, and **Draw on…**                                                         |
 | Steps strip  | Bottom | The workflow, with **Check**, **Advance**, revisit and forced advance                                                                        |
+| Timeline     | Bottom | The animation's frames, playback, timing and onion skin, in place of the steps strip                                                         |
 
-**Layer** and **Steps** in the header hide and show the layers panel and the
-steps strip. Strokes go to the current step's layer unless **Draw on…** in the
+**Layer** in the header hides and shows the layers panel. **Timeline** and
+**Steps** share the bottom panel: pressing the one that is showing hides it,
+pressing the other switches to it. Strokes go to the current step's layer unless **Draw on…** in the
 layers panel points them at another one.
 
 The tools, each on one key:
@@ -209,6 +212,7 @@ Other keys:
 | Ctrl+Y or Ctrl+Shift+Z | Redo                                        |
 | Space, held            | Pan with any tool                           |
 | `-` and `+`            | Zoom out and in                             |
+| `,` and `.`            | Open the previous and the next frame        |
 | Delete or Backspace    | Clear the selected pixels                   |
 | Escape                 | Drop the selection, or close the top dialog |
 | Ctrl+K                 | Open the command palette                    |
@@ -216,7 +220,69 @@ Other keys:
 On macOS, Cmd works in place of Ctrl. Single-key shortcuts are ignored while a
 text field has focus, so typing a name never changes the tool.
 
-## 7. Export
+## 7. Animate it
+
+An animation is a row of frames, and each frame is an ordinary sprite with its
+own layers, its own workflow step and its own undo history. A sprite you have
+not added a frame to is an animation of one frame, so there is nothing to
+convert: finish the first pose, then add the others.
+
+### By hand
+
+Press **Timeline** in the header. The bottom panel shows one card per frame,
+and the bar above them carries the playback mode, the FPS slider, the open
+frame's duration, **Play**, **Onion Skin**, **Duplicate frame** and **Delete
+frame**.
+
+1. Draw the first pose through the workflow, the way any sprite is drawn.
+2. Press **+ Add**. It inserts a copy of the open frame after it and opens
+   the copy: same layers, same palette, same step.
+3. Turn on **Onion Skin**. The previous frame shows over the open one at 30%
+   and the next at 15%, so you can see where every moving part was.
+4. Change only what moves: a leg, an eyelid, the hem of a coat. Pixels that
+   stay put are what make the frames read as one body instead of a flicker.
+5. Repeat for each pose. `,` and `.` step between frames; the arrows on a
+   card move it left or right.
+6. Set the rate with the FPS slider, which sets every frame at once, and hold
+   a key pose longer by typing its own duration, in milliseconds, into
+   **Frame**. Pick forward, reverse or ping-pong, and press **Play**.
+
+The frames share a palette, so a colour changed on one frame changes on all
+of them. Each frame keeps its own step, and its gates are checked on that
+frame, so a pose that breaks the outline fails where it broke.
+
+### By an agent
+
+The agent uses the same row of frames through MCP, and the timeline follows
+it as it works. Ask for the motion once the first pose is drawn:
+
+```
+The "cat" asset in Bitwright is finished. Animate a blink: four frames,
+ping-pong, the eyes closing over frames 2 to 4. Export it as a GIF at 4x.
+```
+
+It works through the loop the served guide's "Animating" page describes:
+
+```
+add_frame {}                                   frame 2, a copy, now open
+read_canvas { "layer": "detail" }              ... redraw the eyes half shut
+check_step {}                                  the frame's own gates
+add_frame {}                                   frame 3, ... and so on
+set_animation_duration { "ms": 125 }           every frame, 8 FPS
+set_frame_duration { "assetId": "<frame 1>", "ms": 900 }   hold the open eyes
+set_playback { "mode": "pingpong" }
+export_gif { "scale": 4 }
+```
+
+`add_frame` copies the frame it is given (or the open one) and opens the new
+frame in the agent's session, because the next thing an agent does after
+adding a frame is draw on it. With `copy: false` it starts an empty frame with
+the same palette, for a pose too different to edit from the last one.
+`export_gif` writes into the exports folder, loops forever, and plays the
+frames in the stored order and durations; `export_sheet` given the animation
+lays its frames out in timeline order.
+
+## 8. Export
 
 Saving is implicit and continuous: the document is a row in a SQLite file under
 your data root, and there is no save button because there is nothing to save.
@@ -224,9 +290,11 @@ your data root, and there is no save button because there is nothing to save.
 Export is the explicit action. Choose **Export File** in the editor header,
 pick a folder, and Bitwright
 writes PNGs — one per asset, or a packed sheet with every sprite laid out left
-to right, wrapping to a new row after `columns`. An agent exports the same way
-through `export_png` and `export_sheet`; either one, on success, reports the
-path it wrote along with the image's width and height. An agent's export
+to right, wrapping to a new row after `columns`. For an animation the dialog
+also offers a GIF of every frame, and a sheet of the frames in timeline order.
+An agent exports the same way through `export_png`, `export_sheet` and
+`export_gif`; each one, on success, reports the path it wrote along with the
+image's width and height. An agent's export
 cannot pick a folder of its own — its files always go under the exports folder
 in the data root.
 

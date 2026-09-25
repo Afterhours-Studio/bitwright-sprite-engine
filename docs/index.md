@@ -30,6 +30,7 @@ phase it belongs to.
 | Understand how it fits together | [Architecture overview](architecture/overview.md)             |
 | Know what an agent can call     | [MCP tools](architecture/mcp-tools.md)                        |
 | Know what a document is made of | [Document model](architecture/document-model.md)              |
+| Know how animation frames work  | [Animation frames](architecture/animation.md)                 |
 | Build from source               | [Development setup](development/setup.md)                     |
 | Translate the interface         | [Internationalization](development/i18n.md)                   |
 | Know what each screen holds     | [Studio layout](architecture/studio-layout.md)                |
@@ -43,7 +44,8 @@ phase it belongs to.
 
 - [Installation](getting-started/installation.md) - install on each platform.
 - [Quick start](getting-started/quick-start.md) - a project and a sprite from
-  home, an agent connected, a sprite drawn, and the editor's tools and keys.
+  home, an agent connected, a sprite drawn and animated, and the editor's tools
+  and keys.
 - [System requirements](getting-started/system-requirements.md) - what the
   hardware needs to be, which is not much.
 
@@ -59,6 +61,8 @@ phase it belongs to.
   screen and region by region: home, the editor, Settings, and the keys.
 - [Document model](architecture/document-model.md) - the schema and the IPC
   contract for projects, assets, documents and layers.
+- [Animation frames](architecture/animation.md) - frames as assets, their
+  order, timing and shared palette, the timeline, and the frame tools.
 - [MCP tools](architecture/mcp-tools.md) - every tool an agent can call, its
   schema, and its errors.
 - [IPC protocol](architecture/ipc-protocol.md) - how the shell and the sidecar

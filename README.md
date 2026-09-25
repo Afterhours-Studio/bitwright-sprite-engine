@@ -59,13 +59,15 @@ you drag the window by, and it carries the window buttons at its end.
   drawing against it straight away.
 - **The editor** has a header across the top, the tools column on the left,
   the stage in the middle, the colour panel and the layers panel on the right,
-  and the steps strip along the bottom. The layers panel and the steps strip
-  can each be hidden from the header.
+  and along the bottom either the animation timeline or the steps strip. The
+  layers panel and the bottom panel can each be hidden from the header.
 - **The header** holds the home button, the sprite's name (renamed in place)
   and its size, undo, redo and clear the active layer, the pixel grid and a
-  tile guide of 8 to 64 pixels, the **Layer**, **Steps** and **Agent**
-  toggles, then **New**, **Reference**, **Export File**, notifications and
-  Settings.
+  tile guide of 8 to 64 pixels, the **Layer**, **Timeline (n)**, **Steps
+  (n/11)** and **Agent** toggles, then **New**, **Reference**, **Export
+  File**, notifications and Settings. Timeline and Steps share the bottom
+  panel: pressing the one that is showing hides it, pressing the other
+  switches to it.
 - **The stage** shows the sprite over a checkered workspace. Flip, replace
   secondary with primary, outline and anti-alias sit at the top right; the
   cursor position, size, zoom and target layer at the bottom left; the zoom
@@ -161,6 +163,63 @@ The other keys are in [Keyboard shortcuts](#keyboard-shortcuts).
   client it runs in rather than one baked into a system prompt that drifts from
   the tools.
 
+### Animating
+
+An animation is a row of frames, and every frame is an ordinary sprite: its
+own layers, its own workflow step and gates, its own undo history. Making each
+frame an asset, rather than adding a frame dimension to every layer, is what
+lets every tool, every gate and every MCP tool work on a frame exactly as it
+works on a sprite. A sprite you never add a frame to is simply an animation of
+one frame.
+
+![The editor with the timeline open: four frames of a cat, ping-pong playback at 1 FPS, 900 ms per frame, and onion skin on](docs/assets/screenshots/timeline.png)
+
+- **The timeline** is the other half of the bottom panel, opened with
+  **Timeline (n)** in the header. One card per frame, each with its number,
+  its workflow step and a thumbnail; clicking a card opens that frame in the
+  editor, and `,` and `.` step to the previous and the next frame.
+- **Playback** is forward, reverse or ping-pong, stored on the animation, so
+  the GIF plays the same way. **Play** shows each frame in turn on the stage
+  for its own duration, and the small preview in the bar animates with it.
+  Nothing is drawn while playing, because a stroke would land on a frame other
+  than the one on screen; pan and zoom still work.
+- **Timing**: the FPS slider (1 to 24) sets every frame's duration at once,
+  and the **Frame** field sets the open frame's alone, from 10 to 10000 ms, so
+  a key pose can be held longer. A new animation runs at 125 ms a frame,
+  8 FPS.
+- **Onion skin** draws the previous frame at 30% and the next at 15% over the
+  open frame on the stage. Over it rather than under, because a sprite is
+  mostly opaque and a ghost beneath it would only show where the frame is
+  empty; on top, every moving part shows.
+- **Arranging**: **+ Add** and **Duplicate frame** insert a copy of the open
+  frame after it, the arrows on a card's hover footer move it left or right,
+  and **Delete frame** removes the open one after a confirmation. The last
+  frame cannot be deleted. Deleting or duplicating the open frame opens the
+  frame that takes its place.
+- **One palette.** Frames share a palette: a palette change on any frame is
+  written to every frame, so no pose drifts to colours of its own. Each frame
+  keeps its own history, so undoing a palette change undoes it on that frame
+  only; write the palette again to take it back everywhere.
+- **Each frame has its own workflow step.** A copied frame starts at its
+  source's step and is gated like a finished sprite from its first edit, so
+  a pose that breaks the outline fails its gate on that frame alone.
+- **Names follow the first frame**: `hero-walk`, `hero-walk #2`, and so on.
+  Rename the first and the others follow; a later frame cannot be renamed on
+  its own.
+- **Home** lists an animation once, by its first frame, with a pink "n frames"
+  badge, and **Frames** joins the sort orders.
+- **Export**: for an animation the export dialog offers the open frame as a
+  PNG, the whole animation as a GIF that loops forever with the stored
+  playback and durations, or a sprite sheet of the frames in timeline order.
+- **An agent animates too.** `read_animation`, `add_frame`, `delete_frame`,
+  `move_frame`, `set_frame_duration`, `set_animation_duration`,
+  `set_playback` and `export_gif` do over MCP what the timeline does by hand,
+  and the timeline follows the agent live. The served guide has an
+  "Animating" page: draw frame 1 through the workflow, `add_frame` a copy per
+  pose, change only what moves, check every frame's gates, then export.
+
+![The six frames of the ping-pong GIF of a four-frame blink an agent drew over MCP: a cat's eyes open, closing, shut, and opening again](docs/assets/screenshots/blink-frames.png)
+
 ### References, tilemaps and export
 
 - References: **Reference** in the editor header imports a picture with the
@@ -172,9 +231,10 @@ The other keys are in [Keyboard shortcuts](#keyboard-shortcuts).
 - Tilemaps: a background is a grid of tile assets across up to eight parallax
   layers, laid out in the tilemap editor or by an agent with `create_tilemap`,
   `read_tilemap`, `place_tiles` and `tilemap_layers`.
-- Export: a sprite, a sheet of sprites, or a background to PNG at a scale.
-  **Export File** in the editor writes into a folder you pick; `export_png`
-  and `export_sheet` let an agent export too, always into
+- Export: a sprite, a sheet of sprites, or a background to PNG at a scale,
+  and an animation to a GIF or a sheet of its frames. **Export File** in the
+  editor writes into a folder you pick; `export_png`, `export_sheet` and
+  `export_gif` let an agent export too, always into
   `<data root>/exports/<safe project name>-<last 8 hex characters of the
 project id>/`, since a tool call cannot pick a folder of its own.
 
@@ -191,7 +251,7 @@ project id>/`, since a tool call cannot pick a folder of its own.
   rebinding. Requests carrying an `Origin` header are refused with 403, and a
   wrong or missing token is 401.
 
-Thirty-nine tools are registered, every one of them answering for real, listed
+Forty-seven tools are registered, every one of them answering for real, listed
 in [the MCP tool catalogue](docs/architecture/mcp-tools.md). A tool whose
 machinery does not exist is absent from `tools/list` rather than answered with
 a placeholder — that is why the catalogue only grows as a phase ships, never
@@ -296,7 +356,7 @@ header's **Agent** button shows what it is doing.
 Saving is implicit. The document is a row in a SQLite file under your data root,
 and there is no save button because there is nothing to save. Export is the
 explicit action: choose **Export File** in the editor header, pick a folder,
-and Bitwright writes PNGs.
+and Bitwright writes PNGs, or a GIF of an animation.
 
 More in [the quick start guide](docs/getting-started/quick-start.md).
 
@@ -310,6 +370,7 @@ More in [the quick start guide](docs/getting-started/quick-start.md).
 | Ctrl+Y or Ctrl+Shift+Z          | Redo                                              |
 | Space, held                     | Pan with any tool                                 |
 | `-` and `+`                     | Zoom out and in                                   |
+| `,` and `.`                     | Open the previous and the next frame              |
 | Delete or Backspace             | Clear the selected pixels                         |
 | Escape                          | Drop the selection, or close the top dialog       |
 | Ctrl+K                          | Open the command palette                          |
@@ -334,8 +395,8 @@ The data root holds `bitwright.db` — projects, assets and the op log — and
 kept between runs when it is free.
 
 Export from the editor writes into whatever folder you pick with the system
-dialog. An agent exporting through MCP cannot pick a folder — `export_png` and
-`export_sheet` take no path — so their files always land under
+dialog. An agent exporting through MCP cannot pick a folder — `export_png`,
+`export_sheet` and `export_gif` take no path — so their files always land under
 `<data root>/exports/<safe project name>-<last 8 hex characters of the project
 id>/`, one subfolder per project, which keeps a tool call from ever writing
 anywhere else on disk.

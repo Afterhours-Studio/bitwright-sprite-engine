@@ -98,7 +98,7 @@ div.flex flex-col h-full w-full overflow-hidden bg-neutral-950 text-neutral-100
   aside  tools            w-64 border-r
   div    stage            relative flex-1 canvas-workspace-bg
   div.flex               colour panel w-64 border-l · layers panel w-64 border-l (toggle)
- div.h-40 steps strip    border-t (toggle)
+ div.h-40 timeline or steps strip   border-t (toggle, one at a time)
 ```
 
 **Header**, left group `space-x-3`:
@@ -120,8 +120,10 @@ px-2 py-1.5 bg-neutral-800 border border-neutral-700 text-xs`: Tile off, 8,
 16, 24, 32, 48, 64) · divider · text toggles `px-2.5 py-1.5 text-xs
 font-medium rounded border bg-neutral-800 text-neutral-200 border-neutral-700`
 (off: `bg-neutral-900 text-neutral-500 border-neutral-800`): **Layer**
-(Layers) toggles the layers panel, **Steps (n/11)** (ListChecks) toggles the
-steps strip, **Agent** (Brain) opens the agent popover: MCP state, the live
+(Layers) toggles the layers panel, **Timeline (n)** (Film) and **Steps
+(n/11)** (ListChecks) share the bottom panel — pressing the one that is
+showing hides it, pressing the other switches to it — and **Agent** (Brain)
+opens the agent popover: MCP state, the live
 activity of an agent drawing, and the client-config shortcut.
 
 Right group `space-x-2`: **New** (Plus) `px-3 py-1.5 rounded text-xs
@@ -217,8 +219,13 @@ Eye/EyeOff, role name, owning step, pixel count; under a divider `mt-2 pt-1.5
 border-t border-neutral-800/80` the opacity readout. Layers are the roles the
 workflow defines, top first; there is no free "add layer".
 
+**Timeline** — the reference layout's own animation timeline, one to one,
+shown in the bottom panel when **Timeline** is on. Its class strings, the
+onion skin and playback on the stage are specified in
+[animation frames](animation.md#timeline-strip-featureseditortimelinetimelinestriptsx).
+
 **Steps strip** `h-40 bg-neutral-950 border-t border-neutral-800 flex flex-col
-shrink-0` — the agent workflow where the reference layout has its animation
+shrink-0` — the agent workflow, shown in the bottom panel in place of the
 timeline:
 
 - bar `h-10 px-3 border-b border-neutral-800/80 bg-neutral-900/50 flex
@@ -248,7 +255,8 @@ rounded p-4` sections.
 ## Keyboard
 
 B E G I M W V H Z L Q U C J O K choose tools; X swaps colours; Ctrl+Z / Ctrl+Y
-/ Ctrl+Shift+Z undo and redo; Space held pans; `-`/`+` zoom; Delete clears the
+/ Ctrl+Shift+Z undo and redo; Space held pans; `-`/`+` zoom; `,`/`.` open the
+previous and the next frame; Delete clears the
 selection's pixels; Escape drops the selection; Ctrl+K the command palette.
 Shortcuts are ignored while a text field has focus.
 

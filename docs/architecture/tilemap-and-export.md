@@ -171,6 +171,7 @@ overwrite is false), `export.write_failed`, `export.no_directory`.
 ```ts
 export_png(assetId, directory, scale, pattern, overwrite): ExportResult
 export_sheet(assetIds: string[], directory, columns, scale, name, overwrite): ExportResult
+export_gif(assetId, directory, scale, pattern, overwrite): ExportResult   // an animation, 1.2
 export_directory(): string        // the MCP exports folder for the current data root
 interface ExportResult { path: string; width: number; height: number }
 ```
@@ -179,7 +180,11 @@ interface ExportResult { path: string; width: number; height: number }
 
 - `export_png { assetId?, scale?, name? }` — to the exports folder; `name`
   defaults to the pattern `{asset}@{scale}x`.
-- `export_sheet { assetIds, columns?, scale?, name }`
+- `export_sheet { assetIds, columns?, scale?, name }` — an animation's root in
+  `assetIds` expands to its frames in timeline order (1.2).
+- `export_gif { assetId?, scale?, name?, overwrite? }` — the animation as a
+  looping GIF, honouring its playback and frame durations (1.2; see
+  [animation frames](animation.md)).
 
 ### TypeScript: `types/export.ts`
 

@@ -81,8 +81,8 @@ animation is:
 - `move_frame` positions count from 0; a position past the end means last.
 - Durations are 10 to 10000 ms (`animation.invalid_duration`). 125 ms is
   8 FPS, 83 ms about 12, 42 ms about 24.
-- A lone sprite has nowhere to keep a playback mode: `set_playback` on it
-  returns `forward` until it has a second frame.
+- Timing set on a lone sprite is kept: `set_playback` or a duration on it is
+  stored, and the frames you add later start from it.
 - Frames are named after the first: `hero-walk`, `hero-walk #2`, … Renaming a
   later frame is refused; rename the first.
 

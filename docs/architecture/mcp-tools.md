@@ -718,8 +718,8 @@ animation (the FPS control: 125 ms is 8 FPS). Fails
 ### `set_playback`
 
 `{ assetId?, mode }` — `forward`, `reverse` or `pingpong`; fails
-`animation.invalid_playback` otherwise. A lone sprite has nowhere to keep a
-mode and returns `forward` until it has a second frame.
+`animation.invalid_playback` otherwise. A lone sprite keeps the mode, and
+its frames play with it once it has more than one.
 
 Frames share one palette: `set_palette` on any frame writes every frame, each
 in its own op log, and announces each. `undo` on one frame undoes that frame's

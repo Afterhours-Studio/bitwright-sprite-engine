@@ -30,21 +30,27 @@ two kinds of work want different homes.
 |  |  Rust  (Tauri 2)                                                    |  |
 |  |                                                                     |  |
 |  |   mcp/        rmcp server, both transports, session lifecycle,      |  |
-|  |               tool implementations, client detection                |  |
-|  |   store/      SQLite: project, style, asset, document, op log       |  |
+|  |               tool implementations (animation.rs: the frame         |  |
+|  |               tools), client detection                              |  |
+|  |   store/      SQLite: project, style, asset, document, op log;      |  |
+|  |               animation.rs: frames, their order and timing          |  |
 |  |   raster/     indexed buffers, layers, composite, the op set,       |  |
 |  |               gate computations                                     |  |
 |  |   workflow/   step state machine, gate evaluation                   |  |
 |  |   commands.rs window controls, platform, preferences, engine hop    |  |
+|  |   commands/   document, tilemap and animation commands              |  |
+|  |   export.rs   PNG, sheet and GIF export                             |  |
 |  |   sidecar.rs  spawn, handshake, watch, graceful stop                |  |
 |  +---------------------------------------------------------------------+  |
-|          |  invoke(...)              ^  document://changed                 |
-|          v                           |  (also raised by an MCP call)       |
+|          |  invoke(...)              ^  document://changed,                |
+|          v                           |  document://animation               |
+|          |                           |  (also raised by an MCP call)       |
 |  +---------------------------------------------------------------------+  |
 |  |  React 18 + TypeScript  (webview)                                   |  |
 |  |                                                                     |  |
 |  |   Home, the editor (header, tools, stage, colour and layers         |  |
-|  |   panels, steps strip), Settings. Zustand stores, tokens.css.       |  |
+|  |   panels, timeline or steps strip), Settings. Zustand stores,       |  |
+|  |   tokens.css.                                                       |  |
 |  +---------------------------------------------------------------------+  |
 |                                                                           |
 +------------------------------------|--------------------------------------+
@@ -93,10 +99,16 @@ Its jobs:
   [decision 0013](decisions/0013-rust-mcp-server-in-the-tauri-process.md).
 - Hold the document: migrations, CRUD over project, style, asset and document,
   and the append-only op log that gives undo, redo, replay, and a record of
-  which agent drew what.
+  which agent drew what. An animation is an ordered list of frame assets with
+  a duration each, kept in `store/animation.rs`; every frame is an ordinary
+  asset, so nothing else in the store needs to know about frames. See
+  [animation frames](animation.md).
+- Export PNGs, sprite sheets and looping GIFs, in `export.rs`.
 - Apply the op set to indexed layer buffers, composite them, and compute the
   workflow gates from the pixels rather than from what the agent claimed.
-- Emit a change event to the renderer on every mutation, whoever made it.
+- Emit a change event to the renderer on every mutation, whoever made it:
+  `document://changed` for a document, `document://animation` when the frames
+  of an animation change, so the timeline follows an agent adding frames.
 - Spawn the sidecar, read its handshake, watch it, and stop it cleanly. The
   handshake carries the port and the token; the token stays in Rust and is never
   logged.
@@ -135,21 +147,22 @@ The interface is the 1.1 studio layout, and
 renders one of the three inside `AppShell`. The editor with no document open is
 shown as home, because every route into the editor opens an asset first.
 
-| Path under `apps/desktop/src/`                   | What it holds                                                                                                                            |
-| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `components/layout/AppShell.tsx`                 | The opaque window frame, and the layers every screen shares: the new sprite dialog, the command palette, the toasts                      |
-| `components/layout/WindowControls.tsx`           | Minimise, maximise and close, at the end of each screen's top row                                                                        |
-| `components/ui/`                                 | Shared primitives: dialogs, `Overlay` and what is built on it, the command palette, notifications, toasts                                |
-| `features/home/`                                 | The home sidebar, the recent and projects grids and list, sort and filter, asset cards, the new sprite and project dialogs, PNG to Pixel |
-| `features/editor/EditorScreen.tsx`               | The editor's layout: header, tools column, stage, colour and layers panels, steps strip                                                  |
-| `features/editor/header/`                        | `StudioHeader` and the Agent popover                                                                                                     |
-| `features/editor/tools/`                         | `ToolColumn`, `PalettePanel`, `LayerList`, `StepRail` (the steps strip)                                                                  |
-| `features/editor/canvas/`                        | `DocumentCanvas`: the stage, strokes, selection, symmetry, the floating panels and readouts                                              |
-| `features/editor/tilemap/`                       | The tilemap editor, shown on the stage for a background asset                                                                            |
-| `features/editor/reference/`, `export/`, `live/` | The reference panel, the export dialog, and the agent-activity chip and `open_asset` follow                                              |
-| `features/settings/`                             | The Settings screen: storage, the agent connection card, appearance, language, about                                                     |
-| `stores/`                                        | Zustand stores: shell, projects, document, editor (tools, colours, selection, view toggles), command palette, toasts                     |
-| `hooks/`                                         | Side effects: bootstrap, tool and palette shortcuts, dismissal, asset name sync                                                          |
+| Path under `apps/desktop/src/`                   | What it holds                                                                                                                                                                       |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `components/layout/AppShell.tsx`                 | The opaque window frame, and the layers every screen shares: the new sprite dialog, the command palette, the toasts                                                                 |
+| `components/layout/WindowControls.tsx`           | Minimise, maximise and close, at the end of each screen's top row                                                                                                                   |
+| `components/ui/`                                 | Shared primitives: dialogs, `Overlay` and what is built on it, the command palette, notifications, toasts                                                                           |
+| `features/home/`                                 | The home sidebar, the recent and projects grids and list, sort and filter, asset cards, the new sprite and project dialogs, PNG to Pixel                                            |
+| `features/editor/EditorScreen.tsx`               | The editor's layout: header, tools column, stage, colour and layers panels, and the bottom panel (timeline or steps strip)                                                          |
+| `features/editor/header/`                        | `StudioHeader` and the Agent popover                                                                                                                                                |
+| `features/editor/tools/`                         | `ToolColumn`, `PalettePanel`, `LayerList`, `StepRail` (the steps strip)                                                                                                             |
+| `features/editor/canvas/`                        | `DocumentCanvas`: the stage, strokes, selection, symmetry, the floating panels and readouts, onion skin and playback                                                                |
+| `features/editor/timeline/`                      | `TimelineStrip`: the animation's frame cards, playback mode, FPS and frame duration, play, onion skin, duplicate and delete                                                         |
+| `features/editor/tilemap/`                       | The tilemap editor, shown on the stage for a background asset                                                                                                                       |
+| `features/editor/reference/`, `export/`, `live/` | The reference panel, the export dialog, and the agent-activity chip and `open_asset` follow                                                                                         |
+| `features/settings/`                             | The Settings screen: storage, the agent connection card, appearance, language, about                                                                                                |
+| `stores/`                                        | Zustand stores: shell, projects, document, animation (frames, playhead, onion skin), editor (tools, colours, selection, view toggles and the bottom panel), command palette, toasts |
+| `hooks/`                                         | Side effects: bootstrap, tool and palette shortcuts, dismissal, asset name sync                                                                                                     |
 
 A stroke is an op on the document, one batch per stroke and one undo per
 batch. Nothing is painted locally but the preview, so a stroke and an agent's
@@ -183,6 +196,8 @@ renderer translates the message.
 **Rust to renderer**: events. `document://changed` carries what changed, and it
 is raised identically whether the mutation came from a tool call or from the
 user, which is what keeps the canvas honest while an agent is drawing.
+`document://animation` carries an animation's frames after any change to
+them, from either side, which keeps the timeline honest the same way.
 
 **MCP client to Rust**: streamable HTTP on a loopback port, with a token, or
 stdio when the client spawns the process itself with `--mcp-stdio`. Both reach
@@ -227,6 +242,8 @@ enforces them in CI.
 - [The plan](../plan/PLAN.md) — what is built, what is scheduled, and in what order.
 - [Document model](document-model.md) — the schema and the IPC contract.
 - [MCP tools](mcp-tools.md) — every tool an agent can call.
+- [Animation frames](animation.md) — how frames, timing and the timeline are
+  built.
 - [IPC protocol](ipc-protocol.md) — how the parts find each other.
 - [Pixel editing plan](pixel-editing-plan.md) — how reference art is imported.
 - [Decision records](decisions/0001-record-architecture-decisions.md) — why the
