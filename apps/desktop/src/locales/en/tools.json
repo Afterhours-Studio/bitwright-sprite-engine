@@ -1,3 +1,36 @@
 {
-  "title": "Tools"
+  "title": "Tools",
+  "shortcuts": "Shortcuts",
+  "listLabel": "Drawing tools",
+  "keyHint": "Shortcut: {{key}}",
+  "tool": {
+    "pencil": { "name": "Pencil", "hint": "Draw freehand pixels" },
+    "eraser": { "name": "Eraser", "hint": "Erase pixels to transparent" },
+    "fill": { "name": "Paint bucket", "hint": "Fill an area with the same colour" },
+    "eyedropper": { "name": "Eyedropper", "hint": "Pick a colour from the layer" },
+    "select": { "name": "Rectangle select", "hint": "Create a selection" },
+    "wand": { "name": "Magic wand", "hint": "Select same-colour region; Shift: everywhere" },
+    "move": { "name": "Move", "hint": "Move the layer or selection" },
+    "pan": { "name": "Pan", "hint": "Drag or hold Space" },
+    "zoom": { "name": "Zoom", "hint": "Click to zoom, Alt to zoom out" },
+    "line": { "name": "Line", "hint": "Draw straight lines" },
+    "curve": { "name": "Curve", "hint": "Draw a curve" },
+    "rectangle": { "name": "Rectangle", "hint": "Draw rectangles" },
+    "ellipse": { "name": "Circle", "hint": "Draw circles and ellipses" },
+    "dither": { "name": "Checker dither", "hint": "Blend two colours in a checker" },
+    "lighten": { "name": "Lighten", "hint": "Step colours lighter along their ramp" },
+    "darken": { "name": "Darken", "hint": "Step colours darker along their ramp" }
+  },
+  "fill": {
+    "label": "Fill",
+    "on": "Filled",
+    "off": "Outline"
+  },
+  "symmetry": {
+    "label": "Mirror symmetry",
+    "off": "Off",
+    "horizontal": "Horizontal",
+    "vertical": "Vertical",
+    "both": "Both"
+  }
 }

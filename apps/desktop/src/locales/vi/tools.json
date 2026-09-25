@@ -1,3 +1,36 @@
 {
-  "title": "Công cụ"
+  "title": "Công cụ",
+  "shortcuts": "Phím tắt",
+  "listLabel": "Công cụ vẽ",
+  "keyHint": "Phím tắt: {{key}}",
+  "tool": {
+    "pencil": { "name": "Bút chì", "hint": "Vẽ tự do từng điểm ảnh" },
+    "eraser": { "name": "Tẩy", "hint": "Xoá điểm ảnh thành trong suốt" },
+    "fill": { "name": "Thùng sơn", "hint": "Tô kín một vùng cùng màu" },
+    "eyedropper": { "name": "Ống hút màu", "hint": "Lấy màu từ lớp" },
+    "select": { "name": "Chọn hình chữ nhật", "hint": "Tạo vùng chọn" },
+    "wand": { "name": "Đũa thần", "hint": "Chọn vùng cùng màu; Shift: chọn khắp nơi" },
+    "move": { "name": "Di chuyển", "hint": "Di chuyển lớp hoặc vùng chọn" },
+    "pan": { "name": "Kéo khung nhìn", "hint": "Kéo chuột hoặc giữ phím Space" },
+    "zoom": { "name": "Thu phóng", "hint": "Nhấp để phóng to, giữ Alt để thu nhỏ" },
+    "line": { "name": "Đường thẳng", "hint": "Vẽ đường thẳng" },
+    "curve": { "name": "Đường cong", "hint": "Vẽ đường cong" },
+    "rectangle": { "name": "Hình chữ nhật", "hint": "Vẽ hình chữ nhật" },
+    "ellipse": { "name": "Hình tròn", "hint": "Vẽ hình tròn và hình elip" },
+    "dither": { "name": "Hoà màu ô cờ", "hint": "Trộn hai màu theo kiểu ô cờ" },
+    "lighten": { "name": "Làm sáng", "hint": "Đẩy màu sáng hơn một bậc trên dải màu" },
+    "darken": { "name": "Làm tối", "hint": "Đẩy màu tối hơn một bậc trên dải màu" }
+  },
+  "fill": {
+    "label": "Tô kín",
+    "on": "Tô kín",
+    "off": "Viền"
+  },
+  "symmetry": {
+    "label": "Đối xứng gương",
+    "off": "Tắt",
+    "horizontal": "Ngang",
+    "vertical": "Dọc",
+    "both": "Cả hai"
+  }
 }
