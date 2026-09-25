@@ -115,3 +115,27 @@ Exit criteria met: the full gate green (prettier, typecheck, lint, 505 TS
 tests, the contrast check, rustfmt, clippy with warnings as errors, 431 Rust
 tests, 91 Python tests), a release build of the installer, everything
 committed, version `1.1.0` tagged with its CHANGELOG.
+
+## Phase 5 — Animation · in progress
+
+Goal: animation frames, for a person and for an agent — the reference
+layout's timeline (playback modes, FPS, per-frame duration, play, onion skin,
+duplicate, delete, reorder, add) on top of a model where every frame is an
+ordinary asset, so the workflow, the gates and every tool work on a frame
+unchanged; GIF export; MCP tools and a guide page for animating. The
+contract is [architecture/animation.md](architecture/animation.md).
+
+| Task | What                                                                                         | Owns                                                                                                                           | Wave | Status  |
+| ---- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ---- | ------- |
+| A.1  | Store: migration 5, frames and animation, shared palette, rename and delete rules; commands  | `store/**`, `commands/animation.rs`, command registration                                                                      | 1    | pending |
+| F.1  | Frontend types, bridge and animation store                                                   | `types/animation.ts`, `types/document.ts`, `lib/animation.ts`, `stores/useAnimationStore.ts`                                   | 1    | pending |
+| A.2  | MCP tools, host, guide page, tool reference                                                  | `mcp/**` except `mcp/tools/export.rs`, `docs/architecture/mcp-tools.md`, the guide sources                                     | 2    | pending |
+| A.3  | GIF export, sheets of an animation, `export_gif` command and tool                            | `export.rs`, `mcp/tools/export.rs`, the export command, `Cargo.toml`                                                           | 2    | pending |
+| F.2  | Timeline strip                                                                               | `features/editor/timeline/**`, `locales/*/timeline.json`                                                                       | 2    | pending |
+| F.3  | Stage and frame: onion skin, playback, header toggles, bottom panel, editor screen, commands | `features/editor/canvas/**`, `features/editor/header/**`, `EditorScreen.tsx`, `stores/useEditorStore.ts`, `CommandPalette.tsx` | 2    | pending |
+| F.4  | Home frame counts and the export dialog's GIF and sheet                                      | `features/home/**`, `features/editor/export/**`, `lib/export.ts`                                                               | 2    | pending |
+| A.4  | Integration, end-to-end over MCP, docs, README, 1.2.0                                        | everything else                                                                                                                | 3    | pending |
+
+Exit criteria: every row done and reviewed; the full gate green; an agent
+animates a sprite end to end over MCP (frames, durations, GIF); the timeline
+checked in the real window; README and docs updated; version `1.2.0` tagged.

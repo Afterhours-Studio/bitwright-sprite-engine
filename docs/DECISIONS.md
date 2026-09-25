@@ -129,3 +129,21 @@ A selection clips every tool. `draw_shape` is rasterised by Rust and has no
 mask, so while a selection exists a shape is rasterised client-side and sent
 as `set_pixels`; without one it stays `draw_shape`, so the rasteriser an
 agent and a person share is still Rust's.
+
+## 2026-09-25 — A frame is an asset, an animation is a list of them
+
+Frames could have been a new dimension of the layer table — every layer
+keyed by asset, frame and role — but then every op, every gate, the op log,
+undo, every MCP tool and every command would need a frame argument, and the
+workflow would have to decide what a step means across frames. Making each
+frame an ordinary asset and the animation an ordered list of them, the way a
+background is a grid of tile assets, leaves all of that untouched: a frame is
+drawn, checked and undone exactly as a sprite is. The cost is that frames
+share a palette by copying it — a palette write goes to every frame in one
+transaction — rather than by pointing at one row.
+
+## 2026-09-25 — The bottom panel holds the timeline or the steps
+
+The reference layout has one bottom strip, the timeline; Bitwright also has
+its steps strip there. Two stacked strips would take a fifth of the window,
+so the header has a toggle for each and the panel shows one at a time.
