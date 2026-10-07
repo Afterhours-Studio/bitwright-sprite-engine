@@ -37,7 +37,7 @@
     "@types/culori": "^2.1.1",
     "culori": "^4.0.1",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2",
+    "typescript": "^7.0.2",
     "prettier": "^3.4.2"
   },
   "engines": {
