@@ -16,25 +16,30 @@
 
 //! What the MCP server remembers about how it was last left configured.
 //!
-//! Two decisions belong here. Whether the server is listening at all, and on
-//! which port, because both have to be known before the window is drawn so the
-//! shell can show the same address that the server binds. The third is the
-//! bearer token clients present, which is generated once and then kept, so a
-//! client paired yesterday still works today.
+//! Two decisions belong here: whether the server is listening at all, and on
+//! which port. Both have to be known before the window is drawn so the shell
+//! can show the same address that the server binds, and the port is kept so a
+//! client configured yesterday still finds the server today.
+//!
+//! There is no secret in here any more. The server binds loopback only and
+//! refuses anything a browser could send (see `server.rs`), so every process
+//! that can reach it already runs on this machine and could open the document
+//! store directly; a token guarded nothing that was not already reachable,
+//! and only made every client harder to configure. Files written by older
+//! versions still carry a `token` field, which is ignored on load and dropped
+//! on the next save.
 //!
 //! The file is one small JSON document in a directory the caller resolves;
 //! this module deliberately knows nothing about where the platform keeps its
 //! configuration, which keeps every function here testable against a scratch
 //! directory. A missing or malformed file is not an error worth refusing to
-//! start over, so both cases produce a fresh config with a new token that is
-//! written straight back: what the server ends up using is therefore always
-//! what is on disk.
+//! start over, so both cases produce a fresh config that is written straight
+//! back: what the server ends up using is therefore always what is on disk.
 
 use std::fs;
 use std::io;
 use std::path::Path;
 
-use rand::RngCore;
 use serde::{Deserialize, Serialize};
 
 /// Name of the settings file inside the directory the caller resolves.
@@ -42,10 +47,6 @@ pub const FILE_NAME: &str = "mcp.json";
 
 /// Extension of the file a save is written to before it replaces the real one.
 const TEMPORARY_EXTENSION: &str = "json.tmp";
-
-/// Number of random bytes behind a token, rendered as twice this many hex
-/// characters.
-const TOKEN_BYTES: usize = 32;
 
 /// Whether the server is listening, and how.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -60,7 +61,10 @@ pub enum Transport {
 }
 
 /// The persisted settings of the server.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// Unknown fields are ignored rather than refused, which is what lets a file
+/// that still holds the bearer token of an older version load unchanged.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct McpConfig {
     /// Whether the server listens, and how.
@@ -71,32 +75,15 @@ pub struct McpConfig {
     /// the behaviour of a server that was never given one.
     #[serde(default)]
     pub port: Option<u16>,
-
-    /// Secret every client has to present. Never empty in practice: a file
-    /// without one does not parse and so is replaced.
-    pub token: String,
-}
-
-impl McpConfig {
-    /// A config for a server that has never been configured: default
-    /// transport, no chosen port, and a token nobody has seen before.
-    fn fresh() -> Self {
-        Self {
-            transport: Transport::default(),
-            port: None,
-            token: new_token(),
-        }
-    }
 }
 
 /// Reads `<dir>/mcp.json`.
 ///
 /// A file that does not exist, or exists but does not parse, is replaced by a
-/// fresh config with a new token, which is saved before it is returned; the
-/// caller always gets a config that matches what is on disk. A file that
-/// exists but cannot be read at all (permissions, a locked volume) is reported
-/// rather than worked around, because overwriting it would throw away a token
-/// a client may still be using.
+/// fresh config, which is saved before it is returned; the caller always gets a
+/// config that matches what is on disk. A file that exists but cannot be read
+/// at all (permissions, a locked volume) is reported rather than worked around,
+/// because overwriting it would throw away a port a client may still be using.
 ///
 /// # Errors
 ///
@@ -107,19 +94,7 @@ pub fn load(dir: &Path) -> io::Result<McpConfig> {
 
     match fs::read_to_string(&path) {
         Ok(text) => match serde_json::from_str::<McpConfig>(&text) {
-            Ok(config) if is_well_formed_token(&config.token) => Ok(config),
-            Ok(config) => {
-                log::warn!(
-                    "{} holds a token that is not 64 lowercase hex characters, replacing it",
-                    path.display()
-                );
-                let config = McpConfig {
-                    token: new_token(),
-                    ..config
-                };
-                save(dir, &config)?;
-                Ok(config)
-            }
+            Ok(config) => Ok(config),
             Err(error) => {
                 log::warn!("ignoring malformed {}: {error}", path.display());
                 write_fresh(dir)
@@ -136,22 +111,20 @@ pub fn load(dir: &Path) -> io::Result<McpConfig> {
     }
 }
 
-/// Whether a stored token is exactly 64 lowercase hex characters.
+/// Reads `<dir>/mcp.json` without ever writing it.
 ///
-/// A file that holds anything else — an empty string, a truncated paste, a
-/// token from an older format — is treated the way a malformed file is: the
-/// token is replaced, because `token_matches("", "")` would otherwise let a
-/// bare `Authorization: Bearer ` through.
-fn is_well_formed_token(token: &str) -> bool {
-    token.len() == TOKEN_BYTES * 2
-        && token
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+/// For the stdio process, which only wants to know where the running app
+/// listens and must not create or repair the app's settings behind its back.
+/// `None` when the file is missing, unreadable or malformed.
+#[must_use]
+pub fn peek(dir: &Path) -> Option<McpConfig> {
+    let text = fs::read_to_string(dir.join(FILE_NAME)).ok()?;
+    serde_json::from_str(&text).ok()
 }
 
 /// Builds a fresh config, puts it on disk, and hands it back.
 fn write_fresh(dir: &Path) -> io::Result<McpConfig> {
-    let config = McpConfig::fresh();
+    let config = McpConfig::default();
     save(dir, &config)?;
     Ok(config)
 }
@@ -177,62 +150,6 @@ pub fn save(dir: &Path, config: &McpConfig) -> io::Result<()> {
     fs::rename(&temporary, &path)
 }
 
-/// A new 32-byte random token, written as 64 lowercase hex characters.
-///
-/// Hex rather than the raw bytes so the token survives being pasted into a
-/// client's configuration and carried in an HTTP header, neither of which has
-/// any business carrying arbitrary bytes.
-pub fn new_token() -> String {
-    let mut bytes = [0u8; TOKEN_BYTES];
-    rand::rng().fill_bytes(&mut bytes);
-
-    const DIGITS: &[u8; 16] = b"0123456789abcdef";
-    let mut token = String::with_capacity(TOKEN_BYTES * 2);
-    for byte in bytes {
-        token.push(char::from(DIGITS[usize::from(byte >> 4)]));
-        token.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
-    }
-    token
-}
-
-/// Throws the token away and puts a new one in its place, saving the result.
-///
-/// What was on disk is read first, so the transport and port the user chose
-/// survive; only the secret changes. Clients holding the old token are locked
-/// out from this moment on, which is the point.
-///
-/// # Errors
-///
-/// Returns the underlying failure from [`load`] or [`save`].
-pub fn regenerate_token(dir: &Path) -> io::Result<McpConfig> {
-    let mut config = load(dir)?;
-    config.token = new_token();
-    save(dir, &config)?;
-    Ok(config)
-}
-
-/// Compares a token a client presented with the one on file.
-///
-/// Every byte of the expected token is examined regardless of where a
-/// difference is found, so the time taken says nothing about how much of a
-/// guess was right. A length mismatch is reported as no match, but the scan
-/// still runs rather than ending at the first difference.
-#[must_use]
-pub fn token_matches(expected: &str, given: &str) -> bool {
-    let expected = expected.as_bytes();
-    let given = given.as_bytes();
-    let lengths_match = expected.len() == given.len();
-
-    let mut difference = 0u8;
-    for index in 0..expected.len().max(given.len()) {
-        let left = expected.get(index).copied().unwrap_or(0);
-        let right = given.get(index).copied().unwrap_or(0);
-        difference |= left ^ right;
-    }
-
-    lengths_match && difference == 0
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -244,24 +161,14 @@ mod tests {
     fn in_scratch<T>(body: impl FnOnce(&Path) -> T) -> T {
         let dir = std::env::temp_dir().join(format!("bitwright-mcp-{}", uuid::Uuid::now_v7()));
         let result = body(&dir);
-        fs::remove_dir_all(&dir).expect("remove the scratch directory");
+        if dir.exists() {
+            fs::remove_dir_all(&dir).expect("remove the scratch directory");
+        }
         result
     }
 
     fn config_with(transport: Transport, port: Option<u16>) -> McpConfig {
-        McpConfig {
-            transport,
-            port,
-            token: new_token(),
-        }
-    }
-
-    fn is_lowercase_hex(value: &str) -> bool {
-        !value.is_empty()
-            && value.len() % 2 == 0
-            && value
-                .bytes()
-                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        McpConfig { transport, port }
     }
 
     /// Every name in the scratch directory, to check a save leaves nothing else
@@ -276,16 +183,15 @@ mod tests {
     }
 
     #[test]
-    fn a_first_load_creates_the_file_with_a_new_token() {
+    fn a_first_load_creates_the_file() {
         in_scratch(|dir| {
             let config = load(dir).expect("a first load always succeeds");
 
             assert_eq!(config.transport, Transport::Http);
             assert_eq!(config.port, None);
-            assert_eq!(config.token.len(), TOKEN_BYTES * 2);
-            assert!(is_lowercase_hex(&config.token));
 
             let text = fs::read_to_string(dir.join(FILE_NAME)).expect("the file has to be there");
+            assert!(!text.contains("token"), "{text}");
             let on_disk: McpConfig =
                 serde_json::from_str(&text).expect("what we wrote has to parse");
             assert_eq!(on_disk, config);
@@ -305,29 +211,13 @@ mod tests {
     }
 
     #[test]
-    fn a_second_load_returns_the_same_token() {
-        in_scratch(|dir| {
-            let first = load(dir).unwrap();
-            let second = load(dir).unwrap();
-
-            assert_eq!(first, second);
-            assert!(token_matches(&first.token, &second.token));
-            assert_eq!(names(dir), vec![PathBuf::from(FILE_NAME)]);
-        });
-    }
-
-    #[test]
     fn a_corrupt_file_yields_a_fresh_config_and_is_replaced() {
         in_scratch(|dir| {
             fs::create_dir_all(dir).unwrap();
             fs::write(dir.join(FILE_NAME), "{ this is not json").unwrap();
 
             let config = load(dir).unwrap();
-            assert_eq!(config.transport, Transport::Http);
-            assert_eq!(config.port, None);
-            assert_eq!(config.token.len(), TOKEN_BYTES * 2);
-            assert!(is_lowercase_hex(&config.token));
-
+            assert_eq!(config, McpConfig::default());
             assert_eq!(
                 load(dir).unwrap(),
                 config,
@@ -337,35 +227,49 @@ mod tests {
     }
 
     #[test]
-    fn a_file_with_no_token_is_treated_as_corrupt() {
+    fn a_file_from_an_older_version_with_a_token_still_loads() {
+        in_scratch(|dir| {
+            fs::create_dir_all(dir).unwrap();
+            fs::write(
+                dir.join(FILE_NAME),
+                r#"{"transport":"off","port":4599,"token":"00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"}"#,
+            )
+            .unwrap();
+
+            let config = load(dir).unwrap();
+            assert_eq!(config, config_with(Transport::Off, Some(4_599)));
+
+            save(dir, &config).unwrap();
+            let text = fs::read_to_string(dir.join(FILE_NAME)).unwrap();
+            assert!(!text.contains("token"), "the token is dropped: {text}");
+        });
+    }
+
+    #[test]
+    fn a_file_without_a_token_keeps_its_choices() {
         in_scratch(|dir| {
             fs::create_dir_all(dir).unwrap();
             fs::write(dir.join(FILE_NAME), r#"{"transport":"off","port":4599}"#).unwrap();
 
-            let config = load(dir).unwrap();
-            assert_eq!(
-                config.transport,
-                Transport::Http,
-                "a fresh config starts listening"
-            );
-            assert_eq!(config.port, None);
-            assert!(is_lowercase_hex(&config.token));
+            assert_eq!(load(dir).unwrap(), config_with(Transport::Off, Some(4_599)));
         });
     }
 
     #[test]
-    fn an_empty_token_is_replaced_with_a_fresh_one() {
+    fn peek_reads_without_writing() {
         in_scratch(|dir| {
-            fs::create_dir_all(dir).unwrap();
-            fs::write(dir.join(FILE_NAME), r#"{"token":""}"#).unwrap();
+            assert_eq!(peek(dir), None);
+            assert!(!dir.exists(), "peek creates nothing");
 
-            let config = load(dir).unwrap();
-            assert_eq!(config.token.len(), TOKEN_BYTES * 2);
-            assert!(is_lowercase_hex(&config.token));
+            save(dir, &config_with(Transport::Http, Some(5_123))).unwrap();
+            assert_eq!(peek(dir), Some(config_with(Transport::Http, Some(5_123))));
+
+            fs::write(dir.join(FILE_NAME), "{ broken").unwrap();
+            assert_eq!(peek(dir), None);
             assert_eq!(
-                load(dir).unwrap(),
-                config,
-                "the replacement has to survive a reload"
+                fs::read_to_string(dir.join(FILE_NAME)).unwrap(),
+                "{ broken",
+                "a broken file is left alone"
             );
         });
     }
@@ -417,80 +321,5 @@ mod tests {
             assert_eq!(load(dir).unwrap(), second);
             assert_ne!(load(dir).unwrap(), first);
         });
-    }
-
-    #[test]
-    fn regenerating_the_token_changes_it_and_persists_the_new_one() {
-        in_scratch(|dir| {
-            let before = load(dir).unwrap();
-
-            let after = regenerate_token(dir).unwrap();
-            assert_ne!(before.token, after.token);
-            assert_eq!(after.token.len(), TOKEN_BYTES * 2);
-            assert!(is_lowercase_hex(&after.token));
-            assert_eq!(after.transport, before.transport);
-            assert_eq!(after.port, before.port);
-
-            assert_eq!(
-                load(dir).unwrap(),
-                after,
-                "the new token has to be the one on disk"
-            );
-            assert!(!token_matches(&after.token, &before.token));
-        });
-    }
-
-    #[test]
-    fn regenerating_keeps_a_port_the_user_chose() {
-        in_scratch(|dir| {
-            save(dir, &config_with(Transport::Off, Some(4_599))).unwrap();
-
-            let config = regenerate_token(dir).unwrap();
-            assert_eq!(config.transport, Transport::Off);
-            assert_eq!(config.port, Some(4_599));
-        });
-    }
-
-    #[test]
-    fn regenerating_a_server_that_is_not_there_yet_gives_it_a_token() {
-        in_scratch(|dir| {
-            let config = regenerate_token(dir).unwrap();
-            assert!(is_lowercase_hex(&config.token));
-            assert_eq!(load(dir).unwrap(), config);
-        });
-    }
-
-    #[test]
-    fn tokens_are_matched_exactly() {
-        let token = new_token();
-        assert!(token_matches(&token, &token));
-
-        let mut near_miss = token.clone();
-        let last = near_miss.pop().expect("a token is not empty");
-        near_miss.push(if last == '0' { '1' } else { '0' });
-        assert!(!token_matches(&token, &near_miss));
-
-        let mut first_byte_wrong = String::from(&token[1..]);
-        first_byte_wrong.insert(0, if token.starts_with('0') { '1' } else { '0' });
-        assert!(!token_matches(&token, &first_byte_wrong));
-    }
-
-    #[test]
-    fn a_length_difference_is_not_a_match() {
-        assert!(!token_matches("abcdef", "abc"));
-        assert!(!token_matches("abc", "abcdef"));
-        assert!(!token_matches("", "a"));
-        assert!(!token_matches("a", ""));
-        assert!(token_matches("", ""));
-        assert!(token_matches("abc", "abc"));
-    }
-
-    #[test]
-    fn successive_tokens_are_different() {
-        let mut seen = std::collections::BTreeSet::new();
-        for _ in 0..32 {
-            let token = new_token();
-            assert!(seen.insert(token.clone()), "a repeated token: {token}");
-        }
     }
 }

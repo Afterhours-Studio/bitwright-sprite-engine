@@ -523,7 +523,6 @@ pub fn handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + 
         open_external,
         crate::mcp::server::mcp_status,
         crate::mcp::server::mcp_set_transport,
-        crate::mcp::server::mcp_regenerate_token,
         crate::mcp::clients::mcp_clients,
         crate::mcp::clients::mcp_client_register,
         crate::mcp::clients::mcp_client_unregister,

@@ -149,17 +149,20 @@ The other keys are in [Keyboard shortcuts](#keyboard-shortcuts).
   advance past one that failed its gate is recorded in the op log as forced.
   Both ask for confirmation first.
 - The MCP server runs inside the application, with two transports: **HTTP
-  Local**, a loopback endpoint with a bearer token, and **stdio**, for clients
-  that spawn the process themselves.
-- Settings → **Agent connection** card: transport, status, URL with copy, token
-  (masked, with Reveal, Copy and Regenerate), connected sessions, one row per
-  client (Claude Code, Claude Desktop, Cursor) with Register and Remove,
-  **Configure all detected clients**, and **Manual configuration** — a JSON
-  snippet for any other client.
-- Client configuration is written for Claude Code (`~/.claude.json`), Cursor
-  (`~/.cursor/mcp.json`) and Claude Desktop (`claude_desktop_config.json`,
-  stdio). Only the `mcpServers.bitwright` key is written, a `.bak` is kept, and
-  invalid JSON is never overwritten.
+  Local**, a loopback endpoint that needs no credential, and **stdio**, for
+  clients that spawn the process themselves. While the app is open the stdio
+  process bridges to its HTTP endpoint, so a stdio client draws live in the
+  open document too.
+- Settings → **Agent connection** card: transport, status, URL with copy,
+  connected sessions, one row per client (Claude Code, Claude Desktop, Cursor,
+  Windsurf, Codex) with Register and Remove, **Configure all detected
+  clients**, and **Manual configuration** — a JSON snippet for any other
+  client.
+- Client configuration is written for Claude Code (`~/.claude.json`), Claude
+  Desktop (`claude_desktop_config.json`, stdio), Cursor (`~/.cursor/mcp.json`),
+  Windsurf (`~/.codeium/windsurf/mcp_config.json`) and Codex
+  (`~/.codex/config.toml`, stdio). Only the `bitwright` entry is written, a
+  `.bak` is kept, and a file that does not parse is never overwritten.
 - The drawing manual is served by the server itself, over `read_guide` and the
   `bitwright://guide/*` resources, so an agent reads the same manual whatever
   client it runs in rather than one baked into a system prompt that drifts from
@@ -248,10 +251,10 @@ project id>/`, since a tool call cannot pick a folder of its own.
 - Dark and light themes, with contrast verified in CI rather than by eye.
 - No telemetry. The MCP server never reaches the network, never runs commands,
   and reads or writes no files but the document store.
-- The HTTP transport is authenticated and loopback only, so no other process on
-  the machine can drive it, and a web page cannot reach it through DNS
-  rebinding. Requests carrying an `Origin` header are refused with 403, and a
-  wrong or missing token is 401.
+- The HTTP transport binds loopback only, so nothing off this machine can reach
+  it, and a web page cannot reach it either: requests carrying an `Origin`
+  header are refused with 403, and so is any `Host` other than
+  `127.0.0.1:<port>` or `localhost:<port>`, which defeats DNS rebinding.
 
 Forty-seven tools are registered, every one of them answering for real, listed
 in [the MCP tool catalogue](docs/architecture/mcp-tools.md). A tool whose
@@ -330,19 +333,22 @@ sprite.
    **Advance** moves on when it passes.
 4. To have an agent draw, open **Settings** (from the home sidebar, or the
    round button at the end of the editor header), then **Agent connection**.
-   Leave the transport at **HTTP Local**: it binds a loopback port and issues
-   a token, so the client has to be on this machine.
+   Leave the transport at **HTTP Local**: it binds a loopback port, so the
+   client has to be on this machine.
 5. Press **Configure all detected clients**. Bitwright looks for Claude Code,
-   Claude Desktop and Cursor, writes the server entry into each one's
-   configuration, and lists what it found. Each client has its own row with
-   **Register** and **Remove**. If your client is not one of the three,
+   Claude Desktop, Cursor, Windsurf and Codex, writes the server entry into
+   each one's configuration, and lists what it found. Each client has its own
+   row with **Register** and **Remove**. If your client is not one of these,
    **Manual configuration** on the same card is the JSON snippet to paste in
    yourself.
-6. Restart the client so it picks up the new server. The home sidebar's agent
-   card reads "Agent connected" when it does, and the connected sessions list
-   on the Settings card turns over. A client that spawns the process itself
-   uses stdio instead — `bitwright --mcp-stdio` — and carries no token,
-   because the spawning process is the trust boundary.
+6. Restart the client so it picks up the new server. Claude Desktop has to be
+   quit fully, from its tray icon, and reopened: while it runs it writes its
+   own copy of its configuration file back and drops the entry, and the card
+   says so on its row. The home sidebar's agent card reads "Agent connected"
+   when the client connects, and the connected sessions list on the Settings
+   card turns over. Claude Desktop and Codex launch `bitwright --mcp-stdio`
+   themselves; while the app is open that process relays to it, so their
+   drawing shows up live like any other client's.
 7. In your client, ask the agent to open the sprite and draw it:
 
    ```
@@ -384,8 +390,8 @@ text field has focus, so typing a sprite's name never changes the tool.
 
 Most settings are in the application. The data root can also be set with an
 environment variable, and the MCP transport and its port are chosen from
-Settings → **Agent connection**; the token there is generated for you, and the
-card lets you reveal it, copy it or regenerate it, rather than set it.
+Settings → **Agent connection**. There is no token to set: the server is
+loopback only and refuses browser requests.
 
 | Setting   | Variable              | Default                 | Meaning                                      |
 | --------- | --------------------- | ----------------------- | -------------------------------------------- |
@@ -393,7 +399,7 @@ card lets you reveal it, copy it or regenerate it, rather than set it.
 | Log level | `BITWRIGHT_LOG_LEVEL` | `INFO`                  | Sidecar log level                            |
 
 The data root holds `bitwright.db` — projects, assets and the op log — and
-`mcp.json`, which records the transport, the port and the token. The port is
+`mcp.json`, which records the transport and the port. The port is
 kept between runs when it is free.
 
 Export from the editor writes into whatever folder you pick with the system
@@ -405,8 +411,9 @@ anywhere else on disk.
 
 A client that spawns Bitwright itself — rather than connecting to the HTTP
 transport — runs it with `bitwright --mcp-stdio`, which serves MCP over
-standard input and output instead of opening a window, and carries no token
-because the spawning process is the trust boundary.
+standard input and output instead of opening a window. When the app is open
+with HTTP on, that process relays every message to the app, so the drawing
+appears in the open document; otherwise it serves the store headless.
 
 Full list in [the configuration reference](docs/reference/configuration.md).
 
@@ -511,9 +518,9 @@ React (webview)   --Tauri IPC-->   Rust shell   --loopback HTTP-->   Python side
 The Rust shell owns the window, the document store, the raster core and the MCP
 server. The frontend talks to Rust over Tauri IPC for the document and the
 window. The MCP server exposes the tool catalogue over loopback HTTP at
-`http://127.0.0.1:<port>/mcp` with a bearer token, or over stdio when a client
-spawns the process with `bitwright --mcp-stdio`; the spawning process is the
-trust boundary there, so stdio carries no token.
+`http://127.0.0.1:<port>/mcp`, guarded by its `Origin` and `Host` checks rather
+than a token, or over stdio when a client spawns the process with
+`bitwright --mcp-stdio`, which relays to that endpoint while the app is open.
 
 The shell spawns the Python sidecar at startup. The sidecar serves conform —
 reference import — only, over its own authenticated loopback API; every other

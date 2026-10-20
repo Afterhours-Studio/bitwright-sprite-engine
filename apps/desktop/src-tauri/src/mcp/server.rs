@@ -18,10 +18,20 @@
 //!
 //! The transport is rmcp's streamable HTTP service mounted at `/mcp` behind a
 //! small guard. The guard exists because a loopback listener is reachable from
-//! any page the user's browser happens to have open: a request carrying an
-//! `Origin` header is refused outright, and everything else has to present the
-//! bearer token from the settings file. Nothing here is registered with the
-//! application; the shell wires the commands and the managed state up.
+//! any page the user's browser happens to have open. Two checks close that:
+//! a request carrying an `Origin` header is refused outright (a browser always
+//! sends one on a cross-site fetch, a local MCP client never does), and the
+//! `Host` header has to name this listener as `127.0.0.1:<port>` or
+//! `localhost:<port>`, which is what defeats DNS rebinding, where a page on a
+//! hostile name that resolves to 127.0.0.1 would otherwise count as same-site.
+//!
+//! There is no bearer token. The listener binds 127.0.0.1 only, so whatever
+//! reaches it is already a process on this machine, and such a process can
+//! open the document store directly; a token added a step to every client's
+//! setup and protected nothing those processes could not already reach.
+//!
+//! Nothing here is registered with the application; the shell wires the
+//! commands and the managed state up.
 
 use std::collections::HashMap;
 use std::io;
@@ -72,8 +82,6 @@ pub struct McpStatus {
     pub port: Option<u16>,
     /// The address a client should connect to, when running.
     pub url: Option<String>,
-    /// The bearer token a client has to present.
-    pub token: String,
     /// The sessions currently connected.
     pub sessions: Vec<SessionInfo>,
 }
@@ -140,20 +148,18 @@ impl McpServerState {
             transport: inner.config.transport,
             running: inner.running.is_some(),
             port,
-            url: port.map(|port| format!("http://127.0.0.1:{port}/mcp")),
-            token: inner.config.token.clone(),
+            url: port.map(endpoint_url),
             sessions,
         }
     }
 
-    /// The address and token a client needs, when the server is running.
-    pub fn endpoint(&self) -> Option<(String, String)> {
+    /// The address a client needs, when the server is running.
+    pub fn endpoint(&self) -> Option<String> {
         let inner = self.lock();
-        let running = inner.running.as_ref()?;
-        Some((
-            format!("http://127.0.0.1:{}/mcp", running.port),
-            inner.config.token.clone(),
-        ))
+        inner
+            .running
+            .as_ref()
+            .map(|running| endpoint_url(running.port))
     }
 
     /// Locks the guarded state, ignoring a poisoned lock rather than refusing
@@ -163,6 +169,12 @@ impl McpServerState {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
+}
+
+/// The streamable HTTP address of a listener on `port`.
+#[must_use]
+pub fn endpoint_url(port: u16) -> String {
+    format!("http://127.0.0.1:{port}/mcp")
 }
 
 /// Locks the session table, ignoring a poisoned lock.
@@ -225,7 +237,7 @@ async fn bind(port: Option<u16>) -> io::Result<tokio::net::TcpListener> {
 pub async fn start<R: Runtime>(app: &AppHandle<R>) -> Result<McpStatus, String> {
     let state = app.state::<McpServerState>();
 
-    let (transport, saved_port, token, sessions) = {
+    let (transport, saved_port, sessions) = {
         let inner = state.lock();
         if inner.running.is_some() {
             drop(inner);
@@ -234,7 +246,6 @@ pub async fn start<R: Runtime>(app: &AppHandle<R>) -> Result<McpStatus, String> 
         (
             inner.config.transport,
             inner.config.port,
-            inner.config.token.clone(),
             inner.sessions.clone(),
         )
     };
@@ -295,14 +306,17 @@ pub async fn start<R: Runtime>(app: &AppHandle<R>) -> Result<McpStatus, String> 
         }
     };
 
-    let server_config = StreamableHttpServerConfig::default();
+    // rmcp checks the Host header too; narrowing its list to this exact
+    // listener keeps the two checks saying the same thing.
+    let server_config =
+        StreamableHttpServerConfig::default().with_allowed_hosts(allowed_hosts(port));
     let cancel_token = server_config.cancellation_token.clone();
     let service = StreamableHttpService::new(
         factory,
         Arc::new(LocalSessionManager::default()),
         server_config,
     );
-    let app_router = router(service, token);
+    let app_router = router(service, port);
 
     let shutdown_token = cancel_token.clone();
     let shutdown = async move { shutdown_token.cancelled_owned().await };
@@ -345,16 +359,21 @@ pub async fn stop<R: Runtime>(app: &AppHandle<R>) -> Result<McpStatus, String> {
 /// Mounts the MCP service at `/mcp` behind the guard.
 pub fn router(
     service: StreamableHttpService<BitwrightServer, LocalSessionManager>,
-    token: String,
+    port: u16,
 ) -> Router {
     Router::new()
         .nest_service("/mcp", service)
-        .layer(middleware::from_fn_with_state(token, guard))
+        .layer(middleware::from_fn_with_state(port, guard))
 }
 
-/// Refuses browser origins and anything without the right bearer token.
-async fn guard(State(token): State<String>, request: Request, next: Next) -> Response {
-    if let Err(status) = authorize(request.headers(), &token) {
+/// The `Host` values a request to the listener on `port` may carry.
+fn allowed_hosts(port: u16) -> [String; 2] {
+    [format!("127.0.0.1:{port}"), format!("localhost:{port}")]
+}
+
+/// Refuses browser origins and requests addressed to any other host.
+async fn guard(State(port): State<u16>, request: Request, next: Next) -> Response {
+    if let Err(status) = authorize(request.headers(), port) {
         return status.into_response();
     }
 
@@ -362,19 +381,22 @@ async fn guard(State(token): State<String>, request: Request, next: Next) -> Res
 }
 
 /// The decision the guard makes, split out so it can be tested directly.
-fn authorize(headers: &HeaderMap, token: &str) -> Result<(), StatusCode> {
+///
+/// Both refusals are 403: neither is something a client could fix by
+/// presenting a credential, because there is none to present.
+fn authorize(headers: &HeaderMap, port: u16) -> Result<(), StatusCode> {
     if headers.contains_key(header::ORIGIN) {
         return Err(StatusCode::FORBIDDEN);
     }
 
-    let presented = headers
-        .get(header::AUTHORIZATION)
+    let host = headers
+        .get(header::HOST)
         .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.strip_prefix("Bearer "));
+        .map(str::to_ascii_lowercase);
 
-    match presented {
-        Some(presented) if config::token_matches(token, presented) => Ok(()),
-        _ => Err(StatusCode::UNAUTHORIZED),
+    match host {
+        Some(host) if allowed_hosts(port).contains(&host) => Ok(()),
+        _ => Err(StatusCode::FORBIDDEN),
     }
 }
 
@@ -412,34 +434,6 @@ pub async fn mcp_set_transport<R: Runtime>(
     }
 }
 
-/// Replaces the token, restarting the server when it was running.
-///
-/// # Errors
-///
-/// Returns a message when the settings cannot be saved or the server cannot be
-/// restarted.
-#[tauri::command]
-pub async fn mcp_regenerate_token<R: Runtime>(app: AppHandle<R>) -> Result<McpStatus, String> {
-    let was_running = { app.state::<McpServerState>().lock().running.is_some() };
-    if was_running {
-        stop(&app).await?;
-    }
-
-    {
-        let state = app.state::<McpServerState>();
-        let mut inner = state.lock();
-        let config =
-            config::regenerate_token(&inner.data_dir).map_err(|error| error.to_string())?;
-        inner.config = config;
-    }
-
-    if was_running {
-        start(&app).await
-    } else {
-        Ok(app.state::<McpServerState>().status())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -458,73 +452,66 @@ mod tests {
     }
 
     #[test]
-    fn an_origin_header_is_forbidden() {
-        let token = config::new_token();
-        let bearer = format!("Bearer {token}");
+    fn an_origin_header_is_forbidden_even_with_a_good_host() {
         let headers = headers_with(&[
             ("origin", "http://evil.example"),
-            ("authorization", &bearer),
+            ("host", "127.0.0.1:4321"),
         ]);
 
-        let status = authorize(&headers, &token).expect_err("an origin is refused");
+        let status = authorize(&headers, 4_321).expect_err("an origin is refused");
         assert_eq!(status, StatusCode::FORBIDDEN);
     }
 
     #[test]
-    fn a_missing_token_is_unauthorized() {
-        let token = config::new_token();
-        let status = authorize(&HeaderMap::new(), &token).expect_err("a token is required");
-        assert_eq!(status, StatusCode::UNAUTHORIZED);
+    fn a_loopback_host_on_the_right_port_passes() {
+        for host in ["127.0.0.1:4321", "localhost:4321", "LocalHost:4321"] {
+            let headers = headers_with(&[("host", host)]);
+            assert!(authorize(&headers, 4_321).is_ok(), "{host} is allowed");
+        }
     }
 
     #[test]
-    fn a_wrong_token_is_unauthorized() {
-        let token = config::new_token();
-        let bearer = format!("Bearer {}", config::new_token());
-        let headers = headers_with(&[("authorization", &bearer)]);
-
-        let status = authorize(&headers, &token).expect_err("a wrong token is refused");
-        assert_eq!(status, StatusCode::UNAUTHORIZED);
+    fn a_rebound_hostname_is_forbidden() {
+        let headers = headers_with(&[("host", "evil.example:4321")]);
+        let status = authorize(&headers, 4_321).expect_err("a foreign host is refused");
+        assert_eq!(status, StatusCode::FORBIDDEN);
     }
 
     #[test]
-    fn a_token_without_the_bearer_scheme_is_unauthorized() {
-        let token = config::new_token();
-        let headers = headers_with(&[("authorization", &token)]);
-
-        let status = authorize(&headers, &token).expect_err("the scheme is required");
-        assert_eq!(status, StatusCode::UNAUTHORIZED);
+    fn a_loopback_host_on_another_port_is_forbidden() {
+        for host in ["127.0.0.1:9999", "localhost", "127.0.0.1"] {
+            let headers = headers_with(&[("host", host)]);
+            let status = authorize(&headers, 4_321).expect_err("the port has to match");
+            assert_eq!(status, StatusCode::FORBIDDEN, "{host}");
+        }
     }
 
     #[test]
-    fn the_right_token_passes() {
-        let token = config::new_token();
-        let bearer = format!("Bearer {token}");
-        let headers = headers_with(&[("authorization", &bearer)]);
-
-        assert!(authorize(&headers, &token).is_ok());
+    fn a_missing_host_is_forbidden() {
+        let status = authorize(&HeaderMap::new(), 4_321).expect_err("a host is required");
+        assert_eq!(status, StatusCode::FORBIDDEN);
     }
 
     /// Serves a trivial handler behind the guard on a real loopback port.
-    async fn spawn_guarded(token: String) -> (String, tokio::task::JoinHandle<()>) {
-        let app = Router::new()
-            .route("/mcp", post(|| async { "ok" }))
-            .layer(middleware::from_fn_with_state(token, guard));
+    async fn spawn_guarded() -> (u16, tokio::task::JoinHandle<()>) {
         let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0))
             .await
             .expect("bind a loopback port");
         let port = listener.local_addr().expect("the bound address").port();
+        let app = Router::new()
+            .route("/mcp", post(|| async { "ok" }))
+            .layer(middleware::from_fn_with_state(port, guard));
         let server = tokio::spawn(async move {
             axum::serve(listener, app).await.expect("serve the router");
         });
 
-        (format!("http://127.0.0.1:{port}/mcp"), server)
+        (port, server)
     }
 
     #[tokio::test]
     async fn the_guard_runs_in_front_of_the_router() {
-        let token = config::new_token();
-        let (url, _server) = spawn_guarded(token.clone()).await;
+        let (port, _server) = spawn_guarded().await;
+        let url = endpoint_url(port);
         let client = reqwest::Client::new();
 
         let forbidden = client
@@ -535,25 +522,28 @@ mod tests {
             .expect("a response");
         assert_eq!(forbidden.status(), 403);
 
-        let missing = client.post(&url).send().await.expect("a response");
-        assert_eq!(missing.status(), 401);
-
-        let wrong = client
+        let rebound = client
             .post(&url)
-            .header("Authorization", format!("Bearer {}", config::new_token()))
+            .header("Host", format!("evil.example:{port}"))
             .send()
             .await
             .expect("a response");
-        assert_eq!(wrong.status(), 401);
+        assert_eq!(rebound.status(), 403);
 
-        let allowed = client
-            .post(&url)
-            .header("Authorization", format!("Bearer {token}"))
-            .send()
-            .await
-            .expect("a response");
+        // No credential of any kind: a plain loopback request is let through.
+        let allowed = client.post(&url).send().await.expect("a response");
         assert_eq!(allowed.status(), 200);
         assert_eq!(allowed.text().await.expect("a body"), "ok");
+
+        let by_name = client
+            .post(format!("http://localhost:{port}/mcp"))
+            .send()
+            .await;
+        // `localhost` may resolve to ::1 first on some machines, where nothing
+        // listens; only check the answer when the request got through at all.
+        if let Ok(response) = by_name {
+            assert_eq!(response.status(), 200);
+        }
     }
 
     /// A fresh directory under the system temporary directory.
@@ -584,33 +574,33 @@ mod tests {
         assert_eq!(status.port, None);
         assert_eq!(status.url, None);
         assert!(status.sessions.is_empty());
-        assert!(!status.token.is_empty(), "a token was generated on load");
+        assert_eq!(state.endpoint(), None);
 
         std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]
-    fn status_matches_the_token_persisted_on_disk() {
-        let dir = temp_dir("status-token");
-        let state = McpServerState::new(dir.clone()).expect("a fresh settings file loads");
-        let first = state.status().token;
+    fn a_settings_file_with_an_old_token_still_loads() {
+        let dir = temp_dir("old-token");
+        std::fs::write(
+            dir.join(config::FILE_NAME),
+            r#"{"transport":"http","port":4599,"token":"abc"}"#,
+        )
+        .expect("the fixture is written");
 
-        // Reloading state from the same directory must read back the same
-        // token that was written, rather than minting a new one each time.
-        let reloaded = McpServerState::new(dir.clone()).expect("reloading the same file");
-        assert_eq!(reloaded.status().token, first);
+        let state = McpServerState::new(dir.clone()).expect("an old file loads");
+        assert_eq!(state.status().transport, Transport::Http);
 
         std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]
-    fn status_serialises_camel_case_fields() {
+    fn status_serialises_camel_case_fields_and_carries_no_token() {
         let status = McpStatus {
             transport: Transport::Http,
             running: true,
             port: Some(1_234),
-            url: Some("http://127.0.0.1:1234/mcp".to_string()),
-            token: "abc".to_string(),
+            url: Some(endpoint_url(1_234)),
             sessions: vec![SessionInfo {
                 id: "session".to_string(),
                 connected_at: 1,
@@ -624,7 +614,7 @@ mod tests {
         assert_eq!(json["running"], true);
         assert_eq!(json["port"], 1_234);
         assert_eq!(json["url"], "http://127.0.0.1:1234/mcp");
-        assert_eq!(json["token"], "abc");
+        assert!(json.get("token").is_none());
         assert_eq!(json["sessions"][0]["id"], "session");
         assert_eq!(json["sessions"][0]["connectedAt"], 1);
         assert_eq!(json["sessions"][0]["lastToolAt"], 2);

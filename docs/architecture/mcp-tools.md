@@ -800,17 +800,63 @@ resuming a session finds out what it, or the person, last did.
 
 ## 14. Transports, sessions and trust
 
-Two transports, chosen in Settings.
+Two transports. Settings switches HTTP on or off; stdio is whatever a client
+launches.
 
-**HTTP Local** is the primary. The server binds loopback only, exactly as the
-Python sidecar already does, and requires the same style of bearer token, shown
-in Settings for the user to paste into their client's configuration. A request
-carrying an `Origin` header is refused outright, which is what stops a web page
-in the user's browser from reaching a server bound to their own machine.
+**HTTP Local** is the primary. The server binds 127.0.0.1 only and asks for no
+credential. A token protected nothing: anything that can reach a loopback port
+is already a process on this machine, running as someone who can open the
+document store directly, and the token only made every client harder to set
+up. What a loopback server does have to stop is a web page in the user's
+browser, and two checks do that:
 
-**Stdio** runs the same binary as `bitwright --mcp-stdio`, for headless and
-scripted use. It has no window to update and no token, because its trust
-boundary is the process that spawned it.
+- A request carrying an `Origin` header is refused with 403. A browser sends
+  one on every cross-site request; a local MCP client never does.
+- The `Host` header has to be exactly `127.0.0.1:<port>` or `localhost:<port>`,
+  otherwise 403. This defeats DNS rebinding, where a hostile name is made to
+  resolve to 127.0.0.1 so the browser treats the page and the server as the
+  same site. rmcp's own allowed-hosts check is narrowed to the same two values.
+
+Settings files from older versions still hold a `token`; it is ignored on load
+and dropped on the next save.
+
+**Stdio** is the same binary run as `bitwright --mcp-stdio`. Claude Desktop and
+Codex launch their servers this way. Run on its own, that process would open the
+document store itself and draw into it headless: the pixels reach the SQLite
+file, but the open window is never told, so the person watching sees nothing.
+So the stdio process looks for the running app first. When `mcp.json` in the
+data root says HTTP is on and the port answers, it becomes a bridge: each
+JSON-RPC line from stdin is POSTed to the app's `/mcp` endpoint, and each
+message that comes back, as JSON or as server-sent events, goes to stdout as
+one line. The app's own server handles the call through the same host as any
+HTTP client, so the drawing appears live in the open document and the session
+is listed in Settings. The bridge forwards the client's real `initialize` and
+only commits once Bitwright has answered it; if the port belongs to something
+else, or nothing answers, the process serves the store headless as before. If
+the app restarts mid-session the bridge replays the handshake for a new
+session; if the app has quit, each request is answered with an error that says
+so. Server-initiated messages outside a request (the HTTP GET stream) are not
+bridged, and none of the tools needs them.
+
+**Registering clients.** Settings writes one `bitwright` entry into each
+client's own file, in the shape that client reads, and leaves everything else
+in the file alone (a `.bak` is kept the first time):
+
+| Client         | File                                             | Entry                                                 |
+| -------------- | ------------------------------------------------ | ----------------------------------------------------- |
+| Claude Code    | `~/.claude.json`                                 | `{ "type": "http", "url": … }`                        |
+| Claude Desktop | `<config dir>/Claude/claude_desktop_config.json` | `{ "command": <bitwright>, "args": ["--mcp-stdio"] }` |
+| Cursor         | `~/.cursor/mcp.json`                             | `{ "url": … }`                                        |
+| Windsurf       | `~/.codeium/windsurf/mcp_config.json`            | `{ "serverUrl": … }`                                  |
+| Codex          | `~/.codex/config.toml`                           | `[mcp_servers.bitwright]` `command`, `args`           |
+
+The stdio entries need no running server to be written and stay valid whatever
+port the app binds later. Claude Desktop keeps its own preferences in the same
+file and, while it runs, writes its in-memory copy back over it, which drops an
+entry written behind its back. The panel therefore reports when Claude Desktop
+is running and asks for a full quit from the tray icon and a reopen, and it
+re-reads every client's file when the card mounts and whenever the window
+regains focus, so a lost entry shows as not registered.
 
 A session is identified in the op log as `agent:<session id>`, so a sprite drawn
 by two agents and a person records which of them drew what.

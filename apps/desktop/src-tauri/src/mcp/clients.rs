@@ -16,13 +16,27 @@
 
 //! Finding the agents already on this machine, and pointing them here.
 //!
-//! Each client keeps its servers in a JSON file of its own. This module reads
-//! that file, changes only the `mcpServers.bitwright` entry, and writes it back
-//! without disturbing anything else the person or another tool put there. The
-//! work is done by plain functions that take a path and an endpoint, so the
-//! whole thing can be exercised against a temporary directory; the Tauri
-//! commands at the bottom only resolve the real paths and read the live
-//! endpoint from the running server.
+//! Each client keeps its servers in a file of its own: JSON with an
+//! `mcpServers` map for most, TOML with `[mcp_servers.<name>]` tables for
+//! Codex. This module reads that file, changes only the `bitwright` entry, and
+//! writes it back without disturbing anything else the person or another tool
+//! put there. The work is done by plain functions that take a path and an
+//! endpoint, so the whole thing can be exercised against a temporary
+//! directory; the Tauri commands at the bottom only resolve the real paths and
+//! read the live endpoint from the running server.
+//!
+//! Each client gets the entry shape it reads. Claude Code, Cursor and Windsurf
+//! speak streamable HTTP and get the loopback URL. Claude Desktop and Codex
+//! launch servers as child processes and get `bitwright --mcp-stdio`, which
+//! bridges to the running app when it is open (see `stdio.rs`), so their
+//! entries stay valid whatever port the app later binds.
+//!
+//! Claude Desktop needs one more thing. It keeps its own preferences in the
+//! same `claude_desktop_config.json`, holds a copy in memory while it runs, and
+//! writes that copy back whenever a preference changes, which silently drops
+//! an entry written behind its back. So the row reports whether Claude Desktop
+//! is running, and the panel asks for a full quit and reopen, and re-reads the
+//! file when the window regains focus so a lost entry shows as lost.
 
 use std::fs;
 use std::io;
@@ -34,13 +48,16 @@ use tauri::{AppHandle, Manager, Runtime};
 
 use crate::mcp::server::McpServerState;
 
-/// The key every client uses for the map of servers it knows.
+/// The key the JSON clients use for the map of servers they know.
 const SERVERS_KEY: &str = "mcpServers";
+
+/// The table Codex keeps its servers under.
+const TOML_SERVERS_TABLE: &str = "mcp_servers";
 
 /// The key this engine claims inside that map.
 const ENTRY_KEY: &str = "bitwright";
 
-/// The argument Claude Desktop passes to a stdio server it launches.
+/// The argument a client passes to a stdio server it launches.
 const STDIO_FLAG: &str = "--mcp-stdio";
 
 /// One of the agents this module knows how to configure.
@@ -49,35 +66,70 @@ const STDIO_FLAG: &str = "--mcp-stdio";
 pub enum McpClientId {
     /// Anthropic's command-line agent.
     ClaudeCode,
-    /// The Cursor editor.
-    Cursor,
     /// Anthropic's desktop application.
     ClaudeDesktop,
+    /// The Cursor editor.
+    Cursor,
+    /// The Windsurf editor.
+    Windsurf,
+    /// OpenAI's command-line agent.
+    Codex,
+}
+
+/// How a client reaches the server.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Launch {
+    /// It connects to the loopback URL, which needs the server running.
+    Http,
+    /// It spawns `bitwright --mcp-stdio` itself.
+    Stdio,
 }
 
 impl McpClientId {
     /// Every client, in the order the settings panel shows them.
-    pub const ALL: [Self; 3] = [Self::ClaudeCode, Self::Cursor, Self::ClaudeDesktop];
+    pub const ALL: [Self; 5] = [
+        Self::ClaudeCode,
+        Self::ClaudeDesktop,
+        Self::Cursor,
+        Self::Windsurf,
+        Self::Codex,
+    ];
 
     /// The name a person reads.
     #[must_use]
     pub fn name(self) -> &'static str {
         match self {
             Self::ClaudeCode => "Claude Code",
-            Self::Cursor => "Cursor",
             Self::ClaudeDesktop => "Claude Desktop",
+            Self::Cursor => "Cursor",
+            Self::Windsurf => "Windsurf",
+            Self::Codex => "Codex",
         }
+    }
+
+    /// How this client reaches the server.
+    #[must_use]
+    pub fn launch(self) -> Launch {
+        match self {
+            Self::ClaudeCode | Self::Cursor | Self::Windsurf => Launch::Http,
+            Self::ClaudeDesktop | Self::Codex => Launch::Stdio,
+        }
+    }
+
+    /// Whether the client's file is TOML rather than JSON.
+    fn is_toml(self) -> bool {
+        matches!(self, Self::Codex)
     }
 }
 
 /// What a client needs in order to reach this engine.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Endpoint {
-    /// The streamable HTTP address, `http://127.0.0.1:<port>/mcp`.
-    pub url: String,
-    /// The bearer token the server checks.
-    pub token: String,
-    /// The executable Claude Desktop should launch for a stdio session.
+    /// The streamable HTTP address, `http://127.0.0.1:<port>/mcp`, when the
+    /// server is running. A stdio client does not need it.
+    pub url: Option<String>,
+    /// The executable a stdio client should launch.
     pub executable: PathBuf,
 }
 
@@ -89,12 +141,18 @@ pub struct McpClient {
     pub id: McpClientId,
     /// The name a person reads.
     pub name: String,
+    /// How it reaches the server.
+    pub launch: Launch,
     /// Whether the client looks installed on this machine.
     pub detected: bool,
     /// The file this module reads and writes.
     pub config_path: String,
-    /// Whether `mcpServers.bitwright` is already present.
+    /// Whether the `bitwright` entry is present in that file right now.
     pub registered: bool,
+    /// Whether the client is running and has to be fully quit and reopened to
+    /// load the entry. Only ever true for Claude Desktop, the one client that
+    /// rewrites its file from memory.
+    pub needs_restart: bool,
 }
 
 /// A refusal the settings panel can switch on.
@@ -107,22 +165,20 @@ pub struct ClientError {
 }
 
 impl ClientError {
-    /// The file exists but is not JSON this module is willing to rewrite.
-    fn config_invalid(path: &Path, error: &serde_json::Error) -> Self {
+    /// The file exists but is not JSON or TOML this module is willing to
+    /// rewrite.
+    fn config_invalid(path: &Path, error: &dyn std::fmt::Display) -> Self {
         Self {
             code: "client.config_invalid".to_string(),
-            message: format!("{} is not valid JSON: {error}", path.display()),
+            message: format!("{} does not parse: {error}", path.display()),
         }
     }
 
     /// The file parsed, but a key this module needs has the wrong shape.
-    fn wrong_shape(path: &Path) -> Self {
+    fn wrong_shape(path: &Path, key: &str) -> Self {
         Self {
             code: "client.config_invalid".to_string(),
-            message: format!(
-                "{} has a {SERVERS_KEY} that is not an object",
-                path.display()
-            ),
+            message: format!("{} has a {key} that is not a table", path.display()),
         }
     }
 
@@ -139,6 +195,14 @@ impl ClientError {
         Self {
             code: "client.config_invalid".to_string(),
             message: format!("{} could not be written: {error}", path.display()),
+        }
+    }
+
+    /// An HTTP client was asked for while nothing is listening.
+    fn server_off() -> Self {
+        Self {
+            code: "mcp.server_off".to_string(),
+            message: "start the MCP server before configuring an HTTP client".to_string(),
         }
     }
 }
@@ -164,20 +228,29 @@ pub fn locations(id: McpClientId) -> Option<(PathBuf, PathBuf)> {
 
 /// Where a client keeps its configuration, given the home and configuration
 /// directories to resolve against.
+///
+/// `config` is the platform's configuration directory: `%APPDATA%` on
+/// Windows, `~/Library/Application Support` on macOS and `~/.config` on Linux,
+/// which is where Claude Desktop keeps its folder on each.
 #[must_use]
 pub fn locations_in(id: McpClientId, home: &Path, config: &Path) -> (PathBuf, PathBuf) {
     match id {
-        McpClientId::ClaudeCode => {
-            let dir = home.join(".claude");
-            (home.join(".claude.json"), dir)
+        McpClientId::ClaudeCode => (home.join(".claude.json"), home.join(".claude")),
+        McpClientId::ClaudeDesktop => {
+            let dir = config.join("Claude");
+            (dir.join("claude_desktop_config.json"), dir)
         }
         McpClientId::Cursor => {
             let dir = home.join(".cursor");
             (dir.join("mcp.json"), dir)
         }
-        McpClientId::ClaudeDesktop => {
-            let dir = config.join("Claude");
-            (dir.join("claude_desktop_config.json"), dir)
+        McpClientId::Windsurf => {
+            let dir = home.join(".codeium").join("windsurf");
+            (dir.join("mcp_config.json"), dir)
+        }
+        McpClientId::Codex => {
+            let dir = home.join(".codex");
+            (dir.join("config.toml"), dir)
         }
     }
 }
@@ -188,14 +261,22 @@ pub fn is_detected(config_path: &Path, config_dir: &Path) -> bool {
     config_path.exists() || config_dir.exists()
 }
 
-/// Whether `mcpServers.bitwright` is present.
+/// Whether the `bitwright` entry is present.
 ///
 /// # Errors
 ///
 /// Returns [`ClientError`] with code `client.config_invalid` when the file
 /// exists but does not parse.
-pub fn is_registered(config_path: &Path) -> Result<bool, ClientError> {
-    let config = read_config(config_path)?;
+pub fn is_registered(config_path: &Path, id: McpClientId) -> Result<bool, ClientError> {
+    if id.is_toml() {
+        let document = read_toml(config_path)?;
+        return Ok(document
+            .get(TOML_SERVERS_TABLE)
+            .and_then(toml_edit::Item::as_table_like)
+            .is_some_and(|servers| servers.contains_key(ENTRY_KEY)));
+    }
+
+    let config = read_json(config_path)?;
     Ok(config
         .get(SERVERS_KEY)
         .and_then(|servers| servers.get(ENTRY_KEY))
@@ -206,27 +287,36 @@ pub fn is_registered(config_path: &Path) -> Result<bool, ClientError> {
 ///
 /// # Errors
 ///
-/// Returns [`ClientError`] when the file does not parse, when `mcpServers` is
-/// not an object, or when the file cannot be written.
+/// Returns [`ClientError`] when an HTTP client is asked for without a URL,
+/// when the file does not parse, when the server map is not a table, or when
+/// the file cannot be written.
 pub fn register(
     config_path: &Path,
     id: McpClientId,
     endpoint: &Endpoint,
 ) -> Result<(), ClientError> {
-    let mut config = read_config(config_path)?;
+    if id.launch() == Launch::Http && endpoint.url.is_none() {
+        return Err(ClientError::server_off());
+    }
+
+    if id.is_toml() {
+        return register_toml(config_path, endpoint);
+    }
+
+    let mut config = read_json(config_path)?;
     let root = config
         .as_object_mut()
-        .ok_or_else(|| ClientError::wrong_shape(config_path))?;
+        .ok_or_else(|| ClientError::wrong_shape(config_path, "root"))?;
 
     let servers = root
         .entry(SERVERS_KEY.to_string())
         .or_insert_with(|| json!({}));
     let servers = servers
         .as_object_mut()
-        .ok_or_else(|| ClientError::wrong_shape(config_path))?;
+        .ok_or_else(|| ClientError::wrong_shape(config_path, SERVERS_KEY))?;
     servers.insert(ENTRY_KEY.to_string(), entry_for(id, endpoint));
 
-    write_config(config_path, &config)
+    write_json(config_path, &config)
 }
 
 /// Removes this engine's entry, leaving every other key alone.
@@ -237,72 +327,133 @@ pub fn register(
 /// # Errors
 ///
 /// Returns [`ClientError`] when the file does not parse or cannot be written.
-pub fn unregister(config_path: &Path) -> Result<(), ClientError> {
+pub fn unregister(config_path: &Path, id: McpClientId) -> Result<(), ClientError> {
     if !config_path.exists() {
         return Ok(());
     }
 
-    let mut config = read_config(config_path)?;
+    if id.is_toml() {
+        let mut document = read_toml(config_path)?;
+        let removed = document
+            .get_mut(TOML_SERVERS_TABLE)
+            .and_then(toml_edit::Item::as_table_like_mut)
+            .is_some_and(|servers| servers.remove(ENTRY_KEY).is_some());
+        if removed {
+            write_text(config_path, &document.to_string())?;
+        }
+        return Ok(());
+    }
+
+    let mut config = read_json(config_path)?;
     let removed = config
         .get_mut(SERVERS_KEY)
         .and_then(|servers| servers.as_object_mut())
         .is_some_and(|servers| servers.remove(ENTRY_KEY).is_some());
 
     if removed {
-        write_config(config_path, &config)?;
+        write_json(config_path, &config)?;
     }
     Ok(())
 }
 
 /// A pretty-printed snippet for a client this module does not know.
+///
+/// The HTTP form, because nearly every client reads it, with no credential in
+/// it because the server asks for none.
 #[must_use]
-pub fn manual_config(endpoint: &Endpoint) -> String {
-    let snippet = json!({ SERVERS_KEY: { ENTRY_KEY: http_entry(endpoint) } });
+pub fn manual_config(url: &str) -> String {
+    let snippet = json!({ SERVERS_KEY: { ENTRY_KEY: { "type": "http", "url": url } } });
     serde_json::to_string_pretty(&snippet).unwrap_or_else(|_| snippet.to_string())
 }
 
-/// The entry a client expects, which differs by how it reaches the server.
+/// The JSON entry a client expects, which differs by how it reaches the
+/// server and which key it reads the address from.
 fn entry_for(id: McpClientId, endpoint: &Endpoint) -> Value {
+    let url = endpoint.url.clone().unwrap_or_default();
     match id {
-        McpClientId::ClaudeCode => http_entry(endpoint),
-        McpClientId::Cursor => json!({
-            "url": endpoint.url,
-            "headers": { "Authorization": format!("Bearer {}", endpoint.token) },
-        }),
-        McpClientId::ClaudeDesktop => json!({
+        // Claude Code wants the transport spelled out.
+        McpClientId::ClaudeCode => json!({ "type": "http", "url": url }),
+        McpClientId::Cursor => json!({ "url": url }),
+        // Windsurf reads a remote server's address from `serverUrl`.
+        McpClientId::Windsurf => json!({ "serverUrl": url }),
+        McpClientId::ClaudeDesktop | McpClientId::Codex => json!({
             "command": endpoint.executable.to_string_lossy(),
             "args": [STDIO_FLAG],
         }),
     }
 }
 
-/// The streamable HTTP entry, with the type Claude Code wants spelled out.
-fn http_entry(endpoint: &Endpoint) -> Value {
-    json!({
-        "type": "http",
-        "url": endpoint.url,
-        "headers": { "Authorization": format!("Bearer {}", endpoint.token) },
-    })
+/// Writes `[mcp_servers.bitwright]` into a Codex file, keeping every other
+/// table, key, comment and blank line exactly as they were.
+fn register_toml(config_path: &Path, endpoint: &Endpoint) -> Result<(), ClientError> {
+    let mut document = read_toml(config_path)?;
+
+    let servers = document
+        .as_table_mut()
+        .entry(TOML_SERVERS_TABLE)
+        .or_insert_with(|| {
+            // Implicit, so only the `[mcp_servers.bitwright]` header is
+            // written and no empty `[mcp_servers]` appears above it.
+            let mut table = toml_edit::Table::new();
+            table.set_implicit(true);
+            toml_edit::Item::Table(table)
+        })
+        .as_table_mut()
+        .ok_or_else(|| ClientError::wrong_shape(config_path, TOML_SERVERS_TABLE))?;
+
+    let mut entry = toml_edit::Table::new();
+    entry.insert(
+        "command",
+        toml_edit::value(endpoint.executable.to_string_lossy().as_ref()),
+    );
+    let mut args = toml_edit::Array::new();
+    args.push(STDIO_FLAG);
+    entry.insert("args", toml_edit::value(args));
+    servers.insert(ENTRY_KEY, toml_edit::Item::Table(entry));
+
+    write_text(config_path, &document.to_string())
 }
 
-/// Reads a client's file, treating a missing or empty one as an empty object.
+/// Reads the text of a client's file, treating a missing one as empty.
+fn read_text(path: &Path) -> Result<String, ClientError> {
+    match fs::read_to_string(path) {
+        Ok(text) => Ok(text),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(String::new()),
+        Err(error) => Err(ClientError::io(path, &error)),
+    }
+}
+
+/// Reads a JSON client's file, treating a missing or empty one as an empty
+/// object.
 ///
 /// # Errors
 ///
 /// Returns [`ClientError`] with code `client.config_invalid` when the file
 /// exists and does not parse, or `client.io` when it cannot be read.
-fn read_config(path: &Path) -> Result<Value, ClientError> {
-    let text = match fs::read_to_string(path) {
-        Ok(text) => text,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(json!({})),
-        Err(error) => return Err(ClientError::io(path, &error)),
-    };
-
+fn read_json(path: &Path) -> Result<Value, ClientError> {
+    let text = read_text(path)?;
     if text.trim().is_empty() {
         return Ok(json!({}));
     }
-
     serde_json::from_str(&text).map_err(|error| ClientError::config_invalid(path, &error))
+}
+
+/// Reads Codex's TOML file, treating a missing or empty one as an empty
+/// document. A file that does not parse is refused rather than overwritten.
+fn read_toml(path: &Path) -> Result<toml_edit::DocumentMut, ClientError> {
+    let text = read_text(path)?;
+    if text.trim().is_empty() {
+        return Ok(toml_edit::DocumentMut::new());
+    }
+    text.parse::<toml_edit::DocumentMut>()
+        .map_err(|error| ClientError::config_invalid(path, &error))
+}
+
+/// Renders a JSON client's file and writes it.
+fn write_json(path: &Path, value: &Value) -> Result<(), ClientError> {
+    let body = serde_json::to_string_pretty(value)
+        .map_err(|error| ClientError::serialize(path, &error))?;
+    write_text(path, &body)
 }
 
 /// Writes a client's file atomically, keeping a backup the first time.
@@ -315,14 +466,11 @@ fn read_config(path: &Path) -> Result<Value, ClientError> {
 /// # Errors
 ///
 /// Returns [`ClientError`] when the directory cannot be created, or the file
-/// cannot be serialized, backed up, written or renamed.
-fn write_config(path: &Path, value: &Value) -> Result<(), ClientError> {
+/// cannot be backed up, written or renamed.
+fn write_text(path: &Path, body: &str) -> Result<(), ClientError> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|error| ClientError::io(path, &error))?;
     }
-
-    let body = serde_json::to_string_pretty(value)
-        .map_err(|error| ClientError::serialize(path, &error))?;
 
     let backup = backup_path(path);
     if path.exists() && !backup.exists() {
@@ -351,6 +499,94 @@ fn sibling(path: &Path, suffix: &str) -> PathBuf {
     path.with_file_name(name)
 }
 
+/// Whether an executable path belongs to Claude Desktop rather than to the
+/// Claude Code command line, which on Windows is also called `claude.exe`.
+///
+/// Claude Desktop is an Electron app, so its executable sits beside a
+/// `resources/app.asar`; the Squirrel install also lives under
+/// `AnthropicClaude`, and the Store install under `WindowsApps`, where the
+/// folder may not be listable, so those names count on their own.
+#[must_use]
+pub fn is_claude_desktop_executable(path: &Path) -> bool {
+    let lower = path.to_string_lossy().to_ascii_lowercase();
+    if lower.contains("anthropicclaude")
+        || (lower.contains("windowsapps") && lower.contains("claude"))
+    {
+        return true;
+    }
+    path.parent()
+        .is_some_and(|dir| dir.join("resources").join("app.asar").is_file())
+}
+
+/// Whether Claude Desktop is running right now.
+///
+/// Asked of the operating system each time the list is read, because the
+/// answer changes the advice on the row. Any failure to ask reads as not
+/// running, which only drops a hint; it never blocks a registration.
+#[must_use]
+pub fn claude_desktop_running() -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        windows_claude_desktop_running()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        // The desktop app's process is `Claude`; the command line is `claude`,
+        // and `pgrep -x` is case-sensitive, so the two do not collide.
+        std::process::Command::new("pgrep")
+            .args(["-x", "Claude"])
+            .output()
+            .is_ok_and(|output| output.status.success())
+    }
+}
+
+/// The Windows half of [`claude_desktop_running`].
+///
+/// `tasklist` answers quickly and settles the common case, nothing called
+/// `claude.exe` at all. Only when something is, PowerShell is asked for the
+/// paths, because the image name alone cannot tell the desktop app from the
+/// command line.
+#[cfg(target_os = "windows")]
+fn windows_claude_desktop_running() -> bool {
+    use std::os::windows::process::CommandExt;
+    use std::process::Command;
+
+    /// Keeps a console window from flashing up for each child process.
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+    let listed = Command::new("tasklist")
+        .args(["/FI", "IMAGENAME eq claude.exe", "/FO", "CSV", "/NH"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output();
+    let Ok(listed) = listed else {
+        return false;
+    };
+    if !String::from_utf8_lossy(&listed.stdout)
+        .to_ascii_lowercase()
+        .contains("claude.exe")
+    {
+        return false;
+    }
+
+    let paths = Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "Get-Process -Name claude -ErrorAction SilentlyContinue | ForEach-Object { $_.Path }",
+        ])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output();
+    let Ok(paths) = paths else {
+        return false;
+    };
+    String::from_utf8_lossy(&paths.stdout)
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .any(|line| is_claude_desktop_executable(Path::new(line)))
+}
+
 /// Describes one client, resolving its real paths.
 ///
 /// A file that cannot be parsed is reported as not registered rather than
@@ -360,92 +596,99 @@ fn sibling(path: &Path, suffix: &str) -> PathBuf {
 ///
 /// Returns a message when the platform has no home or configuration directory.
 pub fn describe(id: McpClientId) -> Result<McpClient, String> {
-    let (home, config) = (
-        dirs::home_dir().ok_or_else(|| {
-            format!(
-                "client.unsupported: no configuration directory for {}",
-                id.name()
-            )
-        })?,
-        dirs::config_dir().ok_or_else(|| {
-            format!(
-                "client.unsupported: no configuration directory for {}",
-                id.name()
-            )
-        })?,
-    );
-    describe_in(id, &home, &config)
+    let unsupported = || {
+        format!(
+            "client.unsupported: no configuration directory for {}",
+            id.name()
+        )
+    };
+    let home = dirs::home_dir().ok_or_else(unsupported)?;
+    let config = dirs::config_dir().ok_or_else(unsupported)?;
+    let running = id == McpClientId::ClaudeDesktop && claude_desktop_running();
+    Ok(describe_in(id, &home, &config, running))
 }
 
 /// [`describe`]'s body, taking the home and configuration directories to
-/// resolve against instead of reading them from the platform, the same way
-/// [`locations_in`] does for [`locations`]. This is what makes `describe`
-/// exercisable against a temporary directory instead of the real, live
-/// configuration a person's machine happens to have.
-fn describe_in(id: McpClientId, home: &Path, config: &Path) -> Result<McpClient, String> {
+/// resolve against instead of reading them from the platform, and whether the
+/// client is running instead of asking, so it can be exercised against a
+/// temporary directory instead of the configuration a person's machine
+/// happens to have.
+fn describe_in(id: McpClientId, home: &Path, config: &Path, running: bool) -> McpClient {
     let (config_path, config_dir) = locations_in(id, home, config);
 
-    Ok(McpClient {
+    McpClient {
         id,
         name: id.name().to_string(),
+        launch: id.launch(),
         detected: is_detected(&config_path, &config_dir),
         config_path: config_path.to_string_lossy().into_owned(),
-        registered: is_registered(&config_path).unwrap_or(false),
-    })
+        registered: is_registered(&config_path, id).unwrap_or(false),
+        needs_restart: running,
+    }
 }
 
 /// The endpoint a client needs, read from the running server.
 ///
+/// The URL is absent while the server is stopped, which only matters to the
+/// HTTP clients; [`register`] refuses those then.
+///
 /// # Errors
 ///
-/// Returns a message when the server is not running, or when the path of the
-/// running executable cannot be read.
+/// Returns a message when the path of the running executable cannot be read.
 fn endpoint_from<R: Runtime>(app: &AppHandle<R>) -> Result<Endpoint, String> {
-    let (url, token) = app.state::<McpServerState>().endpoint().ok_or_else(|| {
-        "mcp.server_off: start the MCP server before configuring a client".to_string()
-    })?;
-
+    let url = app.state::<McpServerState>().endpoint();
     let executable =
         std::env::current_exe().map_err(|error| format!("client.executable: {error}"))?;
+    Ok(Endpoint { url, executable })
+}
 
-    Ok(Endpoint {
-        url,
-        token,
-        executable,
-    })
+/// Runs blocking file and process work off the async runtime's workers.
+async fn blocking<T: Send + 'static>(
+    work: impl FnOnce() -> Result<T, String> + Send + 'static,
+) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(work)
+        .await
+        .map_err(|error| format!("client.io: {error}"))?
 }
 
 /// Lists the clients this module knows, with their detection and registration.
+///
+/// Read fresh from disk every time, never cached: the panel calls this when it
+/// mounts and when the window regains focus, so an entry another program
+/// removed shows as removed.
 ///
 /// # Errors
 ///
 /// Returns a message when the platform has no home or configuration directory.
 #[tauri::command]
 pub async fn mcp_clients() -> Result<Vec<McpClient>, String> {
-    McpClientId::ALL.into_iter().map(describe).collect()
+    blocking(|| McpClientId::ALL.into_iter().map(describe).collect()).await
 }
 
 /// Points one client at this engine.
 ///
 /// # Errors
 ///
-/// Returns a message when the server is not running, when the client's file
-/// does not parse, or when it cannot be written.
+/// Returns a message when an HTTP client is asked for while the server is not
+/// running, when the client's file does not parse, or when it cannot be
+/// written.
 #[tauri::command]
 pub async fn mcp_client_register<R: Runtime>(
     app: AppHandle<R>,
     id: McpClientId,
 ) -> Result<McpClient, String> {
     let endpoint = endpoint_from(&app)?;
-    let (config_path, _) = locations(id).ok_or_else(|| {
-        format!(
-            "client.unsupported: no configuration directory for {}",
-            id.name()
-        )
-    })?;
-
-    register(&config_path, id, &endpoint).map_err(|error| error.to_string())?;
-    describe(id)
+    blocking(move || {
+        let (config_path, _) = locations(id).ok_or_else(|| {
+            format!(
+                "client.unsupported: no configuration directory for {}",
+                id.name()
+            )
+        })?;
+        register(&config_path, id, &endpoint).map_err(|error| error.to_string())?;
+        describe(id)
+    })
+    .await
 }
 
 /// Takes this engine back out of one client.
@@ -455,15 +698,17 @@ pub async fn mcp_client_register<R: Runtime>(
 /// Returns a message when the client's file does not parse or cannot be written.
 #[tauri::command]
 pub async fn mcp_client_unregister(id: McpClientId) -> Result<McpClient, String> {
-    let (config_path, _) = locations(id).ok_or_else(|| {
-        format!(
-            "client.unsupported: no configuration directory for {}",
-            id.name()
-        )
-    })?;
-
-    unregister(&config_path).map_err(|error| error.to_string())?;
-    describe(id)
+    blocking(move || {
+        let (config_path, _) = locations(id).ok_or_else(|| {
+            format!(
+                "client.unsupported: no configuration directory for {}",
+                id.name()
+            )
+        })?;
+        unregister(&config_path, id).map_err(|error| error.to_string())?;
+        describe(id)
+    })
+    .await
 }
 
 /// A snippet for a client this module does not know.
@@ -473,8 +718,11 @@ pub async fn mcp_client_unregister(id: McpClientId) -> Result<McpClient, String>
 /// Returns a message when the server is not running.
 #[tauri::command]
 pub async fn mcp_manual_config<R: Runtime>(app: AppHandle<R>) -> Result<String, String> {
-    let endpoint = endpoint_from(&app)?;
-    Ok(manual_config(&endpoint))
+    let url = app
+        .state::<McpServerState>()
+        .endpoint()
+        .ok_or_else(|| ClientError::server_off().to_string())?;
+    Ok(manual_config(&url))
 }
 
 #[cfg(test)]
@@ -496,6 +744,15 @@ mod tests {
         path
     }
 
+    /// The file name a test uses for a client, with the extension it reads.
+    fn file_for(id: McpClientId) -> &'static str {
+        if id.is_toml() {
+            "config.toml"
+        } else {
+            "config.json"
+        }
+    }
+
     #[test]
     fn locations_in_detects_only_present_clients() {
         let home = temp_dir("home");
@@ -513,7 +770,10 @@ mod tests {
         assert_eq!(dir, claude_dir);
         assert!(is_detected(&path, &dir), "claude code is detected");
 
-        for id in [McpClientId::Cursor, McpClientId::ClaudeDesktop] {
+        for id in McpClientId::ALL
+            .into_iter()
+            .filter(|id| *id != McpClientId::ClaudeCode)
+        {
             let (path, dir) = locations_in(id, &home, &config);
             assert!(!is_detected(&path, &dir), "{} is absent", id.name());
         }
@@ -522,11 +782,26 @@ mod tests {
         fs::remove_dir_all(&config).ok();
     }
 
+    #[test]
+    fn the_new_clients_live_where_they_read_from() {
+        let home = PathBuf::from("/home/someone");
+        let config = PathBuf::from("/home/someone/.config");
+
+        let (windsurf, _) = locations_in(McpClientId::Windsurf, &home, &config);
+        assert_eq!(
+            windsurf,
+            home.join(".codeium")
+                .join("windsurf")
+                .join("mcp_config.json")
+        );
+        let (codex, _) = locations_in(McpClientId::Codex, &home, &config);
+        assert_eq!(codex, home.join(".codex").join("config.toml"));
+    }
+
     /// The endpoint the tests configure clients with.
     fn endpoint() -> Endpoint {
         Endpoint {
-            url: "http://127.0.0.1:4321/mcp".to_string(),
-            token: "abc123".to_string(),
+            url: Some("http://127.0.0.1:4321/mcp".to_string()),
             executable: PathBuf::from("/opt/bitwright/bitwright"),
         }
     }
@@ -541,20 +816,20 @@ mod tests {
     fn register_and_unregister_round_trip_for_every_client() {
         for id in McpClientId::ALL {
             let dir = temp_dir(id.name());
-            let path = dir.join("config.json");
+            let path = dir.join(file_for(id));
 
-            assert!(!is_registered(&path).expect("a missing file is not registered"));
+            assert!(!is_registered(&path, id).expect("a missing file is not registered"));
             register(&path, id, &endpoint()).expect("registering writes the file");
-            assert!(is_registered(&path).expect("the entry is there"));
-            unregister(&path).expect("unregistering rewrites the file");
-            assert!(!is_registered(&path).expect("the entry is gone"));
+            assert!(is_registered(&path, id).expect("the entry is there"));
+            unregister(&path, id).expect("unregistering rewrites the file");
+            assert!(!is_registered(&path, id).expect("the entry is gone"));
 
             fs::remove_dir_all(&dir).ok();
         }
     }
 
     #[test]
-    fn each_client_gets_the_entry_its_launcher_expects() {
+    fn each_client_gets_the_entry_its_launcher_expects_with_no_token() {
         let endpoint = endpoint();
         let dir = temp_dir("shapes");
 
@@ -562,15 +837,21 @@ mod tests {
         register(&code, McpClientId::ClaudeCode, &endpoint).expect("claude code is written");
         let entry = read(&code)["mcpServers"]["bitwright"].clone();
         assert_eq!(entry["type"], "http");
-        assert_eq!(entry["url"], endpoint.url);
-        assert_eq!(entry["headers"]["Authorization"], "Bearer abc123");
+        assert_eq!(entry["url"], "http://127.0.0.1:4321/mcp");
+        assert!(entry.get("headers").is_none());
 
         let cursor = dir.join("cursor.json");
         register(&cursor, McpClientId::Cursor, &endpoint).expect("cursor is written");
         let entry = read(&cursor)["mcpServers"]["bitwright"].clone();
         assert!(entry.get("type").is_none());
-        assert_eq!(entry["url"], endpoint.url);
-        assert_eq!(entry["headers"]["Authorization"], "Bearer abc123");
+        assert_eq!(entry["url"], "http://127.0.0.1:4321/mcp");
+        assert!(entry.get("headers").is_none());
+
+        let windsurf = dir.join("windsurf.json");
+        register(&windsurf, McpClientId::Windsurf, &endpoint).expect("windsurf is written");
+        let entry = read(&windsurf)["mcpServers"]["bitwright"].clone();
+        assert_eq!(entry["serverUrl"], "http://127.0.0.1:4321/mcp");
+        assert!(entry.get("headers").is_none());
 
         let desktop = dir.join("claude-desktop.json");
         register(&desktop, McpClientId::ClaudeDesktop, &endpoint).expect("desktop is written");
@@ -578,6 +859,50 @@ mod tests {
         assert_eq!(entry["command"], "/opt/bitwright/bitwright");
         assert_eq!(entry["args"][0], "--mcp-stdio");
         assert!(entry.get("url").is_none());
+
+        let codex = dir.join("config.toml");
+        register(&codex, McpClientId::Codex, &endpoint).expect("codex is written");
+        let text = fs::read_to_string(&codex).expect("the file was written");
+        let document: toml_edit::DocumentMut = text.parse().expect("the file is TOML");
+        let entry = &document["mcp_servers"]["bitwright"];
+        assert_eq!(entry["command"].as_str(), Some("/opt/bitwright/bitwright"));
+        assert_eq!(
+            entry["args"]
+                .as_array()
+                .and_then(|args| args.get(0))
+                .and_then(toml_edit::Value::as_str),
+            Some("--mcp-stdio")
+        );
+        assert!(text.contains("[mcp_servers.bitwright]"), "{text}");
+        assert!(!text.contains("[mcp_servers]\n"), "{text}");
+
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_stdio_client_registers_while_the_server_is_off() {
+        let dir = temp_dir("stdio-off");
+        let off = Endpoint {
+            url: None,
+            executable: PathBuf::from("/opt/bitwright/bitwright"),
+        };
+
+        for id in [McpClientId::ClaudeDesktop, McpClientId::Codex] {
+            let path = dir.join(file_for(id));
+            register(&path, id, &off).expect("a stdio client needs no running server");
+            assert!(is_registered(&path, id).expect("the entry is there"));
+        }
+
+        for id in [
+            McpClientId::ClaudeCode,
+            McpClientId::Cursor,
+            McpClientId::Windsurf,
+        ] {
+            let path = dir.join(format!("{}.json", id.name()));
+            let error = register(&path, id, &off).expect_err("an http client needs a url");
+            assert_eq!(error.code, "mcp.server_off");
+            assert!(!path.exists(), "nothing is written");
+        }
 
         fs::remove_dir_all(&dir).ok();
     }
@@ -599,7 +924,7 @@ mod tests {
         assert_eq!(value["nested"]["a"][1], 2);
         assert!(value["mcpServers"]["bitwright"].is_object());
 
-        unregister(&path).expect("unregistering keeps the rest");
+        unregister(&path, McpClientId::Cursor).expect("unregistering keeps the rest");
         let value = read(&path);
         assert_eq!(value["theme"], "dark");
         assert_eq!(value["mcpServers"]["other"]["url"], "http://x");
@@ -610,25 +935,57 @@ mod tests {
     }
 
     #[test]
-    fn invalid_json_is_refused_and_left_untouched() {
-        let dir = temp_dir("invalid");
-        let path = dir.join("config.json");
-        let broken = "{ this is not json";
-        fs::write(&path, broken).expect("the fixture is written");
+    fn codex_keeps_its_other_tables_and_comments() {
+        let dir = temp_dir("codex-keys");
+        let path = dir.join("config.toml");
+        let original =
+            "# my settings\nmodel = \"o4\"\n\n[mcp_servers.other]\ncommand = \"other\"\n";
+        fs::write(&path, original).expect("the fixture is written");
 
-        let error = register(&path, McpClientId::ClaudeCode, &endpoint())
-            .expect_err("a broken file is refused");
-        assert_eq!(error.code, "client.config_invalid");
+        register(&path, McpClientId::Codex, &endpoint()).expect("registering keeps the rest");
+        let text = fs::read_to_string(&path).expect("readable");
         assert!(
-            error.message.contains(&path.display().to_string()),
-            "the message names the path: {}",
-            error.message
+            text.starts_with("# my settings\nmodel = \"o4\"\n"),
+            "{text}"
         );
-        assert_eq!(fs::read_to_string(&path).expect("still there"), broken);
+        assert!(
+            text.contains("[mcp_servers.other]\ncommand = \"other\""),
+            "{text}"
+        );
+        assert!(text.contains("[mcp_servers.bitwright]"), "{text}");
 
-        let error = unregister(&path).expect_err("a broken file is refused");
-        assert_eq!(error.code, "client.config_invalid");
-        assert_eq!(fs::read_to_string(&path).expect("still there"), broken);
+        unregister(&path, McpClientId::Codex).expect("unregistering keeps the rest");
+        let text = fs::read_to_string(&path).expect("readable");
+        assert!(!text.contains("bitwright"), "{text}");
+        assert!(text.contains("[mcp_servers.other]"), "{text}");
+        assert!(text.starts_with("# my settings"), "{text}");
+
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn invalid_files_are_refused_and_left_untouched() {
+        let dir = temp_dir("invalid");
+        for (id, name, broken) in [
+            (McpClientId::ClaudeCode, "config.json", "{ this is not json"),
+            (McpClientId::Codex, "config.toml", "[[ this is not toml"),
+        ] {
+            let path = dir.join(name);
+            fs::write(&path, broken).expect("the fixture is written");
+
+            let error = register(&path, id, &endpoint()).expect_err("a broken file is refused");
+            assert_eq!(error.code, "client.config_invalid");
+            assert!(
+                error.message.contains(&path.display().to_string()),
+                "the message names the path: {}",
+                error.message
+            );
+            assert_eq!(fs::read_to_string(&path).expect("still there"), broken);
+
+            let error = unregister(&path, id).expect_err("a broken file is refused");
+            assert_eq!(error.code, "client.config_invalid");
+            assert_eq!(fs::read_to_string(&path).expect("still there"), broken);
+        }
 
         fs::remove_dir_all(&dir).ok();
     }
@@ -658,27 +1015,18 @@ mod tests {
     }
 
     #[test]
-    fn the_manual_snippet_carries_the_live_url_and_token() {
-        let endpoint = endpoint();
-        let snippet = manual_config(&endpoint);
+    fn the_manual_snippet_carries_the_live_url_and_no_token() {
+        let snippet = manual_config("http://127.0.0.1:4321/mcp");
         let value: Value = serde_json::from_str(&snippet).expect("the snippet is JSON");
 
         assert_eq!(value["mcpServers"]["bitwright"]["type"], "http");
-        assert_eq!(value["mcpServers"]["bitwright"]["url"], endpoint.url);
         assert_eq!(
-            value["mcpServers"]["bitwright"]["headers"]["Authorization"],
-            "Bearer abc123"
+            value["mcpServers"]["bitwright"]["url"],
+            "http://127.0.0.1:4321/mcp"
         );
+        assert!(value["mcpServers"]["bitwright"].get("headers").is_none());
         assert!(snippet.contains('\n'), "the snippet is pretty-printed");
-
-        let other = Endpoint {
-            url: "http://127.0.0.1:9999/mcp".to_string(),
-            token: "zzz".to_string(),
-            executable: PathBuf::from("/bin/bitwright"),
-        };
-        let snippet = manual_config(&other);
-        assert!(snippet.contains("http://127.0.0.1:9999/mcp"));
-        assert!(snippet.contains("Bearer zzz"));
+        assert!(manual_config("http://127.0.0.1:9999/mcp").contains("9999"));
     }
 
     #[test]
@@ -700,22 +1048,25 @@ mod tests {
     #[test]
     fn unregistering_a_missing_file_writes_nothing() {
         let dir = temp_dir("missing");
-        let path = dir.join("config.json");
-
-        unregister(&path).expect("a missing file is not an error");
-        assert!(!path.exists(), "no file is created");
+        for id in McpClientId::ALL {
+            let path = dir.join(file_for(id));
+            unregister(&path, id).expect("a missing file is not an error");
+            assert!(!path.exists(), "no file is created");
+        }
 
         fs::remove_dir_all(&dir).ok();
     }
 
     #[test]
-    fn an_empty_file_is_treated_as_an_empty_object() {
+    fn an_empty_file_is_treated_as_empty() {
         let dir = temp_dir("empty");
-        let path = dir.join("config.json");
-        fs::write(&path, "   \n").expect("the fixture is written");
+        for id in [McpClientId::Cursor, McpClientId::Codex] {
+            let path = dir.join(file_for(id));
+            fs::write(&path, "   \n").expect("the fixture is written");
 
-        register(&path, McpClientId::Cursor, &endpoint()).expect("registering writes the file");
-        assert!(is_registered(&path).expect("the entry is there"));
+            register(&path, id, &endpoint()).expect("registering writes the file");
+            assert!(is_registered(&path, id).expect("the entry is there"));
+        }
 
         fs::remove_dir_all(&dir).ok();
     }
@@ -736,16 +1087,20 @@ mod tests {
         let client = McpClient {
             id: McpClientId::ClaudeDesktop,
             name: "Claude Desktop".to_string(),
+            launch: Launch::Stdio,
             detected: true,
             config_path: "/tmp/claude_desktop_config.json".to_string(),
             registered: false,
+            needs_restart: true,
         };
         let value = serde_json::to_value(&client).expect("a client is serializable");
         assert_eq!(value["id"], "claude-desktop");
         assert_eq!(value["name"], "Claude Desktop");
+        assert_eq!(value["launch"], "stdio");
         assert_eq!(value["detected"], true);
         assert_eq!(value["configPath"], "/tmp/claude_desktop_config.json");
         assert_eq!(value["registered"], false);
+        assert_eq!(value["needsRestart"], true);
     }
 
     #[test]
@@ -754,11 +1109,13 @@ mod tests {
         let config = temp_dir("describe-config");
 
         for id in McpClientId::ALL {
-            let described = describe_in(id, &home, &config).expect("a temp location resolves");
+            let described = describe_in(id, &home, &config, false);
             assert_eq!(described.id, id);
             assert_eq!(described.name, id.name());
+            assert_eq!(described.launch, id.launch());
             assert!(!described.detected, "{} starts undetected", id.name());
             assert!(!described.registered, "{} starts unregistered", id.name());
+            assert!(!described.needs_restart);
             let (expected_path, _) = locations_in(id, &home, &config);
             assert_eq!(described.config_path, expected_path.to_string_lossy());
         }
@@ -768,20 +1125,50 @@ mod tests {
     }
 
     #[test]
-    fn describe_in_reflects_detection_and_registration_after_a_register() {
+    fn describe_in_rereads_the_file_so_a_removed_entry_shows_as_removed() {
         let home = temp_dir("describe-register-home");
         let config = temp_dir("describe-register-config");
 
         for id in McpClientId::ALL {
             let (config_path, _) = locations_in(id, &home, &config);
             register(&config_path, id, &endpoint()).expect("registering writes the file");
-            let described = describe_in(id, &home, &config).expect("a temp location resolves");
+            let described = describe_in(id, &home, &config, false);
             assert!(described.detected, "{} is now detected", id.name());
             assert!(described.registered, "{} is now registered", id.name());
         }
 
+        // What Claude Desktop does while it runs: write its in-memory copy,
+        // which has no entry, over the file.
+        let (desktop, _) = locations_in(McpClientId::ClaudeDesktop, &home, &config);
+        fs::write(&desktop, r#"{"preferences":{"quickEntry":true}}"#).expect("overwritten");
+        let described = describe_in(McpClientId::ClaudeDesktop, &home, &config, true);
+        assert!(!described.registered, "the lost entry is not reported");
+        assert!(described.needs_restart);
+
         fs::remove_dir_all(&home).ok();
         fs::remove_dir_all(&config).ok();
+    }
+
+    #[test]
+    fn the_desktop_app_is_told_apart_from_the_command_line() {
+        let dir = temp_dir("exe");
+        let electron = dir.join("app-1.0.0");
+        fs::create_dir_all(electron.join("resources")).expect("made");
+        fs::write(electron.join("resources").join("app.asar"), "").expect("written");
+        assert!(is_claude_desktop_executable(&electron.join("claude.exe")));
+
+        let cli = dir.join(".local").join("bin");
+        fs::create_dir_all(&cli).expect("made");
+        assert!(!is_claude_desktop_executable(&cli.join("claude.exe")));
+
+        assert!(is_claude_desktop_executable(Path::new(
+            r"C:\Users\x\AppData\Local\AnthropicClaude\app-0.9\claude.exe"
+        )));
+        assert!(is_claude_desktop_executable(Path::new(
+            r"C:\Program Files\WindowsApps\Claude_1.0_x64__abc\app\claude.exe"
+        )));
+
+        fs::remove_dir_all(&dir).ok();
     }
 
     #[test]
@@ -794,6 +1181,14 @@ mod tests {
         assert_eq!(
             serde_json::to_value(McpClientId::ClaudeCode).expect("serializable"),
             "claude-code"
+        );
+        assert_eq!(
+            serde_json::to_value(McpClientId::Windsurf).expect("serializable"),
+            "windsurf"
+        );
+        assert_eq!(
+            serde_json::to_value(McpClientId::Codex).expect("serializable"),
+            "codex"
         );
     }
 }
