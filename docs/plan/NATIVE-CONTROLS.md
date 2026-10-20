@@ -6,7 +6,7 @@ form control or a native tooltip. Every control is a reusable component in
 (open/close, check, drag, expand). Native text inputs styled with
 `INPUT_CONTROL` stay: they are already themed and have no platform chrome.
 
-Banned outside `components/ui`: `<select>`, `<option>`, `<details>`,
+Banned outside `components/ui`: `<textarea>` (use `TextAreaField`: fixed `rows`, no resize grip, no auto-grow), `<select>`, `<option>`, `<details>`,
 `<summary>`, `<progress>`, `<meter>`, `<datalist>`, `<input type=
 "checkbox|radio|range|color|number|date|file">`, and a `title` attribute on a
 DOM element (use `Tooltip`). A test enforces it (wave 3).

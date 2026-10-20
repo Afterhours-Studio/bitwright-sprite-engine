@@ -85,6 +85,15 @@
     margin: 0;
   }
 
+  /* A multi-line field keeps the height it was given. The platform's resize
+     grip is a system-drawn corner that ignores the theme, and a field the user
+     can drag taller pushes the panel around it out of shape. `TextAreaField`
+     sets `resize-none` too; this covers any textarea that does not go through
+     it. */
+  textarea {
+    resize: none;
+  }
+
   /* Windows draws its own reveal button inside a password field, so a field
      with one of ours had two eyes side by side. The platform's cannot be
      styled and does not follow the theme, so ours is the one that stays. */
