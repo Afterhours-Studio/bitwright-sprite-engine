@@ -121,7 +121,6 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
   const setScreen = useShellStore((state) => state.setScreen);
   const setNewSpriteOpen = useShellStore((state) => state.setNewSpriteOpen);
 
-  const [view, setView] = useState<'recent' | 'projects'>('recent');
   const [layout, setLayout] = useState<Layout>('grid');
   const [sortKey, setSortKey] = useState<SortKey>('recent');
   const [direction, setDirection] = useState<SortDirection>('desc');
@@ -139,6 +138,17 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
     () => sortAssets(filterAssets(listed, query), sortKey, direction),
     [listed, query, sortKey, direction],
   );
+  // The newest work comes first: a project is placed by its most recently
+  // touched sprite, or by its own date when it has none yet. With Recent gone,
+  // this is what puts what was being worked on at the top.
+  const orderedProjects = useMemo(() => {
+    const latest = new Map<string, number>();
+    for (const asset of listed) {
+      latest.set(asset.projectId, Math.max(latest.get(asset.projectId) ?? 0, asset.updatedAt));
+    }
+    const at = (project: Project): number => latest.get(project.id) ?? project.updatedAt;
+    return [...projects].sort((left, right) => at(right) - at(left));
+  }, [projects, listed]);
   const projectNames = useMemo(
     () => new Map(projects.map((project) => [project.id, project.name])),
     [projects],
@@ -147,9 +157,7 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
   const navigate = (next: HomeView): void => {
     if (next === 'settings') {
       setScreen('settings');
-      return;
     }
-    setView(next);
   };
 
   const open = (asset: Asset): void => {
@@ -218,21 +226,21 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
         </p>
       );
     }
-    if (view === 'recent') {
-      if (listed.length === 0) {
-        return <Empty title={t('state.emptyRecent')} hint={t('state.emptyRecentHint')} />;
-      }
-      if (visible.length === 0) {
-        return <Empty title={t('state.noMatch', { query: query.trim() })} />;
-      }
-      return renderAssets(visible);
-    }
     if (projects.length === 0) {
       return <Empty title={t('state.emptyProjects')} hint={t('state.emptyProjectsHint')} />;
     }
+    // While filtering, a project with nothing that matches is left out rather
+    // than shown with a line saying so, and one line covers no match at all.
+    const filtering = query.trim() !== '';
+    const shown = filtering
+      ? orderedProjects.filter((project) => visible.some((asset) => asset.projectId === project.id))
+      : orderedProjects;
+    if (shown.length === 0) {
+      return <Empty title={t('state.noMatch', { query: query.trim() })} />;
+    }
     return (
       <div className="flex flex-col gap-8 pt-2">
-        {projects.map((project) => {
+        {shown.map((project) => {
           const preset = presets[project.id];
           const own = visible.filter((asset) => asset.projectId === project.id);
           const total = listed.filter((asset) => asset.projectId === project.id).length;
@@ -292,10 +300,6 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
               </div>
               {total === 0 ? (
                 <p className="pt-3 text-xs text-fg-secondary">{t('state.emptyProject')}</p>
-              ) : own.length === 0 ? (
-                <p className="pt-3 text-xs text-fg-secondary">
-                  {t('state.noMatch', { query: query.trim() })}
-                </p>
               ) : (
                 renderAssets(own)
               )}
@@ -321,7 +325,7 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
 
   return (
     <div className="relative flex h-full w-full bg-surface-canvas text-fg-primary select-none overflow-hidden">
-      <HomeSidebar active={view} onNavigate={navigate} />
+      <HomeSidebar active="projects" onNavigate={navigate} />
 
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-surface-canvas">
         <div
@@ -329,21 +333,19 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
           className="mx-4 mt-4 flex shrink-0 items-center justify-between pb-3 border-b border-line-subtle"
         >
           <h1 data-tauri-drag-region className="text-base font-semibold text-fg-primary">
-            {t(view === 'recent' ? 'sidebar.recent' : 'sidebar.projects')}
+            {t('sidebar.projects')}
           </h1>
           <div className="flex items-center gap-1">
-            {view === 'projects' && (
-              <button
-                type="button"
-                onClick={() => {
-                  setPending({ kind: 'newProject' });
-                }}
-                className="mr-2 flex items-center gap-1.5 rounded-pill px-2 py-1 text-[11px] font-medium text-fg-secondary transition-colors hover:bg-surface-content-alt hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
-              >
-                <FolderPlus className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
-                {t('sidebar.newProject')}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => {
+                setPending({ kind: 'newProject' });
+              }}
+              className="mr-2 flex items-center gap-1.5 rounded-pill px-2 py-1 text-[11px] font-medium text-fg-secondary transition-colors hover:bg-surface-content-alt hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
+            >
+              <FolderPlus className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
+              {t('sidebar.newProject')}
+            </button>
             <LayoutToggle
               label={t('toolbar.grid')}
               on={layout === 'grid'}

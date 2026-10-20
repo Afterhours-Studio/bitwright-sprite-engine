@@ -123,7 +123,7 @@ describe('routing', () => {
     render(<App />);
 
     expect(
-      screen.getByRole('heading', { level: 1, name: en.home.sidebar.recent }),
+      screen.getByRole('heading', { level: 1, name: en.home.sidebar.projects }),
     ).toBeInTheDocument();
   });
 
@@ -141,7 +141,7 @@ describe('routing', () => {
     render(<App />);
 
     expect(
-      screen.getByRole('heading', { level: 1, name: en.home.sidebar.recent }),
+      screen.getByRole('heading', { level: 1, name: en.home.sidebar.projects }),
     ).toBeInTheDocument();
     expect(screen.queryByRole('main', { name: en.editor.stage.label })).not.toBeInTheDocument();
     // Written back, so everything reading the store agrees with the window.
@@ -154,11 +154,11 @@ describe('routing', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: en.settings.title })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: en.home.sidebar.recent }));
+    fireEvent.click(screen.getByRole('button', { name: en.home.sidebar.projects }));
 
     expect(useShellStore.getState().screen).toBe('home');
     expect(
-      screen.getByRole('heading', { level: 1, name: en.home.sidebar.recent }),
+      screen.getByRole('heading', { level: 1, name: en.home.sidebar.projects }),
     ).toBeInTheDocument();
   });
 

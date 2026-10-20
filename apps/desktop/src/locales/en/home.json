@@ -12,7 +12,6 @@
     "pngToPixel": "PNG to Pixel",
     "pngToPixelHint": "Create a project first",
     "nav": "Sections",
-    "recent": "Recent",
     "projects": "Projects",
     "settings": "Settings",
     "copyright": "Bitwright {{mark}} 2026",
@@ -53,8 +52,6 @@
   "state": {
     "loading": "Reading your sprites…",
     "error": "The sprites could not be read.",
-    "emptyRecent": "No sprites yet",
-    "emptyRecentHint": "Create a sprite, or turn a PNG into one, and it shows up here.",
     "emptyProjects": "No projects yet",
     "emptyProjectsHint": "A project carries the style its sprites are drawn to. Create one to start.",
     "emptyProject": "No sprites in this project yet.",

@@ -149,7 +149,7 @@ describe('HomeScreen', () => {
   it('lists every sprite of every project, most recent first', async () => {
     render(<HomeScreen />);
     await screen.findByRole('button', { name: 'Open bat' });
-    expect(cardOrder()).toEqual(['tree', 'bat', 'hero']);
+    expect(cardOrder()).toEqual(['tree', 'hero', 'bat']);
     expect(screen.getByText('Afterhours Studio · v1.2.3')).toBeInTheDocument();
   });
 
@@ -159,7 +159,7 @@ describe('HomeScreen', () => {
 
     fireEvent.click(screen.getByRole('combobox', { name: 'Sort' }));
     fireEvent.click(screen.getByRole('option', { name: 'Size' }));
-    expect(cardOrder()).toEqual(['bat', 'tree', 'hero']);
+    expect(cardOrder()).toEqual(['tree', 'hero', 'bat']);
 
     fireEvent.click(screen.getByRole('button', { name: 'Descending' }));
     expect(cardOrder()).toEqual(['hero', 'tree', 'bat']);
@@ -214,15 +214,15 @@ describe('HomeScreen', () => {
     await screen.findByRole('button', { name: 'Open bat' });
     fireEvent.click(screen.getByRole('button', { name: 'List view' }));
 
-    const table = screen.getByRole('table');
-    expect(within(table).getAllByRole('row')).toHaveLength(4);
-    expect(within(table).getByText('cave')).toBeInTheDocument();
+    const tables = screen.getAllByRole('table');
+    expect(tables).toHaveLength(2);
+    expect(tables.flatMap((table) => within(table).getAllByRole('row'))).toHaveLength(5);
+    expect(within(tables[1] as HTMLElement).getByText('cave')).toBeInTheDocument();
   });
 
   it('groups sprites by project and renames a project', async () => {
     render(<HomeScreen />);
     await screen.findByRole('button', { name: 'Open bat' });
-    fireEvent.click(screen.getByRole('button', { name: 'Projects' }));
 
     const forest = screen.getByRole('region', { name: 'forest' });
     expect(within(forest).getByText('Preset: SNES')).toBeInTheDocument();
@@ -245,7 +245,7 @@ describe('HomeScreen', () => {
     render(<HomeScreen />);
 
     expect(await screen.findByRole('alert')).toBeInTheDocument();
-    expect(screen.getByText('No sprites yet')).toBeInTheDocument();
+    expect(screen.getByText('No projects yet')).toBeInTheDocument();
   });
 
   it('goes to settings from the agent card', async () => {
@@ -279,9 +279,8 @@ describe('HomeScreen with an animation', () => {
   it('lists the root only, and counts it once in its project', async () => {
     render(<HomeScreen />);
     await screen.findByRole('button', { name: 'Open walk' });
-    expect(cardOrder()).toEqual(['tree', 'bat', 'hero', 'walk']);
+    expect(cardOrder()).toEqual(['tree', 'hero', 'bat', 'walk']);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Projects' }));
     const cave = screen.getByRole('region', { name: 'cave' });
     expect(within(cave).getByText('2 sprites')).toBeInTheDocument();
     expect(within(cave).getAllByRole('button', { name: /^Open / })).toHaveLength(2);
@@ -299,12 +298,15 @@ describe('HomeScreen with an animation', () => {
     await screen.findByRole('button', { name: 'Open walk' });
     fireEvent.click(screen.getByRole('combobox', { name: 'Sort' }));
     fireEvent.click(screen.getByRole('option', { name: 'Frames' }));
-    expect(cardOrder()[0]).toBe('walk');
+    const cave = screen.getByRole('region', { name: 'cave' });
+    expect(within(cave).getAllByRole('button', { name: /^Open / })[0]).toHaveAccessibleName(
+      'Open walk',
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'List view' }));
-    const table = screen.getByRole('table');
+    const table = within(screen.getByRole('region', { name: 'cave' })).getByRole('table');
     expect(within(table).getByRole('columnheader', { name: 'Frames' })).toBeInTheDocument();
-    expect(within(table).getAllByRole('row')).toHaveLength(5);
+    expect(within(table).getAllByRole('row')).toHaveLength(3);
   });
 
   it('warns that deleting the root takes every frame with it', async () => {

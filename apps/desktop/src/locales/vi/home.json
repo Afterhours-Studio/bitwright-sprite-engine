@@ -12,7 +12,6 @@
     "pngToPixel": "PNG sang Pixel",
     "pngToPixelHint": "Hãy tạo một dự án trước",
     "nav": "Mục",
-    "recent": "Gần đây",
     "projects": "Dự án",
     "settings": "Cài đặt",
     "copyright": "Bitwright {{mark}} 2026",
@@ -53,8 +52,6 @@
   "state": {
     "loading": "Đang đọc các sprite của bạn…",
     "error": "Không đọc được các sprite.",
-    "emptyRecent": "Chưa có sprite nào",
-    "emptyRecentHint": "Hãy tạo một sprite, hoặc biến một ảnh PNG thành sprite, nó sẽ hiện ở đây.",
     "emptyProjects": "Chưa có dự án nào",
     "emptyProjectsHint": "Mỗi dự án mang phong cách mà các sprite của nó được vẽ theo. Hãy tạo một dự án để bắt đầu.",
     "emptyProject": "Dự án này chưa có sprite nào.",

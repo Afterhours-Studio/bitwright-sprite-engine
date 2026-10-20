@@ -30,7 +30,6 @@ import {
   Bot,
   Folder,
   FolderPlus,
-  House,
   ImagePlus,
   Images,
   Languages,
@@ -52,7 +51,7 @@ import { useShellStore } from '@/stores/useShellStore';
 import { DEFAULT_PRESET } from '@/types/document';
 
 /** The sections home's navigation lists. */
-export type HomeView = 'recent' | 'projects' | 'settings';
+export type HomeView = 'projects' | 'settings';
 
 export interface HomeSidebarProps {
   /** Which section is showing. */
@@ -62,7 +61,6 @@ export interface HomeSidebarProps {
 }
 
 const NAV: readonly { view: HomeView; icon: LucideIcon }[] = [
-  { view: 'recent', icon: House },
   { view: 'projects', icon: Folder },
   { view: 'settings', icon: Settings },
 ];
