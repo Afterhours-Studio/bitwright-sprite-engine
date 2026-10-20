@@ -322,7 +322,7 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
     <div className="relative flex h-full w-full bg-surface-canvas text-fg-primary select-none overflow-hidden">
       <HomeSidebar active={view} onNavigate={navigate} />
 
-      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto bg-surface-canvas p-6 lg:p-8">
+      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto bg-surface-canvas px-6 pt-4 pb-6 lg:px-8">
         <div
           data-tauri-drag-region
           className="flex items-center justify-between pb-3 border-b border-line-subtle"
@@ -522,7 +522,7 @@ function LayoutToggle({
 /** What an empty grid says instead of showing nothing. */
 function Empty({ title, hint }: { title: string; hint?: string }): ReactElement {
   return (
-    <div className="py-16 text-center">
+    <div className="py-10 text-center">
       <p className="text-sm font-medium text-fg-primary">{title}</p>
       {hint !== undefined && <p className="mt-1 text-xs text-fg-secondary">{hint}</p>}
     </div>

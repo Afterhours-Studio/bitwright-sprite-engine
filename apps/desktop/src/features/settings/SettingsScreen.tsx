@@ -59,7 +59,7 @@ export function SettingsScreen(): ReactElement {
     <div className="relative flex h-full w-full bg-surface-canvas text-fg-primary overflow-hidden">
       <HomeSidebar active="settings" onNavigate={navigate} />
 
-      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto bg-surface-canvas p-6 lg:p-8">
+      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto bg-surface-canvas px-6 pt-4 pb-6 lg:px-8">
         <div
           data-tauri-drag-region
           className="flex items-center justify-between pb-3 border-b border-line-subtle"
