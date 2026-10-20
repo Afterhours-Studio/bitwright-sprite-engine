@@ -22,6 +22,8 @@ export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>
   label: string;
   /** Whether hover should read as destructive, for a window close button. */
   danger?: boolean;
+  /** 'md' (default) is 36px square, 'sm' is 28px. A size class in `className` would not win. */
+  size?: 'md' | 'sm';
   /** The icon. */
   children: ReactNode;
 }
@@ -42,6 +44,7 @@ export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>
 export function IconButton({
   label,
   danger = false,
+  size = 'md',
   className,
   disabled,
   children,
@@ -56,7 +59,8 @@ export function IconButton({
         // The same corner the dock's rails use. A round button in the title
         // bar over a rounded-rectangle one in the footer made the two rows
         // read as parts of different applications.
-        'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
+        'inline-flex shrink-0 items-center justify-center rounded-lg',
+        size === 'md' ? 'h-9 w-9' : 'h-7 w-7',
         'transition-colors',
         disabled && 'cursor-not-allowed bg-surface-disabled text-fg-muted',
         !disabled &&

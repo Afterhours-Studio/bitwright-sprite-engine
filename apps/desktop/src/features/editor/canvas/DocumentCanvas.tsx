@@ -146,12 +146,6 @@ const ONION_NEXT = 0.15;
 /** The floating panel look, from the studio layout. */
 const PANEL = 'bg-surface-float border border-line-subtle p-1 rounded-lg shadow-md';
 
-/**
- * A floating panel's button: the shared icon button at the panel's own size,
- * a 16px icon in 6px of padding.
- */
-const PANEL_BUTTON = 'h-7 w-7';
-
 /** The drag in progress, whichever kind it is. */
 type Drag =
   /** The view moving under the pointer. */
@@ -273,7 +267,7 @@ function PanelButton({ label, disabled, onClick, children }: PanelButtonProps): 
       <IconButton
         label={label}
         disabled={disabled}
-        className={PANEL_BUTTON}
+        size="sm"
         onMouseDown={(event) => {
           event.preventDefault();
         }}
