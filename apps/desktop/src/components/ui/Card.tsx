@@ -13,7 +13,7 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-import type { ReactElement, ReactNode } from 'react';
+import { useId, type ReactElement, type ReactNode } from 'react';
 
 import { cn } from '@/lib/cn';
 
@@ -49,8 +49,12 @@ export function Card({
   children,
   className,
 }: CardProps): ReactElement {
+  const id = useId();
   return (
     <section
+      // Named by its heading, so a titled card is a region a screen reader can
+      // jump to by name.
+      aria-labelledby={title !== undefined ? id : undefined}
       className={cn(
         'rounded-lg p-4',
         surface === 'content' && 'border border-line-subtle bg-surface-content shadow-sm',
@@ -60,7 +64,9 @@ export function Card({
     >
       {title !== undefined && (
         <header className="mb-3">
-          <h2 className="text-sm font-semibold text-fg-primary">{title}</h2>
+          <h2 id={id} className="text-sm font-semibold text-fg-primary">
+            {title}
+          </h2>
           {description !== undefined && (
             <p className="mt-1 text-xs text-fg-secondary">{description}</p>
           )}

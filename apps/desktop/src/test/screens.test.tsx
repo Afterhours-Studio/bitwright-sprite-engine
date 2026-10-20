@@ -263,7 +263,12 @@ describe('settings', () => {
     expect(main.getByText(en.settings.storage.title)).toBeInTheDocument();
     expect(main.getByText(en.settings.mcp.title)).toBeInTheDocument();
     expect(main.getByRole('region', { name: en.settings.appearance.title })).toBeInTheDocument();
-    expect(main.getByRole('region', { name: en.common.language.label })).toBeInTheDocument();
+    expect(
+      within(main.getByRole('region', { name: en.settings.appearance.title })).getByRole(
+        'combobox',
+        { name: en.common.language.label },
+      ),
+    ).toBeInTheDocument();
     expect(main.getByRole('region', { name: en.settings.about.title })).toBeInTheDocument();
     expect(main.getByText('0.1.0')).toBeInTheDocument();
   });
@@ -274,12 +279,12 @@ describe('settings', () => {
     render(<App />);
 
     const appearance = within(screen.getByRole('region', { name: en.settings.appearance.title }));
-    fireEvent.click(appearance.getByRole('button', { name: en.common.theme.light }));
+    fireEvent.click(appearance.getByRole('combobox', { name: en.common.theme.label }));
+    fireEvent.click(appearance.getByRole('option', { name: en.common.theme.light }));
 
     expect(useShellStore.getState().theme).toBe('light');
-    expect(appearance.getByRole('button', { name: en.common.theme.light })).toHaveAttribute(
-      'aria-pressed',
-      'true',
+    expect(appearance.getByRole('combobox', { name: en.common.theme.label })).toHaveTextContent(
+      en.common.theme.light,
     );
   });
 
@@ -287,9 +292,10 @@ describe('settings', () => {
     useShellStore.getState().setScreen('settings');
     render(<App />);
 
-    const language = within(screen.getByRole('region', { name: en.common.language.label }));
+    const appearance = within(screen.getByRole('region', { name: en.settings.appearance.title }));
+    fireEvent.click(appearance.getByRole('combobox', { name: en.common.language.label }));
     await act(async () => {
-      fireEvent.click(language.getByRole('button', { name: en.common.language.vi }));
+      fireEvent.click(appearance.getByRole('option', { name: new RegExp(en.common.language.vi) }));
       await Promise.resolve();
     });
 

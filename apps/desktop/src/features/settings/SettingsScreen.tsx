@@ -14,36 +14,30 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-import { useId, type ReactElement, type ReactNode } from 'react';
+import type { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { WindowControls } from '@/components/layout/WindowControls';
+import { Card } from '@/components/ui/Card';
+import { Select } from '@/components/ui/Select';
 import { HomeSidebar, type HomeView } from '@/features/home/HomeSidebar';
 import { StorageCard } from '@/features/settings/StorageCard';
 import McpCard from '@/features/settings/mcp/McpCard';
 import { useErrorMessage } from '@/hooks/useErrorMessage';
-import { cn } from '@/lib/cn';
 import { LANGUAGES, setLanguage } from '@/lib/i18n';
 import { THEMES, useShellStore } from '@/stores/useShellStore';
 
 const REPOSITORY = 'https://github.com/Afterhours-Studio/bitwright-sprite-engine';
 
-/** The section surface every settings group sits on. */
-const SECTION = 'rounded-md border border-line-subtle bg-surface-content p-4';
-
 /**
  * The settings screen, in home's frame: the same sidebar with Settings
  * active, and a content area styled like home's.
  *
- * The sections run in the order a person reaches for them: where data is
- * kept, which is the one decision that costs something to get wrong; the
- * agent connection, which half of the drawing depends on; the two choices
- * that apply the moment they are made; and then the facts to quote in a bug
- * report.
+ * Two columns: where data is kept, the theme and language, and the facts to
+ * quote in a bug report on the left; the agent connection, the tallest group,
+ * on the right.
  *
- * Home keeps which of its views is showing in its own state, so choosing
- * Recent or Projects here opens home on the view it starts on rather than on
- * the one chosen; the sidebar's Settings entry is already where this is.
+ * The sidebar's Projects entry goes home; its Settings entry is already here.
  */
 export function SettingsScreen(): ReactElement {
   const { t } = useTranslation('settings');
@@ -73,12 +67,16 @@ export function SettingsScreen(): ReactElement {
         {/* Only the sections scroll; the title row with the window controls
             stays put. */}
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-          <div className="flex max-w-3xl flex-col gap-4 pt-4">
-            <StorageCard />
+          {/* Two columns from a laptop width up: the short groups stacked on
+              the left, the agent connection, which is the tall one, on the
+              right. One narrow column left half the window empty. */}
+          <div className="grid grid-cols-1 gap-4 pt-4 lg:grid-cols-2 lg:items-start">
+            <div className="flex flex-col gap-4">
+              <StorageCard />
+              <GeneralSection />
+              <AboutSection />
+            </div>
             <McpCard />
-            <AppearanceSection />
-            <LanguageSection />
-            <AboutSection />
           </div>
         </div>
       </main>
@@ -86,83 +84,9 @@ export function SettingsScreen(): ReactElement {
   );
 }
 
-/**
- * One settings group: a heading, an optional line under it, and its controls.
- *
- * @param props - The heading, the description and the body.
- * @returns The section.
- */
-function Section({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description?: string;
-  children: ReactNode;
-}): ReactElement {
-  const id = useId();
-  return (
-    <section aria-labelledby={id} className={SECTION}>
-      <h2 id={id} className="text-sm font-semibold text-fg-primary">
-        {title}
-      </h2>
-      {description !== undefined && <p className="mt-1 text-xs text-fg-secondary">{description}</p>}
-      <div className="mt-3">{children}</div>
-    </section>
-  );
-}
-
-/**
- * A row of small toggles, one of which is on: the same control the new sprite
- * dialog uses for a kind. With two or three choices a row shows them all at
- * once, where a select would hide all but one behind a press.
- *
- * @param props - The group's name, the choices and the one that is on.
- * @returns The row.
- */
-function Choices<T extends string>({
-  label,
-  value,
-  options,
-  onChoose,
-}: {
-  label: string;
-  value: string;
-  options: readonly { value: T; label: string }[];
-  onChoose: (value: T) => void;
-}): ReactElement {
-  return (
-    <div role="group" aria-label={label} className="flex flex-wrap gap-1.5">
-      {options.map((option) => {
-        const on = option.value === value;
-        return (
-          <button
-            key={option.value}
-            type="button"
-            aria-pressed={on}
-            onClick={() => {
-              onChoose(option.value);
-            }}
-            className={cn(
-              'rounded-pill border px-3 py-1.5 text-xs font-medium transition-colors',
-              'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus',
-              on
-                ? 'border-accent bg-accent text-accent-fg hover:bg-accent-hover'
-                : 'border-line-subtle bg-surface-content-alt text-fg-secondary hover:border-line hover:text-fg-primary',
-            )}
-          >
-            {option.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-/** The theme, and whether the window's background effect applied. */
-function AppearanceSection(): ReactElement {
-  const { t } = useTranslation('settings');
+/** The theme and the language, and whether the window's background effect applied. */
+function GeneralSection(): ReactElement {
+  const { t, i18n } = useTranslation('settings');
   const { t: tCommon } = useTranslation();
   const translateError = useErrorMessage();
 
@@ -172,13 +96,37 @@ function AppearanceSection(): ReactElement {
   const vibrancyReason = translateError(vibrancy.reason);
 
   return (
-    <Section title={t('appearance.title')} description={t('appearance.description')}>
-      <Choices
-        label={tCommon('theme.label')}
-        value={theme}
-        options={THEMES.map((option) => ({ value: option, label: tCommon(`theme.${option}`) }))}
-        onChoose={setTheme}
-      />
+    <Card title={t('appearance.title')} description={t('appearance.description')}>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Select
+          size="sm"
+          label={tCommon('theme.label')}
+          value={theme}
+          options={THEMES.map((option) => ({ value: option, label: tCommon(`theme.${option}`) }))}
+          onValueChange={(value) => {
+            const next = THEMES.find((option) => option === value);
+            if (next !== undefined) {
+              setTheme(next);
+            }
+          }}
+        />
+        <Select
+          size="sm"
+          label={tCommon('language.label')}
+          value={i18n.language}
+          options={LANGUAGES.map((language) => ({
+            value: language,
+            label: tCommon(`language.${language}`),
+            tag: language.toUpperCase(),
+          }))}
+          onValueChange={(value) => {
+            const next = LANGUAGES.find((language) => language === value);
+            if (next !== undefined) {
+              void setLanguage(next);
+            }
+          }}
+        />
+      </div>
       <p className="mt-3 text-xs text-fg-secondary">
         {t('appearance.vibrancy')}
         {': '}
@@ -186,29 +134,7 @@ function AppearanceSection(): ReactElement {
           ? t('appearance.vibrancyOn')
           : (vibrancyReason ?? t('appearance.vibrancyOff'))}
       </p>
-    </Section>
-  );
-}
-
-/** The interface language. */
-function LanguageSection(): ReactElement {
-  const { t, i18n } = useTranslation('settings');
-  const { t: tCommon } = useTranslation();
-
-  return (
-    <Section title={tCommon('language.label')} description={t('language.description')}>
-      <Choices
-        label={tCommon('language.label')}
-        value={i18n.language}
-        options={LANGUAGES.map((language) => ({
-          value: language,
-          label: tCommon(`language.${language}`),
-        }))}
-        onChoose={(language) => {
-          void setLanguage(language);
-        }}
-      />
-    </Section>
+    </Card>
   );
 }
 
@@ -219,7 +145,7 @@ function AboutSection(): ReactElement {
   const appVersion = useShellStore((state) => state.appVersion);
 
   return (
-    <Section title={t('about.title')}>
+    <Card title={t('about.title')}>
       {/* A two column grid, so the values line up with each other. Laying
           each row out as its own flex line puts the value wherever that row's
           label happens to end, and three labels of different lengths then
@@ -240,6 +166,6 @@ function AboutSection(): ReactElement {
       </dl>
       <p className="mt-2 text-xs text-fg-secondary">{t('about.license')}</p>
       <p className="text-xs text-fg-secondary">{t('about.copyright')}</p>
-    </Section>
+    </Card>
   );
 }
