@@ -15,7 +15,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 import { useCallback, useEffect, useId, useRef, useState, type ReactElement } from 'react';
 
-import { Overlay } from '@/components/ui/Overlay';
+import { Overlay, type OverlayAlign } from '@/components/ui/Overlay';
 import { useDismiss } from '@/hooks/useDismiss';
 import { cn } from '@/lib/cn';
 
@@ -54,6 +54,16 @@ export interface SelectProps {
   onValueChange: (value: string) => void;
   /** Extra classes for layout only, never colour. */
   className?: string;
+  /** 'md' (default) is today's field. 'sm' is the compact one for toolbars and panels. */
+  size?: 'md' | 'sm';
+  /** 'field' (default) has a border and an input surface. 'bare' is text with a chevron, for a toolbar sentence such as "Sort Recent". */
+  variant?: 'field' | 'bare';
+  /** 'stack' (default) puts the label above. 'inline' puts it on the left on one row, label then control. */
+  layout?: 'stack' | 'inline';
+  /** Keep the label for assistive technology only. */
+  hideLabel?: boolean;
+  /** Which edge the list lines up with. Default 'start'. */
+  align?: OverlayAlign;
 }
 
 /**
@@ -67,6 +77,10 @@ export interface SelectProps {
  * The keyboard behaviour of the native control is kept, because that is the
  * part worth having: Enter, Space, and the arrow keys open it; the arrows move
  * the highlight; Home and End jump; Enter commits; Escape cancels.
+ *
+ * It comes in the shapes the native selects it replaced were used in: a full
+ * field with its label above, a compact one for toolbars and panels, and a
+ * bare one that is text with a chevron inside a sentence.
  */
 export function Select({
   label,
@@ -76,6 +90,11 @@ export function Select({
   hint,
   onValueChange,
   className,
+  size = 'md',
+  variant = 'field',
+  layout = 'stack',
+  hideLabel = false,
+  align = 'start',
 }: SelectProps): ReactElement {
   const id = useId();
   const listId = `${id}-list`;
@@ -145,16 +164,34 @@ export function Select({
     }
   };
 
+  // Small or bare: the label is a caption beside or above a tight control, so
+  // it drops a step rather than standing as tall as the field's own text.
+  const compact = size === 'sm' || layout === 'inline';
+  const compactOptions = size === 'sm' || variant === 'bare';
+  const bare = variant === 'bare';
+
   return (
-    <div className={cn('flex flex-col gap-1', className)}>
+    <div
+      className={cn(
+        layout === 'inline' ? 'flex items-center gap-2' : 'flex flex-col gap-1',
+        className,
+      )}
+    >
       <label
         htmlFor={id}
-        className={cn('text-xs font-medium', disabled ? 'text-fg-muted' : 'text-fg-secondary')}
+        className={cn(
+          compact ? 'text-[11px] font-medium' : 'text-xs font-medium',
+          hideLabel && 'sr-only',
+          disabled ? 'text-fg-muted' : 'text-fg-secondary',
+        )}
       >
         {label}
       </label>
 
-      <div ref={container} className="relative">
+      <div
+        ref={container}
+        className={bare || layout === 'inline' ? 'relative inline-block' : 'relative'}
+      >
         <button
           id={id}
           type="button"
@@ -168,19 +205,35 @@ export function Select({
           }}
           onKeyDown={onKeyDown}
           className={cn(
-            'flex w-full items-center justify-between gap-2 rounded-sm border px-3 py-2',
-            'text-left text-sm transition-colors',
-            disabled
-              ? 'cursor-not-allowed border-line-subtle bg-surface-disabled text-fg-muted'
-              : 'border-line-input bg-surface-input text-fg-primary',
-            open && !disabled && 'border-line-focus',
+            bare
+              ? 'inline-flex items-center gap-1 rounded-sm px-1 py-0.5 text-left text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus'
+              : size === 'sm'
+                ? 'flex w-full items-center justify-between gap-2 rounded-sm border px-2 py-1'
+                : 'flex w-full items-center justify-between gap-2 rounded-sm border px-3 py-2',
+            bare
+              ? disabled
+                ? 'cursor-not-allowed text-fg-muted'
+                : 'text-fg-primary hover:bg-surface-content-alt'
+              : cn(
+                  size === 'sm'
+                    ? 'text-left text-xs transition-colors'
+                    : 'text-left text-sm transition-colors',
+                  disabled
+                    ? 'cursor-not-allowed border-line-subtle bg-surface-disabled text-fg-muted'
+                    : 'border-line-input bg-surface-input text-fg-primary',
+                  open && !disabled && 'border-line-focus',
+                ),
           )}
         >
           <span className="truncate">{current?.label ?? ''}</span>
           <Chevron open={open} />
         </button>
 
-        <Overlay open={open} className="max-h-64 overflow-auto">
+        <Overlay
+          open={open}
+          align={align}
+          className={cn('max-h-64 overflow-auto', (bare || size === 'sm') && 'min-w-[8rem]')}
+        >
           <ul id={listId} role="listbox" aria-label={label}>
             {options.map((option, index) => (
               <li key={option.value}>
@@ -196,8 +249,12 @@ export function Select({
                     commit(index);
                   }}
                   className={cn(
-                    'flex w-full items-center justify-between gap-2 rounded-sm px-3 py-2',
-                    'text-left text-sm transition-colors',
+                    compactOptions
+                      ? 'flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5'
+                      : 'flex w-full items-center justify-between gap-2 rounded-sm px-3 py-2',
+                    compactOptions
+                      ? 'text-left text-xs transition-colors'
+                      : 'text-left text-sm transition-colors',
                     index === active ? 'bg-surface-content-alt' : 'bg-transparent',
                     option.value === value ? 'text-fg-primary' : 'text-fg-secondary',
                   )}
