@@ -122,7 +122,7 @@ export function StorageCard(): ReactElement {
         <div ref={anchor} className="relative flex flex-wrap items-center gap-2">
           <Button
             variant="secondary"
-            className="px-3 py-1 text-xs"
+            size="sm"
             disabled={loading || !engineReady}
             aria-haspopup="dialog"
             aria-expanded={candidate !== null}
@@ -135,7 +135,7 @@ export function StorageCard(): ReactElement {
 
           <Button
             variant="ghost"
-            className="px-3 py-1 text-xs"
+            size="sm"
             disabled={loading || !engineReady || info === null || info.isDefault}
             onClick={() => {
               void proposeDefault();
@@ -218,10 +218,10 @@ function Proposal({ candidate, units, busy, onCancel, onConfirm }: ProposalProps
       <p className="text-xs leading-relaxed text-fg-secondary">{t('storage.confirmBody')}</p>
 
       <div className="flex flex-wrap justify-end gap-2 pt-1">
-        <Button variant="ghost" className="px-3 py-1 text-xs" onClick={onCancel}>
+        <Button variant="ghost" size="sm" onClick={onCancel}>
           {tCommon('actions.cancel')}
         </Button>
-        <Button variant="primary" className="px-3 py-1 text-xs" disabled={busy} onClick={onConfirm}>
+        <Button variant="primary" size="sm" disabled={busy} onClick={onConfirm}>
           {t('storage.confirmAction')}
         </Button>
       </div>

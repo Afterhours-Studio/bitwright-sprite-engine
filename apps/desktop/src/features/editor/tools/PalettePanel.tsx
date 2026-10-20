@@ -597,7 +597,7 @@ function RampsTab({ palette }: PaletteProps): ReactElement {
                 </label>
                 <Button
                   variant="ghost"
-                  className="px-2 py-1 text-[11px]"
+                  size="xs"
                   onClick={() => {
                     setEditing(false);
                   }}
@@ -608,7 +608,7 @@ function RampsTab({ palette }: PaletteProps): ReactElement {
             ) : (
               <Button
                 variant="ghost"
-                className="px-2 py-1 text-[11px]"
+                size="xs"
                 onClick={() => {
                   setEditing(true);
                 }}

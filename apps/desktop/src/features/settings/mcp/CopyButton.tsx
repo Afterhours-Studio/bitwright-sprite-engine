@@ -75,8 +75,8 @@ export function CopyButton({
   return (
     <Button
       variant="secondary"
+      size="xs"
       className={cn(
-        'px-2 py-1 text-[11px]',
         outcome === 'copied' &&
           'text-[color:var(--severity-success)] hover:text-[color:var(--severity-success)]',
         outcome === 'failed' &&

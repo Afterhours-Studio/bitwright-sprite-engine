@@ -167,7 +167,7 @@ export default function McpCard(): ReactElement {
             </code>
             <Button
               variant="ghost"
-              className="px-2 py-1 text-xs"
+              size="sm"
               onClick={() => {
                 setTokenRevealed(!tokenRevealed);
               }}
@@ -182,7 +182,7 @@ export default function McpCard(): ReactElement {
             />
             <Button
               variant="ghost"
-              className="px-2 py-1 text-xs"
+              size="sm"
               disabled={loading}
               onClick={() => {
                 void regenerateToken();
@@ -212,7 +212,8 @@ export default function McpCard(): ReactElement {
           <p className="mb-1.5 text-xs font-medium text-fg-secondary">{t('mcp.clients.label')}</p>
           <Button
             variant="secondary"
-            className="mb-2 px-3 py-1 text-xs"
+            size="sm"
+            className="mb-2"
             disabled={loading || pending.length === 0}
             onClick={() => {
               void configureAllDetected();
@@ -315,21 +316,11 @@ function ClientRow({
         {registered ? t('mcp.clients.registered') : ''}
       </span>
       {registered ? (
-        <Button
-          variant="ghost"
-          className="px-2 py-1 text-xs"
-          disabled={loading}
-          onClick={onUnregister}
-        >
+        <Button variant="ghost" size="sm" disabled={loading} onClick={onUnregister}>
           {t('mcp.clients.remove')}
         </Button>
       ) : (
-        <Button
-          variant="ghost"
-          className="px-2 py-1 text-xs"
-          disabled={loading || !detected}
-          onClick={onRegister}
-        >
+        <Button variant="ghost" size="sm" disabled={loading || !detected} onClick={onRegister}>
           {t('mcp.clients.register')}
         </Button>
       )}

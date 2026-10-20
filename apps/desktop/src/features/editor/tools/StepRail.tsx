@@ -104,7 +104,7 @@ const STEP_ICONS: Partial<Record<Step, LucideIcon>> = {
 };
 
 /** The bar's buttons at the strip's small size: Check, Advance, Revisit, Force. */
-const BAR_BUTTON = 'gap-1 px-2 py-1 text-[11px]';
+const BAR_BUTTON = 'gap-1';
 
 /** Every card's frame; the state adds its border, fill and ring. */
 const CARD = 'group relative flex flex-shrink-0 flex-col items-center rounded-md border p-1';
@@ -284,6 +284,7 @@ export function StepRail(): ReactElement {
         <div className="flex shrink-0 items-center gap-1.5">
           <Button
             variant="secondary"
+            size="xs"
             className={BAR_BUTTON}
             disabled={loading}
             onClick={() => {
@@ -294,6 +295,7 @@ export function StepRail(): ReactElement {
           </Button>
           <Button
             variant="primary"
+            size="xs"
             className={BAR_BUTTON}
             // Disabled from `canAdvance`, which Rust computes as the gate passing
             // and the step not being the last one. Guessing it here from the
@@ -309,6 +311,7 @@ export function StepRail(): ReactElement {
           <span aria-hidden="true" className="mx-1 h-5 w-px bg-line-subtle" />
           <Button
             variant="secondary"
+            size="xs"
             className={BAR_BUTTON}
             disabled={loading || previous === undefined}
             // Named after the step it goes back to, so it is never mistaken
@@ -331,6 +334,7 @@ export function StepRail(): ReactElement {
           {offerForce && (
             <Button
               variant="ghost"
+              size="xs"
               className={BAR_BUTTON}
               disabled={loading}
               onClick={() => {

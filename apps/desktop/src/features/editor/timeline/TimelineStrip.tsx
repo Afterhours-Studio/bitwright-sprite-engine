@@ -300,7 +300,7 @@ export function TimelineStrip(): ReactElement {
           <Button
             variant="primary"
             aria-pressed={playing}
-            className="px-3 py-1"
+            size="sm"
             onClick={() => {
               if (playing) {
                 pause();

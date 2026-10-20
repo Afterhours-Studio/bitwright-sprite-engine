@@ -197,7 +197,7 @@ export function ReferencePanel(): ReactElement {
         </h3>
         <Button
           variant="secondary"
-          className="px-2.5 py-1 text-[11px]"
+          size="xs"
           disabled={importing}
           onClick={() => {
             void handleImport();
@@ -276,7 +276,7 @@ export function ReferencePanel(): ReactElement {
             <div className="mt-auto flex flex-wrap gap-2 pt-1">
               <Button
                 variant="primary"
-                className="px-2.5 py-1 text-[11px]"
+                size="xs"
                 onClick={() => {
                   void handleApplyPalette();
                 }}
@@ -285,7 +285,8 @@ export function ReferencePanel(): ReactElement {
               </Button>
               <Button
                 variant="ghost"
-                className="px-2.5 py-1 text-[11px] hover:text-severity-error"
+                size="xs"
+                className="hover:text-severity-error"
                 onClick={() => {
                   setConfirmingDelete(true);
                 }}

@@ -20,9 +20,27 @@ import { cn } from '@/lib/cn';
 /** How prominent a button is, and whether it reads as destructive. */
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
+/**
+ * How big the button is.
+ *
+ * A prop rather than padding classes passed in: `cn` joins classes without
+ * merging them, so a caller's `px-2 text-xs` sat beside the default
+ * `px-4 text-sm`, and whichever Tailwind happened to emit later won. That was
+ * always the larger one, which is why small buttons were coming out full size.
+ */
+export type ButtonSize = 'md' | 'sm' | 'xs';
+
+const SIZES: Record<ButtonSize, string> = {
+  md: 'rounded-md px-4 py-2 text-sm',
+  sm: 'rounded-md px-3 py-1.5 text-xs',
+  xs: 'rounded-sm px-2 py-1 text-[11px]',
+};
+
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /** How prominent the button is. */
   variant?: ButtonVariant;
+  /** How big it is. Never set padding or text size through `className`. */
+  size?: ButtonSize;
   /** Content. Always a translated string, never a literal. */
   children: ReactNode;
 }
@@ -49,6 +67,7 @@ const VARIANTS: Record<ButtonVariant, string> = {
  */
 export function Button({
   variant = 'secondary',
+  size = 'md',
   className,
   disabled,
   children,
@@ -59,8 +78,8 @@ export function Button({
       type="button"
       disabled={disabled}
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-md px-4 py-2',
-        'text-sm font-medium transition-colors',
+        'inline-flex items-center justify-center gap-2 font-medium transition-colors',
+        SIZES[size],
         disabled
           ? 'cursor-not-allowed border border-line-subtle bg-surface-disabled text-fg-muted'
           : VARIANTS[variant],

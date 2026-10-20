@@ -302,7 +302,7 @@ export function ExportDialog({ assetId, open, onClose }: ExportDialogProps): Rea
         trailing={
           <Button
             variant="secondary"
-            className="px-2 py-0.5 text-[11px]"
+            size="xs"
             onClick={() => {
               void chooseFolder();
             }}

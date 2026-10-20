@@ -568,7 +568,7 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
 
             <Button
               variant="primary"
-              className="w-full py-2"
+              className="w-full"
               onClick={() => {
                 void handleCreate();
               }}
@@ -620,7 +620,8 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
               <Button
                 variant={activeTile === null ? 'primary' : 'secondary'}
                 aria-pressed={activeTile === null}
-                className="h-8 px-2 text-[11px]"
+                size="xs"
+                className="h-8"
                 onClick={() => {
                   setActiveTile(null);
                 }}
@@ -688,7 +689,8 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
 
                     <Button
                       variant="ghost"
-                      className="px-1.5 py-0.5 text-[11px] hover:text-severity-error"
+                      size="xs"
+                      className="hover:text-severity-error"
                       disabled={tilemap.layers.length === 1}
                       onClick={() => {
                         void handleRemoveLayer(layer.name);
@@ -755,7 +757,7 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
                 </label>
                 <Button
                   variant="secondary"
-                  className="px-2.5 py-1 text-[11px]"
+                  size="xs"
                   onClick={() => {
                     void handleAddLayer();
                   }}
