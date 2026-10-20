@@ -157,7 +157,8 @@ describe('HomeScreen', () => {
     render(<HomeScreen />);
     await screen.findByRole('button', { name: 'Open bat' });
 
-    fireEvent.change(screen.getByLabelText('Sort'), { target: { value: 'size' } });
+    fireEvent.click(screen.getByRole('combobox', { name: 'Sort' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Size' }));
     expect(cardOrder()).toEqual(['bat', 'tree', 'hero']);
 
     fireEvent.click(screen.getByRole('button', { name: 'Descending' }));
@@ -296,7 +297,8 @@ describe('HomeScreen with an animation', () => {
   it('sorts by frames and shows a Frames column in the list', async () => {
     render(<HomeScreen />);
     await screen.findByRole('button', { name: 'Open walk' });
-    fireEvent.change(screen.getByLabelText('Sort'), { target: { value: 'frames' } });
+    fireEvent.click(screen.getByRole('combobox', { name: 'Sort' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Frames' }));
     expect(cardOrder()[0]).toBe('walk');
 
     fireEvent.click(screen.getByRole('button', { name: 'List view' }));

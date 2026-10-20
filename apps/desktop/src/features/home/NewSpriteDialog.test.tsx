@@ -97,7 +97,7 @@ describe('NewSpriteDialog', () => {
 
   it('defaults to the selected project and its preset size, and needs a name', () => {
     render(<NewSpriteDialog />);
-    expect(screen.getByLabelText('Project')).toHaveValue('p2');
+    expect(screen.getByRole('combobox', { name: 'Project' })).toHaveTextContent('cave');
     expect(submit()).toHaveTextContent('Create sprite (48x64 px)');
     expect(submit()).toBeDisabled();
     expect(screen.getByRole('button', { name: /^48x64/ })).toHaveAttribute('aria-pressed', 'true');
@@ -144,7 +144,8 @@ describe('NewSpriteDialog', () => {
       error: { code: 'document.invalid_size', detail: '' },
     });
     render(<NewSpriteDialog />);
-    fireEvent.change(screen.getByLabelText('Project'), { target: { value: 'p1' } });
+    fireEvent.click(screen.getByRole('combobox', { name: 'Project' }));
+    fireEvent.click(screen.getByRole('option', { name: 'forest' }));
     fireEvent.change(screen.getByLabelText('Sprite name'), { target: { value: 'slime' } });
     fireEvent.click(submit());
 

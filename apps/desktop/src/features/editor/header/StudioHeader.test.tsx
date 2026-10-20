@@ -201,9 +201,8 @@ describe('StudioHeader', () => {
     fireEvent.click(screen.getByRole('button', { name: /Steps/ }));
     expect(useEditorStore.getState().bottomPanel).toBeNull();
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Tile guide' }), {
-      target: { value: '16' },
-    });
+    fireEvent.click(screen.getByRole('combobox', { name: 'Tile guide' }));
+    fireEvent.click(screen.getByRole('option', { name: /16/ }));
     expect(useEditorStore.getState().tileGuide).toBe(16);
   });
 

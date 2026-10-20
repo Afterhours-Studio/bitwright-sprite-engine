@@ -65,6 +65,7 @@ import { WindowControls } from '@/components/layout/WindowControls';
 import { Dialog } from '@/components/ui/Dialog';
 import { IconButton } from '@/components/ui/IconButton';
 import { NotificationList } from '@/components/ui/NotificationList';
+import { Select } from '@/components/ui/Select';
 import { paintTarget } from '@/features/editor/activeLayer';
 import { ExportDialog } from '@/features/editor/export/ExportDialog';
 import { AgentPopover } from '@/features/editor/header/AgentPopover';
@@ -484,20 +485,20 @@ export function StudioHeader(): ReactElement {
         >
           <Grid3x3 aria-hidden="true" strokeWidth={1.75} className="w-4 h-4" />
         </HeaderIconButton>
-        <select
-          aria-label={t('header.tileGuide')}
-          value={tileGuide}
-          onChange={(event) => {
-            setTileGuide(Number(event.target.value) as TileGuide);
+        <Select
+          size="sm"
+          hideLabel
+          label={t('header.tileGuide')}
+          className="no-drag w-24"
+          value={String(tileGuide)}
+          options={TILE_GUIDES.map((size) => ({
+            value: String(size),
+            label: size === 0 ? t('header.tileOff') : t('header.tileSize', { size }),
+          }))}
+          onValueChange={(value) => {
+            setTileGuide(Number(value) as TileGuide);
           }}
-          className="no-drag w-20 rounded-md border border-line-input bg-surface-input px-2 py-1.5 text-xs text-fg-primary outline-none focus:border-line-focus"
-        >
-          {TILE_GUIDES.map((size) => (
-            <option key={size} value={size}>
-              {size === 0 ? t('header.tileOff') : t('header.tileSize', { size })}
-            </option>
-          ))}
-        </select>
+        />
         <Divider />
         <button
           type="button"

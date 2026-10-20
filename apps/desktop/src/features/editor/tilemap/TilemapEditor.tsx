@@ -56,6 +56,7 @@ import { useCallback, useEffect, useRef, useState, type ReactElement } from 'rea
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
 import { useErrorMessage } from '@/hooks/useErrorMessage';
 import { cn } from '@/lib/cn';
 import type { ShellResult } from '@/lib/tauri';
@@ -525,22 +526,17 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
             <p className="text-xs font-semibold text-fg-primary">{t('create.heading')}</p>
             <p className="text-[11px] leading-relaxed text-fg-secondary">{t('create.body')}</p>
 
-            <label className={FIELD_ROW}>
-              {t('create.tileSize')}
-              <select
-                value={tileSize}
-                onChange={(event) => {
-                  setTileSize(Number(event.target.value));
-                }}
-                className={SMALL_INPUT}
-              >
-                {TILE_SIZES.map((size) => (
-                  <option key={size} value={size}>
-                    {size}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <Select
+              size="sm"
+              layout="inline"
+              label={t('create.tileSize')}
+              className="justify-between"
+              value={String(tileSize)}
+              options={TILE_SIZES.map((size) => ({ value: String(size), label: String(size) }))}
+              onValueChange={(value) => {
+                setTileSize(Number(value));
+              }}
+            />
 
             <label className={FIELD_ROW}>
               {t('create.columns')}

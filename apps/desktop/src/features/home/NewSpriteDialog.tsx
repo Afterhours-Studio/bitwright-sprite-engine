@@ -39,6 +39,7 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Select } from '@/components/ui/Select';
 import { useDismiss } from '@/hooks/useDismiss';
 import { cn } from '@/lib/cn';
 import { useProjectStore } from '@/stores/useProjectStore';
@@ -215,26 +216,18 @@ export function NewSpriteDialog(): ReactElement | null {
           className="p-5 space-y-5 overflow-y-auto"
         >
           <div>
-            <label htmlFor={`${ids}-project`} className={LABEL}>
-              {t('newSprite.project')}
-            </label>
             {projects.length === 0 ? (
-              <p className="text-xs text-fg-secondary">{t('newSprite.noProjects')}</p>
+              <>
+                <p className={LABEL}>{t('newSprite.project')}</p>
+                <p className="text-xs text-fg-secondary">{t('newSprite.noProjects')}</p>
+              </>
             ) : (
-              <select
-                id={`${ids}-project`}
+              <Select
+                label={t('newSprite.project')}
                 value={projectId}
-                onChange={(event) => {
-                  setProjectId(event.target.value);
-                }}
-                className={INPUT}
-              >
-                {projects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
-                ))}
-              </select>
+                options={projects.map((project) => ({ value: project.id, label: project.name }))}
+                onValueChange={setProjectId}
+              />
             )}
           </div>
 

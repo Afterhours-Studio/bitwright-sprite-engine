@@ -49,6 +49,7 @@ import { useEffect, useId, useMemo, useState, type ReactElement, type ReactNode 
 import { useTranslation } from 'react-i18next';
 
 import { ConfirmDialog } from '@/components/ui/Dialog';
+import { Select } from '@/components/ui/Select';
 import { AssetCard, AssetRow } from '@/features/home/AssetCard';
 import { HomeSidebar, type HomeView } from '@/features/home/HomeSidebar';
 import { NewProjectDialog, RenameDialog } from '@/features/home/NameDialogs';
@@ -367,21 +368,17 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
 
         <div className="mx-4 flex shrink-0 flex-wrap items-center justify-between gap-4 py-3 text-xs text-fg-secondary">
           <div className="flex items-center gap-2">
-            <label htmlFor={`${ids}-sort`}>{t('toolbar.sort')}</label>
-            <select
-              id={`${ids}-sort`}
+            <Select
+              variant="bare"
+              layout="inline"
+              size="sm"
+              label={t('toolbar.sort')}
               value={sortKey}
-              onChange={(event) => {
-                setSortKey(SORT_KEYS.find((key) => key === event.target.value) ?? 'recent');
+              options={SORT_KEYS.map((key) => ({ value: key, label: t(SORT_LABEL[key]) }))}
+              onValueChange={(value) => {
+                setSortKey(SORT_KEYS.find((key) => key === value) ?? 'recent');
               }}
-              className="rounded-sm bg-transparent text-fg-primary focus:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
-            >
-              {SORT_KEYS.map((key) => (
-                <option key={key} value={key} className="bg-surface-float text-fg-primary">
-                  {t(SORT_LABEL[key])}
-                </option>
-              ))}
-            </select>
+            />
             <span className="h-4 border-l border-line" aria-hidden="true" />
             <button
               type="button"

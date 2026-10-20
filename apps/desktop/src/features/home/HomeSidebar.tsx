@@ -37,10 +37,11 @@ import {
   Settings,
   type LucideIcon,
 } from 'lucide-react';
-import { useEffect, useId, useState, type ReactElement } from 'react';
+import { useEffect, useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { NewProjectDialog } from '@/features/home/NameDialogs';
+import { Select } from '@/components/ui/Select';
 import { pngToPixel } from '@/features/home/pngToPixel';
 import { useMcpStore } from '@/features/settings/mcp/useMcpStore';
 import { cn } from '@/lib/cn';
@@ -84,7 +85,6 @@ const ACTION = cn(
 export function HomeSidebar({ active, onNavigate }: HomeSidebarProps): ReactElement {
   const { t, i18n } = useTranslation('home');
   const { t: tc } = useTranslation('common');
-  const languageId = useId();
 
   const status = useMcpStore((state) => state.status);
   const refresh = useMcpStore((state) => state.refresh);
@@ -241,30 +241,29 @@ export function HomeSidebar({ active, onNavigate }: HomeSidebarProps): ReactElem
       </nav>
 
       <div className="mt-auto pt-4">
-        <label
-          htmlFor={languageId}
+        <p
+          aria-hidden="true"
           className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-fg-secondary"
         >
           <Languages className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
           {tc('language.label')}
-        </label>
-        <select
-          id={languageId}
+        </p>
+        <Select
+          hideLabel
+          label={tc('language.label')}
           value={language}
-          onChange={(event) => {
-            const next = LANGUAGES.find((code) => code === event.target.value);
+          options={LANGUAGES.map((code) => ({
+            value: code,
+            label: tc(`language.${code}`),
+            tag: code.toUpperCase(),
+          }))}
+          onValueChange={(value) => {
+            const next = LANGUAGES.find((code) => code === value);
             if (next !== undefined) {
               void setLanguage(next);
             }
           }}
-          className="w-full rounded-md border border-line-input bg-surface-input px-3 py-2 pr-8 text-xs text-fg-primary focus:border-line-focus focus:outline-none"
-        >
-          {LANGUAGES.map((code) => (
-            <option key={code} value={code}>
-              {tc(`language.${code}`)}
-            </option>
-          ))}
-        </select>
+        />
       </div>
 
       <div className="mt-4 pt-4 border-t border-line-subtle text-[11px] text-fg-secondary">
