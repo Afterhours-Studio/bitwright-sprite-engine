@@ -322,10 +322,10 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
     <div className="relative flex h-full w-full bg-surface-canvas text-fg-primary select-none overflow-hidden">
       <HomeSidebar active={view} onNavigate={navigate} />
 
-      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto bg-surface-canvas p-4">
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-surface-canvas">
         <div
           data-tauri-drag-region
-          className="flex items-center justify-between pb-3 border-b border-line-subtle"
+          className="mx-4 mt-4 flex shrink-0 items-center justify-between pb-3 border-b border-line-subtle"
         >
           <h1 data-tauri-drag-region className="text-base font-semibold text-fg-primary">
             {t(view === 'recent' ? 'sidebar.recent' : 'sidebar.projects')}
@@ -365,7 +365,7 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-4 py-3 text-xs text-fg-secondary">
+        <div className="mx-4 flex shrink-0 flex-wrap items-center justify-between gap-4 py-3 text-xs text-fg-secondary">
           <div className="flex items-center gap-2">
             <label htmlFor={`${ids}-sort`}>{t('toolbar.sort')}</label>
             <select
@@ -414,25 +414,30 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
           </div>
         </div>
 
-        {failure !== null && (
-          <div
-            role="alert"
-            className="mb-3 flex items-center justify-between gap-3 rounded-md border border-line bg-surface-content px-3 py-2 text-xs text-[color:var(--severity-error)]"
-          >
-            <span>{failure}</span>
-            <button
-              type="button"
-              onClick={() => {
-                void loadAll();
-              }}
-              className="rounded-pill px-2 py-1 font-medium text-fg-primary transition-colors hover:bg-surface-content-alt focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
+        {/* Only the list scrolls. The title row carries the window controls
+            and the drag region, and the toolbar is what works on the list, so
+            both stay put while it moves under them. */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+          {failure !== null && (
+            <div
+              role="alert"
+              className="mb-3 flex items-center justify-between gap-3 rounded-md border border-line bg-surface-content px-3 py-2 text-xs text-[color:var(--severity-error)]"
             >
-              {tc('actions.retry')}
-            </button>
-          </div>
-        )}
+              <span>{failure}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  void loadAll();
+                }}
+                className="rounded-pill px-2 py-1 font-medium text-fg-primary transition-colors hover:bg-surface-content-alt focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
+              >
+                {tc('actions.retry')}
+              </button>
+            </div>
+          )}
 
-        {body}
+          {body}
+        </div>
       </main>
 
       <NewProjectDialog open={pending.kind === 'newProject'} onClose={close} />
