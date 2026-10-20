@@ -203,6 +203,38 @@ pub fn guard_step(asset: &Asset, role: LayerRole, force: bool) -> Result<(), Too
     ))
 }
 
+/// The key a tool's JSON carries an image under.
+///
+/// A tool returns one `Value`, and the transport turns it into the text block
+/// a model reads. A picture cannot travel as text, so a tool that has one
+/// tucks it under this key as `{ mimeType, data }` (base64), and the handler
+/// lifts it out into a real MCP image content block next to the text.
+pub const IMAGE_KEY: &str = "_image";
+
+/// Adds a PNG to a tool's result as the image the handler will send.
+pub fn with_image(mut fields: serde_json::Value, png: &[u8]) -> serde_json::Value {
+    use base64::Engine as _;
+    fields[IMAGE_KEY] = serde_json::json!({
+        "mimeType": "image/png",
+        "data": base64::engine::general_purpose::STANDARD.encode(png),
+    });
+    fields
+}
+
+/// Takes the image out of a tool's result: the JSON that is left, and the
+/// image's base64 data and MIME type when there was one.
+pub fn split_image(mut value: serde_json::Value) -> (serde_json::Value, Option<(String, String)>) {
+    let image = value
+        .as_object_mut()
+        .and_then(|object| object.remove(IMAGE_KEY))
+        .and_then(|image| {
+            let data = image.get("data")?.as_str()?.to_owned();
+            let mime = image.get("mimeType")?.as_str()?.to_owned();
+            Some((data, mime))
+        });
+    (value, image)
+}
+
 /// The diff summary every write returns: what changed, where, and how far the
 /// op log has walked.
 pub fn summary(result: &OpResult) -> serde_json::Value {
@@ -411,6 +443,18 @@ mod tests {
             summary(&result),
             json!({ "changed": 0, "bounds": null, "seq": 2 })
         );
+    }
+
+    #[test]
+    fn an_image_rides_under_one_key_and_comes_back_out() {
+        let value = with_image(json!({ "width": 4 }), b"\x89PNG");
+        let (rest, image) = split_image(value);
+        assert_eq!(rest, json!({ "width": 4 }));
+        let (data, mime) = image.expect("the image was carried");
+        assert_eq!(mime, "image/png");
+        assert_eq!(data, "iVBORw==");
+        let (_, none) = split_image(json!({ "width": 4 }));
+        assert!(none.is_none());
     }
 
     #[test]

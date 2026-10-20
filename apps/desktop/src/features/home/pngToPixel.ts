@@ -15,20 +15,32 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * PNG to Pixel: a new sprite with a picture already imported as its reference.
+ * PNG to Pixel: a new sprite with a picture converted into its pixels.
  *
- * The picture is picked before the sprite is created, so cancelling the file
- * picker leaves nothing behind. The import is the same `reference_import` the
- * editor's reference panel runs, and it never touches the document: the
- * picture is conformed to the sprite's size and kept beside it to draw
- * against, which is the reference step of the workflow.
+ * The picture is picked and measured before the sprite is created, so
+ * cancelling the file picker, or picking something that is not a picture,
+ * leaves nothing behind. Measuring finds the picture's own pixel grid (a
+ * generated image draws its "pixels" as blocks of a fractional size), and the
+ * sprite is created at that grid's size, within the sizes the new-sprite
+ * dialog offers. The picture is then imported as the sprite's reference, the
+ * same `reference_import` the editor's reference panel runs, and finally
+ * pixelized into the sprite's first layer: background removed, one colour per
+ * block, snapped to a palette made from the picture.
  */
 
 import i18n from '@/lib/i18n';
-import { referenceImport, referencePickFile } from '@/lib/reference';
+import {
+  referenceImport,
+  referencePickFile,
+  referencePixelize,
+  referencePixelizeProbe,
+} from '@/lib/reference';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { useToastStore } from '@/stores/useToastStore';
 import { PRESET_CANVAS, type Asset, type StylePreset } from '@/types/document';
+
+/** The code the shell answers when the picked file is not a PNG. */
+const NOT_A_PNG = 'png.invalid';
 
 /**
  * The sprite name a picture's path suggests: its file name without the
@@ -44,32 +56,51 @@ export function nameFromPath(path: string): string {
 }
 
 /**
- * Picks a picture, creates a sprite for it in a project, and imports the
- * picture as that sprite's reference.
+ * Raises the error toast every failure in this flow shares.
+ *
+ * @param code - The shell's error code, when it gave one.
+ * @param fallbackKey - What to say when the errors namespace has no entry for
+ *   the code, so a code it does not know never shows as a raw key.
+ */
+function fail(code: string | null, fallbackKey: string): void {
+  useToastStore.getState().notify({
+    severity: 'error',
+    titleKey: 'home:png.failedTitle',
+    messageKey: code !== null && i18n.exists(`errors:${code}`) ? `errors:${code}` : fallbackKey,
+  });
+}
+
+/**
+ * Picks a picture, creates a sprite for it in a project, imports the picture as
+ * that sprite's reference and converts it into the sprite's first layer.
  *
  * @param projectId - The project the sprite goes into.
- * @param preset - That project's preset, which sets the sprite's size.
+ * @param preset - That project's preset, whose canvas is used for a picture
+ *   the shell cannot measure (a JPEG, say), which is converted from its
+ *   conformed copy instead.
  * @returns The created sprite, or null when nothing was created.
  */
 export async function pngToPixel(projectId: string, preset: StylePreset): Promise<Asset | null> {
-  const notify = useToastStore.getState().notify;
   const picked = await referencePickFile();
   if (!picked.ok) {
-    notify({
-      severity: 'error',
-      titleKey: 'home:png.failedTitle',
-      // A code the errors namespace does not know would show as a raw key.
-      messageKey: i18n.exists(`errors:${picked.error.code}`)
-        ? `errors:${picked.error.code}`
-        : 'errors:unknown',
-    });
+    fail(picked.error.code, 'errors:unknown');
     return null;
   }
   if (picked.value === null) {
     return null;
   }
 
-  const canvas = PRESET_CANVAS[preset];
+  const probe = await referencePixelizeProbe(picked.value);
+  let canvas = PRESET_CANVAS[preset];
+  if (probe.ok) {
+    canvas = { width: probe.value.canvasWidth, height: probe.value.canvasHeight };
+  } else if (probe.error.code !== NOT_A_PNG) {
+    // An empty picture, one that is too large or unreadable: nothing is
+    // created, so there is no half-made sprite to explain.
+    fail(probe.error.code, 'home:png.unreadable');
+    return null;
+  }
+
   const asset = await useProjectStore
     .getState()
     .createAssetIn(projectId, nameFromPath(picked.value), 'character', canvas.width, canvas.height);
@@ -82,11 +113,15 @@ export async function pngToPixel(projectId: string, preset: StylePreset): Promis
   if (!imported.ok) {
     // The sprite is kept: it is a real row now, and its reference panel can
     // import the picture again without the size being chosen twice.
-    notify({
-      severity: 'error',
-      titleKey: 'home:png.failedTitle',
-      messageKey: 'home:png.importFailed',
-    });
+    fail(null, 'home:png.importFailed');
+    return asset;
+  }
+
+  const pixelized = await referencePixelize(asset.id, imported.value.id);
+  if (!pixelized.ok) {
+    // The sprite and its reference are kept; the picture can be converted
+    // again by an agent (pixelize_reference) or redrawn by hand.
+    fail(pixelized.error.code, 'home:png.pixelizeFailed');
   }
   return asset;
 }

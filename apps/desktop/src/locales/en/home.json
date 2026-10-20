@@ -70,7 +70,9 @@
   },
   "png": {
     "failedTitle": "PNG to Pixel",
-    "importFailed": "The picture could not be imported. The sprite was created; import the picture again from its reference panel."
+    "importFailed": "The picture could not be imported. The sprite was created; import the picture again from its reference panel.",
+    "unreadable": "The picture could not be read, or has nothing left once its background is removed. Nothing was created.",
+    "pixelizeFailed": "The picture was imported but could not be converted to pixels. The sprite and its reference were kept."
   },
   "newSprite": {
     "title": "New sprite",

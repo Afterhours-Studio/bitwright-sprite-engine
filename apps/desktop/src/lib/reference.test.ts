@@ -33,6 +33,8 @@ import {
   referenceImport,
   referenceList,
   referencePickFile,
+  referencePixelize,
+  referencePixelizeProbe,
   referencePreview,
 } from '@/lib/reference';
 
@@ -117,6 +119,49 @@ describe('referenceApplyPalette', () => {
       assetId: 'asset-1',
       referenceId: 'ref-1',
       maxSlots: 16,
+    });
+  });
+});
+
+describe('referencePixelizeProbe', () => {
+  it('sends path under the key the command declares', async () => {
+    answersWith({});
+
+    await referencePixelizeProbe('/tmp/pic.png');
+    expect(tauri.invoke).toHaveBeenCalledWith('reference_pixelize_probe', {
+      path: '/tmp/pic.png',
+    });
+  });
+});
+
+describe('referencePixelize', () => {
+  it('sends the ids and every option under the keys the command declares', async () => {
+    answersWith({});
+
+    await referencePixelize('asset-1', 'ref-1', {
+      layer: 'flats',
+      colors: 12,
+      snapToPalette: false,
+    });
+    expect(tauri.invoke).toHaveBeenCalledWith('reference_pixelize', {
+      assetId: 'asset-1',
+      referenceId: 'ref-1',
+      layer: 'flats',
+      colors: 12,
+      snapToPalette: false,
+    });
+  });
+
+  it('leaves the options undefined when none are given', async () => {
+    answersWith({});
+
+    await referencePixelize('asset-1', 'ref-1');
+    expect(tauri.invoke).toHaveBeenCalledWith('reference_pixelize', {
+      assetId: 'asset-1',
+      referenceId: 'ref-1',
+      layer: undefined,
+      colors: undefined,
+      snapToPalette: undefined,
     });
   });
 });

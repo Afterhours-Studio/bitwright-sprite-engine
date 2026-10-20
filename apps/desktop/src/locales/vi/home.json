@@ -70,7 +70,9 @@
   },
   "png": {
     "failedTitle": "PNG sang Pixel",
-    "importFailed": "Không nhập được ảnh. Sprite đã được tạo; hãy nhập lại ảnh từ bảng tham chiếu của nó."
+    "importFailed": "Không nhập được ảnh. Sprite đã được tạo; hãy nhập lại ảnh từ bảng tham chiếu của nó.",
+    "unreadable": "Không đọc được ảnh, hoặc ảnh không còn gì sau khi xóa nền. Chưa có gì được tạo.",
+    "pixelizeFailed": "Ảnh đã được nhập nhưng không chuyển được thành điểm ảnh. Sprite và ảnh tham chiếu vẫn được giữ lại."
   },
   "newSprite": {
     "title": "Sprite mới",

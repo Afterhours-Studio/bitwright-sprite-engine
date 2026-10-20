@@ -24,7 +24,7 @@ use super::super::error::ToolError;
 use super::super::host::{with_store, DocumentHost};
 use super::super::session::Session;
 use super::read::{legend, render_at};
-use super::{parse, resolve_asset, ToolResult, ToolSpec};
+use super::{guard_step, parse, resolve_asset, ToolResult, ToolSpec};
 use bitwright::raster::color;
 use bitwright::raster::png;
 use bitwright::store::{AppError, Reference};
@@ -153,11 +153,18 @@ struct Group {
 /// grouped by hue into ramps, darkest slot first, in the exact shape
 /// `set_palette` takes.
 pub(crate) fn extracted_ramps(reference: &Reference, max_slots: usize) -> Result<Value, ToolError> {
+    Ok(ramps_from_colours(source_colours(reference)?, max_slots))
+}
+
+/// The hue-grouped ramps for a list of colours, most used first, keeping at
+/// most `max_slots` of them. `extract_palette` and `pixelize_reference` both
+/// end here: one starts from a reference's colours, the other from the colours
+/// of the pixels it just made.
+pub(crate) fn ramps_from_colours(colours: Vec<[u8; 4]>, max_slots: usize) -> Value {
     let max_slots = max_slots.clamp(1, 62);
-    let colours = source_colours(reference)?;
     let kept: Vec<[u8; 4]> = colours.into_iter().take(max_slots).collect();
     if kept.is_empty() {
-        return Ok(json!([]));
+        return json!([]);
     }
 
     let mut groups: Vec<Group> = Vec::new();
@@ -224,7 +231,7 @@ pub(crate) fn extracted_ramps(reference: &Reference, max_slots: usize) -> Result
             "slots": slots,
         }));
     }
-    Ok(Value::Array(ramps))
+    Value::Array(ramps)
 }
 
 // ---------------------------------------------------------------------------
@@ -336,9 +343,107 @@ fn extract_palette(host: &dyn DocumentHost, session: &Session, args: Value) -> T
 }
 
 // ---------------------------------------------------------------------------
+// pixelize_reference
+// ---------------------------------------------------------------------------
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct PixelizeReferenceArgs {
+    asset_id: Option<String>,
+    reference_id: Option<String>,
+    layer: Option<String>,
+    colors: Option<usize>,
+    snap_to_palette: Option<bool>,
+    force: Option<bool>,
+}
+
+fn pixelize_reference_schema() -> Value {
+    json!({
+        "type": "object",
+        "properties": {
+            "assetId": { "type": "string" },
+            "referenceId": { "type": "string" },
+            "layer": { "type": "string" },
+            "colors": { "type": "integer", "minimum": 1, "maximum": 62 },
+            "snapToPalette": { "type": "boolean", "default": true },
+            "force": { "type": "boolean" }
+        },
+        "additionalProperties": false
+    })
+}
+
+fn pixelize_reference(host: &dyn DocumentHost, session: &Session, args: Value) -> ToolResult {
+    let args: PixelizeReferenceArgs = parse(args)?;
+    let asset = resolve_asset(session, args.asset_id.as_deref())?;
+    let role = super::role(args.layer.as_deref().unwrap_or("silhouette"))?;
+    let force = args.force.unwrap_or(false);
+    let snap = args.snap_to_palette.unwrap_or(true);
+
+    let (references, asset_row) = with_store(host, |store| {
+        Ok((store.reference_list(asset)?, store.asset_read(asset)?))
+    })?;
+    let reference = pick_reference(references, args.reference_id.as_deref())?;
+    // Importing a picture is what the reference step is for, so its first
+    // layer is open from there; any later step keeps the usual guard.
+    if asset_row.step != "reference" {
+        guard_step(&asset_row, role, force)?;
+    }
+
+    let (report, op) = with_store_tool(host, |store| {
+        crate::reference::pixelize_reference(
+            store,
+            asset,
+            reference.id,
+            role,
+            args.colors,
+            snap,
+            &session.actor(),
+        )
+    })?;
+    host.changed(asset, &op);
+    if report.palette_created {
+        host.palette_changed(asset);
+    }
+    let mut value = serde_json::to_value(&report).unwrap_or(Value::Null);
+    value["referenceId"] = json!(reference.id.to_string());
+    value["hint"] = json!("Call render_preview to see the result, then read_canvas to work on it.");
+    Ok(value)
+}
+
+/// `with_store` for work that fails as a `ToolError` already.
+fn with_store_tool<T>(
+    host: &dyn DocumentHost,
+    work: impl FnOnce(&mut bitwright::store::Store) -> Result<T, ToolError>,
+) -> Result<T, ToolError> {
+    let arc = host.store();
+    let mut store = arc.lock().map_err(|_| {
+        ToolError::new(
+            "store.lock_failed",
+            "document store lock was poisoned",
+            "Try the call again; the lock will have been released.",
+        )
+    })?;
+    work(&mut store)
+}
+
+// ---------------------------------------------------------------------------
 
 pub fn tools() -> Vec<ToolSpec> {
     vec![
+        ToolSpec {
+            name: "pixelize_reference",
+            description: "Turn a reference picture into real pixels on one layer (silhouette \
+                by default): the background is removed, the picture's own pixel grid is \
+                found (AI images draw blocks at a fractional size), one colour is sampled \
+                per block, and stray specks go. The result is centred on the canvas, shrunk \
+                to fit when the picture is bigger. With a palette on the asset the pixels \
+                snap to it; with none, a palette is made from the picture (colors, default \
+                32). snapToPalette: false replaces the asset's palette with one made from \
+                the picture, allowed only while no other layer has pixels. Returns the \
+                detected grid and what was written; call render_preview to look at it.",
+            input_schema: pixelize_reference_schema,
+            handler: pixelize_reference,
+        },
         ToolSpec {
             name: "read_reference",
             description: "Read a reference image through the asset's own palette: the same \
@@ -436,6 +541,62 @@ mod tests {
             Ok(id)
         })
         .expect("reference stored")
+    }
+
+    #[test]
+    fn pixelize_reference_draws_the_picture_and_reports_the_grid() {
+        use bitwright::raster::pixelize::fixture;
+        let (host, session, asset) = setup();
+        let bytes = fixture::fake_png(7.5, 20, 6);
+        let id = Uuid::new_v4();
+        with_store(&host, |store| {
+            store.reference_write(Reference {
+                id,
+                asset_id: asset,
+                name: "picture".to_string(),
+                source_png: bytes.clone(),
+                conformed: Some(fixture::blank_png(4, 4)),
+                conform_meta: None,
+                created_at: 1,
+            })
+        })
+        .unwrap();
+        // The 4x4 test canvas is too small for the 6x8 art: it is shrunk to fit.
+        let result = call(
+            &host,
+            &session,
+            "pixelize_reference",
+            json!({ "assetId": asset.0.to_string(), "colors": 3 }),
+        )
+        .expect("a reference step asset accepts the first layer");
+        assert_eq!(result["referenceId"], json!(id.to_string()));
+        assert_eq!(result["layer"], json!("silhouette"));
+        assert_eq!(result["paletteCreated"], json!(true));
+        assert_eq!(result["nativeWidth"], json!(6));
+        assert_eq!(result["nativeHeight"], json!(8));
+        assert!(result["width"].as_u64().unwrap() <= 4);
+        assert!(result["height"].as_u64().unwrap() <= 4);
+        let read = call(
+            &host,
+            &session,
+            "read_canvas",
+            json!({ "assetId": asset.0.to_string(), "layer": "silhouette" }),
+        )
+        .unwrap();
+        assert!(read["text"].as_str().unwrap().contains('A'));
+    }
+
+    #[test]
+    fn pixelize_reference_without_a_reference_is_reference_none() {
+        let (host, session, asset) = setup();
+        let error = call(
+            &host,
+            &session,
+            "pixelize_reference",
+            json!({ "assetId": asset.0.to_string() }),
+        )
+        .expect_err("nothing to pixelize");
+        assert_eq!(error.code, "reference.none");
     }
 
     #[test]

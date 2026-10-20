@@ -23,6 +23,7 @@ pub mod gates;
 pub mod grid;
 pub mod ops;
 pub mod palette;
+pub mod pixelize;
 pub mod png;
 pub mod shading;
 pub mod tilemap;

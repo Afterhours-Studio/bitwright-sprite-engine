@@ -20,7 +20,7 @@ use super::super::error::ToolError;
 use super::super::host::{with_store, DocumentHost};
 use super::super::session::Session;
 use super::{parse, resolve_asset, role, ToolResult, ToolSpec};
-use bitwright::raster::grid;
+use bitwright::raster::{composite, grid, png, LayerRole, RgbaImage};
 use bitwright::raster::{IndexedBuffer, Palette};
 use bitwright::store::{AppError, Document};
 use serde::Deserialize;
@@ -502,8 +502,191 @@ fn diff_layers(host: &dyn DocumentHost, session: &Session, args: Value) -> ToolR
     Ok(json!({ "text": text, "differing": differing }))
 }
 
+// ---------------------------------------------------------------------------
+// render_preview
+// ---------------------------------------------------------------------------
+
+/// The checkerboard's two greys, and the strip between frames.
+const CHECKER_LIGHT: [u8; 3] = [204, 204, 204];
+const CHECKER_DARK: [u8; 3] = [153, 153, 153];
+const FRAME_GAP: [u8; 3] = [40, 40, 40];
+/// A preview is a picture to look at, not an export: past this width or height
+/// it is scaled down so one reply stays a sensible size.
+const PREVIEW_LONG_SIDE: usize = 512;
+const PREVIEW_MAX_SIDE: usize = 4096;
+const PREVIEW_MAX_SCALE: usize = 32;
+
+fn render_preview_schema() -> Value {
+    json!({
+        "type": "object",
+        "properties": {
+            "assetId": { "type": "string", "format": "uuid" },
+            "layer": { "type": "string" },
+            "scale": { "type": "integer", "minimum": 1, "maximum": PREVIEW_MAX_SCALE },
+            "frames": { "type": "boolean", "default": true }
+        },
+        "additionalProperties": false
+    })
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct RenderPreviewArgs {
+    asset_id: Option<String>,
+    layer: Option<String>,
+    scale: Option<usize>,
+    frames: Option<bool>,
+}
+
+/// One frame as colour: a named layer on its own, or the whole composite.
+fn frame_image(document: &Document, layer: Option<LayerRole>) -> Result<RgbaImage, ToolError> {
+    let image = match layer {
+        Some(role) => {
+            let buffer = match document.layers.iter().find(|l| l.role == role) {
+                Some(layer) => layer.buffer.clone(),
+                None => IndexedBuffer::new(document.asset.width, document.asset.height)
+                    .expect("asset dimensions are always valid"),
+            };
+            png::colour(&buffer, &document.palette)
+        }
+        None => composite(
+            document.asset.width,
+            document.asset.height,
+            &document.layers,
+            &document.palette,
+        ),
+    };
+    image.map_err(|e| ToolError::from(AppError::from(e)))
+}
+
+/// Frames side by side, each nearest-neighbour upscaled by `scale`, over a
+/// checkerboard so transparency shows as transparency rather than as black.
+/// The checker's squares are half a source pixel, so a pixel is never mistaken
+/// for one of its squares.
+pub(crate) fn compose_preview(frames: &[RgbaImage], scale: usize) -> RgbaImage {
+    let (fw, fh) = (
+        usize::from(frames[0].width) * scale,
+        usize::from(frames[0].height) * scale,
+    );
+    let gap = if frames.len() > 1 { scale.max(2) } else { 0 };
+    let width = frames.len() * fw + (frames.len() - 1) * gap;
+    let square = (scale / 2).max(4);
+    let mut data = vec![0u8; width * fh * 4];
+    for y in 0..fh {
+        for x in 0..width {
+            let in_frame = (x % (fw + gap.max(1))) < fw || gap == 0;
+            let base = if in_frame {
+                let dark = ((x / square) + (y / square)) % 2 == 1;
+                if dark {
+                    CHECKER_DARK
+                } else {
+                    CHECKER_LIGHT
+                }
+            } else {
+                FRAME_GAP
+            };
+            let at = (y * width + x) * 4;
+            data[at..at + 3].copy_from_slice(&base);
+            data[at + 3] = 255;
+        }
+    }
+    for (n, frame) in frames.iter().enumerate() {
+        let origin = n * (fw + gap);
+        let source_w = usize::from(frame.width);
+        for y in 0..fh {
+            for x in 0..fw {
+                let s = ((y / scale) * source_w + x / scale) * 4;
+                let alpha = u32::from(frame.data[s + 3]);
+                if alpha == 0 {
+                    continue;
+                }
+                let at = (y * width + origin + x) * 4;
+                for c in 0..3 {
+                    let below = u32::from(data[at + c]);
+                    let above = u32::from(frame.data[s + c]);
+                    data[at + c] = ((above * alpha + below * (255 - alpha) + 127) / 255) as u8;
+                }
+            }
+        }
+    }
+    RgbaImage {
+        width: width as u16,
+        height: fh as u16,
+        data,
+    }
+}
+
+fn render_preview(host: &dyn DocumentHost, session: &Session, args: Value) -> ToolResult {
+    let args: RenderPreviewArgs = parse(args)?;
+    let id = resolve_asset(session, args.asset_id.as_deref())?;
+    let layer = args.layer.as_deref().map(role).transpose()?;
+    let every_frame = args.frames.unwrap_or(true);
+
+    let documents = with_store(host, |store| {
+        let mut ids = vec![id];
+        if every_frame {
+            let animation = store.animation_read(id)?;
+            if animation.frames.len() > 1 {
+                ids = animation
+                    .frames
+                    .iter()
+                    .map(|frame| frame.asset_id)
+                    .collect();
+            }
+        }
+        ids.into_iter()
+            .map(|frame| store.asset_open(frame))
+            .collect::<Result<Vec<_>, _>>()
+    })?;
+    let images = documents
+        .iter()
+        .map(|document| frame_image(document, layer))
+        .collect::<Result<Vec<_>, _>>()?;
+    let (w, h, n) = (
+        usize::from(images[0].width),
+        usize::from(images[0].height),
+        images.len(),
+    );
+
+    // Big enough to read, small enough to send: about 512 px on the long side
+    // of one frame, and never wider than the ceiling however many frames.
+    let wanted = args
+        .scale
+        .unwrap_or(PREVIEW_LONG_SIDE / w.max(h))
+        .clamp(1, PREVIEW_MAX_SCALE);
+    let fits = |scale: usize| {
+        n * w * scale + (n - 1) * scale.max(2) <= PREVIEW_MAX_SIDE && h * scale <= PREVIEW_MAX_SIDE
+    };
+    let scale = (1..=wanted).rev().find(|s| fits(*s)).unwrap_or(1);
+
+    let image = compose_preview(&images, scale);
+    let bytes = png::encode(&image).map_err(|e| ToolError::from(AppError::from(e)))?;
+    Ok(super::with_image(
+        json!({
+            "layer": args.layer,
+            "frames": n,
+            "scale": scale,
+            "width": image.width,
+            "height": image.height,
+            "source": { "width": w, "height": h },
+        }),
+        &bytes,
+    ))
+}
+
 pub fn tools() -> Vec<ToolSpec> {
     vec![
+        ToolSpec {
+            name: "render_preview",
+            description: "See the sprite: an image of the composite (or one named layer), \
+                scaled up with nearest-neighbour so every pixel stays sharp, transparency on \
+                a checkerboard. An animation comes back as every frame side by side, in \
+                order (frames: false for the open frame only). scale defaults to about 512 \
+                px on the long side. Reading the grid tells you which slot is where; this \
+                tells you whether it looks right.",
+            input_schema: render_preview_schema,
+            handler: render_preview,
+        },
         ToolSpec {
             name: "read_canvas",
             description: "Read a layer, or the flattened sprite, as a text grid with a legend and rulers. Rulers show real canvas coordinates. Read after every few writes: seeing what you drew is how you catch mistakes.",
@@ -1154,6 +1337,90 @@ mod tests {
         // The same rule applies to a region, whose labels are canvas columns:
         // canvas column 15 starts at local offset 5 of a 6-wide region.
         assert_eq!(ruler(10, 6), "      10");
+    }
+
+    #[test]
+    fn render_preview_scales_with_nearest_neighbour_over_a_checkerboard() {
+        let (host, session) = setup();
+        let id = create_asset(&host);
+        session.set_current_asset(id);
+        {
+            let arc = host.store();
+            let mut store = arc.lock().unwrap();
+            set_pixel(&mut store, id, "flats", 0, 0, 1);
+        }
+        let result =
+            crate::mcp::tools::call(&host, &session, "render_preview", json!({ "scale": 4 }))
+                .unwrap();
+        let (fields, image) = crate::mcp::tools::split_image(result);
+        assert_eq!(fields["scale"], json!(4));
+        assert_eq!(
+            (fields["width"].clone(), fields["height"].clone()),
+            (json!(32), json!(32))
+        );
+        let (data, mime) = image.expect("an image comes back");
+        assert_eq!(mime, "image/png");
+        use base64::Engine as _;
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(data)
+            .unwrap();
+        let picture = png::decode(&bytes).unwrap();
+        assert_eq!((picture.width, picture.height), (32, 32));
+        let at = |x: usize, y: usize| picture.data[(y * 32 + x) * 4..(y * 32 + x) * 4 + 3].to_vec();
+        // The red pixel fills its whole 4x4 block.
+        assert_eq!(at(0, 0), vec![255, 0, 0]);
+        assert_eq!(at(3, 3), vec![255, 0, 0]);
+        // Elsewhere is the checkerboard, whose squares alternate.
+        assert_eq!(at(8, 0), CHECKER_LIGHT.to_vec());
+        assert_eq!(at(12, 0), CHECKER_DARK.to_vec());
+    }
+
+    #[test]
+    fn render_preview_puts_an_animation_side_by_side() {
+        let (host, session) = setup();
+        let id = create_asset(&host);
+        session.set_current_asset(id);
+        {
+            let arc = host.store();
+            let mut store = arc.lock().unwrap();
+            store.frame_add(id, true).unwrap();
+        }
+        let result =
+            crate::mcp::tools::call(&host, &session, "render_preview", json!({ "scale": 2 }))
+                .unwrap();
+        assert_eq!(result["frames"], json!(2));
+        // Two 8-pixel frames at 2x, with a 2 px strip between them.
+        assert_eq!(result["width"], json!(2 * 16 + 2));
+        let (_, image) = crate::mcp::tools::split_image(result);
+        assert!(image.is_some());
+
+        let one = crate::mcp::tools::call(
+            &host,
+            &session,
+            "render_preview",
+            json!({ "scale": 2, "frames": false }),
+        )
+        .unwrap();
+        assert_eq!(one["frames"], json!(1));
+        assert_eq!(one["width"], json!(16));
+    }
+
+    #[test]
+    fn render_preview_names_a_layer_and_refuses_an_invented_one() {
+        let (host, session) = setup();
+        let id = create_asset(&host);
+        session.set_current_asset(id);
+        let ok = crate::mcp::tools::call(
+            &host,
+            &session,
+            "render_preview",
+            json!({ "layer": "outline" }),
+        );
+        assert!(ok.is_ok());
+        let error =
+            crate::mcp::tools::call(&host, &session, "render_preview", json!({ "layer": "ink" }))
+                .unwrap_err();
+        assert_eq!(error.code, "layer.unknown_role");
     }
 
     #[test]

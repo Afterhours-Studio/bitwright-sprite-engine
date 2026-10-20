@@ -37,8 +37,9 @@ use crate::commands::{
 };
 use crate::engine::{self, Method};
 use crate::mcp::error::ToolError;
-use crate::raster::Palette;
+use crate::raster::{pixelize, png, LayerRole, Palette};
 use crate::store::models::{AssetId, OpResult, Reference};
+use crate::store::AppError;
 use crate::store::Store;
 
 /// The largest file the shell will read. Anything bigger is almost certainly
@@ -482,6 +483,339 @@ pub async fn reference_apply_palette<R: Runtime>(
     Ok(palette)
 }
 
+// ---------------------------------------------------------------------------
+// Pixelizing: the picture becomes real pixels on a layer
+// ---------------------------------------------------------------------------
+
+/// The smallest canvas side a converted picture gets, and the largest: the
+/// same bounds the new-sprite dialog holds a person to, so a converted sprite
+/// is never a size they could not have asked for.
+pub const MIN_CANVAS_SIDE: usize = 16;
+pub const MAX_CANVAS_SIDE: usize = 512;
+
+/// A reference's pixels for the pipeline. The picture the person picked is
+/// preferred, because the conformed copy has already been shrunk to the
+/// canvas and its grid is gone; a picked file that is not a PNG (only PNG is
+/// decoded in the shell) falls back to the conformed copy.
+fn picture_of(reference: &Reference) -> Result<pixelize::Img, ToolError> {
+    let is_png = reference.source_png.starts_with(b"\x89PNG\r\n\x1a\n");
+    let bytes = if is_png {
+        &reference.source_png
+    } else {
+        reference
+            .conformed
+            .as_ref()
+            .unwrap_or(&reference.source_png)
+    };
+    let image = png::decode(bytes).map_err(|error| ToolError::from(AppError::from(error)))?;
+    Ok(pixelize::Img::from_rgba(
+        usize::from(image.width),
+        usize::from(image.height),
+        &image.data,
+    ))
+}
+
+fn pixelize_failed(error: crate::raster::RasterError) -> ToolError {
+    ToolError::new(
+        &error.code,
+        error.detail,
+        "Try a picture with a plain background, or a flat #FF00FF one.",
+    )
+}
+
+/// What a picture would become, before any sprite exists for it.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PixelProbe {
+    /// The canvas the picture needs, within the dialog's size bounds.
+    pub canvas_width: u16,
+    pub canvas_height: u16,
+    /// The pixel grid found: its size, the block size it came from, and how
+    /// many colours it uses.
+    pub width: u32,
+    pub height: u32,
+    pub cell: f64,
+    pub colours: u32,
+}
+
+/// Measures a picture's pixel grid without writing anything, so the sprite
+/// made for it can be created at the right size.
+///
+/// # Errors
+///
+/// `png.invalid` for a file that is not a PNG, `png.too_large` past 4096 px,
+/// `pixelize.empty` when nothing is left once the background goes.
+pub fn probe_picture(bytes: &[u8]) -> Result<PixelProbe, ToolError> {
+    let image = png::decode(bytes).map_err(|error| ToolError::from(AppError::from(error)))?;
+    let img = pixelize::Img::from_rgba(
+        usize::from(image.width),
+        usize::from(image.height),
+        &image.data,
+    );
+    let result =
+        pixelize::pixelize(&img, &pipeline_options(None, None)).map_err(pixelize_failed)?;
+    let side = |n: usize| n.clamp(MIN_CANVAS_SIDE, MAX_CANVAS_SIDE) as u16;
+    Ok(PixelProbe {
+        canvas_width: side(result.img.w),
+        canvas_height: side(result.img.h),
+        width: result.img.w as u32,
+        height: result.img.h as u32,
+        cell: result.cell,
+        colours: result.palette.len() as u32,
+    })
+}
+
+/// The pipeline's settings. Detached bits go first because an off-grid speck
+/// shifts the grid, and a picture bigger than the largest canvas is shrunk to
+/// fit it rather than refused.
+fn pipeline_options(
+    fit: Option<(usize, usize)>,
+    palette: Option<Vec<[u8; 3]>>,
+) -> pixelize::Options {
+    pixelize::Options {
+        main_only: true,
+        fit: fit.or(Some((MAX_CANVAS_SIDE, MAX_CANVAS_SIDE))),
+        palette,
+        ..pixelize::Options::default()
+    }
+}
+
+/// What a pixelize wrote, for the window's toast and for an agent's reply.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PixelizeReport {
+    pub layer: String,
+    /// The size of the pixels that were drawn, centred on the canvas.
+    pub width: u32,
+    pub height: u32,
+    pub canvas_width: u16,
+    pub canvas_height: u16,
+    /// The block size found in the picture, and the grid it gave before any
+    /// fitting.
+    pub cell: f64,
+    pub native_width: u32,
+    pub native_height: u32,
+    /// How many palette slots the pixels use.
+    pub colours: u32,
+    /// True when the asset had no palette (or was told to drop it) and got
+    /// one made from the picture.
+    pub palette_created: bool,
+    pub changed: usize,
+    pub seq: i64,
+}
+
+/// Turns a stored reference into pixels on one layer of its asset.
+///
+/// With a palette on the asset the pixels snap to it; without one, a palette
+/// is derived from the picture's own colours (at most `colors`, bounded by the
+/// style's slot ceiling) and written first. `snap_to_palette: false` drops the
+/// asset's palette for a derived one, which is refused while any other layer
+/// has pixels, since their slots would change colour under them.
+///
+/// # Errors
+///
+/// `layer.locked` for a locked layer, `palette.in_use` as above, the decoder's
+/// code for a picture that cannot be read, and `pixelize.empty` for one with
+/// nothing left after its background goes.
+pub fn pixelize_reference(
+    store: &mut Store,
+    asset_id: AssetId,
+    reference_id: Uuid,
+    role: LayerRole,
+    colors: Option<usize>,
+    snap_to_palette: bool,
+    actor: &str,
+) -> Result<(PixelizeReport, OpResult), ToolError> {
+    let reference = store.reference_read(asset_id, reference_id)?;
+    let document = store.asset_open(asset_id)?;
+    let rules = store.asset_rules(asset_id)?;
+    let (canvas_w, canvas_h) = (
+        usize::from(document.asset.width),
+        usize::from(document.asset.height),
+    );
+    let mut layer = document
+        .layers
+        .iter()
+        .find(|layer| layer.role == role)
+        .cloned()
+        .ok_or_else(|| {
+            ToolError::new(
+                "layer.unknown_role",
+                format!("{} has no layer {}", document.asset.name, role.0),
+                "Name one of the nine layer roles.",
+            )
+        })?;
+    if layer.locked {
+        return Err(ToolError::new(
+            "layer.locked",
+            format!("layer {} is locked", role.0),
+            "Draw on another layer, or ask the person to unlock this one.",
+        ));
+    }
+
+    let keep_palette = snap_to_palette && !document.palette.slots.is_empty();
+    if !snap_to_palette
+        && !document.palette.slots.is_empty()
+        && document
+            .layers
+            .iter()
+            .any(|l| l.role != role && l.buffer.data.iter().any(|slot| *slot != 0))
+    {
+        return Err(ToolError::new(
+            "palette.in_use",
+            "other layers already use the asset's palette",
+            "Leave snapToPalette on, or clear those layers first.",
+        ));
+    }
+
+    let max_colours = usize::from(rules.max_slots).min(62);
+    let colors = colors.unwrap_or(32).clamp(1, max_colours);
+    let palette_colours = keep_palette.then(|| {
+        document
+            .palette
+            .slots
+            .iter()
+            .map(|slot| [slot.rgba[0], slot.rgba[1], slot.rgba[2]])
+            .collect::<Vec<_>>()
+    });
+    let mut options = pipeline_options(Some((canvas_w, canvas_h)), palette_colours);
+    options.colors = colors;
+    let result = pixelize::pixelize(&picture_of(&reference)?, &options).map_err(pixelize_failed)?;
+
+    // The palette the pixels index into: the asset's own, or one grouped into
+    // ramps from the colours the picture ended up with.
+    let (palette, palette_created) = if keep_palette {
+        (document.palette.clone(), false)
+    } else {
+        let rgba: Vec<[u8; 4]> = result
+            .palette
+            .iter()
+            .map(|px| [(px >> 24) as u8, (px >> 16) as u8, (px >> 8) as u8, 255])
+            .collect();
+        let ramps = crate::mcp::tools::reference::ramps_from_colours(rgba, max_colours);
+        let ramps: Vec<_> = serde_json::from_value(ramps).map_err(|error| {
+            ToolError::new(
+                "reference.invalid_ramp",
+                format!("the picture's colours made ramps set_palette cannot read: {error}"),
+                "Try fewer colours.",
+            )
+        })?;
+        (crate::mcp::tools::palette::build_palette(&ramps)?, true)
+    };
+
+    let mut slot_of: std::collections::HashMap<pixelize::Px, u8> = std::collections::HashMap::new();
+    for slot in &palette.slots {
+        slot_of
+            .entry(pixelize::pack(slot.rgba[0], slot.rgba[1], slot.rgba[2]))
+            .or_insert(slot.index);
+    }
+    let (art_w, art_h) = (result.img.w, result.img.h);
+    let (off_x, off_y) = (
+        canvas_w.saturating_sub(art_w) / 2,
+        canvas_h.saturating_sub(art_h) / 2,
+    );
+    layer.buffer.data.fill(0);
+    let mut used = std::collections::BTreeSet::new();
+    for y in 0..art_h.min(canvas_h) {
+        for x in 0..art_w.min(canvas_w) {
+            let px = result.img.data[y * art_w + x];
+            if px == pixelize::CLEAR {
+                continue;
+            }
+            let slot = match slot_of.get(&px) {
+                Some(slot) => *slot,
+                None => palette
+                    .nearest([(px >> 24) as u8, (px >> 16) as u8, (px >> 8) as u8, 255])
+                    .unwrap_or(0),
+            };
+            layer.buffer.data[(y + off_y) * canvas_w + x + off_x] = slot;
+            used.insert(slot);
+        }
+    }
+
+    if palette_created {
+        store.palette_write_as(asset_id, palette, actor)?;
+    }
+    let op = store.layer_write_as(asset_id, layer, actor)?;
+    let report = PixelizeReport {
+        layer: role.0.to_string(),
+        width: art_w as u32,
+        height: art_h as u32,
+        canvas_width: document.asset.width,
+        canvas_height: document.asset.height,
+        cell: result.cell,
+        native_width: result.native.0 as u32,
+        native_height: result.native.1 as u32,
+        colours: used.len() as u32,
+        palette_created,
+        changed: op.changed,
+        seq: op.seq,
+    };
+    Ok((report, op))
+}
+
+/// Measures a picture on disk, so the sprite made for it can be created at
+/// the grid's own size.
+///
+/// # Errors
+///
+/// `reference.unreadable` and `reference.too_large` for the file, then what
+/// [`probe_picture`] reports.
+#[tauri::command]
+pub async fn reference_pixelize_probe(path: String) -> Result<PixelProbe, CommandError> {
+    let bytes = read_file(&path)?;
+    tauri::async_runtime::spawn_blocking(move || probe_picture(&bytes).map_err(tool_failed))
+        .await
+        .map_err(worker_failed)?
+}
+
+/// Pixelizes a stored reference into one layer of its asset (the first, the
+/// silhouette, unless another is named).
+///
+/// # Errors
+///
+/// Returns `store.lock_failed` when the store is poisoned, and the codes
+/// [`pixelize_reference`] documents.
+#[tauri::command]
+pub async fn reference_pixelize<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, DocumentState>,
+    asset_id: AssetId,
+    reference_id: Uuid,
+    layer: Option<String>,
+    colors: Option<usize>,
+    snap_to_palette: Option<bool>,
+) -> Result<PixelizeReport, CommandError> {
+    let role = LayerRole::parse(layer.as_deref().unwrap_or("silhouette")).map_err(|error| {
+        CommandError::new(
+            "layer.unknown_role",
+            format!("{} is not a layer", error.detail),
+        )
+    })?;
+    let store = state.store();
+    let (report, op) = tauri::async_runtime::spawn_blocking(move || {
+        let mut store = store.lock().map_err(|_| lock_failed())?;
+        pixelize_reference(
+            &mut store,
+            asset_id,
+            reference_id,
+            role,
+            colors,
+            snap_to_palette.unwrap_or(true),
+            "user",
+        )
+        .map_err(tool_failed)
+    })
+    .await
+    .map_err(worker_failed)??;
+
+    notify_changed(&app, &state, asset_id, &op);
+    if report.palette_created {
+        let _ = app.emit(EVENT_PALETTE, PaletteEvent { asset_id });
+    }
+    Ok(report)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -701,5 +1035,181 @@ mod tests {
 
     fn hex_of_test(rgba: &[u8; 4]) -> String {
         format!("#{:02X}{:02X}{:02X}", rgba[0], rgba[1], rgba[2])
+    }
+
+    // -----------------------------------------------------------------
+    // pixelize_reference
+    // -----------------------------------------------------------------
+
+    use crate::raster::pixelize::fixture;
+
+    /// A 16x16 character asset with the fake picture stored as its
+    /// reference, the way an import leaves it.
+    fn setup_with_picture(cell: f64, noise: i32) -> (Store, AssetId, Uuid) {
+        let mut store = Store::memory().unwrap();
+        let project = store.project_create("demo", "hd2d").unwrap();
+        let asset = store
+            .asset_create(project.id, "hero", "character", 16, 16)
+            .unwrap();
+        let bytes = fixture::fake_png(cell, 20, noise);
+        let id = Uuid::now_v7();
+        store
+            .reference_write(Reference {
+                id,
+                asset_id: asset.id,
+                name: "picture".to_string(),
+                source_png: bytes.clone(),
+                conformed: Some(fixture::blank_png(16, 16)),
+                conform_meta: None,
+                created_at: 1_700_000_000_000,
+            })
+            .unwrap();
+        (store, asset.id, id)
+    }
+
+    fn silhouette() -> LayerRole {
+        LayerRole::parse("silhouette").unwrap()
+    }
+
+    #[test]
+    fn a_picture_becomes_pixels_with_a_palette_made_from_it() {
+        let (mut store, asset_id, reference_id) = setup_with_picture(7.5, 6);
+        let before = {
+            let r = store.reference_read(asset_id, reference_id).unwrap();
+            fixture::distinct_colours(&picture_of(&r).unwrap())
+        };
+        let (report, _) = pixelize_reference(
+            &mut store,
+            asset_id,
+            reference_id,
+            silhouette(),
+            Some(3),
+            true,
+            "user",
+        )
+        .unwrap_or_else(|error| panic!("pixelize failed: {error:?}"));
+        println!(
+            "pixelize example: {before} colours before; after {} colours on a {}x{} grid \
+             (pitch {:.2}), palette made: {}",
+            report.colours, report.width, report.height, report.cell, report.palette_created
+        );
+        assert!(report.palette_created);
+        assert_eq!((report.width, report.height), (6, 8));
+        assert_eq!(report.colours, 3);
+        assert!((report.cell - 7.5).abs() < 0.3);
+
+        let document = store.asset_open(asset_id).unwrap();
+        assert_eq!(document.palette.slots.len(), 3);
+        let layer = document
+            .layers
+            .iter()
+            .find(|l| l.role == silhouette())
+            .unwrap();
+        let drawn = layer.buffer.data.iter().filter(|s| **s != 0).count();
+        // The 6x8 art has 30 filled cells.
+        assert_eq!(drawn, 30);
+        // Centred: the art spans x 5..11, y 4..12 of the 16x16 canvas.
+        assert_eq!(layer.buffer.get(4, 8), 0);
+        assert_ne!(layer.buffer.get(5, 6), 0);
+    }
+
+    #[test]
+    fn an_existing_palette_is_snapped_to_and_left_alone() {
+        let (mut store, asset_id, reference_id) = setup_with_picture(7.5, 0);
+        let (palette, _) = apply_reference_palette_for_test(&mut store, asset_id);
+        let (report, _) = pixelize_reference(
+            &mut store,
+            asset_id,
+            reference_id,
+            silhouette(),
+            None,
+            true,
+            "user",
+        )
+        .unwrap();
+        assert!(!report.palette_created);
+        assert_eq!(
+            store.asset_open(asset_id).unwrap().palette.slots.len(),
+            palette.slots.len()
+        );
+    }
+
+    /// A two-slot palette written straight, so snapping has something to snap to.
+    fn apply_reference_palette_for_test(
+        store: &mut Store,
+        asset_id: AssetId,
+    ) -> (Palette, OpResult) {
+        use crate::raster::{Material, PaletteSlot, Ramp};
+        let slots = vec![
+            PaletteSlot {
+                index: 1,
+                rgba: [20, 12, 10, 255],
+                name: None,
+                ramp: Some("ink".into()),
+                step: Some(0),
+            },
+            PaletteSlot {
+                index: 2,
+                rgba: [200, 40, 40, 255],
+                name: None,
+                ramp: Some("ink".into()),
+                step: Some(1),
+            },
+        ];
+        let palette = Palette {
+            ramps: vec![Ramp {
+                name: "ink".into(),
+                material: Material::Custom,
+                slots: vec![1, 2],
+            }],
+            slots,
+        };
+        store.palette_write(asset_id, palette).unwrap()
+    }
+
+    #[test]
+    fn dropping_the_palette_is_refused_while_other_layers_use_it() {
+        let (mut store, asset_id, reference_id) = setup_with_picture(7.5, 0);
+        apply_reference_palette_for_test(&mut store, asset_id);
+        let outline = LayerRole::parse("outline").unwrap();
+        store
+            .write_ops(
+                asset_id,
+                vec![crate::raster::Op::SetPixels {
+                    layer: outline,
+                    pixels: vec![crate::raster::ops::Pixel {
+                        x: 1,
+                        y: 1,
+                        slot: 1,
+                    }],
+                }],
+                "user",
+            )
+            .unwrap();
+        let error = pixelize_reference(
+            &mut store,
+            asset_id,
+            reference_id,
+            silhouette(),
+            None,
+            false,
+            "user",
+        )
+        .unwrap_err();
+        assert_eq!(error.code, "palette.in_use");
+    }
+
+    #[test]
+    fn a_picture_that_is_not_a_png_is_refused_before_a_sprite_is_made() {
+        let error = probe_picture(b"GIF89a not a png").unwrap_err();
+        assert_eq!(error.code, "png.invalid");
+    }
+
+    #[test]
+    fn the_probe_reports_the_grid_and_a_canvas_inside_the_size_bounds() {
+        let probe = probe_picture(&fixture::fake_png(7.5, 20, 0)).unwrap();
+        assert_eq!((probe.width, probe.height), (6, 8));
+        assert_eq!((probe.canvas_width, probe.canvas_height), (16, 16));
+        assert_eq!(probe.colours, 3);
     }
 }

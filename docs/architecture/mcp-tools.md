@@ -22,10 +22,10 @@ real; nothing here is a placeholder.
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------- | ------------ |
 | 3. The guide          | `read_guide`                                                                                                                | yes           | Phase 1      |
 | 4. Orientation        | `list_projects`, `create_project`, `list_assets`, `create_asset`, `open_asset`, `get_style_rules`                           | yes           | Phase 2      |
-| 5. Reading the canvas | `read_canvas`, `read_region`, `describe_palette`, `diff_layers`, `read_reference`                                           | yes           | Phase 2/3    |
+| 5. Reading the canvas | `read_canvas`, `read_region`, `describe_palette`, `diff_layers`, `read_reference`, `render_preview`                         | yes           | Phase 2/3    |
 | 6. Writing            | `paste_grid`, `draw_runs`, `set_pixels`, `draw_shape`, `fill_region`, `mirror`, `translate`, `clear_layer`                  | yes           | Phase 2      |
 | 7. The shading tools  | `shade`, `outline`, `antialias`                                                                                             | yes           | Phase 2      |
-| 8. Palette            | `set_palette`, `create_variation`, `extract_palette`                                                                        | yes           | Phase 2/3    |
+| 8. Palette            | `set_palette`, `create_variation`, `extract_palette`, `pixelize_reference`                                                  | yes           | Phase 2/3    |
 | 9. The workflow       | `get_step`, `check_step`, `advance_step`, `revisit_step`                                                                    | yes           | Phase 2      |
 | 10. Tilemaps          | `create_tilemap`, `read_tilemap`, `place_tiles`, `tilemap_layers`                                                           | yes           | Phase 3      |
 | 11. Export            | `export_png`, `export_sheet`, `export_gif`                                                                                  | yes           | Phase 4      |
@@ -238,6 +238,26 @@ not have.
 grid of `=` and `X`. The cheap way to answer "did my outline stay inside the
 silhouette" without reading both and comparing by eye.
 
+### `render_preview`
+
+`{ assetId?, layer?, scale?, frames? }` — what the sprite looks like, as an
+image rather than a grid. Every pixel is upscaled with nearest-neighbour so it
+stays sharp, and transparency shows as a checkerboard whose squares are half a
+source pixel. `layer` names one layer to show on its own; without it the
+composite is drawn. An animation comes back as every frame side by side in
+order, with a dark strip between them (`frames: false` draws only the open
+frame). `scale` is 1 to 32 and defaults to about 512 px on the long side of one
+frame; it is lowered if the result would pass 4096 px either way, and the scale
+actually used is reported.
+
+The reply is two MCP content blocks: a text block holding
+`{ layer, frames, scale, width, height, source: { width, height } }`, then an
+`image` block (`image/png`, base64). A tool puts its picture in its JSON under
+a reserved `_image` key and the handler lifts it out into that block, so the
+text never carries the base64. Reading the grid tells an agent which slot is
+where; this tells it whether the sprite looks right. Fails `layer.unknown_role`
+for a layer name that is not one of the nine roles.
+
 ---
 
 ## 6. Writing
@@ -423,6 +443,39 @@ straight to `set_palette` — tags edited or not — to make them the asset's
 palette. Fails the same way `read_reference` does when there is no reference
 to read, plus `reference.invalid` when `conform_meta.palette` holds something
 that is not a `#RRGGBB` string.
+
+### `pixelize_reference`
+
+`{ assetId?, referenceId?, layer?, colors?, snapToPalette?, force? }` — turns a
+reference picture into real pixels on one layer (`silhouette` unless `layer`
+names another). This is the "PNG to Pixel" conversion, and it reads the
+picture the person picked (the conformed copy only for a file that is not a
+PNG). The pipeline, in order: the background is removed (the dominant border
+colour, as a chroma key with its fringe); detached bits are dropped, since an
+off-grid speck shifts the grid; the picture's own pixel grid is found, at a
+fractional size because generated images draw their blocks at 7.5 or 19.5
+pixels; one colour is sampled per block; colours are reduced in Oklab or
+snapped to the palette; and specks go, but only pixels whose four neighbours
+all share one other colour, so one-pixel tips and lone accents stay. The pixels
+are centred on the canvas and shrunk to fit when the picture is bigger.
+
+With a palette on the asset the pixels snap to it and it is left alone. With
+none, a palette is made from the picture (`colors` of them, default 32, at most
+the style's slot ceiling), grouped into ramps the way `extract_palette` does.
+`snapToPalette: false` replaces an existing palette the same way, and is
+refused with `palette.in_use` while any other layer has pixels, since their
+slots would change colour. `referenceId` defaults to the most recent reference.
+
+An asset still at the `reference` step may be written to its first layer
+directly; from any other step the usual step guard applies, with `force`.
+Returns `{ referenceId, layer, width, height, canvasWidth, canvasHeight, cell,
+nativeWidth, nativeHeight, colours, paletteCreated, changed, seq, hint }`:
+`cell` is the block size detected in the picture, and `width`×`height` the
+pixels drawn. Fails `reference.none` / `reference.not_found` like
+`read_reference`, `layer.locked` for a locked layer, `png.invalid` or
+`png.too_large` for a picture the shell cannot decode, and `pixelize.empty`
+when nothing is left once the background is removed. Call `render_preview` to
+look at the result.
 
 ### `create_variation`
 

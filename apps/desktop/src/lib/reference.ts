@@ -81,3 +81,64 @@ export function referenceApplyPalette(
 ): Promise<ShellResult<Palette>> {
   return invoke<Palette>('reference_apply_palette', { assetId, referenceId, maxSlots });
 }
+
+/** What a picture would become: the canvas it needs and the grid found in it. */
+export interface PixelProbe {
+  /** The canvas the picture needs, already inside the new-sprite size bounds. */
+  canvasWidth: number;
+  canvasHeight: number;
+  /** The pixel grid found in the picture. */
+  width: number;
+  height: number;
+  /** The size of one pixel of that grid in the source picture, in its pixels. */
+  cell: number;
+  /** How many colours the grid uses. */
+  colours: number;
+}
+
+/** What a pixelize wrote to a layer. */
+export interface PixelizeReport {
+  layer: string;
+  /** The size of the pixels drawn, centred on the canvas. */
+  width: number;
+  height: number;
+  canvasWidth: number;
+  canvasHeight: number;
+  /** The block size found in the picture. */
+  cell: number;
+  nativeWidth: number;
+  nativeHeight: number;
+  /** How many palette slots the pixels use. */
+  colours: number;
+  /** True when the asset had no palette and got one made from the picture. */
+  paletteCreated: boolean;
+  changed: number;
+  seq: number;
+}
+
+/**
+ * Measures the picture at `path` without writing anything, so a sprite can be
+ * created at the size of the pixel grid found in it.
+ */
+export function referencePixelizeProbe(path: string): Promise<ShellResult<PixelProbe>> {
+  return invoke<PixelProbe>('reference_pixelize_probe', { path });
+}
+
+/**
+ * Turns a stored reference into pixels on one layer of its asset: background
+ * removed, the picture's own grid found, one colour per block, snapped to the
+ * asset's palette (or a palette made from the picture when it has none).
+ */
+export function referencePixelize(
+  assetId: string,
+  referenceId: string,
+  options: { layer?: string; colors?: number; snapToPalette?: boolean } = {},
+): Promise<ShellResult<PixelizeReport>> {
+  return invoke<PixelizeReport>('reference_pixelize', {
+    assetId,
+    referenceId,
+    layer: options.layer,
+    colors: options.colors,
+    snapToPalette: options.snapToPalette,
+  });
+}

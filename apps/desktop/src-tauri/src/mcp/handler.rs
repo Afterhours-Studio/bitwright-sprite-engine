@@ -210,9 +210,19 @@ pub fn run_tool(
     args: serde_json::Value,
 ) -> CallToolResult {
     match tools::call(host, session, name, args) {
-        Ok(value) => CallToolResult::success(vec![ContentBlock::text(
-            serde_json::to_string_pretty(&value).unwrap_or_else(|_| "null".to_owned()),
-        )]),
+        Ok(value) => {
+            // A tool that drew a picture (render_preview) sends it as a real
+            // image block after its text, so a model sees it rather than
+            // reading base64.
+            let (value, image) = tools::split_image(value);
+            let mut content = vec![ContentBlock::text(
+                serde_json::to_string_pretty(&value).unwrap_or_else(|_| "null".to_owned()),
+            )];
+            if let Some((data, mime)) = image {
+                content.push(ContentBlock::image(data, mime));
+            }
+            CallToolResult::success(content)
+        }
         Err(error) => CallToolResult::error(vec![ContentBlock::text(
             serde_json::to_string(&error).unwrap_or_else(|_| "{}".to_owned()),
         )]),
@@ -266,6 +276,38 @@ mod tests {
             .get("projects")
             .and_then(serde_json::Value::as_array)
             .is_some());
+    }
+
+    #[test]
+    fn render_preview_answers_with_text_and_an_image_block() {
+        let host = host();
+        let session = Session::new("test-session");
+        let (project, asset) = {
+            let arc = host.store();
+            let mut store = arc.lock().unwrap();
+            let project = store.project_create("P", "hd2d").unwrap();
+            let asset = store
+                .asset_create(project.id, "Hero", "character", 8, 8)
+                .unwrap();
+            (project.id, asset.id)
+        };
+        let _ = project;
+        let result = run_tool(
+            host.as_ref(),
+            &session,
+            "render_preview",
+            serde_json::json!({ "assetId": asset.0.to_string() }),
+        );
+        assert_eq!(result.is_error, Some(false));
+        assert_eq!(result.content.len(), 2);
+        let value: serde_json::Value =
+            serde_json::from_str(&text_of(&result)).expect("the text block is JSON");
+        assert!(value.get("_image").is_none(), "the image left the text");
+        let image = result.content[1]
+            .as_image()
+            .expect("the second block is an image");
+        assert_eq!(image.mime_type, "image/png");
+        assert!(!image.data.is_empty());
     }
 
     #[test]
