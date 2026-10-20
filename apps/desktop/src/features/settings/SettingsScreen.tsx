@@ -33,9 +33,8 @@ const REPOSITORY = 'https://github.com/Afterhours-Studio/bitwright-sprite-engine
  * The settings screen, in home's frame: the same sidebar with Settings
  * active, and a content area styled like home's.
  *
- * Two columns: where data is kept, the theme and language, and the facts to
- * quote in a bug report on the left; the agent connection, the tallest group,
- * on the right.
+ * One column at the full width of the window: where data is kept, the agent
+ * connection, the theme and language, and the facts to quote in a bug report.
  *
  * The sidebar's Projects entry goes home; its Settings entry is already here.
  */
@@ -67,16 +66,11 @@ export function SettingsScreen(): ReactElement {
         {/* Only the sections scroll; the title row with the window controls
             stays put. */}
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-          {/* Two columns from a laptop width up: the short groups stacked on
-              the left, the agent connection, which is the tall one, on the
-              right. One narrow column left half the window empty. */}
-          <div className="grid grid-cols-1 gap-4 pt-4 lg:grid-cols-2 lg:items-start">
-            <div className="flex flex-col gap-4">
-              <StorageCard />
-              <GeneralSection />
-              <AboutSection />
-            </div>
+          <div className="flex flex-col gap-4 pt-4">
+            <StorageCard />
             <McpCard />
+            <GeneralSection />
+            <AboutSection />
           </div>
         </div>
       </main>

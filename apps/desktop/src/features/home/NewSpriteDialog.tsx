@@ -213,9 +213,9 @@ export function NewSpriteDialog(): ReactElement | null {
           onSubmit={(event) => {
             void submit(event);
           }}
-          className="p-5 space-y-5 overflow-y-auto"
+          className="flex min-h-0 flex-1 flex-col gap-5 p-5"
         >
-          <div>
+          <div className="shrink-0">
             {projects.length === 0 ? (
               <>
                 <p className={LABEL}>{t('newSprite.project')}</p>
@@ -231,7 +231,7 @@ export function NewSpriteDialog(): ReactElement | null {
             )}
           </div>
 
-          <div>
+          <div className="shrink-0">
             <label htmlFor={`${ids}-name`} className={LABEL}>
               {t('newSprite.name')}
             </label>
@@ -247,7 +247,7 @@ export function NewSpriteDialog(): ReactElement | null {
             />
           </div>
 
-          <fieldset>
+          <fieldset className="shrink-0">
             <legend className={LABEL}>{t('newSprite.kind')}</legend>
             <div className="flex flex-wrap gap-1.5">
               {ASSET_KINDS.map((option) => (
@@ -271,9 +271,11 @@ export function NewSpriteDialog(): ReactElement | null {
             </div>
           </fieldset>
 
-          <fieldset>
+          {/* Only the sizes scroll. The fields above and the create button
+              below stay where they are, so the dialog never moves as a whole. */}
+          <fieldset className="flex min-h-0 flex-1 flex-col">
             <legend className={LABEL}>{t('newSprite.size')}</legend>
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid min-h-0 flex-1 grid-cols-2 content-start gap-1.5 overflow-y-auto pe-1 sm:grid-cols-3">
               {!presetInGrid && (
                 <button
                   type="button"
@@ -311,7 +313,9 @@ export function NewSpriteDialog(): ReactElement | null {
                   />
                 </button>
               ))}
-              <div className={cn('col-span-2', CARD, size.kind === 'custom' ? CARD_ON : CARD_OFF)}>
+              <div
+                className={cn('col-span-full', CARD, size.kind === 'custom' ? CARD_ON : CARD_OFF)}
+              >
                 <button
                   type="button"
                   aria-pressed={size.kind === 'custom'}
@@ -372,7 +376,7 @@ export function NewSpriteDialog(): ReactElement | null {
           <button
             type="submit"
             disabled={!valid}
-            className="w-full py-2.5 rounded-pill border border-accent bg-accent hover:bg-accent-hover text-accent-fg font-semibold text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus disabled:cursor-not-allowed disabled:border-line-subtle disabled:bg-surface-disabled disabled:text-fg-muted disabled:shadow-none"
+            className="w-full shrink-0 py-2.5 rounded-pill border border-accent bg-accent hover:bg-accent-hover text-accent-fg font-semibold text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus disabled:cursor-not-allowed disabled:border-line-subtle disabled:bg-surface-disabled disabled:text-fg-muted disabled:shadow-none"
           >
             {t('newSprite.submit', {
               width: Number.isFinite(dimensions.width) ? dimensions.width : 0,
