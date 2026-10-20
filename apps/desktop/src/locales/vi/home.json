@@ -29,7 +29,9 @@
     "descending": "Giảm dần",
     "filter": "Lọc",
     "filterPlaceholder": "Gõ để lọc",
-    "sortFrames": "Khung hình"
+    "sortFrames": "Khung hình",
+    "style": "Phong cách",
+    "allStyles": "Mọi phong cách"
   },
   "card": {
     "open": "Mở {{name}}",
@@ -55,7 +57,8 @@
     "emptyProjects": "Chưa có dự án nào",
     "emptyProjectsHint": "Mỗi dự án mang phong cách mà các sprite của nó được vẽ theo. Hãy tạo một dự án để bắt đầu.",
     "emptyProject": "Dự án này chưa có sprite nào.",
-    "noMatch": "Không có sprite nào khớp với “{{query}}”."
+    "noMatch": "Không có sprite nào khớp với “{{query}}”.",
+    "noStyleMatch": "Không có dự án nào dùng phong cách này."
   },
   "project": {
     "preset": "Mẫu: {{preset}}",

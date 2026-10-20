@@ -159,10 +159,38 @@ describe('HomeScreen', () => {
 
     fireEvent.click(screen.getByRole('combobox', { name: 'Sort' }));
     fireEvent.click(screen.getByRole('option', { name: 'Size' }));
-    expect(cardOrder()).toEqual(['tree', 'hero', 'bat']);
+    expect(cardOrder()).toEqual(['bat', 'tree', 'hero']);
 
     fireEvent.click(screen.getByRole('button', { name: 'Descending' }));
     expect(cardOrder()).toEqual(['hero', 'tree', 'bat']);
+  });
+
+  it('orders the projects by the sort too, and filters them by style', async () => {
+    vi.mocked(documents.styleRead).mockImplementation((id) =>
+      Promise.resolve({
+        ok: true,
+        value: { preset: id === FOREST.styleId ? 'snes' : 'hd2d' } as Style,
+      }),
+    );
+    render(<HomeScreen />);
+    await screen.findByRole('button', { name: 'Open bat' });
+    const order = (): string[] =>
+      screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent);
+    expect(order()).toEqual(['forest', 'cave']);
+
+    fireEvent.click(screen.getByRole('combobox', { name: 'Sort' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Name' }));
+    expect(order()).toEqual(['forest', 'cave']);
+    fireEvent.click(screen.getByRole('button', { name: 'Descending' }));
+    expect(order()).toEqual(['cave', 'forest']);
+
+    fireEvent.click(screen.getByRole('combobox', { name: 'Style' }));
+    fireEvent.click(screen.getByRole('option', { name: 'SNES' }));
+    expect(order()).toEqual(['forest']);
+
+    fireEvent.click(screen.getByRole('combobox', { name: 'Style' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Game Boy' }));
+    expect(screen.getByText('No project uses this style.')).toBeInTheDocument();
   });
 
   it('narrows the list by name and says when nothing matches', async () => {

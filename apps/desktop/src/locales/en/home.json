@@ -29,7 +29,9 @@
     "descending": "Descending",
     "filter": "Filter",
     "filterPlaceholder": "Type to filter",
-    "sortFrames": "Frames"
+    "sortFrames": "Frames",
+    "style": "Style",
+    "allStyles": "All styles"
   },
   "card": {
     "open": "Open {{name}}",
@@ -55,7 +57,8 @@
     "emptyProjects": "No projects yet",
     "emptyProjectsHint": "A project carries the style its sprites are drawn to. Create one to start.",
     "emptyProject": "No sprites in this project yet.",
-    "noMatch": "No sprite matches “{{query}}”."
+    "noMatch": "No sprite matches “{{query}}”.",
+    "noStyleMatch": "No project uses this style."
   },
   "project": {
     "preset": "Preset: {{preset}}",

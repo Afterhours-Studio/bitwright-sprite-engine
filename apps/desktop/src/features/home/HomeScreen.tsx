@@ -64,7 +64,7 @@ import { useErrorMessage } from '@/hooks/useErrorMessage';
 import { cn } from '@/lib/cn';
 import { listedAssets, useProjectStore } from '@/stores/useProjectStore';
 import { useShellStore } from '@/stores/useShellStore';
-import type { Asset, Project } from '@/types/document';
+import { STYLE_PRESETS, type Asset, type Project, type StylePreset } from '@/types/document';
 
 export interface HomeScreenProps {
   /**
@@ -125,6 +125,7 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
   const [sortKey, setSortKey] = useState<SortKey>('recent');
   const [direction, setDirection] = useState<SortDirection>('desc');
   const [query, setQuery] = useState('');
+  const [styleFilter, setStyleFilter] = useState<StylePreset | 'all'>('all');
   const [pending, setPending] = useState<Pending>({ kind: 'none' });
 
   useEffect(() => {
@@ -138,17 +139,37 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
     () => sortAssets(filterAssets(listed, query), sortKey, direction),
     [listed, query, sortKey, direction],
   );
-  // The newest work comes first: a project is placed by its most recently
-  // touched sprite, or by its own date when it has none yet. With Recent gone,
-  // this is what puts what was being worked on at the top.
+  // Projects follow the chosen sort too. By name they sort by their own
+  // name; by anything else a project goes where its first sprite lands in the
+  // sorted list, and a project with no sprite yet goes after, newest first.
+  // The style filter keeps only the projects made with that preset.
   const orderedProjects = useMemo(() => {
-    const latest = new Map<string, number>();
-    for (const asset of listed) {
-      latest.set(asset.projectId, Math.max(latest.get(asset.projectId) ?? 0, asset.updatedAt));
+    const matching =
+      styleFilter === 'all'
+        ? projects
+        : projects.filter((project) => presets[project.id] === styleFilter);
+    if (sortKey === 'name') {
+      const sign = direction === 'asc' ? 1 : -1;
+      return [...matching].sort((left, right) => sign * left.name.localeCompare(right.name));
     }
-    const at = (project: Project): number => latest.get(project.id) ?? project.updatedAt;
-    return [...projects].sort((left, right) => at(right) - at(left));
-  }, [projects, listed]);
+    const first = new Map<string, number>();
+    visible.forEach((asset, index) => {
+      if (!first.has(asset.projectId)) {
+        first.set(asset.projectId, index);
+      }
+    });
+    return [...matching].sort((left, right) => {
+      const a = first.get(left.id);
+      const b = first.get(right.id);
+      if (a !== undefined && b !== undefined) {
+        return a - b;
+      }
+      if (a !== undefined || b !== undefined) {
+        return a === undefined ? 1 : -1;
+      }
+      return right.updatedAt - left.updatedAt;
+    });
+  }, [projects, presets, styleFilter, sortKey, direction, visible]);
   const projectNames = useMemo(
     () => new Map(projects.map((project) => [project.id, project.name])),
     [projects],
@@ -231,12 +252,16 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
     }
     // While filtering, a project with nothing that matches is left out rather
     // than shown with a line saying so, and one line covers no match at all.
-    const filtering = query.trim() !== '';
+    const filtering = query.trim() !== '' || styleFilter !== 'all';
     const shown = filtering
       ? orderedProjects.filter((project) => visible.some((asset) => asset.projectId === project.id))
       : orderedProjects;
     if (shown.length === 0) {
-      return <Empty title={t('state.noMatch', { query: query.trim() })} />;
+      return query.trim() === '' ? (
+        <Empty title={t('state.noStyleMatch')} />
+      ) : (
+        <Empty title={t('state.noMatch', { query: query.trim() })} />
+      );
     }
     return (
       <div className="flex flex-col gap-8 pt-2">
@@ -398,18 +423,39 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
               )}
             </button>
           </div>
-          <div className="flex items-center gap-2">
-            <label htmlFor={`${ids}-filter`}>{t('toolbar.filter')}</label>
-            <input
-              id={`${ids}-filter`}
-              type="search"
-              value={query}
-              placeholder={t('toolbar.filterPlaceholder')}
-              onChange={(event) => {
-                setQuery(event.target.value);
+          <div className="flex items-center gap-4">
+            <Select
+              variant="bare"
+              layout="inline"
+              size="sm"
+              align="end"
+              label={t('toolbar.style')}
+              value={styleFilter}
+              options={[
+                { value: 'all', label: t('toolbar.allStyles') },
+                ...STYLE_PRESETS.map((preset) => ({
+                  value: preset,
+                  label: tp(`presets.${preset}`),
+                })),
+              ]}
+              onValueChange={(value) => {
+                setStyleFilter(STYLE_PRESETS.find((preset) => preset === value) ?? 'all');
               }}
-              className="bg-transparent border-b border-line-input italic w-36 sm:w-48 text-fg-primary placeholder:text-fg-placeholder focus:border-line-focus focus:outline-none"
             />
+            <span className="h-4 border-l border-line" aria-hidden="true" />
+            <div className="flex items-center gap-2">
+              <label htmlFor={`${ids}-filter`}>{t('toolbar.filter')}</label>
+              <input
+                id={`${ids}-filter`}
+                type="search"
+                value={query}
+                placeholder={t('toolbar.filterPlaceholder')}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                }}
+                className="bg-transparent border-b border-line-input italic w-36 sm:w-48 text-fg-primary placeholder:text-fg-placeholder focus:border-line-focus focus:outline-none"
+              />
+            </div>
           </div>
         </div>
 
