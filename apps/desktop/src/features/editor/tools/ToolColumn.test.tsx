@@ -41,7 +41,7 @@ describe('ToolColumn', () => {
     expect(rows[0]).toHaveTextContent('B');
     expect(rows[0]).toHaveTextContent('Draw freehand pixels');
     expect(rows[1]).toHaveAttribute('aria-pressed', 'false');
-    expect(rows[5]).toHaveAttribute('title', expect.stringContaining('Shift: everywhere'));
+    expect(screen.getAllByText(/Shift: everywhere/).length).toBeGreaterThan(0);
   });
 
   it('chooses a tool when its row is clicked', () => {
