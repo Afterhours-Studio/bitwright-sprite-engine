@@ -56,7 +56,10 @@ import { useCallback, useEffect, useRef, useState, type ReactElement } from 'rea
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/Button';
+import { Checkbox } from '@/components/ui/Checkbox';
+import { NumberField } from '@/components/ui/NumberField';
 import { Select } from '@/components/ui/Select';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { useErrorMessage } from '@/hooks/useErrorMessage';
 import { cn } from '@/lib/cn';
 import type { ShellResult } from '@/lib/tauri';
@@ -95,9 +98,6 @@ const FLOAT = 'bg-surface-float border border-line-subtle rounded-lg shadow-md';
 const SMALL_INPUT =
   'rounded-sm border border-line-input bg-surface-input px-1.5 py-0.5 text-[11px] text-fg-primary focus:border-line-focus focus:outline-none';
 
-/** A label with its control at the trailing end. */
-const FIELD_ROW = 'flex items-center justify-between gap-2 text-[11px] text-fg-secondary';
-
 /** Parallax is refused outside this range, by the create form and by a layer's own field. */
 const MIN_PARALLAX = 0;
 const MAX_PARALLAX = 4;
@@ -134,12 +134,6 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
 
   const [newLayerName, setNewLayerName] = useState('');
   const [newLayerParallax, setNewLayerParallax] = useState(1);
-
-  // What a layer's parallax field shows while it is being typed into, keyed
-  // by layer name. Absent (or cleared back out) means "show the layer's own
-  // committed value" - which is why a rejected or refused edit is undone by
-  // deleting the draft rather than by writing the old number back into it.
-  const [parallaxDrafts, setParallaxDrafts] = useState<Record<string, string>>({});
 
   // Bumped whenever the asset shown changes, and once more at the start of
   // every `load`. Every write and read captures this before it starts an
@@ -296,7 +290,6 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
     setActiveTile(null);
     setError(null);
     setNeedsCreate(false);
-    setParallaxDrafts({});
 
     void load();
 
@@ -400,25 +393,13 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
    * that, but `Number('')` is `0`, a legitimate parallax that would otherwise
    * commit silently while the artist is still typing over it.
    *
-   * Either way the field's draft is cleared afterwards, so it falls back to
-   * showing the layer's own committed value: the one it had all along, if the
-   * text was rejected before anything was sent, or the one the response just
-   * applied, if the shell refused the write outright. What is never left on
-   * screen is the typed text once it is known not to have taken effect.
+   * The field itself keeps the typed text and clamps it on commit; this check
+   * is the second guard, so that nothing outside the range is ever sent.
    *
    * @param layer - The layer being edited.
    * @param raw - The input's text at the moment it was committed.
    */
   const handleSetParallax = async (layer: TilemapLayer, raw: string): Promise<void> => {
-    const clearDraft = (): void => {
-      setParallaxDrafts((current) => {
-        if (!(layer.name in current)) {
-          return current;
-        }
-        return Object.fromEntries(Object.entries(current).filter(([key]) => key !== layer.name));
-      });
-    };
-
     const trimmed = raw.trim();
     const parallax = Number(trimmed);
     const rejected =
@@ -428,7 +409,6 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
       parallax > MAX_PARALLAX;
 
     if (rejected) {
-      clearDraft();
       return;
     }
 
@@ -438,7 +418,6 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
       return;
     }
     await afterWrite(token, result);
-    clearDraft();
   };
 
   /**
@@ -538,33 +517,27 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
               }}
             />
 
-            <label className={FIELD_ROW}>
-              {t('create.columns')}
-              <input
-                type="number"
-                min={1}
-                max={256}
-                value={columns}
-                onChange={(event) => {
-                  setColumns(Number(event.target.value));
-                }}
-                className={cn(SMALL_INPUT, 'w-16')}
-              />
-            </label>
+            <NumberField
+              size="sm"
+              layout="inline"
+              fieldClassName="w-20"
+              label={t('create.columns')}
+              min={1}
+              max={256}
+              value={columns}
+              onValueChange={setColumns}
+            />
 
-            <label className={FIELD_ROW}>
-              {t('create.rows')}
-              <input
-                type="number"
-                min={1}
-                max={256}
-                value={rows}
-                onChange={(event) => {
-                  setRows(Number(event.target.value));
-                }}
-                className={cn(SMALL_INPUT, 'w-16')}
-              />
-            </label>
+            <NumberField
+              size="sm"
+              layout="inline"
+              fieldClassName="w-20"
+              label={t('create.rows')}
+              min={1}
+              max={256}
+              value={rows}
+              onValueChange={setRows}
+            />
 
             <Button
               variant="primary"
@@ -594,28 +567,28 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
             </div>
             <div className="flex max-h-32 flex-wrap gap-1 overflow-y-auto">
               {tiles.map((tile) => (
-                <button
-                  key={tile.id}
-                  type="button"
-                  aria-pressed={activeTile === tile.id}
-                  aria-label={tile.name}
-                  title={tile.name}
-                  onClick={() => {
-                    setActiveTile(tile.id);
-                  }}
-                  className={cn(
-                    'checkerboard-pattern flex h-8 w-8 items-center justify-center rounded-sm border p-0.5',
-                    activeTile === tile.id
-                      ? 'border-accent ring-1 ring-accent'
-                      : 'border-line-subtle hover:border-line-strong',
-                  )}
-                >
-                  <img
-                    src={tile.preview}
-                    alt=""
-                    className="pixelated h-full w-full object-contain"
-                  />
-                </button>
+                <Tooltip key={tile.id} label={tile.name}>
+                  <button
+                    type="button"
+                    aria-pressed={activeTile === tile.id}
+                    aria-label={tile.name}
+                    onClick={() => {
+                      setActiveTile(tile.id);
+                    }}
+                    className={cn(
+                      'checkerboard-pattern flex h-8 w-8 items-center justify-center rounded-sm border p-0.5',
+                      activeTile === tile.id
+                        ? 'border-accent ring-1 ring-accent'
+                        : 'border-line-subtle hover:border-line-strong',
+                    )}
+                  >
+                    <img
+                      src={tile.preview}
+                      alt=""
+                      className="pixelated h-full w-full object-contain"
+                    />
+                  </button>
+                </Tooltip>
               ))}
               <Button
                 variant={activeTile === null ? 'primary' : 'secondary'}
@@ -674,18 +647,14 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
                       {layer.name}
                     </button>
 
-                    <label className="flex items-center gap-1 text-fg-secondary">
-                      <input
-                        type="checkbox"
-                        checked={layer.visible}
-                        aria-label={t('layers.visibleFor', { name: layer.name })}
-                        onChange={(event) => {
-                          void handleToggleVisible(layer.name, event.target.checked);
-                        }}
-                        className="h-3 w-3 accent-accent"
-                      />
-                      {t('layers.visible')}
-                    </label>
+                    <Checkbox
+                      size="sm"
+                      label={t('layers.visible')}
+                      checked={layer.visible}
+                      onCheckedChange={(checked) => {
+                        void handleToggleVisible(layer.name, checked);
+                      }}
+                    />
 
                     <Button
                       variant="ghost"
@@ -700,30 +669,21 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
                     </Button>
                   </div>
 
-                  <label className="mt-2 flex items-center justify-between gap-2 border-t border-line-subtle pt-1.5 text-fg-secondary">
-                    {t('layers.parallax')}
-                    <input
-                      type="number"
-                      min={MIN_PARALLAX}
-                      max={MAX_PARALLAX}
-                      step={0.1}
-                      value={parallaxDrafts[layer.name] ?? String(layer.parallax)}
-                      aria-label={t('layers.parallaxFor', { name: layer.name })}
-                      onChange={(event) => {
-                        const value = event.target.value;
-                        setParallaxDrafts((current) => ({ ...current, [layer.name]: value }));
-                      }}
-                      onBlur={(event) => {
-                        void handleSetParallax(layer, event.target.value);
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                          void handleSetParallax(layer, event.currentTarget.value);
-                        }
-                      }}
-                      className={cn(SMALL_INPUT, 'w-16 font-medium')}
-                    />
-                  </label>
+                  <NumberField
+                    size="sm"
+                    layout="inline"
+                    mode="decimal"
+                    step={0.1}
+                    min={MIN_PARALLAX}
+                    max={MAX_PARALLAX}
+                    fieldClassName="w-20"
+                    className="mt-2 border-t border-line-subtle pt-1.5"
+                    label={t('layers.parallax')}
+                    value={layer.parallax}
+                    onValueChange={(value) => {
+                      void handleSetParallax(layer, String(value));
+                    }}
+                  />
                 </div>
               ))}
             </div>
@@ -741,20 +701,19 @@ export function TilemapEditor({ assetId }: TilemapEditorProps): ReactElement {
                 />
               </label>
               <div className="flex items-end gap-2">
-                <label className="flex flex-1 items-center justify-between gap-2 text-fg-secondary">
-                  {t('layers.parallax')}
-                  <input
-                    type="number"
-                    min={MIN_PARALLAX}
-                    max={MAX_PARALLAX}
-                    step={0.1}
-                    value={newLayerParallax}
-                    onChange={(event) => {
-                      setNewLayerParallax(Number(event.target.value));
-                    }}
-                    className={cn(SMALL_INPUT, 'w-16')}
-                  />
-                </label>
+                <NumberField
+                  size="sm"
+                  layout="inline"
+                  mode="decimal"
+                  step={0.1}
+                  min={MIN_PARALLAX}
+                  max={MAX_PARALLAX}
+                  fieldClassName="w-20"
+                  className="flex-1"
+                  label={t('layers.parallax')}
+                  value={newLayerParallax}
+                  onValueChange={setNewLayerParallax}
+                />
                 <Button
                   variant="secondary"
                   size="xs"

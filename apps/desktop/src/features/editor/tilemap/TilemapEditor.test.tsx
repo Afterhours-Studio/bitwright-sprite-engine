@@ -294,7 +294,9 @@ describe('with a map', () => {
     vi.mocked(lib.tilemapSetLayer).mockResolvedValue({ ok: true, value: map() });
 
     render(<TilemapEditor assetId="asset-1" />);
-    const input = await screen.findByRole('spinbutton', { name: 'Parallax for ground' });
+    const input = (
+      await screen.findAllByRole('spinbutton', { name: 'Parallax' })
+    )[0] as HTMLElement;
 
     fireEvent.change(input, { target: { value: '2.5' } });
     fireEvent.blur(input);
@@ -308,7 +310,9 @@ describe('with a map', () => {
     vi.mocked(lib.tilemapSetLayer).mockResolvedValue({ ok: true, value: map() });
 
     render(<TilemapEditor assetId="asset-1" />);
-    const input = await screen.findByRole('spinbutton', { name: 'Parallax for ground' });
+    const input = (
+      await screen.findAllByRole('spinbutton', { name: 'Parallax' })
+    )[0] as HTMLElement;
 
     fireEvent.change(input, { target: { value: '3' } });
     fireEvent.keyDown(input, { key: 'Enter' });
@@ -320,7 +324,9 @@ describe('with a map', () => {
 
   it('does not commit a blank parallax field', async () => {
     render(<TilemapEditor assetId="asset-1" />);
-    const input = await screen.findByRole('spinbutton', { name: 'Parallax for ground' });
+    const input = (
+      await screen.findAllByRole('spinbutton', { name: 'Parallax' })
+    )[0] as HTMLElement;
 
     fireEvent.change(input, { target: { value: '' } });
     fireEvent.blur(input);
@@ -329,26 +335,30 @@ describe('with a map', () => {
     expect(lib.tilemapSetLayer).not.toHaveBeenCalled();
   });
 
-  it('rejects an out-of-range parallax and shows the committed value again', async () => {
+  it('never sends an out-of-range parallax, and settles on the nearest allowed one', async () => {
+    vi.mocked(lib.tilemapSetLayer).mockResolvedValue({ ok: true, value: map() });
+
     render(<TilemapEditor assetId="asset-1" />);
-    const input = await screen.findByRole('spinbutton', { name: 'Parallax for ground' });
+    const input = (
+      await screen.findAllByRole('spinbutton', { name: 'Parallax' })
+    )[0] as HTMLElement;
 
     fireEvent.change(input, { target: { value: '9' } });
-    fireEvent.blur(input);
-
     expect(lib.tilemapSetLayer).not.toHaveBeenCalled();
-    // The layer's own parallax is 1: the rejected "9" must not be left
-    // showing as though it had taken effect.
+
+    // The field clamps on commit, so what is sent is the ceiling, never the 9.
+    fireEvent.blur(input);
     await waitFor(() => {
-      expect(input).toHaveValue(1);
+      expect(lib.tilemapSetLayer).toHaveBeenCalledWith('asset-1', 'ground', 4, undefined);
     });
+    expect(lib.tilemapSetLayer).not.toHaveBeenCalledWith('asset-1', 'ground', 9, undefined);
   });
 
   it('toggles a layer visible or hidden', async () => {
     vi.mocked(lib.tilemapSetLayer).mockResolvedValue({ ok: true, value: map() });
 
     render(<TilemapEditor assetId="asset-1" />);
-    const checkbox = await screen.findByRole('checkbox', { name: 'Show ground' });
+    const checkbox = await screen.findByRole('checkbox', { name: 'Visible' });
 
     fireEvent.click(checkbox);
 
@@ -366,9 +376,12 @@ describe('with a map', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), {
       target: { value: 'sky' },
     });
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Parallax' }), {
-      target: { value: '0.5' },
-    });
+    fireEvent.change(
+      screen.getAllByRole('spinbutton', { name: 'Parallax' }).at(-1) as HTMLElement,
+      {
+        target: { value: '0.5' },
+      },
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Add layer' }));
 
     await waitFor(() => {

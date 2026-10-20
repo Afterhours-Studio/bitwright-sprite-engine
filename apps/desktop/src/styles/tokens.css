@@ -230,6 +230,20 @@
   /* Reserved for the macOS traffic lights, which the system draws over the
      client area at the top left. */
   --titlebar-inset-start: 0px;
+
+  /* The colour picker's fixed spectra. Not themed: they show colour itself. */
+  --picker-hue: linear-gradient(
+    to right,
+    #ff0000,
+    #ffff00,
+    #00ff00,
+    #00ffff,
+    #0000ff,
+    #ff00ff,
+    #ff0000
+  );
+  --picker-sv:
+    linear-gradient(to top, #000000, transparent), linear-gradient(to right, #ffffff, transparent);
 }
 
 [data-theme='dark'] {

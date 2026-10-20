@@ -71,7 +71,23 @@ interface NumberFieldBase {
   placeholder?: string;
   /** Extra classes for layout only, never colour. */
   className?: string;
+  /** 'md' (default) is today's field. 'sm' is the compact one for panels. */
+  size?: 'md' | 'sm';
+  /** 'stack' (default) puts the label above; 'inline' puts it on the left, on one row, with the field at the end. */
+  layout?: 'stack' | 'inline';
+  /** Keep the label for assistive technology only. */
+  hideLabel?: boolean;
+  /** Extra classes for the input box wrapper only (e.g. a width such as 'w-16'). */
+  fieldClassName?: string;
 }
+
+/** The compact input, for panels and toolbars. */
+const INPUT_SM = cn(
+  'w-full rounded-sm border border-line-input bg-surface-input px-2 py-1',
+  'text-[11px] font-medium tabular-nums text-fg-primary transition-colors',
+  'placeholder:text-fg-placeholder focus:border-line-focus focus:outline-none',
+  'disabled:cursor-not-allowed disabled:border-line-subtle disabled:bg-surface-disabled disabled:text-fg-muted',
+);
 
 /**
  * A number field, in one of two shapes.
@@ -219,7 +235,12 @@ export function NumberField(props: NumberFieldProps): ReactElement {
     hint,
     placeholder,
     className,
+    size = 'md',
+    layout = 'stack',
+    hideLabel = false,
+    fieldClassName,
   } = props;
+  const small = size === 'sm';
 
   const { t } = useTranslation();
   const id = useId();
@@ -408,15 +429,25 @@ export function NumberField(props: NumberFieldProps): ReactElement {
   };
 
   return (
-    <div className={cn('flex flex-col gap-1', className)}>
+    <div
+      className={cn(
+        layout === 'inline' ? 'flex items-center justify-between gap-2' : 'flex flex-col gap-1',
+        className,
+      )}
+    >
       <label
         htmlFor={id}
-        className={cn('text-xs font-medium', disabled ? 'text-fg-muted' : 'text-fg-secondary')}
+        className={cn(
+          'font-medium',
+          small || layout === 'inline' ? 'text-[11px]' : 'text-xs',
+          disabled ? 'text-fg-muted' : 'text-fg-secondary',
+          hideLabel && 'sr-only',
+        )}
       >
         {label}
       </label>
 
-      <div className="relative">
+      <div className={cn('relative', fieldClassName)}>
         <input
           id={id}
           ref={input}
@@ -434,14 +465,20 @@ export function NumberField(props: NumberFieldProps): ReactElement {
           onKeyDown={onKeyDown}
           onPaste={onPaste}
           onBlur={commit}
-          className={cn(INPUT_CONTROL, stepper && 'pe-8')}
+          className={small ? cn(INPUT_SM, stepper && 'pe-5') : cn(INPUT_CONTROL, stepper && 'pe-8')}
         />
 
         {stepper && (
-          <div className="absolute inset-y-px end-px flex w-7 flex-col overflow-hidden rounded-e-sm">
+          <div
+            className={cn(
+              'absolute inset-y-px end-px flex flex-col overflow-hidden rounded-e-sm',
+              small ? 'w-4' : 'w-7',
+            )}
+          >
             <StepperButton
               label={t('actions.increase', { label })}
               direction={1}
+              small={small}
               disabled={disabled}
               onPress={startRepeat}
               onRelease={stopRepeat}
@@ -449,6 +486,7 @@ export function NumberField(props: NumberFieldProps): ReactElement {
             <StepperButton
               label={t('actions.decrease', { label })}
               direction={-1}
+              small={small}
               disabled={disabled}
               onPress={startRepeat}
               onRelease={stopRepeat}
@@ -467,6 +505,8 @@ interface StepperButtonProps {
   label: string;
   /** Which way this button moves the value. */
   direction: 1 | -1;
+  /** Whether to draw the smaller icon of the compact field. */
+  small: boolean;
   /** Whether the control can be used. */
   disabled: boolean;
   /** Called as the press begins. */
@@ -489,6 +529,7 @@ interface StepperButtonProps {
 function StepperButton({
   label,
   direction,
+  small,
   disabled,
   onPress,
   onRelease,
@@ -518,7 +559,12 @@ function StepperButton({
     >
       {/* The same weight as the chevron on `Select`, so a column of fields and
           selects reads as one set of controls. */}
-      <svg viewBox="0 0 12 12" aria-hidden="true" className="h-3 w-3" fill="none">
+      <svg
+        viewBox="0 0 12 12"
+        aria-hidden="true"
+        className={small ? 'h-2 w-2' : 'h-3 w-3'}
+        fill="none"
+      >
         <path
           d={direction === 1 ? 'M2.5 7.5L6 4l3.5 3.5' : 'M2.5 4.5L6 8l3.5-3.5'}
           stroke="currentColor"

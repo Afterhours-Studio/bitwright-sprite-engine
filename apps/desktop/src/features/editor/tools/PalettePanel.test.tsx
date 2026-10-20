@@ -213,7 +213,10 @@ describe('PalettePanel', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Ramps' }));
     expect(screen.getByText('In no ramp')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Change colour' }));
-    fireEvent.change(screen.getByLabelText('Colour'), { target: { value: toHex([0, 0, 0, 255]) } });
+    fireEvent.click(screen.getByRole('button', { name: 'Colour' }));
+    const hex = screen.getByLabelText('Hex code');
+    fireEvent.change(hex, { target: { value: toHex([0, 0, 0, 255]) } });
+    fireEvent.keyDown(hex, { key: 'Enter' });
 
     const written = writePalette.mock.calls[0]?.[0];
     expect(written?.slots[0]?.rgba).toEqual([0, 0, 0, 255]);

@@ -47,7 +47,9 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeftRight, Circle, Minus, Plus, Square } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
+import { ColorPicker } from '@/components/ui/ColorPicker';
 import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { fromHex, toHex, toHexa } from '@/features/editor/colour';
 import { useErrorMessage } from '@/hooks/useErrorMessage';
 import { cn } from '@/lib/cn';
@@ -210,15 +212,16 @@ function SlotChips({ palette }: { palette: Palette | null }): ReactElement {
           style={swatchStyle(primary)}
         />
       </div>
-      <button
-        type="button"
-        aria-label={t('colour.swap')}
-        title={t('colour.swap')}
-        onClick={swapSlots}
-        className="p-1 rounded-sm text-fg-secondary hover:text-fg-primary hover:bg-surface-content-alt focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
-      >
-        <ArrowLeftRight strokeWidth={1.75} className="w-3.5 h-3.5" />
-      </button>
+      <Tooltip label={t('colour.swap')}>
+        <button
+          type="button"
+          aria-label={t('colour.swap')}
+          onClick={swapSlots}
+          className="p-1 rounded-sm text-fg-secondary hover:text-fg-primary hover:bg-surface-content-alt focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
+        >
+          <ArrowLeftRight strokeWidth={1.75} className="w-3.5 h-3.5" />
+        </button>
+      </Tooltip>
       <div className="flex-1 min-w-0 bg-surface-content border border-line-subtle px-2 py-1 rounded-md">
         <p className="text-[11px] text-fg-secondary uppercase">{t('colour.pri')}</p>
         <p
@@ -306,24 +309,24 @@ function BrushBlock(): ReactElement {
           className="flex gap-0.5 bg-surface-content p-0.5 rounded-md border border-line-subtle"
         >
           {footprints.map(({ shape, label, icon }) => (
-            <button
-              key={shape}
-              type="button"
-              aria-pressed={brushShape === shape}
-              aria-label={label}
-              title={label}
-              onClick={() => {
-                setBrushShape(shape);
-              }}
-              className={cn(
-                'p-1 rounded-sm border transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus',
-                brushShape === shape
-                  ? 'bg-surface-content-alt text-fg-primary border-line-strong'
-                  : 'border-transparent text-fg-secondary hover:bg-surface-content-alt hover:text-fg-primary',
-              )}
-            >
-              {icon}
-            </button>
+            <Tooltip key={shape} label={label}>
+              <button
+                type="button"
+                aria-pressed={brushShape === shape}
+                aria-label={label}
+                onClick={() => {
+                  setBrushShape(shape);
+                }}
+                className={cn(
+                  'p-1 rounded-sm border transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus',
+                  brushShape === shape
+                    ? 'bg-surface-content-alt text-fg-primary border-line-strong'
+                    : 'border-transparent text-fg-secondary hover:bg-surface-content-alt hover:text-fg-primary',
+                )}
+              >
+                {icon}
+              </button>
+            </Tooltip>
           ))}
         </div>
         <div className="flex items-center space-x-1">
@@ -461,37 +464,43 @@ function SwatchesTab({ palette }: PaletteProps): ReactElement {
             {t('colour.count', { count })}
           </span>
           <span className="flex shrink-0 items-center space-x-1.5 whitespace-nowrap">
-            <button
-              type="button"
-              disabled={full}
-              title={
+            <Tooltip
+              label={
                 full
                   ? t('colour.full', { max: ceiling })
                   : t('colour.addHint', { index: nextIndex })
               }
-              onClick={() => {
-                void add();
-              }}
-              className="rounded-sm px-1 font-medium text-fg-primary hover:bg-surface-content-alt disabled:bg-transparent disabled:text-fg-muted disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
             >
-              {t('colour.add')}
-            </button>
+              <button
+                type="button"
+                disabled={full}
+                onClick={() => {
+                  void add();
+                }}
+                className="rounded-sm px-1 font-medium text-fg-primary hover:bg-surface-content-alt disabled:bg-transparent disabled:text-fg-muted disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
+              >
+                {t('colour.add')}
+              </button>
+            </Tooltip>
             <span className="text-line">|</span>
-            <button
-              type="button"
-              disabled={count <= 1}
-              title={
+            <Tooltip
+              label={
                 last === null || count <= 1
                   ? t('colour.keepOne')
                   : t('colour.removeHint', { index: last.index })
               }
-              onClick={() => {
-                void remove();
-              }}
-              className="rounded-sm px-1 text-fg-secondary hover:bg-surface-content-alt hover:text-[color:var(--severity-error)] disabled:bg-transparent disabled:text-fg-muted disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
             >
-              {t('colour.remove')}
-            </button>
+              <button
+                type="button"
+                disabled={count <= 1}
+                onClick={() => {
+                  void remove();
+                }}
+                className="rounded-sm px-1 text-fg-secondary hover:bg-surface-content-alt hover:text-[color:var(--severity-error)] disabled:bg-transparent disabled:text-fg-muted disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
+              >
+                {t('colour.remove')}
+              </button>
+            </Tooltip>
           </span>
         </div>
 
@@ -584,17 +593,19 @@ function RampsTab({ palette }: PaletteProps): ReactElement {
           <div className="mt-2 flex items-center gap-2">
             {editing ? (
               <>
-                <label className="flex items-center gap-2 text-[11px] text-fg-secondary">
-                  {te('palette.colour')}
-                  <input
-                    type="color"
-                    className="h-6 w-10 cursor-pointer rounded-sm border border-line-input bg-surface-input"
-                    defaultValue={toHex(chosen.rgba)}
-                    onChange={(event) => {
-                      recolour(chosen.index, fromHex(event.target.value, chosen.rgba[3]));
+                <span className="flex items-center gap-2 text-[11px] text-fg-secondary">
+                  <span>{te('palette.colour')}</span>
+                  <ColorPicker
+                    label={te('palette.colour')}
+                    saturationLabel={te('palette.saturation')}
+                    hueLabel={te('palette.hue')}
+                    hexLabel={te('palette.hex')}
+                    value={toHex(chosen.rgba)}
+                    onValueChange={(hex) => {
+                      recolour(chosen.index, fromHex(hex, chosen.rgba[3]));
                     }}
                   />
-                </label>
+                </span>
                 <Button
                   variant="ghost"
                   size="xs"
@@ -696,32 +707,33 @@ function Swatch({
   onSecondary,
 }: SwatchProps): ReactElement {
   return (
-    <button
-      type="button"
-      aria-pressed={primary}
-      aria-label={label}
-      title={label}
-      onClick={() => {
-        onPrimary(slot.index);
-      }}
-      onContextMenu={(event) => {
-        event.preventDefault();
-        onSecondary(slot.index);
-      }}
-      className={cn(
-        'palette-swatch w-6 h-6 rounded-sm border border-line-subtle hover:scale-110 transition-transform',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-line-focus',
-        // The primary takes the text colour and the secondary the accent, so
-        // the pair reads the same in both themes and never as a sprite colour.
-        (primary || secondary) && 'ring-2 ring-offset-1 ring-offset-surface-content',
-        primary ? 'ring-fg-primary' : secondary ? 'ring-accent' : '',
-      )}
-      // Handed over as a custom property, never as `background-color`. A
-      // component that writes a colour into its own markup is what the token
-      // rule forbids, and a swatch is the one colour on screen that is a pixel
-      // of the sprite rather than a piece of the interface.
-      style={swatchStyle(slot)}
-    />
+    <Tooltip label={label}>
+      <button
+        type="button"
+        aria-pressed={primary}
+        aria-label={label}
+        onClick={() => {
+          onPrimary(slot.index);
+        }}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          onSecondary(slot.index);
+        }}
+        className={cn(
+          'palette-swatch w-6 h-6 rounded-sm border border-line-subtle hover:scale-110 transition-transform',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-line-focus',
+          // The primary takes the text colour and the secondary the accent, so
+          // the pair reads the same in both themes and never as a sprite colour.
+          (primary || secondary) && 'ring-2 ring-offset-1 ring-offset-surface-content',
+          primary ? 'ring-fg-primary' : secondary ? 'ring-accent' : '',
+        )}
+        // Handed over as a custom property, never as `background-color`. A
+        // component that writes a colour into its own markup is what the token
+        // rule forbids, and a swatch is the one colour on screen that is a pixel
+        // of the sprite rather than a piece of the interface.
+        style={swatchStyle(slot)}
+      />
+    </Tooltip>
   );
 }
 

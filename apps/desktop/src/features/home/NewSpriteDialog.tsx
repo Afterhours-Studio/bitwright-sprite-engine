@@ -39,6 +39,7 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { NumberField } from '@/components/ui/NumberField';
 import { Select } from '@/components/ui/Select';
 import { useDismiss } from '@/hooks/useDismiss';
 import { cn } from '@/lib/cn';
@@ -333,40 +334,26 @@ export function NewSpriteDialog(): ReactElement | null {
                 </button>
                 {size.kind === 'custom' && (
                   <div className="mt-2 grid grid-cols-2 gap-2">
-                    <div>
-                      <label htmlFor={`${ids}-width`} className={LABEL}>
-                        {t('newSprite.width')}
-                      </label>
-                      <input
-                        id={`${ids}-width`}
-                        type="number"
-                        min={MIN_SIDE}
-                        max={MAX_SIDE}
-                        value={customWidth}
-                        aria-invalid={!validSide(Number(customWidth))}
-                        onChange={(event) => {
-                          setCustomWidth(event.target.value);
-                        }}
-                        className={INPUT}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor={`${ids}-height`} className={LABEL}>
-                        {t('newSprite.height')}
-                      </label>
-                      <input
-                        id={`${ids}-height`}
-                        type="number"
-                        min={MIN_SIDE}
-                        max={MAX_SIDE}
-                        value={customHeight}
-                        aria-invalid={!validSide(Number(customHeight))}
-                        onChange={(event) => {
-                          setCustomHeight(event.target.value);
-                        }}
-                        className={INPUT}
-                      />
-                    </div>
+                    <NumberField
+                      clearable
+                      label={t('newSprite.width')}
+                      min={MIN_SIDE}
+                      max={MAX_SIDE}
+                      value={customWidth === '' ? null : Number(customWidth)}
+                      onValueChange={(value) => {
+                        setCustomWidth(value === null ? '' : String(value));
+                      }}
+                    />
+                    <NumberField
+                      clearable
+                      label={t('newSprite.height')}
+                      min={MIN_SIDE}
+                      max={MAX_SIDE}
+                      value={customHeight === '' ? null : Number(customHeight)}
+                      onValueChange={(value) => {
+                        setCustomHeight(value === null ? '' : String(value));
+                      }}
+                    />
                   </div>
                 )}
               </div>
