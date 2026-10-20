@@ -322,7 +322,7 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
     <div className="relative flex h-full w-full bg-surface-canvas text-fg-primary select-none overflow-hidden">
       <HomeSidebar active={view} onNavigate={navigate} />
 
-      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto bg-surface-canvas px-6 pt-4 pb-6 lg:px-8">
+      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto bg-surface-canvas p-4">
         <div
           data-tauri-drag-region
           className="flex items-center justify-between pb-3 border-b border-line-subtle"
