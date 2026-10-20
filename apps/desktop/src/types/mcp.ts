@@ -24,11 +24,9 @@
  * webview; getting one wrong is not a compile error on either side, which is
  * why they are written down once, here.
  *
- * A token is a bearer credential: whoever holds it can draw in the open
- * document while the server is on. It is shown here because the user has to be
- * able to paste it into their own client's configuration, and nowhere else -
- * no other part of the interface reads it, and nothing writes it to disk on the
- * TypeScript side.
+ * There is no credential anywhere in here. The server binds loopback only and
+ * refuses browser origins and foreign Host headers, so a client needs nothing
+ * but the URL (see `mcp/server.rs` for why a token protected nothing).
  *
  * `AgentSessionEvent`, `AgentActivityEvent` and `DocumentChangedEvent` are the
  * payloads `commands/document.rs` emits. `types/document.ts` names the same
@@ -42,11 +40,11 @@ import type { LayerRole } from '@/types/document';
 /**
  * How the server is reachable.
  *
- * `http` is the loopback streamable-HTTP server with a bearer token. `off`
- * stops it, which is the only way a user has of being sure nothing is drawing
- * in their document. Stdio is not a transport the panel chooses: it is the same
- * binary started with `--mcp-stdio`, whose trust boundary is the process that
- * spawned it, so there is no port and no token to show.
+ * `http` is the loopback streamable-HTTP server. `off` stops it, which is the
+ * only way a user has of being sure nothing is drawing in their document.
+ * Stdio is not a transport the panel chooses: it is the same binary started
+ * with `--mcp-stdio` by a client such as Claude Desktop, which bridges to this
+ * HTTP server while the app is open, so its drawing shows up live.
  */
 export type McpTransport = 'http' | 'off';
 
@@ -59,7 +57,13 @@ export const MCP_TRANSPORTS: readonly McpTransport[] = ['http', 'off'];
  * A closed union, so a typo here is a compile error rather than a command that
  * answers `client.unknown`. Names are the wire values Rust matches on.
  */
-export type McpClientId = 'claude-code' | 'claude-desktop' | 'cursor';
+export type McpClientId = 'claude-code' | 'claude-desktop' | 'cursor' | 'windsurf' | 'codex';
+
+/**
+ * How a client reaches the server: over the loopback URL, which needs the
+ * server running, or by launching `bitwright --mcp-stdio` itself.
+ */
+export type McpClientLaunch = 'http' | 'stdio';
 
 /** One MCP session currently attached to the server. */
 export interface McpSession {
@@ -83,8 +87,6 @@ export interface McpStatus {
   port: number | null;
   /** The full endpoint, such as `http://127.0.0.1:53124/mcp`, or null. */
   url: string | null;
-  /** The bearer token every client has to send. */
-  token: string;
   /** The sessions attached right now, oldest first. */
   sessions: McpSession[];
 }
@@ -95,12 +97,20 @@ export interface McpClient {
   id: McpClientId;
   /** Its product name, such as `Claude Code`. Never translated. */
   name: string;
+  /** Whether it connects to the URL or launches the binary. */
+  launch: McpClientLaunch;
   /** Whether its configuration file was found on this machine. */
   detected: boolean;
   /** Where its configuration lives, whether or not it exists yet. */
   configPath: string;
-  /** Whether Bitwright has already been written into it. */
+  /** Whether the Bitwright entry is in its file right now, read fresh. */
   registered: boolean;
+  /**
+   * Whether the client is running and has to be fully quit and reopened to
+   * load the entry and keep it. Only Claude Desktop, which rewrites its file
+   * from memory, ever reports this.
+   */
+  needsRestart: boolean;
 }
 
 /** Emitted when an MCP client connects or disconnects. */

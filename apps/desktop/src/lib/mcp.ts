@@ -30,10 +30,6 @@
  * arrives as `invalid args` at run time, or as a panel that silently shows no
  * sessions. Argument keys are camelCase for the same reason, because Tauri 2
  * renames them on the way to the webview.
- *
- * Nothing here holds a token between calls. `McpStatus.token` travels back to
- * the panel that shows it, so the user can paste it into their own client's
- * configuration, and the server that checks it stays on the Rust side.
  */
 
 import { invoke, on } from '@/lib/tauri';
@@ -92,17 +88,12 @@ export function mcpSetTransport(transport: McpTransport): Promise<ShellResult<Mc
 }
 
 /**
- * Replaces the bearer token and returns the status that carries the new one.
+ * Lists the clients the shell can detect, and whether each one's file holds
+ * the Bitwright entry right now.
  *
- * The old token stops working at once rather than at its next call, so every
- * client has to be reconfigured afterwards, which is why this is a deliberate
- * button and not something that happens on a timer.
+ * Read from disk on every call, which is what lets the panel catch Claude
+ * Desktop dropping the entry: call it again when the window regains focus.
  */
-export function mcpRegenerateToken(): Promise<ShellResult<McpStatus>> {
-  return invoke<McpStatus>('mcp_regenerate_token');
-}
-
-/** Lists the clients the shell can detect, and whether it already wrote to each. */
 export function mcpClients(): Promise<ShellResult<McpClient[]>> {
   return invoke<McpClient[]>('mcp_clients');
 }
@@ -111,7 +102,9 @@ export function mcpClients(): Promise<ShellResult<McpClient[]>> {
  * Adds Bitwright to one client's own configuration file.
  *
  * The command takes a client id rather than a path, so nothing the webview
- * sends can name a file for the shell to write into.
+ * sends can name a file for the shell to write into. A stdio client (Claude
+ * Desktop, Codex) can be registered while the server is stopped; an HTTP one
+ * answers `mcp.server_off` then, because there is no URL to write.
  */
 export function mcpClientRegister(id: McpClientId): Promise<ShellResult<McpClient>> {
   return invoke<McpClient>('mcp_client_register', { id });

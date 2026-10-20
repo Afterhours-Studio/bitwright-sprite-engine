@@ -42,12 +42,6 @@
       "running": "Running",
       "stopped": "Stopped"
     },
-    "token": {
-      "label": "Bearer token",
-      "reveal": "Reveal",
-      "hide": "Hide",
-      "regenerate": "Regenerate"
-    },
     "sessions": {
       "label": "Sessions",
       "empty": "No sessions connected.",
@@ -55,13 +49,16 @@
       "tool": "Last tool: {{tool}}"
     },
     "clients": {
-      "label": "Client configuration",
+      "label": "Clients",
       "detected": "Detected",
       "notFound": "Not found",
       "registered": "Registered",
       "register": "Register",
       "remove": "Remove",
-      "configureAll": "Configure all detected clients"
+      "configureAll": "Configure all detected clients",
+      "needsServer": "Start the server to register",
+      "quitFirst": "Running: quit Claude Desktop from its tray icon (Quit), register, then reopen it",
+      "restart": "Quit Claude Desktop from its tray icon (Quit) and reopen it to load the entry"
     },
     "manual": {
       "label": "Manual configuration",
@@ -69,8 +66,20 @@
     },
     "copy": {
       "label": "Copy",
+      "url": "Copy URL",
       "copied": "Copied",
       "failed": "Failed"
+    },
+    "errors": {
+      "mcp": {
+        "server_off": "Start the server before registering an HTTP client."
+      },
+      "client": {
+        "config_invalid": "The client's configuration file does not parse, so it was left untouched.",
+        "io": "The client's configuration file could not be read or written.",
+        "unsupported": "This platform has no configuration folder for that client.",
+        "executable": "The path of the Bitwright executable could not be read."
+      }
     },
     "unavailable": "The MCP connection is available in the desktop application."
   },

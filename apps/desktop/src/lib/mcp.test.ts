@@ -38,7 +38,6 @@ import {
   mcpClientUnregister,
   mcpClients,
   mcpManualConfig,
-  mcpRegenerateToken,
   mcpSetTransport,
   mcpStatus,
   onAgentActivity,
@@ -68,7 +67,6 @@ function status(): McpStatus {
     running: true,
     port: 53124,
     url: 'http://127.0.0.1:53124/mcp',
-    token: 'tok-1',
     sessions: [{ id: 'session-1', connectedAt: 10, lastToolAt: 20, lastTool: 'draw_runs' }],
   };
 }
@@ -82,9 +80,11 @@ function client(): McpClient {
   return {
     id: 'claude-code',
     name: 'Claude Code',
+    launch: 'http',
     detected: true,
     configPath: 'C:/Users/dev/.claude.json',
     registered: false,
+    needsRestart: false,
   };
 }
 
@@ -125,16 +125,6 @@ describe('mcpSetTransport', () => {
 
     await mcpSetTransport('http');
     expect(tauri.invoke).toHaveBeenCalledWith('mcp_set_transport', { transport: 'http' });
-  });
-});
-
-describe('mcpRegenerateToken', () => {
-  it('calls mcp_regenerate_token and hands back the status with the new token', async () => {
-    const renewed = { ...status(), token: 'tok-2' };
-    answersWith(renewed);
-
-    await expect(mcpRegenerateToken()).resolves.toEqual({ ok: true, value: renewed });
-    expect(tauri.invoke).toHaveBeenCalledWith('mcp_regenerate_token');
   });
 });
 

@@ -16,10 +16,9 @@
 /**
  * Putting text on the clipboard.
  *
- * The panel offers this for the server URL, the bearer token and the manual
- * snippet, which is the whole reason those three exist on screen: a token a
- * user cannot copy is a token they cannot use, and re-typing one is how they
- * end up pasting a broken credential into their client and debugging a
+ * The panel offers this for the server URL and the manual snippet, both of
+ * which exist on screen to be pasted into another application's
+ * configuration; re-typing a port number is how a person ends up debugging a
  * connection that is fine.
  *
  * The asynchronous clipboard API is the one that works in a webview. When the

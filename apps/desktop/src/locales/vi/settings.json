@@ -42,12 +42,6 @@
       "running": "Đang chạy",
       "stopped": "Đã dừng"
     },
-    "token": {
-      "label": "Token xác thực",
-      "reveal": "Hiện",
-      "hide": "Ẩn",
-      "regenerate": "Tạo lại"
-    },
     "sessions": {
       "label": "Phiên kết nối",
       "empty": "Chưa có phiên kết nối nào.",
@@ -55,13 +49,16 @@
       "tool": "Công cụ cuối: {{tool}}"
     },
     "clients": {
-      "label": "Cấu hình client",
+      "label": "Client",
       "detected": "Đã tìm thấy",
       "notFound": "Không tìm thấy",
       "registered": "Đã đăng ký",
       "register": "Đăng ký",
       "remove": "Xóa",
-      "configureAll": "Cấu hình tất cả client đã tìm thấy"
+      "configureAll": "Cấu hình tất cả client đã tìm thấy",
+      "needsServer": "Bật máy chủ để đăng ký",
+      "quitFirst": "Đang chạy: thoát Claude Desktop từ biểu tượng khay (Quit), đăng ký, rồi mở lại",
+      "restart": "Thoát Claude Desktop từ biểu tượng khay (Quit) rồi mở lại để nạp cấu hình"
     },
     "manual": {
       "label": "Cấu hình thủ công",
@@ -69,8 +66,20 @@
     },
     "copy": {
       "label": "Sao chép",
+      "url": "Sao chép URL",
       "copied": "Đã sao chép",
       "failed": "Thất bại"
+    },
+    "errors": {
+      "mcp": {
+        "server_off": "Hãy bật máy chủ trước khi đăng ký client HTTP."
+      },
+      "client": {
+        "config_invalid": "File cấu hình của client không đọc được nên được giữ nguyên.",
+        "io": "Không đọc hoặc ghi được file cấu hình của client.",
+        "unsupported": "Nền tảng này không có thư mục cấu hình cho client đó.",
+        "executable": "Không đọc được đường dẫn của file chạy Bitwright."
+      }
     },
     "unavailable": "Kết nối MCP chỉ khả dụng trong ứng dụng desktop."
   },

@@ -36,14 +36,19 @@
  *
  * WHY CONFIGURE ALL IS NOT A LOOP IN THE COMPONENT
  *
- * It is a sequence of independent writes to three different files. Held here, a
+ * It is a sequence of independent writes to different files. Held here, a
  * failure in the middle leaves the ones that succeeded applied - which is the
  * truth on disk - and the row that failed can say so. A component doing the
  * same work would re-render between each write and could not be tested without
  * mounting the panel.
  *
- * The bearer token is in `status`, so nothing here is ever persisted on this
- * side: see `lib/persist.ts` for what is stored, and this is not part of it.
+ * WHY THE CLIENT LIST IS RE-READ ON FOCUS
+ *
+ * A registration is only true while the client's file says so, and Claude
+ * Desktop rewrites its file from memory while it runs, dropping an entry
+ * written behind its back. `recheck` re-reads the files quietly - no loading
+ * state, no cleared error - so the card can call it whenever the window comes
+ * back to the front and show a lost entry as lost.
  */
 
 import { create } from 'zustand';
@@ -54,12 +59,12 @@ import {
   mcpClientUnregister,
   mcpClients,
   mcpManualConfig,
-  mcpRegenerateToken,
   mcpSetTransport,
   mcpStatus,
   onAgentActivity,
   onAgentSession,
 } from '@/lib/mcp';
+import type { ShellError } from '@/lib/tauri';
 import type {
   AgentActivityEvent,
   McpClient,
@@ -83,10 +88,10 @@ interface McpState {
 
   /** Re-reads the status and the client list together. */
   refresh: () => Promise<void>;
+  /** Re-reads them without a loading state, for a window regaining focus. */
+  recheck: () => Promise<void>;
   /** Switches the transport, and shows what the shell actually did. */
   setTransport: (transport: McpTransport) => Promise<void>;
-  /** Replaces the bearer token, and shows the new one. */
-  regenerateToken: () => Promise<void>;
   /** Writes Bitwright into one client's configuration. */
   register: (id: McpClientId) => Promise<void>;
   /** Takes Bitwright out of one client's configuration. */
@@ -121,14 +126,37 @@ function replaceClient(clients: McpClient[], updated: McpClient): McpClient[] {
  * Names the clients that configuring all would write to.
  *
  * Exported because the card needs it to decide whether the button can do
- * anything, and because "found, and not yet configured" is the one rule in this
- * file worth pinning down on its own.
+ * anything, and because "found, not yet configured, and configurable now" is
+ * the one rule in this file worth pinning down on its own. An HTTP client is
+ * only configurable while the server runs, because its entry is the URL.
  *
  * @param clients - Every client the shell reported.
- * @returns The detected clients with no Bitwright entry yet.
+ * @param serverRunning - Whether the server is listening.
+ * @returns The detected clients with no Bitwright entry yet that can get one.
  */
-export function pendingClients(clients: McpClient[]): McpClient[] {
-  return clients.filter((client) => client.detected && !client.registered);
+export function pendingClients(clients: McpClient[], serverRunning: boolean): McpClient[] {
+  return clients.filter(
+    (client) =>
+      client.detected && !client.registered && (client.launch === 'stdio' || serverRunning),
+  );
+}
+
+/**
+ * The reason code behind a failed MCP command.
+ *
+ * The MCP commands answer with a plain string, `code: detail`, which the
+ * bridge passes on as an `unknown` code with the string as its detail; the
+ * code the shell meant is the part before the first colon.
+ *
+ * @param error - The failure the bridge reported.
+ * @returns The code to translate.
+ */
+export function reasonCode(error: ShellError): string {
+  if (error.code !== 'unknown') {
+    return error.code;
+  }
+  const match = /^([a-z_]+\.[a-z_]+):/.exec(error.detail);
+  return match?.[1] ?? error.code;
 }
 
 /**
@@ -147,10 +175,10 @@ export const useMcpStore = create<McpState>((set, get) => {
   /**
    * Records a failure under its reason code and stops the loading state.
    *
-   * @param code - The stable reason code the command returned.
+   * @param error - The failure the command returned.
    */
-  const fail = (code: string): void => {
-    set({ error: code, loading: false });
+  const fail = (error: ShellError): void => {
+    set({ error: reasonCode(error), loading: false });
   };
 
   /**
@@ -188,13 +216,13 @@ export const useMcpStore = create<McpState>((set, get) => {
       set({ loading: true, error: null });
       const [status, clients] = await Promise.all([mcpStatus(), mcpClients()]);
       if (!status.ok) {
-        fail(status.error.code);
+        fail(status.error);
         return;
       }
       if (!clients.ok) {
-        fail(clients.error.code);
-        // The status alone is still worth showing: the transport, port and
-        // token are all answerable, and a panel that hides them because the
+        fail(clients.error);
+        // The status alone is still worth showing: the transport and port
+        // are answerable, and a panel that hides them because the
         // client list failed is less useful than one that shows what it knows.
         set({ status: status.value, loading: false });
         return;
@@ -202,38 +230,29 @@ export const useMcpStore = create<McpState>((set, get) => {
       set({ status: status.value, clients: clients.value, loading: false });
     },
 
+    recheck: async () => {
+      const [status, clients] = await Promise.all([mcpStatus(), mcpClients()]);
+      set({
+        ...(status.ok ? { status: status.value } : {}),
+        ...(clients.ok ? { clients: clients.value } : {}),
+      });
+    },
+
     setTransport: async (transport) => {
       set({ loading: true, error: null });
       const result = await mcpSetTransport(transport);
       if (!result.ok) {
-        fail(result.error.code);
+        fail(result.error);
         return;
       }
       set({ status: result.value, loading: false });
-    },
-
-    regenerateToken: async () => {
-      set({ loading: true, error: null });
-      const result = await mcpRegenerateToken();
-      if (!result.ok) {
-        fail(result.error.code);
-        return;
-      }
-      // The clients keep the old token, so the panel has to show them as they
-      // are rather than as they were when this list was read.
-      const clients = await mcpClients();
-      set({
-        status: result.value,
-        clients: clients.ok ? clients.value : get().clients,
-        loading: false,
-      });
     },
 
     register: async (id) => {
       set({ loading: true, error: null });
       const result = await mcpClientRegister(id);
       if (!result.ok) {
-        fail(result.error.code);
+        fail(result.error);
         return;
       }
       set({ clients: replaceClient(get().clients, result.value), loading: false });
@@ -243,14 +262,14 @@ export const useMcpStore = create<McpState>((set, get) => {
       set({ loading: true, error: null });
       const result = await mcpClientUnregister(id);
       if (!result.ok) {
-        fail(result.error.code);
+        fail(result.error);
         return;
       }
       set({ clients: replaceClient(get().clients, result.value), loading: false });
     },
 
     configureAllDetected: async () => {
-      const pending = pendingClients(get().clients);
+      const pending = pendingClients(get().clients, get().status?.running === true);
       if (pending.length === 0) {
         return;
       }
@@ -262,7 +281,7 @@ export const useMcpStore = create<McpState>((set, get) => {
           // Everything already written stays shown as written. A client whose
           // file refused the entry is the only one that has to be retried, and
           // starting over would offer to re-add the ones now configured.
-          fail(result.error.code);
+          fail(result.error);
           return;
         }
         set({ clients: replaceClient(get().clients, result.value) });
@@ -277,7 +296,7 @@ export const useMcpStore = create<McpState>((set, get) => {
       set({ loading: true, error: null });
       const result = await mcpManualConfig();
       if (!result.ok) {
-        fail(result.error.code);
+        fail(result.error);
         return;
       }
       set({ manualConfig: result.value, loading: false });

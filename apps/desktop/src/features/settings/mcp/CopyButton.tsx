@@ -1,26 +1,40 @@
+// Bitwright - Sprite Engine
+// Copyright (C) 2026 Afterhours Studio
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as
+// published by the Free Software Foundation, either version 3 of the
+// License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 /**
  * A button that puts one string on the clipboard, and says whether it did.
  *
- * The panel offers this for the server URL, the bearer token and the manual
- * snippet. All three are things a person moves into another application's
- * configuration file - the token included, because it has to be pasted into
- * the client's own configuration - and a copy that silently failed is worse
- * than no copy button at all: it leaves a broken credential in a client config
- * and a connection that refuses to explain itself. So the result is checked and
- * reported, and the button changes label until the next press.
+ * The panel offers this for the server URL and the manual snippet. Both are
+ * things a person moves into another application's configuration file, and a
+ * copy that silently failed is worse than no copy button at all: it leaves a
+ * stale address in a client config and a connection that refuses to explain
+ * itself. So the result is checked and reported, and the button changes label
+ * until the next press.
+ *
+ * The outcome is carried by the label alone. Colouring the text as well would
+ * fight the variant's own text colour, which `cn` does not merge away.
  *
  * The label reverts on a timer rather than on the next press, because a user
- * who copies the token and then looks away has to find the button back in its
- * normal state when they return to it.
- *
- * @param props - What to copy, and what to call it.
- * @returns The button.
+ * who copies and then looks away has to find the button back in its normal
+ * state when they return to it.
  */
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 
 import { Button } from '@/components/ui/Button';
 import { copyToClipboard } from '@/features/settings/mcp/clipboard';
-import { cn } from '@/lib/cn';
 
 /** How long the confirmation stays before the label reverts. */
 const CONFIRM_MS = 2000;
@@ -36,6 +50,12 @@ export interface CopyButtonProps {
   failedLabel: string;
 }
 
+/**
+ * The copy button.
+ *
+ * @param props - What to copy, and what to call it.
+ * @returns The button.
+ */
 export function CopyButton({
   value,
   label,
@@ -74,14 +94,8 @@ export function CopyButton({
 
   return (
     <Button
-      variant="secondary"
+      variant="ghost"
       size="xs"
-      className={cn(
-        outcome === 'copied' &&
-          'text-[color:var(--severity-success)] hover:text-[color:var(--severity-success)]',
-        outcome === 'failed' &&
-          'text-[color:var(--severity-error)] hover:text-[color:var(--severity-error)]',
-      )}
       onClick={onClick}
       data-slot="copy-outcome"
       data-outcome={outcome}

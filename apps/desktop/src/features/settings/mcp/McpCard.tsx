@@ -17,9 +17,16 @@
 /**
  * The MCP card in Settings.
  *
- * Shows the loopback HTTP server's state, the bearer token a user pastes into
- * their own client, the sessions that are attached right now, the clients the
- * shell can configure, and a manual snippet for clients it cannot write to.
+ * One compact block: the transport as a small inline select with the server's
+ * state beside it, the URL with a copy button, the sessions attached right
+ * now, one row per client the shell can configure, and a manual snippet for
+ * clients it cannot write to. There is no credential to show: the server asks
+ * for none (see `mcp/server.rs`).
+ *
+ * The client rows are re-read whenever the window comes back to the front, not
+ * only on mount. Claude Desktop rewrites its configuration file from memory
+ * while it runs, so an entry Bitwright wrote can vanish behind the panel's
+ * back; re-reading is what keeps "Registered" from lying about it.
  *
  * The card is self-contained: it mounts the store, subscribes to events, and
  * tears everything down on unmount. The screen only has to render it.
@@ -28,35 +35,19 @@
  * server is a shell feature that does not exist in a plain browser.
  */
 
-import { useEffect, useState, type ReactElement } from 'react';
+import { useEffect, type ReactElement, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Pill } from '@/components/ui/Pill';
-import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
-import type { Segment } from '@/components/ui/SegmentedTabs';
+import { Disclosure } from '@/components/ui/Disclosure';
+import { Select } from '@/components/ui/Select';
 import { CopyButton } from '@/features/settings/mcp/CopyButton';
 import { useMcpStore, pendingClients } from '@/features/settings/mcp/useMcpStore';
 import { useErrorMessage } from '@/hooks/useErrorMessage';
+import { cn } from '@/lib/cn';
 import { inShell } from '@/lib/tauri';
-import type { McpClientId, McpSession } from '@/types/mcp';
-
-/** The transport tabs, in the order the user reaches for them. */
-const TRANSPORT_SEGMENTS: Segment[] = [
-  { value: 'http', label: 'HTTP Local' },
-  { value: 'off', label: 'Off' },
-];
-
-/**
- * Masks a bearer token so only the last four characters are visible.
- *
- * @param token - The full token.
- * @returns The masked form.
- */
-function maskToken(token: string): string {
-  return `\u2022\u2022\u2022\u2022${token.slice(-4)}`;
-}
+import type { McpClient, McpSession, McpTransport } from '@/types/mcp';
 
 /**
  * How many full minutes have elapsed since an epoch-ms timestamp.
@@ -77,7 +68,7 @@ function minutesAgo(epochMs: number): number {
  * @returns The card.
  */
 export default function McpCard(): ReactElement {
-  const { t } = useTranslation('settings');
+  const { t, i18n } = useTranslation('settings');
   const translateError = useErrorMessage();
 
   const status = useMcpStore((s) => s.status);
@@ -86,16 +77,14 @@ export default function McpCard(): ReactElement {
   const loading = useMcpStore((s) => s.loading);
   const error = useMcpStore((s) => s.error);
   const refresh = useMcpStore((s) => s.refresh);
+  const recheck = useMcpStore((s) => s.recheck);
   const setTransport = useMcpStore((s) => s.setTransport);
-  const regenerateToken = useMcpStore((s) => s.regenerateToken);
   const registerClient = useMcpStore((s) => s.register);
   const unregisterClient = useMcpStore((s) => s.unregister);
   const configureAllDetected = useMcpStore((s) => s.configureAllDetected);
   const loadManualConfig = useMcpStore((s) => s.loadManualConfig);
   const subscribe = useMcpStore((s) => s.subscribe);
   const dispose = useMcpStore((s) => s.dispose);
-
-  const [tokenRevealed, setTokenRevealed] = useState(false);
 
   useEffect(() => {
     void subscribe();
@@ -105,17 +94,41 @@ export default function McpCard(): ReactElement {
   }, [subscribe, dispose]);
 
   useEffect(() => {
-    if (inShell()) {
-      void refresh();
+    if (!inShell()) {
+      return undefined;
     }
-  }, [refresh]);
+    void refresh();
 
-  const failure = translateError(error);
+    // The person is most likely coming back from quitting or reopening a
+    // client, which is exactly when a registration may have changed.
+    const onFocus = (): void => {
+      void recheck();
+    };
+    const onVisible = (): void => {
+      if (document.visibilityState === 'visible') {
+        void recheck();
+      }
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [refresh, recheck]);
+
+  // MCP failures are explained in this card's own words when it has them;
+  // anything else goes through the shared error table.
+  const failure =
+    error === null
+      ? null
+      : i18n.exists(`settings:mcp.errors.${error}`)
+        ? (t as unknown as (key: string) => string)(`mcp.errors.${error}`)
+        : translateError(error);
   const running = status?.running === true;
   const url = status?.url ?? null;
-  const token = status?.token ?? null;
   const sessions = status?.sessions ?? [];
-  const pending = pendingClients(clients);
+  const pending = pendingClients(clients, running);
 
   if (!inShell()) {
     return (
@@ -128,107 +141,84 @@ export default function McpCard(): ReactElement {
   return (
     <Card title={t('mcp.title')} description={t('mcp.description')}>
       <div className="flex flex-col gap-4">
-        {/* Transport */}
-        <SegmentedTabs
-          segments={TRANSPORT_SEGMENTS.map((segment) => ({
-            ...segment,
-            label: t(
-              ('mcp.transport.' + segment.value) as 'mcp.transport.http' | 'mcp.transport.off',
-            ),
-          }))}
-          value={status?.transport ?? 'off'}
-          label={t('mcp.transport.label')}
-          onValueChange={(value) => {
-            void setTransport(value as 'http' | 'off');
-          }}
-        />
-
-        {/* Status */}
-        <div className="flex flex-wrap items-center gap-2">
-          <Pill active={running}>
-            {running ? t('mcp.status.running') : t('mcp.status.stopped')}
-          </Pill>
-          {running && url !== null && (
-            <CopyButton
-              value={url}
-              label={url}
-              copiedLabel={t('mcp.copy.copied')}
-              failedLabel={t('mcp.copy.failed')}
-            />
-          )}
-        </div>
-
-        {/* Token */}
-        {token !== null && (
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-fg-secondary">{t('mcp.token.label')}:</span>
-            <code className="rounded-sm border border-line-subtle bg-surface-content-alt px-2 py-1 font-mono text-[11px] font-medium text-fg-primary">
-              {tokenRevealed ? token : maskToken(token)}
-            </code>
-            <Button
-              variant="ghost"
+        {/* Transport, state and address */}
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Select
               size="sm"
-              onClick={() => {
-                setTokenRevealed(!tokenRevealed);
-              }}
-            >
-              {tokenRevealed ? t('mcp.token.hide') : t('mcp.token.reveal')}
-            </Button>
-            <CopyButton
-              value={token}
-              label={t('mcp.copy.label')}
-              copiedLabel={t('mcp.copy.copied')}
-              failedLabel={t('mcp.copy.failed')}
-            />
-            <Button
-              variant="ghost"
-              size="sm"
+              layout="inline"
+              label={t('mcp.transport.label')}
+              value={status?.transport ?? 'off'}
+              options={[
+                { value: 'http', label: t('mcp.transport.http') },
+                { value: 'off', label: t('mcp.transport.off') },
+              ]}
               disabled={loading}
-              onClick={() => {
-                void regenerateToken();
+              onValueChange={(value) => {
+                void setTransport(value as McpTransport);
               }}
-            >
-              {t('mcp.token.regenerate')}
-            </Button>
+            />
+            <span className="inline-flex items-center gap-1.5 text-xs text-fg-secondary">
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'h-1.5 w-1.5 shrink-0 rounded-full transition-colors',
+                  running ? 'bg-severity-success' : 'bg-fg-muted',
+                )}
+              />
+              {running ? t('mcp.status.running') : t('mcp.status.stopped')}
+            </span>
           </div>
-        )}
-
-        {/* Sessions */}
-        <div>
-          <p className="mb-1.5 text-xs font-medium text-fg-secondary">{t('mcp.sessions.label')}</p>
-          {sessions.length === 0 ? (
-            <p className="text-xs text-fg-secondary">{t('mcp.sessions.empty')}</p>
-          ) : (
-            <div className="flex flex-col gap-1">
-              {sessions.map((session) => (
-                <SessionRow key={session.id} session={session} />
-              ))}
+          {running && url !== null && (
+            <div className="flex items-center gap-1.5">
+              <code className="min-w-0 flex-1 truncate rounded-sm border border-line-subtle bg-surface-content-alt px-2 py-1 font-mono text-[11px] text-fg-primary">
+                {url}
+              </code>
+              <CopyButton
+                value={url}
+                label={t('mcp.copy.label')}
+                copiedLabel={t('mcp.copy.copied')}
+                failedLabel={t('mcp.copy.failed')}
+              />
             </div>
           )}
         </div>
 
+        {/* Sessions */}
+        <Section label={t('mcp.sessions.label')}>
+          {sessions.length === 0 ? (
+            <p className="text-xs text-fg-muted">{t('mcp.sessions.empty')}</p>
+          ) : (
+            <Rows>
+              {sessions.map((session) => (
+                <SessionRow key={session.id} session={session} />
+              ))}
+            </Rows>
+          )}
+        </Section>
+
         {/* Clients */}
-        <div>
-          <p className="mb-1.5 text-xs font-medium text-fg-secondary">{t('mcp.clients.label')}</p>
-          <Button
-            variant="secondary"
-            size="sm"
-            className="mb-2"
-            disabled={loading || pending.length === 0}
-            onClick={() => {
-              void configureAllDetected();
-            }}
-          >
-            {t('mcp.clients.configureAll')}
-          </Button>
-          <div className="flex flex-col gap-1">
+        <Section
+          label={t('mcp.clients.label')}
+          action={
+            <Button
+              variant="ghost"
+              size="xs"
+              disabled={loading || pending.length === 0}
+              onClick={() => {
+                void configureAllDetected();
+              }}
+            >
+              {t('mcp.clients.configureAll')}
+            </Button>
+          }
+        >
+          <Rows>
             {clients.map((client) => (
               <ClientRow
                 key={client.id}
-                id={client.id}
-                name={client.name}
-                detected={client.detected}
-                registered={client.registered}
+                client={client}
+                serverRunning={running}
                 loading={loading}
                 onRegister={() => {
                   void registerClient(client.id);
@@ -238,24 +228,68 @@ export default function McpCard(): ReactElement {
                 }}
               />
             ))}
-          </div>
-        </div>
+          </Rows>
+        </Section>
 
         {/* Manual configuration */}
-        <ManualSnippet
-          onReveal={() => {
-            void loadManualConfig();
+        <Disclosure
+          summary={t('mcp.manual.label')}
+          onOpenChange={(open) => {
+            if (open) {
+              void loadManualConfig();
+            }
           }}
-          manualConfig={manualConfig}
-        />
+        >
+          <div className="flex flex-col gap-2">
+            <p className="text-xs text-fg-secondary">{t('mcp.manual.description')}</p>
+            {manualConfig !== null && (
+              <div className="flex items-start gap-1.5">
+                <pre className="min-w-0 flex-1 overflow-x-auto rounded-md border border-line-subtle bg-surface-content-alt p-2 font-mono text-[11px] text-fg-primary">
+                  {manualConfig}
+                </pre>
+                <CopyButton
+                  value={manualConfig}
+                  label={t('mcp.copy.label')}
+                  copiedLabel={t('mcp.copy.copied')}
+                  failedLabel={t('mcp.copy.failed')}
+                />
+              </div>
+            )}
+          </div>
+        </Disclosure>
 
-        {failure !== null && (
-          <p className="rounded-md border border-line bg-surface-content-alt p-2 text-xs text-[color:var(--severity-error)]">
-            {failure}
-          </p>
-        )}
+        {failure !== null && <p className="text-xs text-severity-error">{failure}</p>}
       </div>
     </Card>
+  );
+}
+
+interface SectionProps {
+  label: string;
+  /** A control on the right of the heading, such as Configure all. */
+  action?: ReactNode;
+  children: ReactNode;
+}
+
+/** A small heading over a block of rows. */
+function Section({ label, action, children }: SectionProps): ReactElement {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex min-h-6 items-center justify-between gap-2">
+        <p className="text-xs font-medium text-fg-secondary">{label}</p>
+        {action}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/** A bordered list whose rows are separated by hairlines. */
+function Rows({ children }: { children: ReactNode }): ReactElement {
+  return (
+    <div className="flex flex-col divide-y divide-line-subtle rounded-md border border-line-subtle">
+      {children}
+    </div>
   );
 }
 
@@ -268,17 +302,14 @@ function SessionRow({ session }: SessionRowProps): ReactElement {
   const shortId = session.id.length > 8 ? session.id.slice(0, 8) : session.id;
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md border border-line-subtle bg-surface-content-alt px-2.5 py-1.5 text-xs">
-      <span
-        aria-hidden="true"
-        className="h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--severity-success)]"
-      />
+    <div className="flex min-h-8 flex-wrap items-center gap-2 px-2.5 py-1 text-xs">
+      <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-severity-success" />
       <code className="font-mono text-fg-primary">{shortId}</code>
-      <span className="text-fg-secondary">
+      <span className="text-fg-muted">
         {t('mcp.sessions.connected', { minutes: minutesAgo(session.connectedAt) })}
       </span>
       {session.lastTool !== null && (
-        <span className="font-medium text-fg-primary">
+        <span className="ml-auto text-fg-secondary">
           {t('mcp.sessions.tool', { tool: session.lastTool })}
         </span>
       )}
@@ -287,88 +318,74 @@ function SessionRow({ session }: SessionRowProps): ReactElement {
 }
 
 interface ClientRowProps {
-  id: McpClientId;
-  name: string;
-  detected: boolean;
-  registered: boolean;
+  client: McpClient;
+  serverRunning: boolean;
   loading: boolean;
   onRegister: () => void;
   onUnregister: () => void;
 }
 
+/**
+ * One client: its name, where it stands, and the one thing to do about it.
+ *
+ * The note under the status is the part a person acts on: Claude Desktop has
+ * to be fully quit (from its tray icon, not just the window closed) for an
+ * entry to load and survive, and an HTTP client cannot be registered while
+ * there is no URL to write.
+ */
 function ClientRow({
-  name,
-  detected,
-  registered,
+  client,
+  serverRunning,
   loading,
   onRegister,
   onUnregister,
 }: ClientRowProps): ReactElement {
   const { t } = useTranslation('settings');
+  const blockedByServer = client.launch === 'http' && !serverRunning;
+
+  const state = client.registered
+    ? t('mcp.clients.registered')
+    : client.detected
+      ? t('mcp.clients.detected')
+      : t('mcp.clients.notFound');
+
+  let note: string | null = null;
+  if (client.needsRestart) {
+    note = client.registered ? t('mcp.clients.restart') : t('mcp.clients.quitFirst');
+  } else if (blockedByServer && client.detected && !client.registered) {
+    note = t('mcp.clients.needsServer');
+  }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md border border-line-subtle bg-surface-content-alt px-2.5 py-1.5 text-xs">
-      <span className="font-medium text-fg-primary">{name}</span>
-      <Pill active={detected} tone="anchor">
-        {detected ? t('mcp.clients.detected') : t('mcp.clients.notFound')}
-      </Pill>
-      <span className="flex-1 text-[color:var(--severity-success)]">
-        {registered ? t('mcp.clients.registered') : ''}
-      </span>
-      {registered ? (
-        <Button variant="ghost" size="sm" disabled={loading} onClick={onUnregister}>
+    <div className="flex min-h-8 items-center gap-2 px-2.5 py-1 text-xs">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex items-baseline gap-2">
+          <span className="font-medium text-fg-primary">{client.name}</span>
+          <span
+            className={cn(
+              'transition-colors',
+              client.registered ? 'text-severity-success' : 'text-fg-muted',
+            )}
+          >
+            {state}
+          </span>
+        </div>
+        {note !== null && <span className="text-[11px] text-severity-warning">{note}</span>}
+      </div>
+      {client.registered ? (
+        <Button variant="ghost" size="xs" disabled={loading} onClick={onUnregister}>
           {t('mcp.clients.remove')}
         </Button>
       ) : (
-        <Button variant="ghost" size="sm" disabled={loading || !detected} onClick={onRegister}>
+        <Button
+          variant="secondary"
+          size="xs"
+          disabled={loading || !client.detected || blockedByServer}
+          onClick={onRegister}
+        >
           {t('mcp.clients.register')}
         </Button>
       )}
     </div>
-  );
-}
-
-interface ManualSnippetProps {
-  onReveal: () => void;
-  manualConfig: string | null;
-}
-
-function ManualSnippet({ onReveal, manualConfig }: ManualSnippetProps): ReactElement {
-  const { t } = useTranslation('settings');
-  const [open, setOpen] = useState(false);
-
-  return (
-    <details
-      open={open}
-      onToggle={(event) => {
-        const nextOpen = (event.target as HTMLDetailsElement).open;
-        setOpen(nextOpen);
-        if (nextOpen) {
-          onReveal();
-        }
-      }}
-    >
-      <summary className="cursor-pointer text-xs font-medium text-fg-secondary hover:text-fg-primary">
-        {t('mcp.manual.label')}
-      </summary>
-      {open && (
-        <div className="mt-2 flex flex-col gap-2">
-          <p className="text-xs text-fg-secondary">{t('mcp.manual.description')}</p>
-          {manualConfig !== null && (
-            <>
-              <pre className="overflow-x-auto rounded-md border border-line-subtle bg-surface-content-alt p-3 font-mono text-[11px] text-fg-primary">
-                {manualConfig}
-              </pre>
-              <CopyButton
-                value={manualConfig}
-                label={t('mcp.copy.label')}
-                copiedLabel={t('mcp.copy.copied')}
-                failedLabel={t('mcp.copy.failed')}
-              />
-            </>
-          )}
-        </div>
-      )}
-    </details>
   );
 }

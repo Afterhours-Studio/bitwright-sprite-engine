@@ -15,8 +15,8 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * The MCP card renders the server's state, the token, sessions, clients,
- * and the manual snippet.
+ * The MCP card renders the server's state, sessions, clients and the manual
+ * snippet, and never any credential.
  *
  * `@/lib/mcp` is mocked entirely: every command returns a plausible answer,
  * and the store exercises the real logic. The tests check what the card shows
@@ -36,7 +36,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('@/lib/mcp', () => ({
   mcpStatus: vi.fn(),
   mcpSetTransport: vi.fn(),
-  mcpRegenerateToken: vi.fn(),
   mcpClients: vi.fn(),
   mcpClientRegister: vi.fn(),
   mcpClientUnregister: vi.fn(),
@@ -64,7 +63,6 @@ const BASE_STATUS = {
   running: false,
   port: null,
   url: null,
-  token: 'tok-12345678',
   sessions: [],
 };
 
@@ -73,9 +71,11 @@ function client(overrides: Partial<McpClient> = {}): McpClient {
   return {
     id: 'claude-code',
     name: 'Claude Code',
+    launch: 'stdio',
     detected: true,
     configPath: '/path',
     registered: false,
+    needsRestart: false,
     ...overrides,
   };
 }
@@ -83,7 +83,6 @@ function client(overrides: Partial<McpClient> = {}): McpClient {
 beforeEach(() => {
   vi.mocked(mcp.mcpStatus).mockReset();
   vi.mocked(mcp.mcpSetTransport).mockReset();
-  vi.mocked(mcp.mcpRegenerateToken).mockReset();
   vi.mocked(mcp.mcpClients).mockReset();
   vi.mocked(mcp.mcpClientRegister).mockReset();
   vi.mocked(mcp.mcpClientUnregister).mockReset();
@@ -95,7 +94,6 @@ beforeEach(() => {
   // nothing and no promise is left without a value to resolve to.
   vi.mocked(mcp.mcpStatus).mockResolvedValue(ok(BASE_STATUS));
   vi.mocked(mcp.mcpSetTransport).mockResolvedValue(ok(BASE_STATUS));
-  vi.mocked(mcp.mcpRegenerateToken).mockResolvedValue(ok(BASE_STATUS));
   vi.mocked(mcp.mcpClients).mockResolvedValue(ok([]));
   vi.mocked(mcp.mcpClientRegister).mockResolvedValue(ok(client({ registered: true })));
   vi.mocked(mcp.mcpClientUnregister).mockResolvedValue(ok(client({ registered: false })));
@@ -120,7 +118,8 @@ describe('McpCard', () => {
     render(<McpCard />);
 
     await waitFor(() => {
-      expect(screen.getByRole('tab', { selected: true })).toHaveTextContent('Off');
+      expect(screen.getByRole('combobox', { name: 'Transport' })).toHaveTextContent('Off');
+      expect(screen.getByText('Stopped')).toBeInTheDocument();
     });
   });
 
@@ -143,25 +142,12 @@ describe('McpCard', () => {
     });
   });
 
-  it('masks the token and reveals it', async () => {
-    render(<McpCard />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/\u2022\u2022\u2022\u20225678/)).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: /reveal/i }));
-
-    expect(screen.getByText('tok-12345678')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /hide/i })).toBeInTheDocument();
-  });
-
-  it('regenerates the token', async () => {
+  it('shows no token anywhere', async () => {
     vi.mocked(mcp.mcpStatus).mockResolvedValue(
       ok({
         ...BASE_STATUS,
-        running: true,
         transport: 'http',
+        running: true,
         port: 53124,
         url: 'http://127.0.0.1:53124/mcp',
       }),
@@ -170,15 +156,61 @@ describe('McpCard', () => {
     render(<McpCard />);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /regenerate/i })).not.toBeDisabled();
+      expect(screen.getByText('Running')).toBeInTheDocument();
     });
+    expect(screen.queryByText(/token/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /reveal|regenerate/i })).not.toBeInTheDocument();
+  });
 
-    fireEvent.click(screen.getByRole('button', { name: /regenerate/i }));
+  it('tells the person to quit and reopen a running Claude Desktop', async () => {
+    vi.mocked(mcp.mcpClients).mockResolvedValue(
+      ok([
+        client({
+          id: 'claude-desktop',
+          name: 'Claude Desktop',
+          registered: true,
+          needsRestart: true,
+        }),
+      ]),
+    );
+
+    render(<McpCard />);
 
     await waitFor(() => {
-      expect(mcp.mcpRegenerateToken).toHaveBeenCalledTimes(1);
-      expect(useMcpStore.getState().loading).toBe(false);
+      expect(screen.getByText(/tray icon/)).toBeInTheDocument();
     });
+  });
+
+  it('re-reads the clients when the window regains focus', async () => {
+    vi.mocked(mcp.mcpClients).mockResolvedValue(ok([client({ registered: true })]));
+
+    render(<McpCard />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Registered')).toBeInTheDocument();
+    });
+
+    // Something rewrote the client's file in the meantime.
+    vi.mocked(mcp.mcpClients).mockResolvedValue(ok([client({ registered: false })]));
+    fireEvent.focus(window);
+
+    await waitFor(() => {
+      expect(screen.queryByText('Registered')).not.toBeInTheDocument();
+      expect(screen.getByText('Detected')).toBeInTheDocument();
+    });
+  });
+
+  it('keeps an http client unregisterable while the server is stopped', async () => {
+    vi.mocked(mcp.mcpClients).mockResolvedValue(
+      ok([client({ id: 'cursor', name: 'Cursor', launch: 'http' })]),
+    );
+
+    render(<McpCard />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Start the server to register')).toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: /register$/i })).toBeDisabled();
   });
 
   it('registers a detected and unregistered client', async () => {
@@ -221,32 +253,14 @@ describe('McpCard', () => {
 
   it('configures all detected-and-unregistered clients', async () => {
     const clients: McpClient[] = [
-      {
-        id: 'claude-code',
-        name: 'Claude Code',
-        detected: true,
-        configPath: '/p1',
-        registered: false,
-      },
-      { id: 'cursor', name: 'Cursor', detected: true, configPath: '/p2', registered: false },
-      {
-        id: 'claude-desktop',
-        name: 'Claude Desktop',
-        detected: false,
-        configPath: '/p3',
-        registered: false,
-      },
+      client({ id: 'claude-code', name: 'Claude Code', configPath: '/p1' }),
+      client({ id: 'codex', name: 'Codex', configPath: '/p2' }),
+      client({ id: 'claude-desktop', name: 'Claude Desktop', detected: false, configPath: '/p3' }),
+      // An HTTP client while the server is stopped has no URL to write yet.
+      client({ id: 'cursor', name: 'Cursor', launch: 'http', configPath: '/p4' }),
     ];
     vi.mocked(mcp.mcpClientRegister).mockImplementation((id) => {
-      return Promise.resolve(
-        ok<McpClient>({
-          id,
-          name: 'Claude Code',
-          detected: true,
-          configPath: '/path',
-          registered: true,
-        }),
-      );
+      return Promise.resolve(ok<McpClient>(client({ id, registered: true })));
     });
     vi.mocked(mcp.mcpClients).mockResolvedValue(ok(clients));
 
@@ -262,8 +276,9 @@ describe('McpCard', () => {
 
     await waitFor(() => {
       expect(mcp.mcpClientRegister).toHaveBeenCalledWith('claude-code');
-      expect(mcp.mcpClientRegister).toHaveBeenCalledWith('cursor');
+      expect(mcp.mcpClientRegister).toHaveBeenCalledWith('codex');
       expect(mcp.mcpClientRegister).not.toHaveBeenCalledWith('claude-desktop');
+      expect(mcp.mcpClientRegister).not.toHaveBeenCalledWith('cursor');
       expect(useMcpStore.getState().loading).toBe(false);
     });
   });
@@ -278,11 +293,7 @@ describe('McpCard', () => {
       expect(screen.getByText('Manual configuration')).toBeInTheDocument();
     });
 
-    const details = screen
-      .getByText('Manual configuration')
-      .closest('details') as HTMLDetailsElement;
-    Object.defineProperty(details, 'open', { value: true, configurable: true });
-    details.dispatchEvent(new Event('toggle', { bubbles: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Manual configuration' }));
 
     await waitFor(() => {
       expect(screen.getByText(snippet)).toBeInTheDocument();
