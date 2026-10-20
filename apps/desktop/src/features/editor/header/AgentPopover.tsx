@@ -39,6 +39,7 @@ import { Brain, Settings } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Tooltip } from '@/components/ui/Tooltip';
 import { AgentActivityIndicator } from '@/features/editor/live';
 import { useMcpStore } from '@/features/settings/mcp/useMcpStore';
 import { useDismiss } from '@/hooks/useDismiss';
@@ -94,19 +95,20 @@ export function AgentPopover(): ReactElement {
 
   return (
     <div ref={root} className="relative no-drag">
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-haspopup="dialog"
-        title={t('header.agentHint')}
-        className={open ? TOGGLE_ON : TOGGLE_OFF}
-        onClick={() => {
-          setOpen((current) => !current);
-        }}
-      >
-        <Brain aria-hidden="true" strokeWidth={1.75} className="w-3.5 h-3.5" />
-        <span className="sr-only min-[1400px]:not-sr-only">{t('header.agent')}</span>
-      </button>
+      <Tooltip label={t('header.agentHint')}>
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-haspopup="dialog"
+          className={open ? TOGGLE_ON : TOGGLE_OFF}
+          onClick={() => {
+            setOpen((current) => !current);
+          }}
+        >
+          <Brain aria-hidden="true" strokeWidth={1.75} className="w-3.5 h-3.5" />
+          <span className="sr-only min-[1400px]:not-sr-only">{t('header.agent')}</span>
+        </button>
+      </Tooltip>
 
       {/* Kept mounted while closed, only hidden, so the live chip inside has
           been listening since the header appeared rather than since the

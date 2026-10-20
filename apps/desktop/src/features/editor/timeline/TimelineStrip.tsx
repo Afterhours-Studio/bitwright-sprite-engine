@@ -41,6 +41,8 @@ import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/Dialog';
+import { Slider } from '@/components/ui/Slider';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { useWorkflowLabels } from '@/features/editor/labels';
 import { FrameThumbnail } from '@/features/editor/timeline/FrameThumbnail';
 import { cn } from '@/lib/cn';
@@ -214,26 +216,26 @@ export function TimelineStrip(): ReactElement {
             {PLAYBACKS.map((mode) => {
               const on = animation.playback === mode;
               return (
-                <button
-                  key={mode}
-                  type="button"
-                  aria-label={t(mode)}
-                  title={t(mode)}
-                  aria-pressed={on}
-                  className={cn(
-                    'w-6 h-5 rounded-pill text-[11px] font-semibold transition-colors',
-                    on
-                      ? 'bg-accent text-accent-fg'
-                      : 'text-fg-secondary hover:text-fg-primary hover:bg-surface-content-alt',
-                  )}
-                  onClick={() => {
-                    if (!on) {
-                      void setPlayback(mode);
-                    }
-                  }}
-                >
-                  {PLAYBACK_GLYPHS[mode]}
-                </button>
+                <Tooltip key={mode} label={t(mode)}>
+                  <button
+                    type="button"
+                    aria-label={t(mode)}
+                    aria-pressed={on}
+                    className={cn(
+                      'w-6 h-5 rounded-pill text-[11px] font-semibold transition-colors',
+                      on
+                        ? 'bg-accent text-accent-fg'
+                        : 'text-fg-secondary hover:text-fg-primary hover:bg-surface-content-alt',
+                    )}
+                    onClick={() => {
+                      if (!on) {
+                        void setPlayback(mode);
+                      }
+                    }}
+                  >
+                    {PLAYBACK_GLYPHS[mode]}
+                  </button>
+                </Tooltip>
               );
             })}
           </div>
@@ -252,18 +254,15 @@ export function TimelineStrip(): ReactElement {
             <span className="truncate text-[11px] font-medium text-fg-primary">{shown.name}</span>
           </div>
 
-          <label className="flex items-center gap-2 pl-3 border-l border-line-subtle">
+          <div className="flex items-center gap-2 pl-3 border-l border-line-subtle">
             <span className="text-[11px] font-medium text-fg-secondary">{t('fps')}</span>
-            <input
-              type="range"
+            <Slider
+              label={t('fpsLabel')}
               min={FPS_MIN}
               max={FPS_MAX}
-              step={1}
               value={fps}
-              aria-label={t('fpsLabel')}
-              className="w-20 h-1.5 [accent-color:var(--accent)]"
-              onChange={(event) => {
-                const next = Number(event.target.value);
+              className="w-20"
+              onValueChange={(next) => {
                 setFpsDraft(next);
                 void setFps(next).finally(() => {
                   setFpsDraft(null);
@@ -273,7 +272,7 @@ export function TimelineStrip(): ReactElement {
             <span className="text-[11px] tabular-nums font-medium text-fg-primary w-10">
               {t('fpsValue', { fps })}
             </span>
-          </label>
+          </div>
 
           <label className="flex items-center gap-1.5 pl-3 border-l border-line-subtle">
             <span className="text-[11px] font-medium text-fg-secondary">{t('frameDuration')}</span>
@@ -331,29 +330,31 @@ export function TimelineStrip(): ReactElement {
             {t('onionSkin')}
           </button>
           <span aria-hidden="true" className="h-4 w-px bg-line-subtle" />
-          <button
-            type="button"
-            aria-label={t('duplicate')}
-            title={t('duplicate')}
-            className={ICON_BUTTON}
-            onClick={() => {
-              void add(true);
-            }}
-          >
-            <Copy aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            aria-label={t('delete')}
-            title={lastFrame ? t('deleteLast') : t('delete')}
-            disabled={lastFrame}
-            className={cn(ICON_BUTTON, 'hover:text-severity-error')}
-            onClick={() => {
-              setConfirmingDelete(true);
-            }}
-          >
-            <Trash2 aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5" />
-          </button>
+          <Tooltip label={t('duplicate')}>
+            <button
+              type="button"
+              aria-label={t('duplicate')}
+              className={ICON_BUTTON}
+              onClick={() => {
+                void add(true);
+              }}
+            >
+              <Copy aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5" />
+            </button>
+          </Tooltip>
+          <Tooltip label={lastFrame ? t('deleteLast') : t('delete')}>
+            <button
+              type="button"
+              aria-label={t('delete')}
+              disabled={lastFrame}
+              className={cn(ICON_BUTTON, 'hover:text-severity-error')}
+              onClick={() => {
+                setConfirmingDelete(true);
+              }}
+            >
+              <Trash2 aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5" />
+            </button>
+          </Tooltip>
         </div>
       </div>
 
@@ -375,30 +376,31 @@ export function TimelineStrip(): ReactElement {
                   : 'border-line-subtle hover:border-line hover:bg-surface-content-alt',
               )}
             >
-              <button
-                type="button"
-                aria-label={t('openFrame', { number, name: frame.name })}
-                title={frame.name}
-                className="flex flex-col items-center gap-1"
-                onClick={() => {
-                  void select(frame.assetId);
-                }}
-              >
-                <span
-                  className={cn(
-                    'whitespace-nowrap text-[11px] tabular-nums',
-                    current ? 'text-fg-primary font-semibold' : 'text-fg-secondary',
-                  )}
+              <Tooltip label={frame.name}>
+                <button
+                  type="button"
+                  aria-label={t('openFrame', { number, name: frame.name })}
+                  className="flex flex-col items-center gap-1"
+                  onClick={() => {
+                    void select(frame.assetId);
+                  }}
                 >
-                  {t('frameNumber', { number })}
-                </span>
-                <span className="block w-16 h-16 rounded-sm bg-surface-well border border-line-subtle checkerboard-pattern p-1">
-                  <FrameThumbnail assetId={frame.assetId} revision={revisionOf(frame)} />
-                </span>
-                <span className="block w-16 truncate text-center text-[11px] leading-tight text-fg-secondary">
-                  {labels.step[frame.step]}
-                </span>
-              </button>
+                  <span
+                    className={cn(
+                      'whitespace-nowrap text-[11px] tabular-nums',
+                      current ? 'text-fg-primary font-semibold' : 'text-fg-secondary',
+                    )}
+                  >
+                    {t('frameNumber', { number })}
+                  </span>
+                  <span className="block w-16 h-16 rounded-sm bg-surface-well border border-line-subtle checkerboard-pattern p-1">
+                    <FrameThumbnail assetId={frame.assetId} revision={revisionOf(frame)} />
+                  </span>
+                  <span className="block w-16 truncate text-center text-[11px] leading-tight text-fg-secondary">
+                    {labels.step[frame.step]}
+                  </span>
+                </button>
+              </Tooltip>
               <div className="absolute inset-x-0 bottom-0 flex justify-between rounded-b-md border-t border-line-subtle bg-surface-float px-1 py-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                 <button
                   type="button"
@@ -427,18 +429,19 @@ export function TimelineStrip(): ReactElement {
           );
         })}
         <li className="flex-shrink-0 h-full">
-          <button
-            type="button"
-            aria-label={t('addLabel')}
-            title={t('addLabel')}
-            className="flex h-full w-[76px] flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed border-line text-[11px] text-fg-secondary transition-colors hover:border-line-strong hover:bg-surface-content-alt hover:text-fg-primary"
-            onClick={() => {
-              void add(true);
-            }}
-          >
-            <Plus aria-hidden="true" strokeWidth={1.75} className="h-4 w-4" />
-            {t('add')}
-          </button>
+          <Tooltip label={t('addLabel')}>
+            <button
+              type="button"
+              aria-label={t('addLabel')}
+              className="flex h-full w-[76px] flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed border-line text-[11px] text-fg-secondary transition-colors hover:border-line-strong hover:bg-surface-content-alt hover:text-fg-primary"
+              onClick={() => {
+                void add(true);
+              }}
+            >
+              <Plus aria-hidden="true" strokeWidth={1.75} className="h-4 w-4" />
+              {t('add')}
+            </button>
+          </Tooltip>
         </li>
       </ol>
 

@@ -36,6 +36,7 @@ import { ImageUp } from 'lucide-react';
 import { useEffect, useState, type CSSProperties, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Tooltip } from '@/components/ui/Tooltip';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
 import { Pill } from '@/components/ui/Pill';
@@ -258,12 +259,12 @@ export function ReferencePanel(): ReactElement {
             {chosen.palette.length > 0 && (
               <div className="grid grid-cols-8 gap-1 rounded-sm border border-line-subtle bg-surface-well p-1.5">
                 {chosen.palette.map((hex, index) => (
-                  <span
-                    key={`${hex}-${index}`}
-                    title={hex}
-                    className="palette-swatch aspect-square rounded-sm ring-1 ring-line-subtle"
-                    style={{ '--swatch': hex } as CSSProperties}
-                  />
+                  <Tooltip key={`${hex}-${index}`} label={hex}>
+                    <span
+                      className="palette-swatch aspect-square rounded-sm ring-1 ring-line-subtle"
+                      style={{ '--swatch': hex } as CSSProperties}
+                    />
+                  </Tooltip>
                 ))}
               </div>
             )}

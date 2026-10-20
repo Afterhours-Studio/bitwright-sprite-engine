@@ -129,7 +129,9 @@ describe('TimelineStrip', () => {
     show([frame(0), frame(1), frame(2)], 1);
     render(<TimelineStrip />);
     expect(screen.getByText('Frame 2 / 3 :')).toBeInTheDocument();
-    expect(screen.getByText('Knight #2')).toBeInTheDocument();
+    // The frame's card also carries its name in a hover label, so the preview
+    // row is picked out by its class.
+    expect(screen.getByText('Knight #2', { selector: 'span.truncate' })).toBeInTheDocument();
     const current = screen.getByRole('button', { name: 'Open frame 2: Knight #2' }).closest('li');
     expect(current).toHaveAttribute('aria-current', 'true');
   });
@@ -161,13 +163,13 @@ describe('TimelineStrip', () => {
     show([frame(0, 125), frame(1, 50)], 1);
     render(<TimelineStrip />);
     const slider = screen.getByRole('slider', { name: /frames per second/i });
-    expect(slider).toHaveValue('20');
+    expect(slider).toHaveAttribute('aria-valuenow', '20');
     expect(screen.getByText('20 FPS')).toBeInTheDocument();
     await act(async () => {
-      fireEvent.change(slider, { target: { value: '12' } });
+      fireEvent.keyDown(slider, { key: 'End' });
       await Promise.resolve();
     });
-    expect(actions.setFps).toHaveBeenCalledWith(12);
+    expect(actions.setFps).toHaveBeenCalledWith(24);
   });
 
   it('commits a typed duration on Enter, clamped, to the open frame', () => {

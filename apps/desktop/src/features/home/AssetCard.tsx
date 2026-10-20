@@ -29,6 +29,7 @@ import { Pencil, Trash2 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Tooltip } from '@/components/ui/Tooltip';
 import { AssetThumbnail } from '@/features/home/AssetThumbnail';
 import { formatRelative } from '@/features/home/relativeTime';
 import type { Asset } from '@/types/document';
@@ -96,28 +97,30 @@ export function AssetCard({ asset, onOpen, onRename, onDelete }: AssetItemProps)
           </>
         )}
         <div className="absolute bottom-1.5 right-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-          <button
-            type="button"
-            aria-label={t('card.rename', { name: asset.name })}
-            title={t('card.rename', { name: asset.name })}
-            onClick={() => {
-              onRename(asset);
-            }}
-            className="rounded-sm border border-line-subtle bg-surface-float p-1 text-fg-secondary shadow-sm transition-colors hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
-          >
-            <Pencil className="w-3 h-3" strokeWidth={1.75} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            aria-label={t('card.delete', { name: asset.name })}
-            title={t('card.delete', { name: asset.name })}
-            onClick={() => {
-              onDelete(asset);
-            }}
-            className="rounded-sm border border-line-subtle bg-surface-float p-1 text-fg-secondary shadow-sm transition-colors hover:text-[color:var(--severity-error)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
-          >
-            <Trash2 className="w-3 h-3" strokeWidth={1.75} aria-hidden="true" />
-          </button>
+          <Tooltip label={t('card.rename', { name: asset.name })}>
+            <button
+              type="button"
+              aria-label={t('card.rename', { name: asset.name })}
+              onClick={() => {
+                onRename(asset);
+              }}
+              className="rounded-sm border border-line-subtle bg-surface-float p-1 text-fg-secondary shadow-sm transition-colors hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
+            >
+              <Pencil className="w-3 h-3" strokeWidth={1.75} aria-hidden="true" />
+            </button>
+          </Tooltip>
+          <Tooltip label={t('card.delete', { name: asset.name })}>
+            <button
+              type="button"
+              aria-label={t('card.delete', { name: asset.name })}
+              onClick={() => {
+                onDelete(asset);
+              }}
+              className="rounded-sm border border-line-subtle bg-surface-float p-1 text-fg-secondary shadow-sm transition-colors hover:text-[color:var(--severity-error)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
+            >
+              <Trash2 className="w-3 h-3" strokeWidth={1.75} aria-hidden="true" />
+            </button>
+          </Tooltip>
         </div>
       </div>
       <div className="min-w-0">
@@ -170,28 +173,30 @@ export function AssetRow({
       </td>
       <td className="py-1.5 text-right">
         <div className="inline-flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-          <button
-            type="button"
-            aria-label={t('card.rename', { name: asset.name })}
-            title={t('card.rename', { name: asset.name })}
-            onClick={() => {
-              onRename(asset);
-            }}
-            className="rounded-sm p-1 text-fg-secondary transition-colors hover:bg-surface-content hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
-          >
-            <Pencil className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            aria-label={t('card.delete', { name: asset.name })}
-            title={t('card.delete', { name: asset.name })}
-            onClick={() => {
-              onDelete(asset);
-            }}
-            className="rounded-sm p-1 text-fg-secondary transition-colors hover:bg-surface-content hover:text-[color:var(--severity-error)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
-          >
-            <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
-          </button>
+          <Tooltip label={t('card.rename', { name: asset.name })}>
+            <button
+              type="button"
+              aria-label={t('card.rename', { name: asset.name })}
+              onClick={() => {
+                onRename(asset);
+              }}
+              className="rounded-sm p-1 text-fg-secondary transition-colors hover:bg-surface-content hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
+            >
+              <Pencil className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
+            </button>
+          </Tooltip>
+          <Tooltip label={t('card.delete', { name: asset.name })}>
+            <button
+              type="button"
+              aria-label={t('card.delete', { name: asset.name })}
+              onClick={() => {
+                onDelete(asset);
+              }}
+              className="rounded-sm p-1 text-fg-secondary transition-colors hover:bg-surface-content hover:text-[color:var(--severity-error)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
+            >
+              <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
+            </button>
+          </Tooltip>
         </div>
       </td>
     </tr>

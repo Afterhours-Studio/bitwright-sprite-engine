@@ -45,6 +45,7 @@ import { Download } from 'lucide-react';
 import { useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Checkbox } from '@/components/ui/Checkbox';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
 import { Field } from '@/components/ui/Field';
@@ -343,17 +344,12 @@ export function ExportDialog({ assetId, open, onClose }: ExportDialogProps): Rea
         />
       )}
 
-      <label className="flex items-center gap-2 text-[11px] font-medium text-fg-secondary">
-        <input
-          type="checkbox"
-          checked={overwrite}
-          onChange={(event) => {
-            setOverwrite(event.target.checked);
-          }}
-          className="h-3.5 w-3.5 rounded-sm border-line-input accent-accent"
-        />
-        {t('overwrite')}
-      </label>
+      <Checkbox
+        label={t('overwrite')}
+        checked={overwrite}
+        onCheckedChange={setOverwrite}
+        size="sm"
+      />
 
       {result !== null && (
         <p className="rounded-md border border-line-subtle bg-surface-content p-2 text-[11px] break-all text-severity-success">

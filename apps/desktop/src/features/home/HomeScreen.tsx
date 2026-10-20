@@ -48,6 +48,7 @@ import {
 import { useEffect, useId, useMemo, useState, type ReactElement, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Tooltip } from '@/components/ui/Tooltip';
 import { ConfirmDialog } from '@/components/ui/Dialog';
 import { Select } from '@/components/ui/Select';
 import { AssetCard, AssetRow } from '@/features/home/AssetCard';
@@ -299,28 +300,30 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
                     <ImagePlus className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
                     {t('project.newSprite')}
                   </button>
-                  <button
-                    type="button"
-                    aria-label={t('project.rename', { name: project.name })}
-                    title={t('project.rename', { name: project.name })}
-                    onClick={() => {
-                      setPending({ kind: 'renameProject', project });
-                    }}
-                    className="rounded-sm p-1.5 text-fg-secondary transition-colors hover:bg-surface-content-alt hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
-                  >
-                    <Pencil className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={t('project.delete', { name: project.name })}
-                    title={t('project.delete', { name: project.name })}
-                    onClick={() => {
-                      setPending({ kind: 'deleteProject', project });
-                    }}
-                    className="rounded-sm p-1.5 text-fg-secondary transition-colors hover:bg-surface-content-alt hover:text-[color:var(--severity-error)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
-                  </button>
+                  <Tooltip label={t('project.rename', { name: project.name })}>
+                    <button
+                      type="button"
+                      aria-label={t('project.rename', { name: project.name })}
+                      onClick={() => {
+                        setPending({ kind: 'renameProject', project });
+                      }}
+                      className="rounded-sm p-1.5 text-fg-secondary transition-colors hover:bg-surface-content-alt hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
+                    >
+                      <Pencil className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip label={t('project.delete', { name: project.name })}>
+                    <button
+                      type="button"
+                      aria-label={t('project.delete', { name: project.name })}
+                      onClick={() => {
+                        setPending({ kind: 'deleteProject', project });
+                      }}
+                      className="rounded-sm p-1.5 text-fg-secondary transition-colors hover:bg-surface-content-alt hover:text-[color:var(--severity-error)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
+                    </button>
+                  </Tooltip>
                 </div>
               </div>
               {total === 0 ? (
@@ -407,21 +410,22 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
               }}
             />
             <span className="h-4 border-l border-line" aria-hidden="true" />
-            <button
-              type="button"
-              aria-label={direction === 'asc' ? t('toolbar.ascending') : t('toolbar.descending')}
-              title={direction === 'asc' ? t('toolbar.ascending') : t('toolbar.descending')}
-              onClick={() => {
-                setDirection(direction === 'asc' ? 'desc' : 'asc');
-              }}
-              className="rounded-sm p-1 transition-colors hover:bg-surface-content-alt hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
-            >
-              {direction === 'asc' ? (
-                <ArrowUp className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
-              ) : (
-                <ArrowDown className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
-              )}
-            </button>
+            <Tooltip label={direction === 'asc' ? t('toolbar.ascending') : t('toolbar.descending')}>
+              <button
+                type="button"
+                aria-label={direction === 'asc' ? t('toolbar.ascending') : t('toolbar.descending')}
+                onClick={() => {
+                  setDirection(direction === 'asc' ? 'desc' : 'asc');
+                }}
+                className="rounded-sm p-1 transition-colors hover:bg-surface-content-alt hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
+              >
+                {direction === 'asc' ? (
+                  <ArrowUp className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
+                ) : (
+                  <ArrowDown className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
+                )}
+              </button>
+            </Tooltip>
           </div>
           <div className="flex items-center gap-4">
             <Select
@@ -550,22 +554,23 @@ function LayoutToggle({
   children: ReactNode;
 }): ReactElement {
   return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      aria-pressed={on}
-      onClick={onPress}
-      className={cn(
-        'p-1.5 rounded-sm border transition-colors',
-        'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus',
-        on
-          ? 'border-line-strong bg-surface-content-alt text-fg-primary'
-          : 'border-transparent text-fg-secondary hover:bg-surface-content-alt hover:text-fg-primary',
-      )}
-    >
-      {children}
-    </button>
+    <Tooltip label={label}>
+      <button
+        type="button"
+        aria-label={label}
+        aria-pressed={on}
+        onClick={onPress}
+        className={cn(
+          'p-1.5 rounded-sm border transition-colors',
+          'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus',
+          on
+            ? 'border-line-strong bg-surface-content-alt text-fg-primary'
+            : 'border-transparent text-fg-secondary hover:bg-surface-content-alt hover:text-fg-primary',
+        )}
+      >
+        {children}
+      </button>
+    </Tooltip>
   );
 }
 

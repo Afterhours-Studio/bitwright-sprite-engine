@@ -15,6 +15,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 import { useId, type InputHTMLAttributes, type ReactElement, type ReactNode } from 'react';
 
+import { Tooltip } from '@/components/ui/Tooltip';
 import { cn } from '@/lib/cn';
 
 /**
@@ -186,18 +187,20 @@ export interface StatusDotProps {
 /** A small coloured dot reporting availability. */
 export function StatusDot({ tone, label, children }: StatusDotProps): ReactElement {
   return (
-    <span className="inline-flex items-center gap-2" title={label}>
-      <span
-        aria-hidden="true"
-        className={cn(
-          'h-2 w-2 shrink-0 rounded-full',
-          tone === 'ready' && 'bg-accent',
-          tone === 'busy' && 'bg-fg-secondary',
-          tone === 'off' && 'bg-fg-muted',
-        )}
-      />
-      <span className="sr-only">{label}</span>
-      {children}
-    </span>
+    <Tooltip label={label}>
+      <span className="inline-flex items-center gap-2">
+        <span
+          aria-hidden="true"
+          className={cn(
+            'h-2 w-2 shrink-0 rounded-full',
+            tone === 'ready' && 'bg-accent',
+            tone === 'busy' && 'bg-fg-secondary',
+            tone === 'off' && 'bg-fg-muted',
+          )}
+        />
+        <span className="sr-only">{label}</span>
+        {children}
+      </span>
+    </Tooltip>
   );
 }

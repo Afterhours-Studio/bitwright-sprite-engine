@@ -41,6 +41,7 @@ import { useTranslation } from 'react-i18next';
 
 import { NewProjectDialog } from '@/features/home/NameDialogs';
 import { Select } from '@/components/ui/Select';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { pngToPixel } from '@/features/home/pngToPixel';
 import { useMcpStore } from '@/features/settings/mcp/useMcpStore';
 import { cn } from '@/lib/cn';
@@ -131,6 +132,24 @@ export function HomeSidebar({ active, onNavigate }: HomeSidebarProps): ReactElem
     }
   };
 
+  const convertButton = (
+    <button
+      type="button"
+      className={ACTION}
+      disabled={target === null || converting}
+      onClick={() => {
+        void convert();
+      }}
+    >
+      <Images
+        className="w-4 h-4 group-hover:text-fg-primary"
+        strokeWidth={1.75}
+        aria-hidden="true"
+      />
+      <span>{t('sidebar.pngToPixel')}</span>
+    </button>
+  );
+
   return (
     <aside
       aria-label={t('sidebar.label')}
@@ -163,7 +182,7 @@ export function HomeSidebar({ active, onNavigate }: HomeSidebarProps): ReactElem
         </button>
       </div>
 
-      <div className="space-y-1 mb-4" role="group" aria-label={t('sidebar.actions')}>
+      <div className="flex flex-col gap-1 mb-4" role="group" aria-label={t('sidebar.actions')}>
         <button
           type="button"
           className={ACTION}
@@ -192,22 +211,14 @@ export function HomeSidebar({ active, onNavigate }: HomeSidebarProps): ReactElem
           />
           <span>{t('sidebar.newProject')}</span>
         </button>
-        <button
-          type="button"
-          className={ACTION}
-          disabled={target === null || converting}
-          title={target === null ? t('sidebar.pngToPixelHint') : undefined}
-          onClick={() => {
-            void convert();
-          }}
-        >
-          <Images
-            className="w-4 h-4 group-hover:text-fg-primary"
-            strokeWidth={1.75}
-            aria-hidden="true"
-          />
-          <span>{t('sidebar.pngToPixel')}</span>
-        </button>
+        {/* The hint only explains why the button is off, so it is attached
+            only while there is no target; a label on an enabled button would
+            say something that is no longer true. */}
+        {target === null ? (
+          <Tooltip label={t('sidebar.pngToPixelHint')}>{convertButton}</Tooltip>
+        ) : (
+          convertButton
+        )}
       </div>
 
       <div className="border-t border-line-subtle my-3" />

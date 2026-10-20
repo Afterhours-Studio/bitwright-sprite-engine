@@ -73,6 +73,7 @@ import {
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Tooltip } from '@/components/ui/Tooltip';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
 import { useWorkflowLabels } from '@/features/editor/labels';
@@ -173,16 +174,15 @@ export function StepRail(): ReactElement {
     <section className="flex h-40 w-full shrink-0 flex-col border-t border-line-subtle bg-surface-canvas">
       <div className="flex h-10 items-center justify-between gap-3 border-b border-line-subtle px-3 text-xs text-fg-primary">
         <div className="flex min-w-0 items-center gap-3">
-          <p
-            className="flex items-baseline gap-1.5 whitespace-nowrap"
-            title={expects(step.step, t)}
-          >
-            <span className="text-[11px] text-fg-secondary">{tw('currentStep')}</span>
-            <span className="font-medium text-fg-primary">{labels.step[step.step]}</span>
-            <span className="text-[11px] tabular-nums text-fg-secondary">
-              {t('step.position', { position: position + 1, of: STEPS.length })}
-            </span>
-          </p>
+          <Tooltip label={expects(step.step, t)}>
+            <p className="flex items-baseline gap-1.5 whitespace-nowrap">
+              <span className="text-[11px] text-fg-secondary">{tw('currentStep')}</span>
+              <span className="font-medium text-fg-primary">{labels.step[step.step]}</span>
+              <span className="text-[11px] tabular-nums text-fg-secondary">
+                {t('step.position', { position: position + 1, of: STEPS.length })}
+              </span>
+            </p>
+          </Tooltip>
 
           <div ref={reportAnchor} className="relative border-l border-line-subtle pl-3">
             <button
@@ -266,18 +266,19 @@ export function StepRail(): ReactElement {
           </p>
 
           {refusal !== null && (
-            <p
-              role="alert"
-              title={refusal}
-              className="flex min-w-0 items-center gap-1 text-[11px] text-severity-error"
-            >
-              <TriangleAlert
-                aria-hidden="true"
-                strokeWidth={1.75}
-                className="h-3.5 w-3.5 shrink-0"
-              />
-              <span className="truncate">{refusal}</span>
-            </p>
+            <Tooltip label={refusal}>
+              <p
+                role="alert"
+                className="flex min-w-0 items-center gap-1 text-[11px] text-severity-error"
+              >
+                <TriangleAlert
+                  aria-hidden="true"
+                  strokeWidth={1.75}
+                  className="h-3.5 w-3.5 shrink-0"
+                />
+                <span className="truncate">{refusal}</span>
+              </p>
+            </Tooltip>
           )}
         </div>
 
@@ -496,20 +497,18 @@ function StepCardContent({
         )}
       </span>
       {state === 'done' && (
-        <span
-          title={tw('stepDone')}
-          className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border border-line-subtle bg-surface-content text-severity-success"
-        >
-          <CheckIcon aria-hidden="true" strokeWidth={2.5} className="h-3 w-3" />
-        </span>
+        <Tooltip label={tw('stepDone')}>
+          <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border border-line-subtle bg-surface-content text-severity-success">
+            <CheckIcon aria-hidden="true" strokeWidth={2.5} className="h-3 w-3" />
+          </span>
+        </Tooltip>
       )}
       {state === 'ahead' && (
-        <span
-          title={tw('stepLocked')}
-          className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border border-line bg-surface-content text-fg-secondary"
-        >
-          <Lock aria-hidden="true" strokeWidth={1.75} className="h-2.5 w-2.5" />
-        </span>
+        <Tooltip label={tw('stepLocked')}>
+          <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border border-line bg-surface-content text-fg-secondary">
+            <Lock aria-hidden="true" strokeWidth={1.75} className="h-2.5 w-2.5" />
+          </span>
+        </Tooltip>
       )}
     </>
   );

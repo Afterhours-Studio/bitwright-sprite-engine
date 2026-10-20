@@ -50,6 +50,7 @@ import { useRef, useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, Eye, EyeOff, Layers, Lock } from 'lucide-react';
 
+import { Tooltip } from '@/components/ui/Tooltip';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/Dialog';
 import { ownedRoles, paintTarget } from '@/features/editor/activeLayer';
@@ -127,19 +128,20 @@ export function LayerList(): ReactElement {
           <h3 className="text-xs font-semibold text-fg-primary">{te('layers.title')}</h3>
         </div>
         <div ref={menu} className="relative">
-          <Button
-            variant="secondary"
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            title={t('layers.drawOnLabel')}
-            disabled={step === null}
-            onClick={() => {
-              setMenuOpen((was) => !was);
-            }}
-            className="px-2 py-0.5 text-[11px]"
-          >
-            {t('layers.drawOn')}
-          </Button>
+          <Tooltip label={t('layers.drawOnLabel')}>
+            <Button
+              variant="secondary"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              disabled={step === null}
+              onClick={() => {
+                setMenuOpen((was) => !was);
+              }}
+              className="px-2 py-0.5 text-[11px]"
+            >
+              {t('layers.drawOn')}
+            </Button>
+          </Tooltip>
           {menuOpen && (
             <ul
               role="menu"

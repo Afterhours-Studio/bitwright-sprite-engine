@@ -48,6 +48,7 @@ import {
 import type { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Tooltip } from '@/components/ui/Tooltip';
 import { cn } from '@/lib/cn';
 import {
   SYMMETRIES,
@@ -150,7 +151,7 @@ export function ToolColumn({ className }: ToolColumnProps): ReactElement {
         <span className="text-[11px] text-fg-secondary">{t('shortcuts')}</span>
       </div>
 
-      <div className="p-2 space-y-1" role="group" aria-label={t('listLabel')}>
+      <div className="flex flex-col gap-1 p-2" role="group" aria-label={t('listLabel')}>
         {TOOLS.map((entry) => {
           const Icon = TOOL_ICONS[entry];
           const active = entry === tool;
@@ -158,56 +159,53 @@ export function ToolColumn({ className }: ToolColumnProps): ReactElement {
           const hint = t(`tool.${entry}.hint`);
           const key = TOOL_KEYS[entry];
           return (
-            <button
-              key={entry}
-              type="button"
-              aria-pressed={active}
-              aria-label={name}
-              aria-keyshortcuts={key}
-              // The hint is truncated in the row; the native tooltip is the
-              // one that fits a full-width row, since the shared Tooltip's
-              // inline wrapper would shrink the row to its content.
-              title={`${hint} (${t('keyHint', { key })})`}
-              onClick={() => {
-                setTool(entry);
-              }}
-              className={cn(
-                'w-full flex items-center justify-between px-2.5 py-1.5 rounded-md border text-left transition-colors',
-                'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus',
-                active
-                  ? 'bg-accent hover:bg-accent-hover border-accent text-accent-fg shadow-sm font-semibold'
-                  : 'border-transparent text-fg-primary hover:bg-surface-content-alt',
-              )}
-            >
-              <span className="flex items-center gap-2 min-w-0">
-                <Icon
-                  aria-hidden
-                  strokeWidth={1.75}
-                  className={cn('w-4 h-4 shrink-0', !active && 'text-fg-secondary')}
-                />
-                <span className="flex flex-col min-w-0">
-                  <span className="text-xs leading-tight">{name}</span>
-                  <span
-                    className={cn(
-                      'text-[11px] leading-tight truncate',
-                      active ? 'text-accent-fg' : 'text-fg-secondary',
-                    )}
-                  >
-                    {hint}
-                  </span>
-                </span>
-              </span>
-              <kbd
+            <Tooltip key={entry} label={`${hint} (${t('keyHint', { key })})`}>
+              <button
+                type="button"
+                aria-pressed={active}
+                aria-label={name}
+                aria-keyshortcuts={key}
+                onClick={() => {
+                  setTool(entry);
+                }}
                 className={cn(
-                  'ml-1 min-w-[1.25rem] px-1.5 py-0.5 text-center font-mono text-[11px] leading-none rounded-sm border',
+                  'w-full flex items-center justify-between px-2.5 py-1.5 rounded-md border text-left transition-colors',
+                  'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus',
                   active
-                    ? 'bg-accent-hover text-accent-fg border-transparent'
-                    : 'bg-surface-content text-fg-secondary border-line-subtle',
+                    ? 'bg-accent hover:bg-accent-hover border-accent text-accent-fg shadow-sm font-semibold'
+                    : 'border-transparent text-fg-primary hover:bg-surface-content-alt',
                 )}
               >
-                {key}
-              </kbd>
-            </button>
+                <span className="flex items-center gap-2 min-w-0">
+                  <Icon
+                    aria-hidden
+                    strokeWidth={1.75}
+                    className={cn('w-4 h-4 shrink-0', !active && 'text-fg-secondary')}
+                  />
+                  <span className="flex flex-col min-w-0">
+                    <span className="text-xs leading-tight">{name}</span>
+                    <span
+                      className={cn(
+                        'text-[11px] leading-tight truncate',
+                        active ? 'text-accent-fg' : 'text-fg-secondary',
+                      )}
+                    >
+                      {hint}
+                    </span>
+                  </span>
+                </span>
+                <kbd
+                  className={cn(
+                    'ml-1 min-w-[1.25rem] px-1.5 py-0.5 text-center font-mono text-[11px] leading-none rounded-sm border',
+                    active
+                      ? 'bg-accent-hover text-accent-fg border-transparent'
+                      : 'bg-surface-content text-fg-secondary border-line-subtle',
+                  )}
+                >
+                  {key}
+                </kbd>
+              </button>
+            </Tooltip>
           );
         })}
       </div>

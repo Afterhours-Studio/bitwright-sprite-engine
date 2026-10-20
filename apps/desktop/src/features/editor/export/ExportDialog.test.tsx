@@ -163,7 +163,7 @@ describe('ExportDialog', () => {
     fireEvent.change(screen.getByLabelText('File name pattern'), {
       target: { value: '{asset}-{kind}' },
     });
-    fireEvent.click(screen.getByLabelText('Overwrite existing file'));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Overwrite existing file' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Export' }));
 
@@ -244,7 +244,7 @@ describe('ExportDialog for an animation', () => {
       screen.getByText(/playback and frame durations set on the timeline/),
     ).toBeInTheDocument();
     expect(screen.getByLabelText('File name pattern')).toHaveValue('{asset}@{scale}x');
-    fireEvent.click(screen.getByLabelText('Overwrite existing file'));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Overwrite existing file' }));
     fireEvent.click(screen.getByRole('button', { name: 'Export' }));
 
     expect(animationLib.exportGif).toHaveBeenCalledWith(

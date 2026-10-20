@@ -61,6 +61,7 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Tooltip } from '@/components/ui/Tooltip';
 import { WindowControls } from '@/components/layout/WindowControls';
 import { Dialog } from '@/components/ui/Dialog';
 import { IconButton } from '@/components/ui/IconButton';
@@ -181,17 +182,18 @@ function HeaderIconButton({
   children,
 }: HeaderIconButtonProps): ReactElement {
   return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      disabled={disabled}
-      aria-pressed={on}
-      className={disabled ? ICON_DISABLED : on === true ? ICON_ON : cn(ICON_IDLE, hover)}
-      onClick={onClick}
-    >
-      {children}
-    </button>
+    <Tooltip label={label}>
+      <button
+        type="button"
+        aria-label={label}
+        disabled={disabled}
+        aria-pressed={on}
+        className={disabled ? ICON_DISABLED : on === true ? ICON_ON : cn(ICON_IDLE, hover)}
+        onClick={onClick}
+      >
+        {children}
+      </button>
+    </Tooltip>
   );
 }
 
@@ -297,30 +299,31 @@ function Notifications(): ReactElement {
 
   return (
     <div ref={root} className="relative no-drag">
-      <button
-        ref={anchor}
-        type="button"
-        aria-label={label}
-        title={t('notifications.label')}
-        aria-expanded={open}
-        className="relative rounded-md p-1.5 text-fg-secondary transition-colors hover:bg-surface-content-alt hover:text-fg-primary"
-        onClick={() => {
-          if (!open) {
-            markRead();
-          }
-          setOpen(!open);
-        }}
-      >
-        <Bell aria-hidden="true" strokeWidth={1.75} className="w-4 h-4" />
-        {unread > 0 && (
-          <span
-            aria-hidden="true"
-            className="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[11px] font-semibold leading-none text-accent-fg"
-          >
-            {unread}
-          </span>
-        )}
-      </button>
+      <Tooltip label={t('notifications.label')}>
+        <button
+          ref={anchor}
+          type="button"
+          aria-label={label}
+          aria-expanded={open}
+          className="relative rounded-md p-1.5 text-fg-secondary transition-colors hover:bg-surface-content-alt hover:text-fg-primary"
+          onClick={() => {
+            if (!open) {
+              markRead();
+            }
+            setOpen(!open);
+          }}
+        >
+          <Bell aria-hidden="true" strokeWidth={1.75} className="w-4 h-4" />
+          {unread > 0 && (
+            <span
+              aria-hidden="true"
+              className="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[11px] font-semibold leading-none text-accent-fg"
+            >
+              {unread}
+            </span>
+          )}
+        </button>
+      </Tooltip>
       {open && (
         <div
           role="dialog"
@@ -432,20 +435,21 @@ export function StudioHeader(): ReactElement {
       className="h-14 bg-surface-canvas border-b border-line-subtle px-4 flex items-center justify-between shrink-0"
     >
       <div data-tauri-drag-region className="flex items-center space-x-3">
-        <button
-          type="button"
-          aria-label={t('header.home')}
-          title={t('header.home')}
-          className={cn(
-            CONTROL,
-            'p-1.5 rounded-md border-transparent bg-accent text-accent-fg shadow-sm hover:bg-accent-hover',
-          )}
-          onClick={() => {
-            setScreen('home');
-          }}
-        >
-          <House aria-hidden="true" strokeWidth={1.75} className="w-4 h-4" />
-        </button>
+        <Tooltip label={t('header.home')}>
+          <button
+            type="button"
+            aria-label={t('header.home')}
+            className={cn(
+              CONTROL,
+              'p-1.5 rounded-md border-transparent bg-accent text-accent-fg shadow-sm hover:bg-accent-hover',
+            )}
+            onClick={() => {
+              setScreen('home');
+            }}
+          >
+            <House aria-hidden="true" strokeWidth={1.75} className="w-4 h-4" />
+          </button>
+        </Tooltip>
         <Divider />
         <span
           data-tauri-drag-region
@@ -500,69 +504,74 @@ export function StudioHeader(): ReactElement {
           }}
         />
         <Divider />
-        <button
-          type="button"
-          aria-pressed={showLayersPanel}
-          title={t('header.layersHint')}
-          className={showLayersPanel ? TOGGLE_ON : TEXT_IDLE}
-          onClick={() => {
-            setShowLayersPanel(!showLayersPanel);
-          }}
-        >
-          <Layers aria-hidden="true" strokeWidth={1.75} className="w-3.5 h-3.5" />
-          <span className="sr-only min-[1400px]:not-sr-only">{t('header.layers')}</span>
-        </button>
-        <button
-          type="button"
-          aria-pressed={bottomPanel === 'timeline'}
-          title={t('header.timelineHint')}
-          className={bottomPanel === 'timeline' ? TOGGLE_ON : TEXT_IDLE}
-          onClick={() => {
-            toggleBottomPanel('timeline');
-          }}
-        >
-          <Film aria-hidden="true" strokeWidth={1.75} className="w-3.5 h-3.5" />
-          <span>{t('header.timeline', { frames: frameCount })}</span>
-        </button>
-        <button
-          type="button"
-          aria-pressed={bottomPanel === 'steps'}
-          title={t('header.stepsHint')}
-          className={bottomPanel === 'steps' ? TOGGLE_ON : TEXT_IDLE}
-          onClick={() => {
-            toggleBottomPanel('steps');
-          }}
-        >
-          <ListChecks aria-hidden="true" strokeWidth={1.75} className="w-3.5 h-3.5" />
-          <span>{t('header.steps', { current: stepNumber, total: STEPS.length })}</span>
-        </button>
+        <Tooltip label={t('header.layersHint')}>
+          <button
+            type="button"
+            aria-pressed={showLayersPanel}
+            className={showLayersPanel ? TOGGLE_ON : TEXT_IDLE}
+            onClick={() => {
+              setShowLayersPanel(!showLayersPanel);
+            }}
+          >
+            <Layers aria-hidden="true" strokeWidth={1.75} className="w-3.5 h-3.5" />
+            <span className="sr-only min-[1400px]:not-sr-only">{t('header.layers')}</span>
+          </button>
+        </Tooltip>
+        <Tooltip label={t('header.timelineHint')}>
+          <button
+            type="button"
+            aria-pressed={bottomPanel === 'timeline'}
+            className={bottomPanel === 'timeline' ? TOGGLE_ON : TEXT_IDLE}
+            onClick={() => {
+              toggleBottomPanel('timeline');
+            }}
+          >
+            <Film aria-hidden="true" strokeWidth={1.75} className="w-3.5 h-3.5" />
+            <span>{t('header.timeline', { frames: frameCount })}</span>
+          </button>
+        </Tooltip>
+        <Tooltip label={t('header.stepsHint')}>
+          <button
+            type="button"
+            aria-pressed={bottomPanel === 'steps'}
+            className={bottomPanel === 'steps' ? TOGGLE_ON : TEXT_IDLE}
+            onClick={() => {
+              toggleBottomPanel('steps');
+            }}
+          >
+            <ListChecks aria-hidden="true" strokeWidth={1.75} className="w-3.5 h-3.5" />
+            <span>{t('header.steps', { current: stepNumber, total: STEPS.length })}</span>
+          </button>
+        </Tooltip>
         <AgentPopover />
       </div>
 
       <div data-tauri-drag-region className="flex items-center space-x-2">
-        <button
-          type="button"
-          title={t('header.newHint')}
-          className={TEXT_IDLE}
-          onClick={() => {
-            setNewSpriteOpen(true);
-          }}
-        >
-          <Plus aria-hidden="true" strokeWidth={1.75} className="w-3.5 h-3.5" />
-          <span className="sr-only min-[1400px]:not-sr-only">{t('header.new')}</span>
-        </button>
-        <button
-          type="button"
-          disabled={!hasAsset}
-          className={hasAsset ? TEXT_IDLE : TEXT_DISABLED}
-          title={t('header.reference')}
-          onClick={() => {
-            setReferenceOpen(true);
-          }}
-        >
-          <ImageUp aria-hidden="true" strokeWidth={1.75} className="w-3.5 h-3.5" />
-          <span className="sr-only min-[1400px]:not-sr-only">{t('header.reference')}</span>
-        </button>
+        <Tooltip label={t('header.newHint')}>
+          <button
+            type="button"
+            className={TEXT_IDLE}
+            onClick={() => {
+              setNewSpriteOpen(true);
+            }}
+          >
+            <Plus aria-hidden="true" strokeWidth={1.75} className="w-3.5 h-3.5" />
+            <span className="sr-only min-[1400px]:not-sr-only">{t('header.new')}</span>
+          </button>
+        </Tooltip>
+        <Tooltip label={t('header.reference')}>
+          <button
+            type="button"
+            disabled={!hasAsset}
+            className={hasAsset ? TEXT_IDLE : TEXT_DISABLED}
+            onClick={() => {
+              setReferenceOpen(true);
+            }}
+          >
+            <ImageUp aria-hidden="true" strokeWidth={1.75} className="w-3.5 h-3.5" />
+            <span className="sr-only min-[1400px]:not-sr-only">{t('header.reference')}</span>
+          </button>
+        </Tooltip>
         <button
           type="button"
           disabled={!hasAsset}
@@ -575,16 +584,17 @@ export function StudioHeader(): ReactElement {
           <span>{t('header.export')}</span>
         </button>
         <Notifications />
-        <IconButton
-          label={t('header.settings')}
-          title={t('header.settings')}
-          className="no-drag rounded-full"
-          onClick={() => {
-            setScreen('settings');
-          }}
-        >
-          <Settings aria-hidden="true" strokeWidth={1.75} className="w-4 h-4" />
-        </IconButton>
+        <Tooltip label={t('header.settings')}>
+          <IconButton
+            label={t('header.settings')}
+            className="no-drag rounded-full"
+            onClick={() => {
+              setScreen('settings');
+            }}
+          >
+            <Settings aria-hidden="true" strokeWidth={1.75} className="w-4 h-4" />
+          </IconButton>
+        </Tooltip>
         <WindowControls />
       </div>
 
