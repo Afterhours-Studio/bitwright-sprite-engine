@@ -42,6 +42,20 @@ the asset's palette, plus the conform report (detected grid, extracted palette,
 warnings). `extract_palette { assetId, referenceId, maxSlots }` proposes ramps from it
 without applying them.
 
+Working from an AI-generated image:
+
+- Ask the generator for a flat `#FF00FF` background. Grey or dark backgrounds eat dark
+  hair and shadows, and magenta is a colour no sprite needs.
+- Ask for the pose that suits the character and for the target size up front;
+  generators copy whatever pose the prompt leaves open, and a native result at the
+  target size beats any later reduction.
+- Its "pixels" are drawn at a fractional pitch (19.5 px, 6.2 px), so the cells are not
+  uniform. Never trace such an image 1:1. Read the conform report's detected grid, take
+  the palette and the proportions from it, and draw the sprite through the steps.
+- If a reference is cleaned for speck removal, remove a pixel only when all four of its
+  neighbours share another colour. That keeps 1 px tips (fingers, hair ends, sword
+  points) and lone accents (eyes, glints), which the gates would otherwise flag as noise.
+
 **Gate:** none. `advance_step` always passes.
 
 ---
@@ -226,6 +240,25 @@ outline pixels by hand; `draw_runs` into `outline` is for repairs only.
 | Hue variety | ≥ 3 distinct outline colours on a sprite with ≥ 3 materials |
 | Pure black | zero `#000000` pixels |
 
+**The artist's line checks, in order.** "Line" means the outline and the inner contour
+lines. Run these on the `outline` layer once the call has returned, and again after any
+hand repair:
+
+1. Line colours are used only for lines, never as fill. The outline ramp's slots must
+   not appear in `flats`, `shadow-*` or `detail` as a surface colour; where a 2 × 2
+   block of line colour sits off the edge, repaint it in the neighbouring material.
+2. The silhouette edge is fully lined, feet and bottoms included. A dark edge pixel
+   that is not exactly a line colour reads as a gap. Check it with
+   `diff_layers { a: "silhouette", b: "outline" }`, and note that selective mode drops
+   the lit side on purpose: only the bottom band and the shadow side must be complete.
+3. View the line layer alone (`read_canvas { layer: "outline" }`). There should be no
+   lone dots, no 1–2 px crumbs, and no 1 px breaks along a line. Delete the crumbs
+   with `set_pixels` and join the breaks with `draw_runs`, both into `outline`.
+4. A 1 px transparent gap between two shapes becomes a line, or is filled, so the
+   outline does not dive into it.
+5. A tiny raised detail (a finger, a horn tip) keeps its thin shape: line colour round
+   it and 1–2 fill pixels inside so it still reads.
+
 ---
 
 ## 8. `detail` — layer: `detail`
@@ -233,6 +266,12 @@ outline pixels by hand; `draw_runs` into `outline` is for repairs only.
 `draw_runs` and `set_pixels` here, plus `draw_shape` for straps and belts. Cast shadows
 go in this layer too: 2–4 per sprite, in the core-shadow step of the material, offset
 roughly (+1, +2) from their caster.
+
+Every mark on a surface needs a cause you could name: built structure (plank lines,
+brick courses with offset joints, tile seams), weathering (stain under a ledge, grime
+rising from the ground, rust under a bracket), or story clutter (a poster, a vent, a
+crack). A mark with no cause is filler. Flat colour beats random speckle; see
+`references/troubleshooting.md` § 16.
 
 Interior separators are 1 px of the **occluded** form's shadow step, never the darkest
 ink slot, and only where two forms differ by ΔL < 0.10. If they already differ by

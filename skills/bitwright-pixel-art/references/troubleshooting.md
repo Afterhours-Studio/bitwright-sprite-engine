@@ -432,3 +432,36 @@ fur, rust — as a transparency effect, or to extend a ramp on a large flat area
 | A write returns `step.wrong` | The layer belongs to another step. `revisit_step` rather than `force`. |
 | A write returns `layer.locked` | The person locked it in the application. Say so and ask; do not work around it. |
 | `read_history` shows ops you did not make | The person is drawing in the same document at the same time. Re-read before writing. |
+
+---
+
+## 16. Filler texture
+
+**Symptom.** A wall, floor or roof sprinkled with scattered dots to make it "less
+flat". It reads as random dirt, not as material, and it is what the noise and
+speckle gates count against you.
+
+**Detect.** Marks on a flat surface that you cannot give a cause. Ask of each one:
+which structure, weathering or object put it here? If the answer is "none", it is
+filler.
+
+**Fix.** Delete the speckle and keep the flat colour; a clean surface is fine. Where a
+surface needs interest, give each mark a cause and place it where that cause would:
+
+- built structure: plank or siding lines, brick or stone courses with offset joints,
+  tile seams;
+- weathering: stain streaks under ledges and sills, grime fading up from the ground,
+  rust runs under metal brackets, paint flaking along board lines;
+- clutter that tells the story: a poster, a pipe, a vent, a crack from a corner.
+
+Noise is right only where the material itself is granular (gravel, sand, asphalt, rough
+stone), and then it is sparse. On a face drawn at an angle, make the marks follow the
+face's slant rather than the screen's horizontal.
+
+```
+clear_layer { "assetId": "…", "layer": "detail" }
+draw_runs   { "assetId": "…", "layer": "detail", "runs": [
+  { "y": 20, "x0": 4, "x1": 27, "slot": 5 },
+  { "y": 31, "x0": 4, "x1": 27, "slot": 5 } ] }
+```
+

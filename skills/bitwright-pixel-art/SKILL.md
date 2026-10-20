@@ -221,9 +221,9 @@ direction, the ramp bounds and the canvas defaults you are about to be gated aga
   numeric gate thresholds.
 - `references/palette.md` — how to build ramps that pass validation, plus a complete
   worked 22-slot character palette as a ready-to-send `set_palette` call.
-- `references/recipes.md` — three full worked sequences: a 48×64 character from
-  nothing, deriving a palette and silhouette from an imported reference, and producing
-  a colour variation.
+- `references/recipes.md` — four full worked sequences: a 48×64 character from
+  nothing, deriving a palette and silhouette from an imported reference, producing
+  a colour variation, and a prop or tile whose every mark has a cause.
 - `references/troubleshooting.md` — the failure modes, the heuristic that detects each,
   and the tool calls that fix it.
 - `references/animating.md` — animation frames: draw frame 1 through the workflow,

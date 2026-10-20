@@ -1,6 +1,6 @@
 # Worked recipes
 
-Three complete sequences. Tool names, argument names and response shapes are exactly
+Four complete sequences. Tool names, argument names and response shapes are exactly
 what the server takes and returns. Ids are elided; everything else is literal.
 
 ---
@@ -841,3 +841,42 @@ export_png { "assetId": "…", "scale": 1, "layers": "visible" }
 
 For a party, `export_sheet { "assetId": "…", "columns": 4, "padding": 1 }` packs the
 frames and returns the path plus each frame's rectangle.
+
+---
+
+# D. A prop or a tile: every mark has a cause
+
+A 32 × 32 brick wall tile, and the same thinking on a crate. The flats are done and the
+step is `detail`. The temptation is to scatter a few darker pixels "so it is not flat".
+Do not. List the causes first, then draw only those.
+
+1. Structure. Courses of brick are 4 rows high with a 1 px mortar line between them,
+   and the joints of each course sit half a brick off the course above.
+2. Weathering. One stain streak under the ledge at the top, 2 px wide, fading down
+   through two steps of the mortar ramp. A little grime along the bottom rows, fading
+   upward.
+3. Story. One crack from the left corner, 1 px, three or four steps long.
+
+```
+draw_runs { "assetId": "…", "layer": "detail", "runs": [
+  { "y": 4,  "x0": 0, "x1": 31, "slot": 7 },
+  { "y": 9,  "x0": 0, "x1": 31, "slot": 7 },
+  { "y": 14, "x0": 0, "x1": 31, "slot": 7 } ] }
+set_pixels { "assetId": "…", "layer": "detail", "pixels": [
+  { "x": 3, "y": 5, "slot": 7 }, { "x": 3, "y": 6, "slot": 7 },
+  { "x": 3, "y": 7, "slot": 7 }, { "x": 3, "y": 8, "slot": 7 },
+  { "x": 11, "y": 0, "slot": 6 }, { "x": 11, "y": 1, "slot": 6 } ] }
+```
+
+The first call is the courses (structure); the second is the vertical joints of one
+course and the head of the stain streak (weathering). Check the tile against the list:
+every mark should have a cause you can name. Where a wall is seen at an angle, the courses and
+streaks follow the face's slant. A plain flat tile with no marks would also have been
+correct; a speckled one would not.
+
+Noise is for granular materials only. A gravel path or an asphalt roof takes a sparse
+scatter of one nearby ramp step. A brick, a plank or a plaster wall does not.
+
+For a crate, the causes are the plank seams, the nail heads on the cross-brace (one
+pixel each, aligned) and one splinter chip on the corner that takes the knocks.
+
