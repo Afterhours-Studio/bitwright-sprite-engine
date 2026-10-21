@@ -103,10 +103,7 @@ fn load(
             }
             Ok(Picture {
                 bytes,
-                name: file_name.map_or_else(
-                    || "reference".to_string(),
-                    reference::default_name,
-                ),
+                name: file_name.map_or_else(|| "reference".to_string(), reference::default_name),
             })
         }
     }
@@ -397,7 +394,7 @@ mod tests {
 
     fn fixture() -> Fixture {
         let mut store = Store::memory().unwrap();
-        let project = store.project_create("demo", "hd2d").unwrap();
+        let project = store.project_create("demo", "32bit", "topdown").unwrap();
         let asset = store
             .asset_create(project.id, "hero", "character", 16, 16)
             .unwrap()

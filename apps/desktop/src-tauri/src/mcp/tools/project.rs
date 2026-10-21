@@ -363,7 +363,7 @@ mod tests {
 
     fn fixture() -> Fixture {
         let mut store = Store::memory().unwrap();
-        let project = store.project_create("demo", "hd2d").unwrap();
+        let project = store.project_create("demo", "32bit", "topdown").unwrap();
         let hero = store
             .asset_create(project.id, "hero", "prop", 4, 4)
             .unwrap()
@@ -424,9 +424,11 @@ mod tests {
     #[test]
     fn delete_project_removes_an_empty_project_without_force() {
         let f = fixture();
-        let empty = with_store(&f.host, |store| store.project_create("empty", "hd2d"))
-            .unwrap()
-            .id;
+        let empty = with_store(&f.host, |store| {
+            store.project_create("empty", "32bit", "topdown")
+        })
+        .unwrap()
+        .id;
         let out = run(
             &f,
             "delete_project",
