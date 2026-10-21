@@ -71,6 +71,10 @@ export function ReferencePanel(): ReactElement {
   const [importing, setImporting] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Why an apply was refused, as the shell worded it, and which ramps an apply
+  // had to repair. Both speak for the latest apply only.
+  const [applyDetail, setApplyDetail] = useState<string | null>(null);
+  const [adjusted, setAdjusted] = useState<string[]>([]);
 
   /**
    * Lists references for the open asset, newest first, and selects one.
@@ -166,12 +170,16 @@ export function ReferencePanel(): ReactElement {
       return;
     }
     setError(null);
+    setApplyDetail(null);
+    setAdjusted([]);
     const applied = await referenceApplyPalette(assetId, chosen.id);
     if (!applied.ok) {
       setError(applied.error.code);
+      setApplyDetail(applied.error.detail);
       return;
     }
-    useDocumentStore.setState({ palette: applied.value });
+    setAdjusted(applied.value.adjustedRamps);
+    useDocumentStore.setState({ palette: applied.value.palette });
   };
 
   const handleDelete = async (): Promise<void> => {
@@ -250,11 +258,19 @@ export function ReferencePanel(): ReactElement {
             <p className="text-[11px] text-fg-secondary">
               {chosen.detected === null
                 ? t('noGrid')
-                : t('grid', {
-                    width: chosen.detected.cellWidth,
-                    height: chosen.detected.cellHeight,
-                    confidence: Math.round(chosen.detected.confidence * 100),
-                  })}
+                : chosen.detected.nativeWidth !== undefined &&
+                    chosen.detected.nativeHeight !== undefined
+                  ? t('gridNative', {
+                      pitch: (chosen.detected.pitch ?? chosen.detected.cellWidth).toFixed(1),
+                      width: chosen.detected.nativeWidth,
+                      height: chosen.detected.nativeHeight,
+                      confidence: Math.round(chosen.detected.confidence * 100),
+                    })
+                  : t('grid', {
+                      width: chosen.detected.cellWidth,
+                      height: chosen.detected.cellHeight,
+                      confidence: Math.round(chosen.detected.confidence * 100),
+                    })}
             </p>
             {chosen.palette.length > 0 && (
               <div className="grid grid-cols-8 gap-1 rounded-sm border border-line-subtle bg-surface-well p-1.5">
@@ -299,13 +315,25 @@ export function ReferencePanel(): ReactElement {
         </div>
       )}
 
-      {refusal !== null && (
+      {adjusted.length > 0 && (
         <p
-          role="alert"
-          className="rounded-md border border-line-subtle bg-surface-content p-2 text-[11px] text-severity-error"
+          role="status"
+          className="rounded-md border border-line-subtle bg-surface-content p-2 text-[11px] text-fg-secondary"
         >
-          {refusal}
+          {t('paletteAdjusted', { ramps: adjusted.join(', ') })}
         </p>
+      )}
+
+      {refusal !== null && (
+        <div
+          role="alert"
+          className="flex flex-col gap-1 rounded-md border border-line-subtle bg-surface-content p-2 text-[11px] text-severity-error"
+        >
+          <p>{refusal}</p>
+          {applyDetail !== null && applyDetail !== '' && (
+            <p className="text-fg-secondary">{applyDetail}</p>
+          )}
+        </div>
       )}
 
       <Dialog

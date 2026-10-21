@@ -24,6 +24,16 @@ export interface DetectedGrid {
   cellWidth: number;
   cellHeight: number;
   confidence: number;
+  /**
+   * The shell's own reading, the same one pixelize uses: the block pitch in the
+   * source picture's pixels, where the grid starts, and the sprite size it
+   * gives. Absent when only the sidecar's reading was available.
+   */
+  pitch?: number;
+  phaseX?: number;
+  phaseY?: number;
+  nativeWidth?: number;
+  nativeHeight?: number;
 }
 
 /** One imported reference, conformed to the asset's size. */

@@ -336,10 +336,20 @@ fn extract_palette(host: &dyn DocumentHost, session: &Session, args: Value) -> T
     let references = with_store(host, |store| store.reference_list(asset))?;
     let reference = pick_reference(references, args.reference_id.as_deref())?;
     let ramps = extracted_ramps(&reference, max_slots)?;
-    Ok(json!({
+    // Colours read off a picture step in lightness alone, which the hue-shift
+    // rule refuses, so what is returned has had its hue rotated where it can
+    // be, and set_palette takes it as it is.
+    let rules = with_store(host, |store| store.asset_rules(asset))?;
+    let (ramps, adjusted, unrepaired) = crate::reference::repair_ramps_json(&ramps, &rules)?;
+    let mut result = json!({
         "referenceId": reference.id.to_string(),
         "ramps": ramps,
-    }))
+        "adjustedRamps": adjusted,
+    });
+    if !unrepaired.is_empty() {
+        result["unrepaired"] = json!(unrepaired);
+    }
+    Ok(result)
 }
 
 // ---------------------------------------------------------------------------
@@ -432,15 +442,20 @@ pub fn tools() -> Vec<ToolSpec> {
     vec![
         ToolSpec {
             name: "pixelize_reference",
-            description: "Turn a reference picture into real pixels on one layer (silhouette \
-                by default): the background is removed, the picture's own pixel grid is \
-                found (AI images draw blocks at a fractional size), one colour is sampled \
-                per block, and stray specks go. The result is centred on the canvas, shrunk \
-                to fit when the picture is bigger. With a palette on the asset the pixels \
-                snap to it; with none, a palette is made from the picture (colors, default \
-                32). snapToPalette: false replaces the asset's palette with one made from \
-                the picture, allowed only while no other layer has pixels. Returns the \
-                detected grid and what was written; call render_preview to look at it.",
+            description: "Turn a reference picture into real pixels: the background is \
+                removed, the picture's own pixel grid is found (AI images draw blocks at a \
+                fractional size), one colour is sampled per block, and stray specks go. The \
+                result is centred on the canvas, shrunk to fit when the picture is bigger. \
+                By default (layer silhouette) the shape goes into silhouette as a mask in \
+                one palette slot, which is what that step expects, and the colours go into \
+                flats; naming another layer writes the colours there alone. The colours \
+                snap to the asset's palette, which is left as it is. The palette only changes \
+                when asked: snapToPalette: false, or an explicit colors count, replaces it \
+                with one made from the picture (at most colors, up to the style's slot \
+                ceiling), allowed only while no other layer has pixels. An asset with no \
+                palette gets one made from the picture, since there is nothing to snap to. \
+                Returns the detected grid and what was written; call render_preview to look \
+                at it.",
             input_schema: pixelize_reference_schema,
             handler: pixelize_reference,
         },
@@ -457,7 +472,12 @@ pub fn tools() -> Vec<ToolSpec> {
             name: "extract_palette",
             description: "Turn a reference's colours into ramps grouped by hue, darkest slot \
                 first. It applies nothing by itself: pass the ramps this returns straight to \
-                set_palette to make them the asset's palette.",
+                set_palette to make them the asset's palette. Colours taken from a picture \
+                seldom change hue from step to step, which the style's hue-shift rule \
+                refuses, so each ramp's hue is rotated across its steps by the least the \
+                rule accepts (adjustedRamps names those, and the middle step keeps the \
+                picture's colour). A ramp that cannot be repaired, a grey one, comes back \
+                as it was, with the reason under unrepaired.",
             input_schema: extract_palette_schema,
             handler: extract_palette,
         },
@@ -584,6 +604,90 @@ mod tests {
         )
         .unwrap();
         assert!(read["text"].as_str().unwrap().contains('A'));
+
+        // The shape is a mask in one slot; the colours are in the flats.
+        assert_eq!(result["colourLayer"], json!("flats"));
+        let flats = call(
+            &host,
+            &session,
+            "read_canvas",
+            json!({ "assetId": asset.0.to_string(), "layer": "flats" }),
+        )
+        .unwrap();
+        let flat_text = flats["text"].as_str().unwrap();
+        assert!(flat_text.contains('A') && flat_text.contains('B') && flat_text.contains('C'));
+        let mask_text = read["text"].as_str().unwrap();
+        assert!(
+            !mask_text.contains('B') && !mask_text.contains('C'),
+            "{mask_text}"
+        );
+    }
+
+    #[test]
+    fn pixelize_reference_leaves_an_existing_palette_alone_unless_asked() {
+        use bitwright::raster::pixelize::fixture;
+        let (host, session, asset) = setup();
+        set_slots(&host, &session, asset, &["#140C0A", "#C82828"]);
+        let id = Uuid::new_v4();
+        with_store(&host, |store| {
+            store.reference_write(Reference {
+                id,
+                asset_id: asset,
+                name: "picture".to_string(),
+                source_png: fixture::fake_png(7.5, 20, 6),
+                conformed: Some(fixture::blank_png(4, 4)),
+                conform_meta: None,
+                created_at: 1,
+            })
+        })
+        .unwrap();
+        let result = call(
+            &host,
+            &session,
+            "pixelize_reference",
+            json!({ "assetId": asset.0.to_string() }),
+        )
+        .unwrap();
+        assert_eq!(result["paletteCreated"], json!(false));
+        let slots = with_store(&host, |store| {
+            Ok(store.asset_open(asset)?.palette.slots.len())
+        })
+        .unwrap();
+        assert_eq!(slots, 2);
+    }
+
+    #[test]
+    fn extract_palette_rotates_the_hue_of_ramps_that_only_change_lightness() {
+        let (host, session, asset) = setup();
+        // Three greens of one hue, which the hue-shift rule refuses as a ramp.
+        set_slots(&host, &session, asset, &["#1F4A1F", "#2F7A2F", "#4FB84F"]);
+        let reference_id = store_reference(
+            &host,
+            asset,
+            "greens",
+            4,
+            4,
+            &[1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1],
+            1,
+        );
+        let result = call(
+            &host,
+            &session,
+            "extract_palette",
+            json!({ "assetId": asset.0.to_string(), "referenceId": reference_id.to_string() }),
+        )
+        .unwrap();
+        assert_eq!(result["adjustedRamps"].as_array().unwrap().len(), 1);
+        let ramp = &result["ramps"][0];
+        let slots = ramp["slots"].as_array().unwrap();
+        assert_eq!(slots.len(), 3);
+        assert_eq!(
+            slots[1],
+            json!("#2F7A2F"),
+            "the base keeps the picture's colour"
+        );
+        assert_ne!(slots[0], json!("#1F4A1F"));
+        assert_ne!(slots[2], json!("#4FB84F"));
     }
 
     #[test]

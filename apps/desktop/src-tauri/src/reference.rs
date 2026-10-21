@@ -37,7 +37,7 @@ use crate::commands::{
 };
 use crate::engine::{self, Method};
 use crate::mcp::error::ToolError;
-use crate::raster::{pixelize, png, LayerRole, Palette};
+use crate::raster::{color, pixelize, png, LayerRole, Palette};
 use crate::store::models::{AssetId, OpResult, Reference};
 use crate::store::AppError;
 use crate::store::Store;
@@ -56,6 +56,18 @@ pub struct DetectedGrid {
     pub cell_width: f64,
     pub cell_height: f64,
     pub confidence: f64,
+    /// Only the shell's own detector reports these: the block pitch in source
+    /// pixels, where the grid starts, and the native sprite size it gives.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pitch: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phase_x: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phase_y: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub native_width: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub native_height: Option<u32>,
 }
 
 /// What the frontend is told about a stored reference.
@@ -125,6 +137,11 @@ fn detected(value: &Value) -> Option<DetectedGrid> {
         cell_width: number(&["cellWidth", "cell_width"])?,
         cell_height: number(&["cellHeight", "cell_height"])?,
         confidence: number(&["confidence"]).unwrap_or(0.0),
+        pitch: number(&["pitch"]),
+        phase_x: number(&["phaseX"]),
+        phase_y: number(&["phaseY"]),
+        native_width: number(&["nativeWidth"]).map(|n| n as u32),
+        native_height: number(&["nativeHeight"]).map(|n| n as u32),
     })
 }
 
@@ -229,6 +246,83 @@ pub(crate) fn conform_meta(response: &Value, width: u32, height: u32) -> Value {
     Value::Object(meta)
 }
 
+/// The conform meta with the grid taken from the same detector
+/// `pixelize_reference` uses, not the sidecar's.
+///
+/// The sidecar detects a grid on the picture it has already shrunk to the
+/// canvas, and reads a fractional pitch (18.6 px) as a 31 x 22 cell grid with
+/// a few percent confidence, while the pixelize pipeline reads the original at
+/// 18.597 px and gets the native size right. Two detectors disagreeing on one
+/// picture is worse than either being imperfect, so the shell's wins and the
+/// sidecar's grid warnings, which describe its own reading, go with its grid.
+/// A source the shell cannot decode keeps the sidecar's answer.
+pub(crate) fn conform_meta_with_grid(
+    response: &Value,
+    width: u32,
+    height: u32,
+    source_png: &[u8],
+) -> Value {
+    let mut meta = conform_meta(response, width, height);
+    let Some(grid) = pixel_grid(source_png) else {
+        return meta;
+    };
+    let Some(object) = meta.as_object_mut() else {
+        return meta;
+    };
+    if let Some(Value::Array(warnings)) = object.get_mut("warnings") {
+        warnings.retain(|warning| {
+            !warning
+                .as_str()
+                .is_some_and(|code| code.starts_with("conform.grid_"))
+        });
+    }
+    match grid {
+        Some(grid) => {
+            object.insert("detected".to_string(), grid);
+        }
+        None => {
+            object.remove("detected");
+            let warnings = object
+                .entry("warnings".to_string())
+                .or_insert_with(|| json!([]));
+            if let Value::Array(warnings) = warnings {
+                warnings.push(json!("conform.grid_not_found"));
+            }
+        }
+    }
+    meta
+}
+
+/// The pixel grid of a PNG as the conform meta states it: `Some(None)` when
+/// the picture was read but has no repeating pitch, `None` when it could not
+/// be read at all.
+fn pixel_grid(source_png: &[u8]) -> Option<Option<Value>> {
+    if !source_png.starts_with(b"\x89PNG\r\n\x1a\n") {
+        return None;
+    }
+    let image = png::decode(source_png).ok()?;
+    let img = pixelize::Img::from_rgba(
+        usize::from(image.width),
+        usize::from(image.height),
+        &image.data,
+    );
+    let result = pixelize::pixelize(&img, &pipeline_options(None, None)).ok()?;
+    let grid = result.grid;
+    if grid.confidence <= 0.0 || grid.cell < 1.5 {
+        return Some(None);
+    }
+    Some(Some(json!({
+        "cellWidth": grid.cell,
+        "cellHeight": grid.cell,
+        "pitch": grid.cell,
+        "phaseX": grid.ox,
+        "phaseY": grid.oy,
+        "nativeWidth": result.native.0,
+        "nativeHeight": result.native.1,
+        "confidence": grid.confidence,
+    })))
+}
+
 /// Opens the system's own file picker for an image to import as a reference.
 ///
 /// The path it returns is what `reference_import` reads; the webview never
@@ -322,13 +416,14 @@ pub async fn reference_import<R: Runtime>(
             })?,
     )?;
 
+    let conform_meta = conform_meta_with_grid(&response, width, height, &bytes);
     let reference = Reference {
         id: Uuid::now_v7(),
         asset_id,
         name,
         source_png: bytes,
         conformed: Some(conformed),
-        conform_meta: Some(conform_meta(&response, width, height)),
+        conform_meta: Some(conform_meta),
         created_at: now_millis(),
     };
 
@@ -431,7 +526,7 @@ fn apply_reference_palette(
     asset_id: AssetId,
     reference_id: Uuid,
     max_slots: u8,
-) -> Result<(Palette, OpResult), CommandError> {
+) -> Result<(Palette, OpResult, Vec<String>), CommandError> {
     let reference = store
         .reference_read(asset_id, reference_id)
         .map_err(app_failed)?;
@@ -444,9 +539,307 @@ fn apply_reference_palette(
             format!("extract_palette produced ramps set_palette cannot read: {error}"),
         )
     })?;
-    let palette = crate::mcp::tools::palette::build_palette(&ramps).map_err(tool_failed)?;
+    let mut palette = crate::mcp::tools::palette::build_palette(&ramps).map_err(tool_failed)?;
+    // Colours taken from a picture rarely rotate in hue from step to step, so
+    // the ramps are repaired rather than refused.
+    let adjusted = repair_hue_shift(&mut palette, &rules).map_err(tool_failed)?;
     crate::mcp::tools::palette::check_palette(&palette, &rules).map_err(tool_failed)?;
-    store.palette_write(asset_id, palette).map_err(app_failed)
+    let (palette, op) = store.palette_write(asset_id, palette).map_err(app_failed)?;
+    Ok((palette, op, adjusted))
+}
+
+/// How a hue is turned: in Oklch, which keeps lightness and chroma exactly and
+/// so leaves the other ramp rules as they were, or in HSL, the space the
+/// hue-shift rule measures in, which lands on the rule's own numbers when the
+/// first cannot.
+#[derive(Clone, Copy)]
+enum HueSpace {
+    Hsl,
+    Oklch,
+}
+
+/// A colour with its hue turned to `hue` degrees, lightness and saturation (or
+/// chroma) kept.
+fn with_hue(rgba: [u8; 4], hue: f32, space: HueSpace) -> [u8; 4] {
+    match space {
+        HueSpace::Hsl => {
+            let [r, g, b] = [
+                f32::from(rgba[0]) / 255.0,
+                f32::from(rgba[1]) / 255.0,
+                f32::from(rgba[2]) / 255.0,
+            ];
+            let (high, low) = (r.max(g).max(b), r.min(g).min(b));
+            let lightness = (high + low) / 2.0;
+            let span = high - low;
+            let saturation = if span <= f32::EPSILON {
+                0.0
+            } else {
+                span / (1.0 - (2.0 * lightness - 1.0).abs())
+            };
+            let chroma = (1.0 - (2.0 * lightness - 1.0).abs()) * saturation;
+            let sector = hue.rem_euclid(360.0) / 60.0;
+            let second = chroma * (1.0 - (sector % 2.0 - 1.0).abs());
+            let (r1, g1, b1) = match sector as u8 {
+                0 => (chroma, second, 0.0),
+                1 => (second, chroma, 0.0),
+                2 => (0.0, chroma, second),
+                3 => (0.0, second, chroma),
+                4 => (second, 0.0, chroma),
+                _ => (chroma, 0.0, second),
+            };
+            let shift = lightness - chroma / 2.0;
+            let byte = |v: f32| ((v + shift) * 255.0).round().clamp(0.0, 255.0) as u8;
+            [byte(r1), byte(g1), byte(b1), rgba[3]]
+        }
+        HueSpace::Oklch => {
+            let lab = color::srgb_to_oklab(rgba);
+            let chroma = color::chroma(lab);
+            let angle = hue.to_radians();
+            let [r, g, b] =
+                color::oklab_to_srgb([lab[0], chroma * angle.cos(), chroma * angle.sin()]);
+            [r, g, b, rgba[3]]
+        }
+    }
+}
+
+/// A colour's hue in the given space, in degrees.
+fn hue_in(rgba: [u8; 4], space: HueSpace) -> f32 {
+    match space {
+        HueSpace::Hsl => color::hsl_hue(rgba),
+        HueSpace::Oklch => color::hue(color::srgb_to_oklab(rgba)),
+    }
+}
+
+/// One ramp as a palette of its own, so the style's checks can be asked about
+/// it alone.
+fn lone_ramp(colours: &[[u8; 4]], material: &crate::raster::Material) -> Palette {
+    let slots: Vec<_> = colours
+        .iter()
+        .enumerate()
+        .map(|(step, rgba)| crate::raster::PaletteSlot {
+            index: (step + 1) as u8,
+            rgba: *rgba,
+            name: Some(format!("r.{step}")),
+            ramp: Some("r".to_string()),
+            step: Some(step as u8),
+        })
+        .collect();
+    Palette {
+        ramps: vec![crate::raster::Ramp {
+            name: "r".to_string(),
+            material: material.clone(),
+            slots: slots.iter().map(|slot| slot.index).collect(),
+        }],
+        slots,
+    }
+}
+
+/// What the style's ramp checks say about a lone ramp: whether the hue-shift
+/// check passes, and how many of the others do not.
+fn ramp_standing(
+    colours: &[[u8; 4]],
+    material: &crate::raster::Material,
+    rules: &crate::raster::StyleRules,
+) -> Result<(bool, usize), ToolError> {
+    let checks = lone_ramp(colours, material)
+        .gate_checks(rules)
+        .map_err(|error| ToolError::from(AppError::from(error)))?;
+    let hue_ok = checks
+        .iter()
+        .find(|check| check.name == "ramp-hue-shift")
+        .map_or(true, |check| check.pass);
+    let others = checks
+        .iter()
+        .filter(|check| check.name != "ramp-hue-shift" && !check.pass)
+        .count();
+    Ok((hue_ok, others))
+}
+
+/// Gives every ramp of an extracted palette the hue shift the style asks for,
+/// and returns the names of the ramps that had to change.
+///
+/// Colours read off a picture often step in lightness alone, which the
+/// hue-shift rule refuses outright. Each such ramp is kept as it is at its
+/// middle step (the rule's base) and the hue is turned across the other steps
+/// by the least the rule accepts, darker steps one way and lighter ones the
+/// other, with the signs swapped for the materials that shift warm in shadow.
+/// The turn is grown from the rule's near edge until the style's own check
+/// passes, so it is the rule function that decides when a ramp is repaired,
+/// not a copy of its numbers.
+///
+/// # Errors
+///
+/// `palette.rule_violation` naming the ramp and the reason when one cannot be
+/// repaired: a ramp with a grey step has no hue to turn, and a ramp whose
+/// colours cannot take any turn inside the rule's band is left as it was.
+pub(crate) fn repair_hue_shift(
+    palette: &mut Palette,
+    rules: &crate::raster::StyleRules,
+) -> Result<Vec<String>, ToolError> {
+    let (adjusted, failures) = repair_each_ramp(palette, rules)?;
+    match failures.into_iter().next() {
+        Some(failure) => Err(failure),
+        None => Ok(adjusted),
+    }
+}
+
+/// [`repair_hue_shift`] without stopping at the first ramp it cannot repair:
+/// the names of the ramps that were changed, and one error for each ramp that
+/// could not be.
+fn repair_each_ramp(
+    palette: &mut Palette,
+    rules: &crate::raster::StyleRules,
+) -> Result<(Vec<String>, Vec<ToolError>), ToolError> {
+    let mut adjusted = Vec::new();
+    let mut failures = Vec::new();
+    for ramp in palette.ramps.clone() {
+        let mut colours = Vec::with_capacity(ramp.slots.len());
+        for index in &ramp.slots {
+            colours.push(
+                palette
+                    .slot(*index)
+                    .map_err(|error| ToolError::from(AppError::from(error)))?
+                    .rgba,
+            );
+        }
+        let (hue_ok, failing_before) = ramp_standing(&colours, &ramp.material, rules)?;
+        if hue_ok {
+            continue;
+        }
+        let refuse = |why: String| {
+            ToolError::new(
+                "palette.rule_violation",
+                format!("ramp-hue-shift: {} {why}", ramp.name),
+                "Give that ramp a tint, or build the ramps by hand with set_palette: \
+                 the style asks for a hue shift on every ramp.",
+            )
+        };
+        if colours
+            .iter()
+            .any(|rgba| color::chroma(color::srgb_to_oklab(*rgba)) < 0.001)
+        {
+            failures.push(refuse(
+                "has a grey step, which has no hue to rotate, so it cannot be repaired".to_string(),
+            ));
+            continue;
+        }
+        let hue = &rules.hue_shift;
+        let warm = rules.warm_shadow_materials.contains(&ramp.material);
+        let oriented = |bounds: [f32; 2]| {
+            if warm {
+                [-bounds[1], -bounds[0]]
+            } else {
+                bounds
+            }
+        };
+        // Near and far edge of each direction's band, by distance from zero.
+        let edges = |bounds: [f32; 2]| {
+            let bounds = oriented(bounds);
+            if bounds[0].abs() <= bounds[1].abs() {
+                (bounds[0], bounds[1])
+            } else {
+                (bounds[1], bounds[0])
+            }
+        };
+        let (darker_near, darker_far) = edges(hue.darker_hue_deg);
+        let (lighter_near, lighter_far) = edges(hue.lighter_hue_deg);
+        let base = colours.len() / 2;
+        let mut repaired = None;
+        let mut fallback = None;
+        'search: for space in [HueSpace::Oklch, HueSpace::Hsl] {
+            for tick in 1..=20 {
+                let t = tick as f32 / 20.0;
+                let darker = darker_near + (darker_far - darker_near) * t;
+                let lighter = lighter_near + (lighter_far - lighter_near) * t;
+                let mut turned = colours.clone();
+                for step in (0..base).rev() {
+                    let from = hue_in(turned[step + 1], space);
+                    turned[step] = with_hue(colours[step], from + darker, space);
+                }
+                for step in base + 1..colours.len() {
+                    let from = hue_in(turned[step - 1], space);
+                    turned[step] = with_hue(colours[step], from + lighter, space);
+                }
+                // A turn that fixes the hue but breaks the lightness or chroma
+                // steps the ramp already met is no repair.
+                let (hue_ok, failing) = ramp_standing(&turned, &ramp.material, rules)?;
+                if hue_ok && failing <= failing_before {
+                    repaired = Some(turned);
+                    break 'search;
+                }
+                // A pale tint can clip at the gamut's edge when it turns, and
+                // then no turn keeps every other rule. The hue is still the
+                // fault being repaired, so the first turn that fixes it stands
+                // and the full check afterwards names whatever is left.
+                if hue_ok && fallback.is_none() {
+                    fallback = Some(turned);
+                }
+            }
+        }
+        let Some(turned) = repaired.or(fallback) else {
+            failures.push(refuse(
+                "has colours too close to grey to rotate by the hue shift the style asks for, \
+                 so it cannot be repaired"
+                    .to_string(),
+            ));
+            continue;
+        };
+        for (index, rgba) in ramp.slots.iter().zip(turned) {
+            if let Some(slot) = palette.slots.iter_mut().find(|slot| slot.index == *index) {
+                slot.rgba = rgba;
+            }
+        }
+        adjusted.push(ramp.name.clone());
+    }
+    Ok((adjusted, failures))
+}
+
+/// The hue repair for ramps in `set_palette`'s own JSON shape, which is what
+/// `extract_palette` returns: the ramps with every repairable one turned, the
+/// names of those, and the reasons for the ones that could not be. Nothing is
+/// refused here; `set_palette` is still the judge of what it is handed.
+pub(crate) fn repair_ramps_json(
+    ramps: &Value,
+    rules: &crate::raster::StyleRules,
+) -> Result<(Value, Vec<String>, Vec<String>), ToolError> {
+    let args: Vec<_> = serde_json::from_value(ramps.clone()).map_err(|error| {
+        ToolError::new(
+            "reference.invalid_ramp",
+            format!("the extracted ramps could not be read back: {error}"),
+            "Try fewer colours.",
+        )
+    })?;
+    let mut palette = crate::mcp::tools::palette::build_palette(&args)?;
+    let (adjusted, failures) = repair_each_ramp(&mut palette, rules)?;
+    let mut out = ramps.clone();
+    if let Some(list) = out.as_array_mut() {
+        for (entry, ramp) in list.iter_mut().zip(&palette.ramps) {
+            let hexes: Vec<String> = ramp
+                .slots
+                .iter()
+                .filter_map(|index| palette.slot(*index).ok())
+                .map(|slot| {
+                    format!(
+                        "#{:02X}{:02X}{:02X}",
+                        slot.rgba[0], slot.rgba[1], slot.rgba[2]
+                    )
+                })
+                .collect();
+            entry["slots"] = json!(hexes);
+        }
+    }
+    let reasons = failures.into_iter().map(|error| error.message).collect();
+    Ok((out, adjusted, reasons))
+}
+
+/// What applying a reference's palette did.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppliedPalette {
+    pub palette: Palette,
+    /// The ramps whose hue was rotated to meet the style's hue-shift rule,
+    /// empty when the picture's colours passed as they were.
+    pub adjusted_ramps: Vec<String>,
 }
 
 /// Extracts the reference's colours into ramps and makes them the asset's
@@ -458,7 +851,7 @@ fn apply_reference_palette(
 /// Returns `store.lock_failed` when the store is poisoned, the store's reason
 /// code when the asset or reference is missing, and `palette.rule_violation`
 /// (or another `args.invalid`/`palette.*` code) when the extracted ramps do
-/// not pass the asset's style rules.
+/// not pass the asset's style rules even after their hue was repaired.
 #[tauri::command]
 pub async fn reference_apply_palette<R: Runtime>(
     app: AppHandle<R>,
@@ -466,10 +859,10 @@ pub async fn reference_apply_palette<R: Runtime>(
     asset_id: AssetId,
     reference_id: Uuid,
     max_slots: Option<u8>,
-) -> Result<Palette, CommandError> {
+) -> Result<AppliedPalette, CommandError> {
     let max_slots = max_slots.unwrap_or(32);
     let store = state.store();
-    let (palette, op) = tauri::async_runtime::spawn_blocking(move || {
+    let (palette, op, adjusted_ramps) = tauri::async_runtime::spawn_blocking(move || {
         let mut store = store.lock().map_err(|_| lock_failed())?;
         apply_reference_palette(&mut store, asset_id, reference_id, max_slots)
     })
@@ -480,7 +873,10 @@ pub async fn reference_apply_palette<R: Runtime>(
     // panel reloads.
     notify_changed(&app, &state, asset_id, &op);
     let _ = app.emit(EVENT_PALETTE, PaletteEvent { asset_id });
-    Ok(palette)
+    Ok(AppliedPalette {
+        palette,
+        adjusted_ramps,
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -584,7 +980,13 @@ fn pipeline_options(
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PixelizeReport {
+    /// The layer that was asked for.
     pub layer: String,
+    /// The layer the colours went to: `flats` when the silhouette was asked
+    /// for (which then holds the one-slot mask), otherwise the layer itself.
+    pub colour_layer: String,
+    /// The palette slot the silhouette mask is drawn in, when one was written.
+    pub mask_slot: Option<u8>,
     /// The size of the pixels that were drawn, centred on the canvas.
     pub width: u32,
     pub height: u32,
@@ -604,13 +1006,20 @@ pub struct PixelizeReport {
     pub seq: i64,
 }
 
-/// Turns a stored reference into pixels on one layer of its asset.
+/// Turns a stored reference into pixels on its asset.
 ///
-/// With a palette on the asset the pixels snap to it; without one, a palette
-/// is derived from the picture's own colours (at most `colors`, bounded by the
-/// style's slot ceiling) and written first. `snap_to_palette: false` drops the
-/// asset's palette for a derived one, which is refused while any other layer
-/// has pixels, since their slots would change colour under them.
+/// Asked for the silhouette (the default), it writes the shape as a one-slot
+/// mask there, which is what the silhouette step expects, and the picture's
+/// colours into `flats`. Asked for any other layer, it writes the colours
+/// there and nothing else.
+///
+/// With a palette on the asset the colours snap to it and the palette is left
+/// alone. The palette is only replaced when the caller asks for that, with
+/// `snap_to_palette: false` or an explicit `colors` count: it is then derived
+/// from the picture's own colours (at most `colors`, bounded by the style's
+/// slot ceiling), which is refused while any layer other than the ones written
+/// has pixels, since their slots would change colour under them. An asset
+/// with no palette has nothing to snap to, so it always gets a derived one.
 ///
 /// # Errors
 ///
@@ -633,38 +1042,55 @@ pub fn pixelize_reference(
         usize::from(document.asset.width),
         usize::from(document.asset.height),
     );
-    let mut layer = document
-        .layers
-        .iter()
-        .find(|layer| layer.role == role)
-        .cloned()
-        .ok_or_else(|| {
-            ToolError::new(
-                "layer.unknown_role",
-                format!("{} has no layer {}", document.asset.name, role.0),
-                "Name one of the nine layer roles.",
-            )
-        })?;
-    if layer.locked {
-        return Err(ToolError::new(
-            "layer.locked",
-            format!("layer {} is locked", role.0),
-            "Draw on another layer, or ask the person to unlock this one.",
-        ));
-    }
-
-    let keep_palette = snap_to_palette && !document.palette.slots.is_empty();
-    if !snap_to_palette
-        && !document.palette.slots.is_empty()
-        && document
+    // The silhouette holds the shape alone, so asking for it means the colours
+    // belong one layer up, in the flats.
+    let mask_role = (role.0 == "silhouette").then_some(role);
+    let colour_role = if mask_role.is_some() {
+        LayerRole("flats")
+    } else {
+        role
+    };
+    let find_layer = |wanted: LayerRole| {
+        document
             .layers
             .iter()
-            .any(|l| l.role != role && l.buffer.data.iter().any(|slot| *slot != 0))
+            .find(|layer| layer.role == wanted)
+            .cloned()
+            .ok_or_else(|| {
+                ToolError::new(
+                    "layer.unknown_role",
+                    format!("{} has no layer {}", document.asset.name, wanted.0),
+                    "Name one of the nine layer roles.",
+                )
+            })
+    };
+    let mut colour_layer = find_layer(colour_role)?;
+    let mut mask_layer = mask_role.map(find_layer).transpose()?;
+    for layer in std::iter::once(&colour_layer).chain(mask_layer.as_ref()) {
+        if layer.locked {
+            return Err(ToolError::new(
+                "layer.locked",
+                format!("layer {} is locked", layer.role.0),
+                "Draw on another layer, or ask the person to unlock this one.",
+            ));
+        }
+    }
+
+    let extend_palette = !snap_to_palette || colors.is_some();
+    let keep_palette = !extend_palette && !document.palette.slots.is_empty();
+    if !keep_palette
+        && !document.palette.slots.is_empty()
+        && document.layers.iter().any(|l| {
+            l.role != colour_role
+                && Some(l.role) != mask_role
+                && l.buffer.data.iter().any(|slot| *slot != 0)
+        })
     {
         return Err(ToolError::new(
             "palette.in_use",
             "other layers already use the asset's palette",
-            "Leave snapToPalette on, or clear those layers first.",
+            "Leave snapToPalette on and pass no colors to snap to the existing palette, \
+             or clear those layers first.",
         ));
     }
 
@@ -714,7 +1140,13 @@ pub fn pixelize_reference(
         canvas_w.saturating_sub(art_w) / 2,
         canvas_h.saturating_sub(art_h) / 2,
     );
-    layer.buffer.data.fill(0);
+    colour_layer.buffer.data.fill(0);
+    // The mask's one slot: the palette's first, which a later set_palette keeps
+    // as slot 1.
+    let mask_slot = palette.slots.iter().map(|slot| slot.index).min();
+    if let Some(mask) = mask_layer.as_mut() {
+        mask.buffer.data.fill(0);
+    }
     let mut used = std::collections::BTreeSet::new();
     for y in 0..art_h.min(canvas_h) {
         for x in 0..art_w.min(canvas_w) {
@@ -728,7 +1160,11 @@ pub fn pixelize_reference(
                     .nearest([(px >> 24) as u8, (px >> 16) as u8, (px >> 8) as u8, 255])
                     .unwrap_or(0),
             };
-            layer.buffer.data[(y + off_y) * canvas_w + x + off_x] = slot;
+            let at = (y + off_y) * canvas_w + x + off_x;
+            colour_layer.buffer.data[at] = slot;
+            if let (Some(mask), Some(mask_slot)) = (mask_layer.as_mut(), mask_slot) {
+                mask.buffer.data[at] = mask_slot;
+            }
             used.insert(slot);
         }
     }
@@ -736,9 +1172,20 @@ pub fn pixelize_reference(
     if palette_created {
         store.palette_write_as(asset_id, palette, actor)?;
     }
-    let op = store.layer_write_as(asset_id, layer, actor)?;
+    let mut op = store.layer_write_as(asset_id, colour_layer, actor)?;
+    if let Some(mask) = mask_layer {
+        let mask_op = store.layer_write_as(asset_id, mask, actor)?;
+        // One change for the window, with both layers named in it.
+        op = OpResult {
+            changed: op.changed + mask_op.changed,
+            roles: [op.roles, mask_op.roles].concat(),
+            ..mask_op
+        };
+    }
     let report = PixelizeReport {
         layer: role.0.to_string(),
+        colour_layer: colour_role.0.to_string(),
+        mask_slot: mask_slot.filter(|_| mask_role.is_some()),
         width: art_w as u32,
         height: art_h as u32,
         canvas_width: document.asset.width,
@@ -1007,8 +1454,10 @@ mod tests {
     #[test]
     fn a_passing_reference_becomes_the_assets_palette() {
         let (mut store, asset_id, reference_id) = setup_with_reference(&PASSING_RAMPS);
-        let (palette, _) = apply_reference_palette(&mut store, asset_id, reference_id, 32)
-            .unwrap_or_else(|error| panic!("expected the reference's colours to pass: {error:?}"));
+        let (palette, _, adjusted) =
+            apply_reference_palette(&mut store, asset_id, reference_id, 32).unwrap_or_else(
+                |error| panic!("expected the reference's colours to pass: {error:?}"),
+            );
         assert_eq!(palette.slots.len(), 9);
         assert_eq!(palette.ramps.len(), 3);
         let hexes: Vec<String> = palette
@@ -1023,6 +1472,7 @@ mod tests {
         // The write actually landed on the asset, not just in the return value.
         let document = store.asset_open(asset_id).unwrap();
         assert_eq!(document.palette.slots.len(), 9);
+        assert!(adjusted.is_empty(), "a passing palette is not touched");
     }
 
     #[test]
@@ -1031,6 +1481,71 @@ mod tests {
         let error = apply_reference_palette(&mut store, asset_id, reference_id, 32).unwrap_err();
         let error = serde_json::to_value(&error).unwrap();
         assert_eq!(error["code"], "palette.rule_violation");
+        // It says why, rather than only that a rule failed.
+        assert!(
+            error["detail"].as_str().unwrap().contains("grey"),
+            "{error}"
+        );
+    }
+
+    /// The passing ramps with every step turned to its ramp's middle hue, so
+    /// they change in lightness only, the way colours read off a picture do.
+    fn lightness_only_ramps() -> Vec<[u8; 4]> {
+        let mut flat = PASSING_RAMPS.to_vec();
+        // The dark blue and the pale amber stay as they were: at the edges of
+        // the gamut a turn clips, which is a different fault from the one
+        // under test.
+        for ramp in flat.chunks_mut(3).skip(1).take(1) {
+            let hue = hue_in(ramp[1], HueSpace::Oklch);
+            for colour in ramp.iter_mut() {
+                *colour = with_hue(*colour, hue, HueSpace::Oklch);
+            }
+        }
+        flat
+    }
+
+    #[test]
+    fn ramps_that_only_change_lightness_are_repaired_and_the_ramps_named() {
+        let colours = lightness_only_ramps();
+        let (mut store, asset_id, reference_id) = setup_with_reference(&colours);
+        let (palette, _, adjusted) =
+            apply_reference_palette(&mut store, asset_id, reference_id, 32)
+                .unwrap_or_else(|error| panic!("expected the ramps to be repaired: {error:?}"));
+        assert_eq!(adjusted.len(), 1, "the flattened ramp is reported");
+        // What was written is what the style accepts, and it is stored.
+        let rules = store.asset_rules(asset_id).unwrap();
+        crate::mcp::tools::palette::check_palette(&palette, &rules).unwrap();
+        let stored = store.asset_open(asset_id).unwrap().palette;
+        assert_eq!(stored.slots.len(), palette.slots.len());
+        // The middle step of an adjusted ramp is the colour the picture had.
+        for name in &adjusted {
+            let ramp = palette.ramps.iter().find(|r| &r.name == name).unwrap();
+            let middle = palette.slot(ramp.slots[ramp.slots.len() / 2]).unwrap().rgba;
+            assert!(colours.contains(&middle), "{name}'s base was moved");
+        }
+    }
+
+    #[test]
+    fn a_ramp_that_passes_is_left_exactly_as_it_was() {
+        let mut palette = lone_ramp_palette(&PASSING_RAMPS[..3]);
+        let before = palette.slots.clone();
+        let rules = crate::raster::StyleRules::default();
+        let adjusted = repair_hue_shift(&mut palette, &rules).unwrap();
+        assert!(adjusted.is_empty());
+        assert_eq!(palette.slots, before);
+    }
+
+    fn lone_ramp_palette(colours: &[[u8; 4]]) -> Palette {
+        lone_ramp(colours, &crate::raster::Material::Cloth)
+    }
+
+    #[test]
+    fn a_grey_ramp_cannot_be_repaired_and_the_reason_is_given() {
+        let mut palette = lone_ramp_palette(&GREY_RAMP);
+        let rules = crate::raster::StyleRules::default();
+        let error = repair_hue_shift(&mut palette, &rules).unwrap_err();
+        assert_eq!(error.code, "palette.rule_violation");
+        assert!(error.message.contains("grey"), "{}", error.message);
     }
 
     fn hex_of_test(rgba: &[u8; 4]) -> String {
@@ -1197,6 +1712,154 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(error.code, "palette.in_use");
+    }
+
+    fn layer_of(store: &Store, asset_id: AssetId, role: &str) -> bitwright::raster::Layer {
+        let wanted = LayerRole::parse(role).unwrap();
+        store
+            .asset_open(asset_id)
+            .unwrap()
+            .layers
+            .into_iter()
+            .find(|layer| layer.role == wanted)
+            .unwrap()
+    }
+
+    #[test]
+    fn the_silhouette_gets_a_one_slot_mask_and_the_colours_go_to_flats() {
+        let (mut store, asset_id, reference_id) = setup_with_picture(7.5, 6);
+        let (report, _) = pixelize_reference(
+            &mut store,
+            asset_id,
+            reference_id,
+            silhouette(),
+            Some(3),
+            true,
+            "user",
+        )
+        .unwrap();
+        assert_eq!(report.colour_layer, "flats");
+        let mask = layer_of(&store, asset_id, "silhouette");
+        let slots: std::collections::BTreeSet<u8> = mask
+            .buffer
+            .data
+            .iter()
+            .copied()
+            .filter(|slot| *slot != 0)
+            .collect();
+        assert_eq!(slots.len(), 1, "one slot in the silhouette");
+        assert_eq!(report.mask_slot, slots.iter().next().copied());
+        let flats = layer_of(&store, asset_id, "flats");
+        let colours: std::collections::BTreeSet<u8> = flats
+            .buffer
+            .data
+            .iter()
+            .copied()
+            .filter(|slot| *slot != 0)
+            .collect();
+        assert_eq!(colours.len(), 3, "the picture's colours");
+        // Same shape in both.
+        let shape = |layer: &bitwright::raster::Layer| -> Vec<bool> {
+            layer.buffer.data.iter().map(|slot| *slot != 0).collect()
+        };
+        assert_eq!(shape(&mask), shape(&flats));
+    }
+
+    #[test]
+    fn another_layer_asked_for_gets_the_colours_alone() {
+        let (mut store, asset_id, reference_id) = setup_with_picture(7.5, 6);
+        apply_reference_palette_for_test(&mut store, asset_id);
+        let (report, _) = pixelize_reference(
+            &mut store,
+            asset_id,
+            reference_id,
+            LayerRole::parse("flats").unwrap(),
+            None,
+            true,
+            "user",
+        )
+        .unwrap();
+        assert_eq!(report.colour_layer, "flats");
+        assert_eq!(report.mask_slot, None);
+        let mask = layer_of(&store, asset_id, "silhouette");
+        assert!(mask.buffer.data.iter().all(|slot| *slot == 0));
+    }
+
+    #[test]
+    fn the_palette_only_grows_when_asked() {
+        // No colour count and no snapToPalette: false, so the asset's own
+        // two-slot palette stays two slots however many colours the picture has.
+        let (mut store, asset_id, reference_id) = setup_with_picture(7.5, 6);
+        apply_reference_palette_for_test(&mut store, asset_id);
+        let (report, _) = pixelize_reference(
+            &mut store,
+            asset_id,
+            reference_id,
+            silhouette(),
+            None,
+            true,
+            "user",
+        )
+        .unwrap();
+        assert!(!report.palette_created);
+        assert_eq!(store.asset_open(asset_id).unwrap().palette.slots.len(), 2);
+
+        // An explicit colour count is the ask: the palette is derived anew.
+        let (report, _) = pixelize_reference(
+            &mut store,
+            asset_id,
+            reference_id,
+            silhouette(),
+            Some(3),
+            true,
+            "user",
+        )
+        .unwrap();
+        assert!(report.palette_created);
+        assert_eq!(store.asset_open(asset_id).unwrap().palette.slots.len(), 3);
+    }
+
+    #[test]
+    fn the_import_grid_is_the_pixelize_grid_on_a_fractional_pitch() {
+        // The sidecar's reading of this kind of picture: a wrong cell size,
+        // almost no confidence, and the warnings that go with it.
+        let sidecar = json!({
+            "width": 16,
+            "height": 16,
+            "palette": ["#C82828"],
+            "detected": { "cellWidth": 31.35, "cellHeight": 22.39, "confidence": 0.02 },
+            "warnings": ["conform.grid_anisotropic", "conform.grid_not_found", "conform.already_at_size"],
+        });
+        let bytes = fixture::fake_png(18.6, 20, 6);
+        let meta = conform_meta_with_grid(&sidecar, 16, 16, &bytes);
+        let reference = Reference {
+            conform_meta: Some(meta),
+            ..stored(None)
+        };
+        let summary = summary(&reference);
+        let grid = summary.detected.expect("the grid was found");
+        assert!((grid.cell_width - 18.6).abs() < 0.5, "{grid:?}");
+        assert!(
+            (grid.cell_width - grid.cell_height).abs() < 1e-9,
+            "square cells"
+        );
+        assert_eq!((grid.native_width, grid.native_height), (Some(6), Some(8)));
+        assert!(grid.confidence > 0.15, "{grid:?}");
+        assert_eq!(
+            summary.warnings,
+            vec!["conform.already_at_size".to_string()]
+        );
+    }
+
+    #[test]
+    fn a_source_the_shell_cannot_read_keeps_the_sidecars_grid() {
+        let sidecar = json!({
+            "palette": [],
+            "detected": { "cellWidth": 4.0, "cellHeight": 4.0, "confidence": 0.9 },
+            "warnings": [],
+        });
+        let meta = conform_meta_with_grid(&sidecar, 16, 16, b"GIF89a");
+        assert_eq!(meta["detected"]["cellWidth"], json!(4.0));
     }
 
     #[test]

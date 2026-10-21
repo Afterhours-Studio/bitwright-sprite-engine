@@ -24,8 +24,9 @@
  * sprite is created at that grid's size, within the sizes the new-sprite
  * dialog offers. The picture is then imported as the sprite's reference, the
  * same `reference_import` the editor's reference panel runs, and finally
- * pixelized into the sprite's first layer: background removed, one colour per
- * block, snapped to a palette made from the picture.
+ * pixelized: background removed, one colour per block. The shape goes into the
+ * silhouette as a one-slot mask and the colours into the flats, snapped to a
+ * palette made from the picture (a new sprite has none to snap to).
  */
 
 import i18n from '@/lib/i18n';

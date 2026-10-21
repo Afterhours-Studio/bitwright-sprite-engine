@@ -69,17 +69,29 @@ export function referenceDelete(assetId: string, referenceId: string): Promise<S
   return invoke<null>('reference_delete', { assetId, referenceId });
 }
 
+/** What applying a reference's palette did. */
+export interface AppliedPalette {
+  palette: Palette;
+  /**
+   * The ramps whose hue was rotated to meet the style's hue-shift rule, which
+   * colours taken from a picture seldom do on their own. Empty when the
+   * picture's colours passed as they were.
+   */
+  adjustedRamps: string[];
+}
+
 /**
  * Groups a reference's colours into ramps and writes them as the asset's
- * palette. Refused with a `palette.*` or `style.*` code when the style
- * rejects them.
+ * palette, rotating the hue of any ramp that only changes lightness. Refused
+ * with a `palette.*` or `style.*` code, and a detail saying why, when a ramp
+ * cannot be repaired or the style still rejects the result.
  */
 export function referenceApplyPalette(
   assetId: string,
   referenceId: string,
   maxSlots?: number,
-): Promise<ShellResult<Palette>> {
-  return invoke<Palette>('reference_apply_palette', { assetId, referenceId, maxSlots });
+): Promise<ShellResult<AppliedPalette>> {
+  return invoke<AppliedPalette>('reference_apply_palette', { assetId, referenceId, maxSlots });
 }
 
 /** What a picture would become: the canvas it needs and the grid found in it. */
@@ -98,7 +110,15 @@ export interface PixelProbe {
 
 /** What a pixelize wrote to a layer. */
 export interface PixelizeReport {
+  /** The layer that was asked for. */
   layer: string;
+  /**
+   * The layer the colours went to: `flats` when the silhouette was asked for,
+   * which then holds the shape as a mask in one slot.
+   */
+  colourLayer: string;
+  /** The palette slot the silhouette mask uses, when one was written. */
+  maskSlot: number | null;
   /** The size of the pixels drawn, centred on the canvas. */
   width: number;
   height: number;
@@ -125,9 +145,11 @@ export function referencePixelizeProbe(path: string): Promise<ShellResult<PixelP
 }
 
 /**
- * Turns a stored reference into pixels on one layer of its asset: background
- * removed, the picture's own grid found, one colour per block, snapped to the
- * asset's palette (or a palette made from the picture when it has none).
+ * Turns a stored reference into pixels on its asset: background removed, the
+ * picture's own grid found, one colour per block. The silhouette gets the shape
+ * as a one-slot mask and the flats get the colours, snapped to the asset's
+ * palette, which only changes when `colors` or `snapToPalette: false` asks for
+ * it (an asset with no palette gets one made from the picture).
  */
 export function referencePixelize(
   assetId: string,

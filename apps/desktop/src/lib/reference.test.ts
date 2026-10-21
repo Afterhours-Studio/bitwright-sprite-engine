@@ -112,7 +112,7 @@ describe('referenceDelete', () => {
 
 describe('referenceApplyPalette', () => {
   it('sends assetId, referenceId and maxSlots', async () => {
-    answersWith({ slots: [] });
+    answersWith({ palette: { slots: [] }, adjustedRamps: [] });
 
     await referenceApplyPalette('asset-1', 'ref-1', 16);
     expect(tauri.invoke).toHaveBeenCalledWith('reference_apply_palette', {

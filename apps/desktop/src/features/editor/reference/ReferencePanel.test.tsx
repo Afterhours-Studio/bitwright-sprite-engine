@@ -170,7 +170,9 @@ describe('ReferencePanel', () => {
     const reference = summary();
     vi.mocked(lib.referenceList).mockResolvedValue(ok([reference]));
     const newPalette = { slots: [], ramps: [] } as never;
-    vi.mocked(lib.referenceApplyPalette).mockResolvedValue(ok(newPalette));
+    vi.mocked(lib.referenceApplyPalette).mockResolvedValue(
+      ok({ palette: newPalette, adjustedRamps: [] }),
+    );
 
     act(() => {
       useDocumentStore.setState({ assetId: 'asset-1' });
@@ -186,6 +188,75 @@ describe('ReferencePanel', () => {
       expect(lib.referenceApplyPalette).toHaveBeenCalledWith('asset-1', reference.id);
     });
     expect(useDocumentStore.getState().palette).toEqual(newPalette);
+  });
+
+  it('says which ramps were repaired when the palette was applied', async () => {
+    const reference = summary();
+    vi.mocked(lib.referenceList).mockResolvedValue(ok([reference]));
+    vi.mocked(lib.referenceApplyPalette).mockResolvedValue(
+      ok({ palette: { slots: [], ramps: [] } as never, adjustedRamps: ['hue-120', 'hue-30'] }),
+    );
+
+    act(() => {
+      useDocumentStore.setState({ assetId: 'asset-1' });
+    });
+    render(<ReferencePanel />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(reference.name).length).toBeGreaterThan(0);
+    });
+    fireEvent.click(screen.getByRole('button', { name: /apply palette/i }));
+    const notice = await screen.findByRole('status');
+    expect(notice).toHaveTextContent('hue-120, hue-30');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('says why a palette could not be applied', async () => {
+    const reference = summary();
+    vi.mocked(lib.referenceList).mockResolvedValue(ok([reference]));
+    vi.mocked(lib.referenceApplyPalette).mockResolvedValue({
+      ok: false,
+      error: {
+        code: 'palette.rule_violation',
+        detail: 'ramp-hue-shift: neutral has a grey step, so it cannot be repaired',
+      },
+    });
+
+    act(() => {
+      useDocumentStore.setState({ assetId: 'asset-1' });
+    });
+    render(<ReferencePanel />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(reference.name).length).toBeGreaterThan(0);
+    });
+    fireEvent.click(screen.getByRole('button', { name: /apply palette/i }));
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('has a grey step');
+  });
+
+  it('shows the pixel grid the shell found, with the sprite size it gives', async () => {
+    const reference = summary({
+      detected: {
+        cellWidth: 18.597,
+        cellHeight: 18.597,
+        confidence: 0.62,
+        pitch: 18.597,
+        nativeWidth: 31,
+        nativeHeight: 48,
+      },
+      warnings: [],
+    });
+    vi.mocked(lib.referenceList).mockResolvedValue(ok([reference]));
+
+    act(() => {
+      useDocumentStore.setState({ assetId: 'asset-1' });
+    });
+    render(<ReferencePanel />);
+
+    expect(
+      await screen.findByText(/18\.6 px, 31 × 48 sprite \(62% confidence\)/),
+    ).toBeInTheDocument();
   });
 
   it('shows an alert when a call fails', async () => {

@@ -159,6 +159,8 @@ pub struct Pixelized {
     pub cell: f64,
     /// The size after grid sampling, before any fitting.
     pub native: (usize, usize),
+    /// The grid the blocks were read on: pitch, phase and how sure it is.
+    pub grid: Grid,
     /// The colours the result uses.
     pub palette: Vec<Px>,
 }
@@ -434,6 +436,9 @@ pub struct Grid {
     pub cell: f64,
     pub ox: f64,
     pub oy: f64,
+    /// How strongly the edge profile repeats at this pitch, 0..1. Zero means
+    /// no pitch was found and `cell` is the fallback 1.
+    pub confidence: f64,
 }
 
 /// Block size of fake pixel art, which AI images draw at a fractional pitch
@@ -445,6 +450,7 @@ pub fn detect_cell(img: &Img) -> Grid {
         cell: 1.0,
         ox: 0.0,
         oy: 0.0,
+        confidence: 0.0,
     };
     let px = edge_profile(img, true);
     let py = edge_profile(img, false);
@@ -529,12 +535,13 @@ pub fn detect_cell(img: &Img) -> Grid {
         cell,
         ox: phase(&px, cell),
         oy: phase(&py, cell),
+        confidence: top.clamp(0.0, 1.0),
     }
 }
 
 /// One colour per block: the most common bucket in the block's inner area.
 fn sample_grid(img: &Img, grid: Grid, alpha_cut: u8) -> Img {
-    let Grid { cell, ox, oy } = grid;
+    let Grid { cell, ox, oy, .. } = grid;
     let sx = ox - (ox / cell).ceil() * cell;
     let sy = oy - (oy / cell).ceil() * cell;
     let cols = ((img.w as f64 - sx) / cell).ceil() as usize;
@@ -954,6 +961,7 @@ pub fn pixelize(source: &Img, o: &Options) -> Result<Pixelized> {
             cell,
             ox: 0.0,
             oy: 0.0,
+            confidence: 1.0,
         },
         None => detect_cell(&img),
     };
@@ -1010,6 +1018,7 @@ pub fn pixelize(source: &Img, o: &Options) -> Result<Pixelized> {
         img,
         cell: grid.cell,
         native,
+        grid,
         palette,
     })
 }

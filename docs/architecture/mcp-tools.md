@@ -255,8 +255,9 @@ it is stored as is, which is all `pixelize_reference` needs for a PNG. Returns
 `{ projectId, path | dataBase64, fileName?, name?, layer?, colors? }` — the home
 screen's PNG to Pixel in one call. The picture's pixel grid is measured and a
 `character` sprite created at that size (16 to 512 a side), the picture is
-imported as its reference, and it is pixelized into `layer` (default
-`silhouette`) with a palette made from it. The new sprite becomes the session's
+imported as its reference, and it is pixelized (the shape into `layer`, default
+`silhouette`, as a one-slot mask; the colours into `flats`) with a palette made
+from it, since a new sprite has none. The new sprite becomes the session's
 open asset. A PNG that is empty (`pixelize.empty`) or too large (`png.too_large`)
 creates nothing; a file that is not a PNG takes the project's canvas and needs
 the engine. If a later step fails, the sprite is kept and its id is in the
@@ -528,8 +529,15 @@ bucket — any bucket left holding a single colour is folded into whichever
 remaining bucket sits nearest it in hue, and each ramp is sorted darkest slot
 first. Every ramp comes back tagged `material: "custom"`, since the grouping
 is by hue alone and knows nothing of the style's materials; `set_palette`
-still checks the result against the style when it is applied. Returns
-`{ referenceId, ramps }`. It applies nothing by itself: hand the ramps
+still checks the result against the style when it is applied. Colours read off
+a picture seldom change hue from step to step, which the style's hue-shift rule
+refuses, so each ramp is repaired before it comes back: its middle step (the
+rule's base) keeps the picture's colour and the hue is rotated across the other
+steps by the least the rule accepts, grown until the style's own ramp check
+passes. A ramp that cannot be repaired (a grey one has no hue to rotate) comes
+back as it was. Returns `{ referenceId, ramps, adjustedRamps, unrepaired? }`,
+`adjustedRamps` naming the ramps that were changed and `unrepaired` giving the
+reason for each one that was not. It applies nothing by itself: hand the ramps
 straight to `set_palette` — tags edited or not — to make them the asset's
 palette. Fails the same way `read_reference` does when there is no reference
 to read, plus `reference.invalid` when `conform_meta.palette` holds something
@@ -538,8 +546,8 @@ that is not a `#RRGGBB` string.
 ### `pixelize_reference`
 
 `{ assetId?, referenceId?, layer?, colors?, snapToPalette?, force? }` — turns a
-reference picture into real pixels on one layer (`silhouette` unless `layer`
-names another). This is the "PNG to Pixel" conversion, and it reads the
+reference picture into real pixels. This is the "PNG to Pixel" conversion, and
+it reads the
 picture the person picked (the conformed copy only for a file that is not a
 PNG). The pipeline, in order: the background is removed (the dominant border
 colour, as a chroma key with its fringe); detached bits are dropped, since an
@@ -550,17 +558,27 @@ snapped to the palette; and specks go, but only pixels whose four neighbours
 all share one other colour, so one-pixel tips and lone accents stay. The pixels
 are centred on the canvas and shrunk to fit when the picture is bigger.
 
-With a palette on the asset the pixels snap to it and it is left alone. With
-none, a palette is made from the picture (`colors` of them, default 32, at most
-the style's slot ceiling), grouped into ramps the way `extract_palette` does.
-`snapToPalette: false` replaces an existing palette the same way, and is
-refused with `palette.in_use` while any other layer has pixels, since their
-slots would change colour. `referenceId` defaults to the most recent reference.
+Where the pixels go: with `layer` left at `silhouette` the shape is written
+there as a mask in one palette slot (the palette's first), which is what the
+silhouette step expects, and the colours go into `flats`. Naming another layer
+writes the colours there alone, with no mask.
+
+The palette is only changed when asked. With a palette on the asset the colours
+snap to it and it is left alone, however many colours the picture has. Passing
+`colors` or `snapToPalette: false` is the ask: the palette is replaced by one
+made from the picture (`colors` of them, default 32, at most the style's slot
+ceiling), grouped into ramps the way `extract_palette` does, and that is
+refused with `palette.in_use` while any layer other than the ones written has
+pixels, since their slots would change colour. An asset with no palette has
+nothing to snap to, so it always gets one made from the picture.
+`referenceId` defaults to the most recent reference.
 
 An asset still at the `reference` step may be written to its first layer
 directly; from any other step the usual step guard applies, with `force`.
-Returns `{ referenceId, layer, width, height, canvasWidth, canvasHeight, cell,
-nativeWidth, nativeHeight, colours, paletteCreated, changed, seq, hint }`:
+Returns `{ referenceId, layer, colourLayer, maskSlot, width, height,
+canvasWidth, canvasHeight, cell, nativeWidth, nativeHeight, colours,
+paletteCreated, changed, seq, hint }`: `colourLayer` is where the colours went
+and `maskSlot` the slot of the silhouette mask (null when none was written),
 `cell` is the block size detected in the picture, and `width`×`height` the
 pixels drawn. Fails `reference.none` / `reference.not_found` like
 `read_reference`, `layer.locked` for a locked layer, `png.invalid` or
