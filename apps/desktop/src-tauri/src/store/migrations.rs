@@ -20,7 +20,7 @@
 use super::{AppError, Result};
 use rusqlite::Connection;
 
-pub const VERSION: i64 = 6;
+pub const VERSION: i64 = 7;
 
 pub fn migrate(connection: &mut Connection) -> Result<()> {
     migrate_to(connection, VERSION)
@@ -147,6 +147,48 @@ fn migrate_to(connection: &mut Connection, target: i64) -> Result<()> {
                                   view = 'topdown';
                  ALTER TABLE style DROP COLUMN preset;",
             )?,
+            // Three things, one release:
+            // - Styles gain body proportions. Every style so far was drawn
+            //   to standard proportions, which is what the gates measured.
+            // - Projects gain their own log, for what happens to a project or
+            //   its style rather than to an asset. It has no foreign key, so
+            //   the entry for a deleted project outlives it.
+            // - The ramp hue rule is now measured in OKLCH rather than HSL.
+            //   Rules still holding the HSL default bands get the OKLCH ones,
+            //   or a palette that passed would start failing on a unit change
+            //   alone. No style could be edited before this version, so any
+            //   other band is one nobody has written yet; none is touched.
+            7 => {
+                transaction.execute_batch(
+                    "ALTER TABLE style ADD COLUMN proportions TEXT NOT NULL DEFAULT 'standard';
+                     CREATE TABLE project_log (
+                         seq        INTEGER PRIMARY KEY AUTOINCREMENT,
+                         project_id TEXT NOT NULL,
+                         kind       TEXT NOT NULL,
+                         payload    TEXT NOT NULL,
+                         actor      TEXT NOT NULL,
+                         at         INTEGER NOT NULL
+                     );
+                     CREATE INDEX project_log_project ON project_log (project_id, seq);",
+                )?;
+                let rows = {
+                    let mut statement = transaction.prepare("SELECT id, rules FROM style")?;
+                    let rows = statement
+                        .query_map([], |row| {
+                            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                        })?
+                        .collect::<rusqlite::Result<Vec<_>>>()?;
+                    rows
+                };
+                for (id, text) in rows {
+                    if let Some(rewritten) = oklch_hue_bands(&text)? {
+                        transaction.execute(
+                            "UPDATE style SET rules=?1 WHERE id=?2",
+                            rusqlite::params![rewritten, id],
+                        )?;
+                    }
+                }
+            }
             _ => {
                 return Err(AppError::new(
                     "store.migration_missing",
@@ -161,6 +203,40 @@ fn migrate_to(connection: &mut Connection, target: i64) -> Result<()> {
     }
     transaction.commit()?;
     Ok(())
+}
+
+/// The rules JSON with its HSL default hue bands replaced by the OKLCH ones,
+/// or `None` when it does not hold the HSL defaults. Edited as JSON rather
+/// than through `StyleRules`, so every other value of the row stays as it was
+/// written, fields this release does not know included.
+fn oklch_hue_bands(text: &str) -> Result<Option<String>> {
+    use crate::raster::palette::{
+        HSL_DARKER_HUE_DEG, HSL_LIGHTER_HUE_DEG, OKLCH_DARKER_HUE_DEG, OKLCH_LIGHTER_HUE_DEG,
+    };
+    let mut rules: serde_json::Value = serde_json::from_str(text)?;
+    let Some(shift) = rules
+        .get_mut("hueShift")
+        .and_then(serde_json::Value::as_object_mut)
+    else {
+        return Ok(None);
+    };
+    let band = |value: Option<&serde_json::Value>| -> Option<[f32; 2]> {
+        serde_json::from_value(value?.clone()).ok()
+    };
+    if band(shift.get("darkerHueDeg")) != Some(HSL_DARKER_HUE_DEG)
+        || band(shift.get("lighterHueDeg")) != Some(HSL_LIGHTER_HUE_DEG)
+    {
+        return Ok(None);
+    }
+    shift.insert(
+        "darkerHueDeg".into(),
+        serde_json::json!(OKLCH_DARKER_HUE_DEG),
+    );
+    shift.insert(
+        "lighterHueDeg".into(),
+        serde_json::json!(OKLCH_LIGHTER_HUE_DEG),
+    );
+    Ok(Some(serde_json::to_string(&rules)?))
 }
 
 #[cfg(test)]
@@ -294,7 +370,7 @@ mod tests {
             .unwrap();
             saved.push((style, text));
         }
-        migrate(&mut c).unwrap();
+        migrate_to(&mut c, 6).unwrap();
         assert_eq!(
             c.query_row("SELECT MAX(version) FROM schema_migration", [], |r| r
                 .get::<_, i64>(0))
@@ -337,5 +413,62 @@ mod tests {
         assert_eq!((style.era.as_str(), style.rules.max_slots), ("custom", 9));
         assert!(style.rules.canvas_by_kind.is_empty());
         assert_eq!(style.rules.canvas_for("tile").width, 48);
+    }
+    #[test]
+    fn version_six_gains_proportions_a_project_log_and_oklch_hue_bands() {
+        let mut c = Connection::open_in_memory().unwrap();
+        migrate_to(&mut c, 6).unwrap();
+        // One style as a v6 release saved it, with the HSL hue bands, and one
+        // whose bands are something else, which is left as it is.
+        let mut hsl = serde_json::to_value(crate::raster::StyleRules::default()).unwrap();
+        hsl["hueShift"]["darkerHueDeg"] = serde_json::json!([12.0, 20.0]);
+        hsl["hueShift"]["lighterHueDeg"] = serde_json::json!([-20.0, -12.0]);
+        let mut other = hsl.clone();
+        other["hueShift"]["darkerHueDeg"] = serde_json::json!([10.0, 25.0]);
+        let (project, old, odd) = (
+            uuid::Uuid::now_v7().to_string(),
+            uuid::Uuid::now_v7().to_string(),
+            uuid::Uuid::now_v7().to_string(),
+        );
+        c.execute("INSERT INTO project VALUES(?1,'p',NULL,1,1)", [&project])
+            .unwrap();
+        for (id, rules) in [(&old, &hsl), (&odd, &other)] {
+            c.execute(
+                "INSERT INTO style(id,project_id,name,rules,created_at,updated_at,era,view)
+                 VALUES(?1,?2,'s',?3,1,1,'16bit','topdown')",
+                rusqlite::params![id, project, rules.to_string()],
+            )
+            .unwrap();
+        }
+        c.execute(
+            "UPDATE project SET style_id=?1 WHERE id=?2",
+            [&old, &project],
+        )
+        .unwrap();
+        let untouched: String = c
+            .query_row("SELECT rules FROM style WHERE id=?1", [&odd], |r| r.get(0))
+            .unwrap();
+        migrate(&mut c).unwrap();
+        assert!(c.prepare("SELECT * FROM project_log").is_ok());
+        let store = super::super::Store::from_connection(c).unwrap();
+        let upgraded = store
+            .style_read(uuid::Uuid::parse_str(&old).unwrap())
+            .unwrap();
+        assert_eq!(upgraded.proportions, "standard");
+        assert_eq!(upgraded.era, "16bit");
+        assert_eq!(upgraded.rules.hue_shift.darker_hue_deg, [6.0, 30.0]);
+        assert_eq!(upgraded.rules.hue_shift.lighter_hue_deg, [-30.0, -6.0]);
+        // Only the hue bands moved.
+        assert_eq!(
+            upgraded.rules.max_slots,
+            crate::raster::StyleRules::default().max_slots
+        );
+        let kept: String = store
+            .connection
+            .query_row("SELECT rules FROM style WHERE id=?1", [&odd], |r| r.get(0))
+            .unwrap();
+        assert_eq!(kept, untouched);
+        let project = store.project_list().unwrap().remove(0);
+        assert_eq!(project.proportions.as_deref(), Some("standard"));
     }
 }

@@ -35,6 +35,8 @@ pub struct Project {
     /// and filter them without reading each style. `None` with no style.
     pub era: Option<String>,
     pub view: Option<String>,
+    /// The body proportions of that style: `standard` or `chibi`.
+    pub proportions: Option<String>,
     pub created_at: i64,
     pub updated_at: i64,
 }
@@ -48,9 +50,39 @@ pub struct Style {
     pub era: String,
     /// One of [`crate::raster::palette::VIEWS`]: canvas sizes and proportions.
     pub view: String,
+    /// One of [`crate::raster::palette::PROPORTIONS`]: which silhouette bands
+    /// the shape gates read.
+    pub proportions: String,
     pub rules: StyleRules,
     pub created_at: i64,
     pub updated_at: i64,
+}
+/// One entry in a project's own log: what happened to the project or its
+/// style, and who did it. The asset op log cannot hold these, because its rows
+/// belong to an asset and a project can have none, or be gone.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectLogEntry {
+    pub seq: i64,
+    pub project_id: Uuid,
+    /// `project_create`, `project_rename`, `project_delete` or `style_rules_set`.
+    pub kind: String,
+    pub payload: serde_json::Value,
+    /// `user` or `agent:<mcp session id>`, as in the asset op log.
+    pub actor: String,
+    pub at: i64,
+}
+/// What a style edit did: the style as saved, whether it had to move to the
+/// `custom` era to hold rules its own era does not have, and whether an asset
+/// was given a style of its own to carry them.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StyleChange {
+    pub style: Style,
+    /// The era the style had before, when the edit moved it to `custom`.
+    pub era_was: Option<String>,
+    /// True when an asset that read its project's style got its own copy.
+    pub forked: bool,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

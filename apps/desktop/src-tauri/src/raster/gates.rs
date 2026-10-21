@@ -100,6 +100,37 @@ pub const HD2D: Thresholds = Thresholds {
     outline_bottom_band: 0.20,
 };
 
+/// The `reads-at-1x` band for a chibi silhouette: a big head on a small body
+/// with raised small details (a two-finger seal, a hair strand, a tail).
+///
+/// The standard ceiling of 28 calls an edge fringed. On a small chibi hero
+/// the raised details are the design, and each one-pixel-wide detail L px
+/// long adds about 2L to the perimeter. A 40 x 56 hero fills about 1000 px,
+/// so a body at the standard ceiling has a perimeter near 167; four such
+/// details of 6 px add about 48 more, which is P^2/A of about 46. The ceiling
+/// is that rounded up to 48. The first measured case, 43.6, sits inside it
+/// with room. The floor is unchanged, because a chibi lump is still a lump.
+pub const CHIBI_PERIMETER_RATIO: [f32; 2] = [18.0, 48.0];
+/// The `solidity` band for a chibi silhouette.
+///
+/// The standard ceiling of 0.82 asks for negative space between the limbs.
+/// A chibi head is about half the sprite's height and nearly round, and a
+/// pixel disc fills about 0.95 of its own hull, while the short body below it
+/// keeps the standard band. With the head about half of the hull's area, the
+/// whole reads as roughly 0.5 x 0.95 + 0.5 x 0.82, about 0.88, which is the
+/// ceiling. The first measured case, 0.837, sits inside it. The floor is
+/// unchanged, because a spindly chibi is still spindly.
+pub const CHIBI_SOLIDITY: [f32; 2] = [0.62, 0.88];
+
+/// The `reads-at-1x` and `solidity` bands for a style's proportions. Only the
+/// silhouette gates read the proportions; every other threshold is the same.
+pub fn silhouette_bands(proportions: &str) -> ([f32; 2], [f32; 2]) {
+    match proportions {
+        "chibi" => (CHIBI_PERIMETER_RATIO, CHIBI_SOLIDITY),
+        _ => (HD2D.perimeter_ratio, HD2D.solidity),
+    }
+}
+
 /// One measurement a gate made, in the shape `mcp-tools.md` §8 specifies.
 ///
 /// A bare reason code tells an agent only that it failed. A measured `detail`

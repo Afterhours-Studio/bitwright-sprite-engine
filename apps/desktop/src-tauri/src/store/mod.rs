@@ -25,6 +25,7 @@ mod workflow;
 pub use animation::{Animation, Frame};
 pub use models::*;
 
+use crate::raster::palette::{check_proportions, DEFAULT_ERA, DEFAULT_PROPORTIONS, DEFAULT_VIEW};
 use crate::raster::{
     IndexedBuffer, Layer, LayerRole, Palette, RgbaImage, StyleRules, Tilemap, LAYER_ROLES,
 };
@@ -154,10 +155,24 @@ impl Store {
             project_row,
         )?)
     }
-    /// A project and its own style, whose rules start from `era` and `view`.
+    /// A project and its own style, whose rules start from `era` and `view`,
+    /// drawn to standard proportions.
     pub fn project_create(&mut self, value: &str, era: &str, view: &str) -> Result<Project> {
+        self.project_create_as(value, era, view, DEFAULT_PROPORTIONS, "user")
+    }
+    /// [`Self::project_create`] with the style's body proportions, logged in
+    /// the project log under `actor`.
+    pub fn project_create_as(
+        &mut self,
+        value: &str,
+        era: &str,
+        view: &str,
+        proportions: &str,
+        actor: &str,
+    ) -> Result<Project> {
         name(value)?;
         let rules = StyleRules::for_style(era, view)?;
+        check_proportions(proportions)?;
         let id = Uuid::now_v7();
         let style = Uuid::now_v7();
         let at = now();
@@ -167,13 +182,14 @@ impl Store {
             params![id.to_string(), value, at],
         )?;
         tx.execute(
-            &format!("INSERT INTO style({STYLE_COLUMNS}) VALUES(?1,?2,?3,?4,?5,?6,?7,?7)"),
+            &format!("INSERT INTO style({STYLE_COLUMNS}) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?8)"),
             params![
                 style.to_string(),
                 id.to_string(),
                 value,
                 era,
                 view,
+                proportions,
                 json(&rules)?,
                 at
             ],
@@ -182,26 +198,221 @@ impl Store {
             "UPDATE project SET style_id=?1 WHERE id=?2",
             params![style.to_string(), id.to_string()],
         )?;
+        log_project(
+            &tx,
+            id,
+            "project_create",
+            &serde_json::json!({ "name": value, "era": era, "view": view, "proportions": proportions }),
+            actor,
+        )?;
         tx.commit()?;
         self.project_read(id)
     }
     pub fn project_rename(&mut self, id: Uuid, value: &str) -> Result<Project> {
+        self.project_rename_as(id, value, "user")
+    }
+    /// Renames the project and logs the old and new name under `actor`.
+    pub fn project_rename_as(&mut self, id: Uuid, value: &str, actor: &str) -> Result<Project> {
         name(value)?;
-        self.project_read(id)?;
-        self.connection.execute(
+        let before = self.project_read(id)?;
+        let tx = self.connection.transaction()?;
+        tx.execute(
             "UPDATE project SET name=?1,updated_at=?2 WHERE id=?3",
             params![value, now(), id.to_string()],
         )?;
+        log_project(
+            &tx,
+            id,
+            "project_rename",
+            &serde_json::json!({ "from": before.name, "to": value }),
+            actor,
+        )?;
+        tx.commit()?;
         self.project_read(id)
     }
     pub fn project_delete(&mut self, id: Uuid) -> Result<()> {
-        self.project_read(id)?;
+        self.project_delete_as(id, "user")
+    }
+    /// Deletes the project and everything under it. The log entry outlives
+    /// it, naming the project and how many assets went with it.
+    pub fn project_delete_as(&mut self, id: Uuid, actor: &str) -> Result<()> {
+        let project = self.project_read(id)?;
+        let assets = self.asset_list(id)?.len();
         let tx = self.connection.transaction()?;
         tx.execute("UPDATE project SET style_id=NULL WHERE style_id IN (SELECT id FROM style WHERE project_id=?1)",[id.to_string()])?;
         tx.execute("UPDATE asset SET style_id=NULL WHERE style_id IN (SELECT id FROM style WHERE project_id=?1)",[id.to_string()])?;
         tx.execute("DELETE FROM project WHERE id=?1", [id.to_string()])?;
+        log_project(
+            &tx,
+            id,
+            "project_delete",
+            &serde_json::json!({ "name": project.name, "assets": assets }),
+            actor,
+        )?;
         tx.commit()?;
         Ok(())
+    }
+    /// The project's log, oldest first. It survives the project, so a
+    /// deleted project's id still reads back who deleted it.
+    pub fn project_log(&self, id: Uuid) -> Result<Vec<ProjectLogEntry>> {
+        let mut statement = self.connection.prepare(
+            "SELECT seq,project_id,kind,payload,actor,at FROM project_log
+             WHERE project_id=?1 ORDER BY seq",
+        )?;
+        let rows = statement
+            .query_map([id.to_string()], |r| {
+                Ok(ProjectLogEntry {
+                    seq: r.get(0)?,
+                    project_id: uuid(r, 1)?,
+                    kind: r.get(2)?,
+                    payload: decode(r, 3)?,
+                    actor: r.get(4)?,
+                    at: r.get(5)?,
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(rows)
+    }
+    /// A partial, validated edit of a style's rules and proportions: the
+    /// project's style, or with `asset`, the asset's own.
+    ///
+    /// `patch` is a partial `StyleRules` in its JSON shape (see
+    /// [`StyleRules::patched`]). Rules that differ from what the style's era
+    /// gives are no longer that era, so a style that is not `custom` moves to
+    /// `custom` when its rules change, and says so in `era_was`. Proportions
+    /// are a separate choice and never move the era.
+    ///
+    /// An asset that reads its project's style is given a copy of its own
+    /// first (`forked`), so editing one sprite never restyles its siblings.
+    /// That copy is set on the asset through the op log, under `actor`, so it
+    /// undoes like any other style change; the edit itself goes to the
+    /// project log.
+    pub fn style_set_rules_as(
+        &mut self,
+        project: Uuid,
+        asset: Option<AssetId>,
+        patch: Option<&serde_json::Value>,
+        proportions: Option<&str>,
+        actor: &str,
+    ) -> Result<StyleChange> {
+        if let Some(proportions) = proportions {
+            check_proportions(proportions)?;
+        }
+        let owner = self.project_read(project)?;
+        let target = match asset {
+            Some(id) => {
+                let read = self.asset_read(id)?;
+                if read.project_id != project {
+                    return Err(AppError::new(
+                        "style.wrong_project",
+                        "the asset belongs to another project",
+                    ));
+                }
+                Some(read)
+            }
+            None => None,
+        };
+        // The style the edit lands on, before anything is written, so a
+        // refused patch writes nothing at all.
+        let (current, fork) = match &target {
+            Some(read) => match read.style_id {
+                Some(style) if Some(style) != owner.style_id => (self.style_read(style)?, false),
+                _ => (self.effective_style(read)?, true),
+            },
+            None => match owner.style_id {
+                Some(style) => (self.style_read(style)?, false),
+                None => (self.default_style(project, &owner.name)?, true),
+            },
+        };
+        let rules = match patch {
+            Some(patch) => current.rules.patched(patch)?,
+            None => current.rules.clone(),
+        };
+        let rules_changed = json(&rules)? != json(&current.rules)?;
+        let era_was = (rules_changed && current.era != "custom").then(|| current.era.clone());
+        let mut style = Style {
+            era: if era_was.is_some() {
+                "custom".into()
+            } else {
+                current.era.clone()
+            },
+            proportions: proportions.unwrap_or(&current.proportions).to_string(),
+            rules,
+            ..current
+        };
+        let forked = fork && target.is_some();
+        if fork {
+            let name = match &target {
+                Some(read) => format!("{} style", read.name),
+                None => owner.name.clone(),
+            };
+            let created = self.style_create_with(
+                Some(project),
+                &name,
+                &style.era,
+                &style.view,
+                &style.proportions,
+                style.rules.clone(),
+            )?;
+            match &target {
+                Some(read) => {
+                    self.commit(read.id, history::Mutation::Style(Some(created.id)), actor)?;
+                }
+                None => {
+                    self.project_set_style(project, Some(created.id))?;
+                }
+            }
+            style = created;
+        } else {
+            style = self.style_update(&style)?;
+        }
+        let tx = self.connection.transaction()?;
+        log_project(
+            &tx,
+            project,
+            "style_rules_set",
+            &serde_json::json!({
+                "styleId": style.id,
+                "assetId": target.as_ref().map(|read| read.id),
+                "rules": patch,
+                "proportions": proportions,
+                "eraWas": era_was,
+                "forked": forked,
+            }),
+            actor,
+        )?;
+        tx.commit()?;
+        Ok(StyleChange {
+            style,
+            era_was,
+            forked,
+        })
+    }
+    /// The style an asset is judged by, as a value to copy: its own, its
+    /// project's, or the default when neither has one.
+    fn effective_style(&self, asset: &Asset) -> Result<Style> {
+        if let Some(style) = asset.style_id {
+            return self.style_read(style);
+        }
+        let project = self.project_read(asset.project_id)?;
+        match project.style_id {
+            Some(style) => self.style_read(style),
+            None => self.default_style(project.id, &project.name),
+        }
+    }
+    /// An unsaved style of the default era and view, for a project with none.
+    fn default_style(&self, project: Uuid, value: &str) -> Result<Style> {
+        Ok(Style {
+            id: Uuid::nil(),
+            project_id: Some(project),
+            name: value.to_string(),
+            era: DEFAULT_ERA.into(),
+            view: DEFAULT_VIEW.into(),
+            proportions: DEFAULT_PROPORTIONS.into(),
+            rules: StyleRules::for_style(DEFAULT_ERA, DEFAULT_VIEW)?,
+            created_at: 0,
+            updated_at: 0,
+        })
     }
     pub fn project_set_style(&mut self, id: Uuid, style: Option<Uuid>) -> Result<Project> {
         self.project_read(id)?;
@@ -248,18 +459,32 @@ impl Store {
         view: &str,
         rules: StyleRules,
     ) -> Result<Style> {
+        self.style_create_with(project, value, era, view, DEFAULT_PROPORTIONS, rules)
+    }
+    /// [`Self::style_create`] with the style's body proportions.
+    pub fn style_create_with(
+        &mut self,
+        project: Option<Uuid>,
+        value: &str,
+        era: &str,
+        view: &str,
+        proportions: &str,
+        rules: StyleRules,
+    ) -> Result<Style> {
         name(value)?;
         StyleRules::for_style(era, view)?;
+        check_proportions(proportions)?;
         validate_rules(&rules)?;
         let id = Uuid::now_v7();
         self.connection.execute(
-            &format!("INSERT INTO style({STYLE_COLUMNS}) VALUES(?1,?2,?3,?4,?5,?6,?7,?7)"),
+            &format!("INSERT INTO style({STYLE_COLUMNS}) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?8)"),
             params![
                 id.to_string(),
                 project.map(|s| s.to_string()),
                 value,
                 era,
                 view,
+                proportions,
                 json(&rules)?,
                 now()
             ],
@@ -269,14 +494,16 @@ impl Store {
     pub fn style_update(&mut self, style: &Style) -> Result<Style> {
         name(&style.name)?;
         StyleRules::for_style(&style.era, &style.view)?;
+        check_proportions(&style.proportions)?;
         validate_rules(&style.rules)?;
         self.style_read(style.id)?;
         self.connection.execute(
-            "UPDATE style SET name=?1,era=?2,view=?3,rules=?4,updated_at=?5 WHERE id=?6",
+            "UPDATE style SET name=?1,era=?2,view=?3,proportions=?4,rules=?5,updated_at=?6 WHERE id=?7",
             params![
                 style.name,
                 style.era,
                 style.view,
+                style.proportions,
                 json(&style.rules)?,
                 now(),
                 style.id.to_string()
@@ -364,6 +591,10 @@ impl Store {
     /// Renaming a root renames its frames with it; a later frame's name is
     /// derived from the root's, so it cannot be renamed on its own.
     pub fn asset_rename(&mut self, id: AssetId, value: &str) -> Result<Asset> {
+        self.asset_rename_as(id, value, "user")
+    }
+    /// [`Self::asset_rename`], logged under `actor`.
+    pub fn asset_rename_as(&mut self, id: AssetId, value: &str, actor: &str) -> Result<Asset> {
         name(value)?;
         if self.asset_read(id)?.root_id.is_some() {
             return Err(AppError::new(
@@ -371,7 +602,7 @@ impl Store {
                 "a frame is named after its animation; rename the first frame",
             ));
         }
-        self.commit(id, history::Mutation::Rename(value.into()), "user")?;
+        self.commit(id, history::Mutation::Rename(value.into()), actor)?;
         self.asset_read(id)
     }
     /// Deleting a root deletes its whole animation, because the home screen
@@ -501,16 +732,29 @@ impl Store {
             .ok_or_else(|| AppError::new("reference.not_found", reference.to_string()))
     }
     pub fn reference_write(&mut self, reference: Reference) -> Result<OpResult> {
+        self.reference_write_as(reference, "user")
+    }
+    /// [`Self::reference_write`], logged under `actor`.
+    pub fn reference_write_as(&mut self, reference: Reference, actor: &str) -> Result<OpResult> {
         name(&reference.name)?;
         self.commit(
             reference.asset_id,
             history::Mutation::Reference(Some(reference.clone()), reference.id),
-            "user",
+            actor,
         )
     }
     pub fn reference_delete(&mut self, id: AssetId, reference: Uuid) -> Result<OpResult> {
+        self.reference_delete_as(id, reference, "user")
+    }
+    /// [`Self::reference_delete`], logged under `actor`.
+    pub fn reference_delete_as(
+        &mut self,
+        id: AssetId,
+        reference: Uuid,
+        actor: &str,
+    ) -> Result<OpResult> {
         self.reference_read(id, reference)?;
-        self.commit(id, history::Mutation::Reference(None, reference), "user")
+        self.commit(id, history::Mutation::Reference(None, reference), actor)
     }
     pub fn tilemap_read(&self, id: AssetId) -> Result<Tilemap> {
         self.asset_read(id)?;
@@ -584,7 +828,8 @@ impl Store {
 }
 
 /// A project with its default style's axes, which `project_row` reads.
-const PROJECT_COLUMNS: &str = "p.id,p.name,p.style_id,p.created_at,p.updated_at,s.era,s.view
+const PROJECT_COLUMNS: &str =
+    "p.id,p.name,p.style_id,p.created_at,p.updated_at,s.era,s.view,s.proportions
      FROM project p LEFT JOIN style s ON s.id=p.style_id";
 fn project_row(r: &Row<'_>) -> rusqlite::Result<Project> {
     Ok(Project {
@@ -595,11 +840,12 @@ fn project_row(r: &Row<'_>) -> rusqlite::Result<Project> {
         updated_at: r.get(4)?,
         era: r.get(5)?,
         view: r.get(6)?,
+        proportions: r.get(7)?,
     })
 }
 /// Named, because migration 6 appended `era` and `view` after the columns a
 /// version-1 database already had, so position would differ by history.
-const STYLE_COLUMNS: &str = "id,project_id,name,era,view,rules,created_at,updated_at";
+const STYLE_COLUMNS: &str = "id,project_id,name,era,view,proportions,rules,created_at,updated_at";
 fn style_row(r: &Row<'_>) -> rusqlite::Result<Style> {
     Ok(Style {
         id: uuid(r, 0)?,
@@ -607,9 +853,10 @@ fn style_row(r: &Row<'_>) -> rusqlite::Result<Style> {
         name: r.get(2)?,
         era: r.get(3)?,
         view: r.get(4)?,
-        rules: decode(r, 5)?,
-        created_at: r.get(6)?,
-        updated_at: r.get(7)?,
+        proportions: r.get(5)?,
+        rules: decode(r, 6)?,
+        created_at: r.get(7)?,
+        updated_at: r.get(8)?,
     })
 }
 fn asset_row(r: &Row<'_>) -> rusqlite::Result<Asset> {
@@ -727,22 +974,31 @@ fn effective_rules(c: &Connection, asset: &Asset) -> Result<StyleRules> {
         .transpose()?
         .unwrap_or_default())
 }
-fn validate_rules(rules: &StyleRules) -> Result<()> {
-    if rules.max_slots == 0
-        || rules.max_slots > 62
-        || rules.ramp_steps.min == 0
-        || rules.ramp_steps.min > rules.ramp_steps.max
-        || rules.ramp_steps.max > 62
-        || !rules.noise_budget.is_finite()
-        || !(0.0..=1.0).contains(&rules.noise_budget)
-    {
-        return Err(AppError::new(
-            "style.invalid_rules",
-            "invalid palette or noise limits",
-        ));
-    }
-    IndexedBuffer::new(rules.canvas.width, rules.canvas.height)?;
+/// The body proportions an asset is judged by: its own style's, its
+/// project's, or standard when neither has a style.
+fn effective_proportions(c: &Connection, asset: &Asset) -> Result<String> {
+    let proportions: Option<String> = c.query_row("SELECT proportions FROM style WHERE id=COALESCE(?1,(SELECT style_id FROM project WHERE id=?2))",params![asset.style_id.map(|s|s.to_string()),asset.project_id.to_string()],|r|r.get(0)).optional()?;
+    Ok(proportions.unwrap_or_else(|| DEFAULT_PROPORTIONS.into()))
+}
+/// Appends one entry to a project's log, inside the caller's transaction so
+/// the entry and the change it describes land together.
+fn log_project(
+    c: &Connection,
+    project: Uuid,
+    kind: &str,
+    payload: &serde_json::Value,
+    actor: &str,
+) -> Result<()> {
+    c.execute(
+        "INSERT INTO project_log(project_id,kind,payload,actor,at) VALUES(?1,?2,?3,?4,?5)",
+        params![project.to_string(), kind, json(payload)?, actor, now()],
+    )?;
     Ok(())
+}
+/// One validation for every way rules reach the store, so a style created,
+/// updated or patched is held to the same ranges.
+fn validate_rules(rules: &StyleRules) -> Result<()> {
+    Ok(rules.validate()?)
 }
 
 #[cfg(test)]
@@ -1346,5 +1602,217 @@ mod tests {
         for pixel in image.data[4..].chunks_exact(4) {
             assert_eq!(pixel, &[0, 0, 0, 0]);
         }
+    }
+
+    #[test]
+    fn project_create_rename_and_delete_are_logged_with_their_actor() {
+        let mut store = Store::memory().unwrap();
+        let project = store
+            .project_create_as("forest", "16bit", "sideview", "chibi", "agent:s-1")
+            .unwrap();
+        assert_eq!(project.proportions.as_deref(), Some("chibi"));
+        store
+            .project_rename_as(project.id, "grove", "agent:s-1")
+            .unwrap();
+        store
+            .asset_create(project.id, "hero", "prop", 4, 4)
+            .unwrap();
+        store.project_delete_as(project.id, "agent:s-2").unwrap();
+        // The log outlives the project it describes.
+        let log = store.project_log(project.id).unwrap();
+        let kinds: Vec<_> = log
+            .iter()
+            .map(|entry| (entry.kind.as_str(), entry.actor.as_str()))
+            .collect();
+        assert_eq!(
+            kinds,
+            [
+                ("project_create", "agent:s-1"),
+                ("project_rename", "agent:s-1"),
+                ("project_delete", "agent:s-2")
+            ]
+        );
+        assert_eq!(log[1].payload["from"], "forest");
+        assert_eq!(log[1].payload["to"], "grove");
+        assert_eq!(log[2].payload["assets"], 1);
+        // The window's own calls log as the person.
+        let (mut store, project) = self::store();
+        store.project_rename(project, "renamed").unwrap();
+        assert!(store
+            .project_log(project)
+            .unwrap()
+            .iter()
+            .all(|entry| entry.actor == "user"));
+        assert_eq!(
+            store
+                .project_create_as("x", "32bit", "topdown", "heroic", "user")
+                .unwrap_err()
+                .code,
+            "style.invalid_proportions"
+        );
+    }
+
+    #[test]
+    fn asset_rename_and_reference_writes_carry_their_actor() {
+        let (mut store, project) = store();
+        let asset = store.asset_create(project, "hero", "prop", 4, 4).unwrap();
+        store
+            .asset_rename_as(asset.id, "knight", "agent:s-9")
+            .unwrap();
+        let reference = Reference {
+            id: Uuid::now_v7(),
+            asset_id: asset.id,
+            name: "picture".into(),
+            source_png: vec![1],
+            conformed: None,
+            conform_meta: None,
+            created_at: 1,
+        };
+        store
+            .reference_write_as(reference.clone(), "agent:s-9")
+            .unwrap();
+        store
+            .reference_delete_as(asset.id, reference.id, "agent:s-9")
+            .unwrap();
+        let log = store.op_log(asset.id).unwrap();
+        let agent = log.iter().filter(|op| op.actor == "agent:s-9").count();
+        assert_eq!(agent, 3, "{log:?}");
+    }
+
+    #[test]
+    fn a_project_style_edit_is_partial_validated_logged_and_moves_the_era_to_custom() {
+        let mut store = Store::memory().unwrap();
+        let project = store
+            .project_create("forest", "16bit", "topdown")
+            .unwrap()
+            .id;
+        let before = store.project_rules(project).unwrap();
+        let change = store
+            .style_set_rules_as(
+                project,
+                None,
+                Some(&serde_json::json!({ "maxSlots": 12, "rampSteps": { "max": 4 } })),
+                None,
+                "agent:s-1",
+            )
+            .unwrap();
+        assert_eq!(change.era_was.as_deref(), Some("16bit"));
+        assert_eq!(change.style.era, "custom");
+        assert!(!change.forked);
+        let after = store.project_rules(project).unwrap();
+        assert_eq!(after.max_slots, 12);
+        assert_eq!(after.ramp_steps.min, before.ramp_steps.min);
+        assert_eq!(after.ramp_steps.max, 4);
+        assert_eq!(
+            after.canvas_for("character"),
+            before.canvas_for("character")
+        );
+        let projects = store.project_list().unwrap();
+        assert_eq!(projects[0].era.as_deref(), Some("custom"));
+        let log = store.project_log(project).unwrap();
+        let last = log.last().unwrap();
+        assert_eq!(
+            (last.kind.as_str(), last.actor.as_str()),
+            ("style_rules_set", "agent:s-1")
+        );
+        assert_eq!(last.payload["eraWas"], "16bit");
+        // A custom style stays custom, and proportions alone never move the era.
+        let again = store
+            .style_set_rules_as(
+                project,
+                None,
+                Some(&serde_json::json!({ "maxSlots": 10 })),
+                None,
+                "user",
+            )
+            .unwrap();
+        assert_eq!(again.era_was, None);
+        let (mut store, fresh) = self::store();
+        let chibi = store
+            .style_set_rules_as(fresh, None, None, Some("chibi"), "user")
+            .unwrap();
+        assert_eq!(chibi.era_was, None);
+        assert_eq!(
+            (chibi.style.era.as_str(), chibi.style.proportions.as_str()),
+            ("32bit", "chibi")
+        );
+        // A refused patch writes nothing.
+        let entries = store.project_log(fresh).unwrap().len();
+        for bad in [
+            serde_json::json!({ "maxSlots": 99 }),
+            serde_json::json!({ "outline": "thick" }),
+            serde_json::json!({ "colour": "red" }),
+        ] {
+            assert_eq!(
+                store
+                    .style_set_rules_as(fresh, None, Some(&bad), None, "user")
+                    .unwrap_err()
+                    .code,
+                "style.invalid_rules"
+            );
+        }
+        assert_eq!(
+            store
+                .style_set_rules_as(fresh, None, None, Some("heroic"), "user")
+                .unwrap_err()
+                .code,
+            "style.invalid_proportions"
+        );
+        assert_eq!(store.project_log(fresh).unwrap().len(), entries);
+        assert_eq!(store.project_rules(fresh).unwrap().max_slots, 24);
+    }
+
+    #[test]
+    fn an_asset_style_edit_gives_the_asset_its_own_style_and_leaves_its_siblings() {
+        let (mut store, project) = store();
+        let hero = store.asset_create(project, "hero", "prop", 4, 4).unwrap();
+        let sibling = store.asset_create(project, "tree", "prop", 4, 4).unwrap();
+        let change = store
+            .style_set_rules_as(
+                project,
+                Some(hero.id),
+                Some(&serde_json::json!({ "maxSlots": 8 })),
+                Some("chibi"),
+                "agent:s-3",
+            )
+            .unwrap();
+        assert!(change.forked);
+        assert_eq!(change.era_was.as_deref(), Some("32bit"));
+        assert_eq!(store.asset_rules(hero.id).unwrap().max_slots, 8);
+        assert_eq!(store.asset_rules(sibling.id).unwrap().max_slots, 24);
+        assert_eq!(store.project_rules(project).unwrap().max_slots, 24);
+        let read = store.asset_read(hero.id).unwrap();
+        assert_eq!(read.style_id, Some(change.style.id));
+        assert_eq!(
+            effective_proportions(&store.connection, &read).unwrap(),
+            "chibi"
+        );
+        // The asset now has a style of its own, so a second edit lands on it.
+        let second = store
+            .style_set_rules_as(
+                project,
+                Some(hero.id),
+                Some(&serde_json::json!({ "maxSlots": 6 })),
+                None,
+                "agent:s-3",
+            )
+            .unwrap();
+        assert!(!second.forked);
+        assert_eq!(second.style.id, change.style.id);
+        // Giving the asset its style is an asset op under the agent's name,
+        // so undo can take it back.
+        assert!(store
+            .op_log(hero.id)
+            .unwrap()
+            .iter()
+            .any(|op| op.actor == "agent:s-3"));
+        let other = store.project_create("other", "32bit", "topdown").unwrap();
+        assert_eq!(
+            store
+                .style_set_rules_as(other.id, Some(hero.id), None, None, "user")
+                .unwrap_err()
+                .code,
+            "style.wrong_project"
+        );
     }
 }

@@ -27,6 +27,12 @@ impl Store {
     pub fn step_check(&self, id: AssetId) -> Result<GateReport> {
         let document = self.asset_open(id)?;
         let rules = super::effective_rules(&self.connection, &document.asset)?;
+        // A chibi style widens the two shape gates its big head and raised
+        // details break on purpose; every other gate reads the same.
+        let (ratio_band, solidity_band) = gates::silhouette_bands(&super::effective_proportions(
+            &self.connection,
+            &document.asset,
+        )?);
         let mut buffer = IndexedBuffer::new(document.asset.width, document.asset.height)?;
         let mut ordered: Vec<_> = document.layers.iter().collect();
         ordered.sort_by_key(|layer| layer.ordinal);
@@ -247,7 +253,7 @@ impl Store {
                     ),
                 ));
                 let ratio = measured.perimeter_squared_over_area;
-                let band = gates::HD2D.perimeter_ratio;
+                let band = ratio_band;
                 checks.push(GateCheck::verdict(
                     "reads-at-1x",
                     (band[0]..=band[1]).contains(&ratio),
@@ -256,12 +262,12 @@ impl Store {
                         band[0], band[1]
                     ),
                     if ratio > band[1] {
-                        "Thicken or remove the single-pixel spikes. §3.4 calls an edge above this band fringed, and fringe disappears at display scale."
+                        "Thicken or remove the single-pixel spikes. §3.4 calls an edge above this band fringed, and fringe disappears at display scale. A chibi hero whose raised small details are the design can instead set proportions: chibi with set_style_rules."
                     } else {
                         "Exaggerate the defining extremity - weapon, hat, hair - until the shape has features. §3.4 calls a shape below this band a lump."
                     },
                 ));
-                let band = gates::HD2D.solidity;
+                let band = solidity_band;
                 checks.push(GateCheck::verdict(
                     "solidity",
                     (band[0]..=band[1]).contains(&measured.solidity),
@@ -270,7 +276,7 @@ impl Store {
                         measured.solidity, band[0], band[1]
                     ),
                     if measured.solidity > band[1] {
-                        "Carve a notch of at least 2x2 px between arm and torso or between the legs. §11.6 calls a shape this solid a silhouette with no negative space."
+                        "Carve a notch of at least 2x2 px between arm and torso or between the legs. §11.6 calls a shape this solid a silhouette with no negative space. A big-headed chibi hero can instead set proportions: chibi with set_style_rules."
                     } else {
                         "Thicken the limbs. §11.6 calls a shape this sparse spindly, and it reads as a wire frame rather than a body."
                     },
@@ -827,7 +833,7 @@ mod tests {
         [241, 220, 177, 255],
         [126, 35, 17, 255],
         [159, 74, 9, 255],
-        [168, 135, 56, 255],
+        [176, 126, 60, 255],
     ];
     /// A solid six-by-six body with a one pixel margin, whose perimeter is 20.
     const BODY: &str =
@@ -946,6 +952,112 @@ AAAAAAAA
 
     fn raised(step: &str, drawn: &[(&str, &str)], name: &str) -> bool {
         !check(step, drawn, name).pass
+    }
+
+    /// A 40 x 56 chibi hero in the shape of the first real sprite that hit
+    /// the silhouette gate: a round head about half the height on a short
+    /// body, with the raised small details that are the design - a hair
+    /// strand and a hair tail off the head, and a two-finger seal held up
+    /// beside the body.
+    fn chibi_hero() -> IndexedBuffer {
+        let (width, height) = (40_i32, 56_i32);
+        let mut buffer = IndexedBuffer::new(40, 56).unwrap();
+        let mut fill = |x: i32, y: i32| {
+            if (0..width).contains(&x) && (0..height).contains(&y) {
+                buffer.data[(y * width + x) as usize] = 2;
+            }
+        };
+        // The head: a disc of radius 13 centred at (20, 17).
+        for y in 0..height {
+            for x in 0..width {
+                let (dx, dy) = (x - 20, y - 17);
+                if dx * dx + dy * dy <= 13 * 13 {
+                    fill(x, y);
+                }
+            }
+        }
+        // The body: a short torso with the arms at its sides, and two stubby
+        // legs with a notch between them.
+        for y in 29..46 {
+            for x in 9..31 {
+                fill(x, y);
+            }
+        }
+        for y in 46..52 {
+            for x in (11..20).chain(21..30) {
+                fill(x, y);
+            }
+        }
+        // A hair strand rising off the crown, one pixel wide.
+        for y in 1..4 {
+            fill(20, y);
+        }
+        // A hair tail swinging out from the back of the head.
+        for x in 33..37 {
+            fill(x, 20);
+        }
+        // The two-finger seal, raised from the left hand.
+        for x in 6..10 {
+            fill(x, 33);
+            fill(x, 35);
+        }
+        buffer
+    }
+
+    #[test]
+    fn the_measured_chibi_case_passes_as_chibi_and_not_as_standard() {
+        // The numbers the first real chibi sprite measured at.
+        let (ratio, solidity) = (43.6, 0.837);
+        let (standard_ratio, standard_solidity) = gates::silhouette_bands("standard");
+        assert!(ratio > standard_ratio[1] && solidity > standard_solidity[1]);
+        let (chibi_ratio, chibi_solidity) = gates::silhouette_bands("chibi");
+        assert!((chibi_ratio[0]..=chibi_ratio[1]).contains(&ratio));
+        assert!((chibi_solidity[0]..=chibi_solidity[1]).contains(&solidity));
+        // The floors do not move: a lump or a wire frame is one either way.
+        assert_eq!(chibi_ratio[0], standard_ratio[0]);
+        assert_eq!(chibi_solidity[0], standard_solidity[0]);
+    }
+
+    #[test]
+    fn a_chibi_hero_fails_the_standard_silhouette_gate_and_passes_as_chibi() {
+        let mut store = Store::memory().unwrap();
+        let project = store.project_create("project", "32bit", "topdown").unwrap();
+        let asset = store
+            .asset_create(project.id, "hero", "character", 40, 56)
+            .unwrap();
+        store.palette_write(asset.id, palette()).unwrap();
+        let mut layer = store
+            .layer_read(asset.id, LayerRole::parse("silhouette").unwrap())
+            .unwrap();
+        layer.buffer = chibi_hero();
+        store.layer_write(asset.id, layer).unwrap();
+        store
+            .commit(asset.id, Mutation::Step("silhouette".into()), "user")
+            .unwrap();
+        let verdict = |store: &Store, name: &str| {
+            store
+                .step_check(asset.id)
+                .unwrap()
+                .checks
+                .into_iter()
+                .find(|check| check.name == name)
+                .unwrap()
+        };
+        // Near the measured case: over both standard ceilings.
+        let measured = gates::measure(&chibi_hero(), &palette()).unwrap();
+        assert!((38.0..48.0).contains(&measured.perimeter_squared_over_area));
+        assert!((0.82..0.88).contains(&measured.solidity));
+        let fringed = verdict(&store, "reads-at-1x");
+        assert!(!fringed.pass);
+        assert!(fringed.hint.unwrap().contains("proportions: chibi"));
+        assert!(!verdict(&store, "solidity").pass);
+        store
+            .style_set_rules_as(project.id, None, None, Some("chibi"), "user")
+            .unwrap();
+        assert!(verdict(&store, "reads-at-1x").pass);
+        assert!(verdict(&store, "solidity").pass);
+        let report = store.step_check(asset.id).unwrap();
+        assert!(report.pass, "{:?}", report.failures());
     }
 
     #[test]

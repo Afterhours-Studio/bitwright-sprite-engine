@@ -33,6 +33,27 @@ const MUD_DELTA_L: f32 = 0.05;
 /// same space to describe one colour difference.
 const MUD_DELTA_HUE: f32 = 20.0;
 
+/// The OKLCH hue rotation a step into shadow takes, signed toward blue (skin
+/// inverts it).
+///
+/// The style guide wrote this as 12 to 20 HSL degrees, but HSL's wheel is not
+/// even: the same 12 to 20 degrees is 3 to 24 OKLCH degrees in the greens and
+/// 7 to 39 in the yellows, while the lightness and chroma rules beside it were
+/// already OKLCH. Read in OKLCH, the worked palettes in the guide (palette.md
+/// §3 and the recipes palette) and the test ramps step by 6.2 at the least
+/// (the green cloth) and 29.2 at the most (the rim's shadow step). The band is
+/// those two rounded outward: 6 is still a rotation the eye reads at sprite
+/// chroma, which a lightness-only step (0 to 2 degrees) is not, and 30 keeps a
+/// step inside its hue family rather than letting the yellows run to the 39
+/// the uneven HSL wheel allowed them.
+pub const OKLCH_DARKER_HUE_DEG: [f32; 2] = [6.0, 30.0];
+/// The same band going lighter, signed toward yellow.
+pub const OKLCH_LIGHTER_HUE_DEG: [f32; 2] = [-30.0, -6.0];
+/// The bands rules saved before the switch to OKLCH carry, which migration 7
+/// recognises and replaces.
+pub const HSL_DARKER_HUE_DEG: [f32; 2] = [12.0, 20.0];
+pub const HSL_LIGHTER_HUE_DEG: [f32; 2] = [-20.0, -12.0];
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub enum Material {
@@ -143,10 +164,10 @@ impl Default for StyleRules {
             max_slots: 24,
             ramp_steps: RampSteps { min: 3, max: 5 },
             hue_shift: HueShift {
-                darker_hue_deg: [12.0, 20.0],
+                darker_hue_deg: OKLCH_DARKER_HUE_DEG,
                 darker_chroma_factor: [0.85, 1.12],
                 darker_delta_l: [-0.13, -0.08],
-                lighter_hue_deg: [-20.0, -12.0],
+                lighter_hue_deg: OKLCH_LIGHTER_HUE_DEG,
                 lighter_chroma_factor: [0.70, 0.85],
                 lighter_delta_l: [0.09, 0.15],
             },
@@ -175,6 +196,36 @@ pub const ERAS: [&str; 4] = ["8bit", "16bit", "32bit", "custom"];
 pub const VIEWS: [&str; 2] = ["topdown", "sideview"];
 pub const DEFAULT_ERA: &str = "32bit";
 pub const DEFAULT_VIEW: &str = "topdown";
+/// The body proportions a style is drawn to. `chibi` is a big head on a
+/// small body with raised small details, which the silhouette gates measure
+/// against wider bands (see `gates::silhouette_bands`).
+pub const PROPORTIONS: [&str; 2] = ["standard", "chibi"];
+pub const DEFAULT_PROPORTIONS: &str = "standard";
+
+/// Refuses a proportions value the gates have no bands for.
+pub fn check_proportions(value: &str) -> Result<()> {
+    if PROPORTIONS.contains(&value) {
+        Ok(())
+    } else {
+        Err(RasterError::new("style.invalid_proportions", value))
+    }
+}
+
+/// The outline modes the outline gate knows how to measure.
+pub const OUTLINE_MODES: [&str; 3] = ["full", "selective", "none"];
+/// The light directions `gates::key_degrees` names.
+pub const LIGHT_DIRECTIONS: [&str; 8] = [
+    "upper-left",
+    "upper-right",
+    "lower-left",
+    "lower-right",
+    "up",
+    "down",
+    "left",
+    "right",
+];
+/// The kinds a canvas can be set for. A tileset takes `tile`'s size.
+pub const CANVAS_KINDS: [&str; 4] = ["character", "prop", "tile", "background"];
 
 /// The era and view a pre-v6 preset became. The style guide is an overworld
 /// guide, so every preset was a top-down one.
@@ -261,6 +312,164 @@ impl StyleRules {
     pub fn canvas_for(&self, kind: &str) -> Canvas {
         let key = if kind == "tileset" { "tile" } else { kind };
         self.canvas_by_kind.get(key).copied().unwrap_or(self.canvas)
+    }
+
+    /// Refuses rules no gate could measure against, in the ranges
+    /// [`Self::for_style`] produces values from. Every era's numbers sit well
+    /// inside these, so a hand-edited `custom` style can move them but not turn
+    /// them inside out: a band whose low end is above its high end, a darker
+    /// step that gets lighter, a palette no grid alphabet can name.
+    pub fn validate(&self) -> Result<()> {
+        let invalid = |detail: String| Err(RasterError::new("style.invalid_rules", detail));
+        // 62 is the grid alphabet's size, which is every slot read_canvas can
+        // print; one slot is not a palette with ramps in it.
+        if !(2..=62).contains(&self.max_slots) {
+            return invalid(format!("maxSlots {} is outside 2..62", self.max_slots));
+        }
+        // A one-step ramp has no step to measure a hue shift on, and no era
+        // asks for more than five; eight leaves room for a long metal ramp.
+        let steps = &self.ramp_steps;
+        if steps.min < 2 || steps.min > steps.max || steps.max > 8 {
+            return invalid(format!(
+                "rampSteps {}..{} is outside 2..8 or runs backwards",
+                steps.min, steps.max
+            ));
+        }
+        if !OUTLINE_MODES.contains(&self.outline.as_str()) {
+            return invalid(format!(
+                "outline {} is not one of full, selective, none",
+                self.outline
+            ));
+        }
+        if !LIGHT_DIRECTIONS.contains(&self.light_direction.as_str()) {
+            return invalid(format!(
+                "lightDirection {} is not one of {}",
+                self.light_direction,
+                LIGHT_DIRECTIONS.join(", ")
+            ));
+        }
+        let band = |name: &str, value: [f32; 2], range: [f32; 2]| -> Result<()> {
+            if value.iter().all(|v| v.is_finite())
+                && value[0] <= value[1]
+                && range[0] <= value[0]
+                && value[1] <= range[1]
+            {
+                Ok(())
+            } else {
+                invalid(format!(
+                    "{name} {:?} must be low then high, inside {}..{}",
+                    value, range[0], range[1]
+                ))
+            }
+        };
+        let shift = &self.hue_shift;
+        // Signed bands: going darker turns toward blue and down in lightness,
+        // going lighter turns toward yellow and up, so each keeps its sign.
+        band("hueShift.darkerHueDeg", shift.darker_hue_deg, [0.0, 90.0])?;
+        band(
+            "hueShift.lighterHueDeg",
+            shift.lighter_hue_deg,
+            [-90.0, 0.0],
+        )?;
+        band(
+            "hueShift.darkerChromaFactor",
+            shift.darker_chroma_factor,
+            [0.0, 3.0],
+        )?;
+        band(
+            "hueShift.lighterChromaFactor",
+            shift.lighter_chroma_factor,
+            [0.0, 3.0],
+        )?;
+        band("hueShift.darkerDeltaL", shift.darker_delta_l, [-1.0, 0.0])?;
+        band("hueShift.lighterDeltaL", shift.lighter_delta_l, [0.0, 1.0])?;
+        band("valueFloor", self.value_floor, [0.0, 1.0])?;
+        band("valueCeiling", self.value_ceiling, [0.0, 1.0])?;
+        if self.value_floor[1] >= self.value_ceiling[0] {
+            return invalid("valueFloor must sit below valueCeiling".into());
+        }
+        band("outlineCoverage", self.outline_coverage, [0.0, 1.0])?;
+        band("rimCoverage", self.rim_coverage, [0.0, 1.0])?;
+        for (name, value) in [
+            ("minEdgeDeltaL", self.min_edge_delta_l),
+            ("noiseBudget", self.noise_budget),
+        ] {
+            if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+                return invalid(format!("{name} {value} is outside 0..1"));
+            }
+        }
+        // A canvas is valid when a buffer of that size could be made.
+        let canvas = |name: &str, canvas: &Canvas| -> Result<()> {
+            super::IndexedBuffer::new(canvas.width, canvas.height)
+                .map(|_| ())
+                .or_else(|error| invalid(format!("{name}: {}", error.detail)))
+        };
+        canvas("canvas", &self.canvas)?;
+        for (kind, size) in &self.canvas_by_kind {
+            if !CANVAS_KINDS.contains(&kind.as_str()) {
+                return invalid(format!(
+                    "canvasByKind names {kind}; the kinds are {}",
+                    CANVAS_KINDS.join(", ")
+                ));
+            }
+            canvas(&format!("canvasByKind.{kind}"), size)?;
+        }
+        Ok(())
+    }
+
+    /// These rules with `patch` laid over them: a partial `StyleRules` in its
+    /// JSON shape, where an object merges key by key and anything else
+    /// replaces. A key the rules do not have is refused rather than dropped,
+    /// so a misspelt field cannot read back as a change that was made.
+    pub fn patched(&self, patch: &serde_json::Value) -> Result<Self> {
+        fn merge(
+            target: &mut serde_json::Value,
+            patch: &serde_json::Value,
+            path: &str,
+            open: bool,
+        ) -> Result<()> {
+            let (Some(target), Some(patch)) = (target.as_object_mut(), patch.as_object()) else {
+                return Err(RasterError::new(
+                    "style.invalid_rules",
+                    format!(
+                        "{} must be an object",
+                        if path.is_empty() { "rules" } else { path }
+                    ),
+                ));
+            };
+            for (key, value) in patch {
+                let at = if path.is_empty() {
+                    key.clone()
+                } else {
+                    format!("{path}.{key}")
+                };
+                match target.get_mut(key) {
+                    Some(slot) if slot.is_object() && value.is_object() => {
+                        // `canvasByKind` is a map, so a new kind is a new key
+                        // rather than a misspelling.
+                        merge(slot, value, &at, at == "canvasByKind")?;
+                    }
+                    Some(slot) => *slot = value.clone(),
+                    None if open => {
+                        target.insert(key.clone(), value.clone());
+                    }
+                    None => {
+                        return Err(RasterError::new(
+                            "style.invalid_rules",
+                            format!("{at} is not a style rule"),
+                        ))
+                    }
+                }
+            }
+            Ok(())
+        }
+        let mut value = serde_json::to_value(self)
+            .map_err(|e| RasterError::new("style.invalid_rules", e.to_string()))?;
+        merge(&mut value, patch, "", false)?;
+        let rules: Self = serde_json::from_value(value)
+            .map_err(|e| RasterError::new("style.invalid_rules", e.to_string()))?;
+        rules.validate()?;
+        Ok(rules)
     }
 }
 
@@ -451,18 +660,15 @@ impl Palette {
                 // Hue has no direction at zero chroma, so a grey ramp does not
                 // acquire a fabricated hue shift from floating point noise.
                 let grey = pair.iter().any(|lab| color::chroma(*lab) < 0.001);
-                // Measured in HSL degrees, which is the unit the style rules are
-                // written in, and in the direction the step is taken, which is
-                // the direction the rule names.
+                // Measured as an OKLCH hue angle, the space the lightness and
+                // chroma rules beside it are read in, and in the direction the
+                // step is taken, which is the direction the rule names.
                 let (from, to) = if darker {
                     (step + 1, step)
                 } else {
                     (step, step + 1)
                 };
-                let rotation = color::angle_delta(
-                    color::hsl_hue(entries[to].rgba),
-                    color::hsl_hue(entries[from].rgba),
-                );
+                let rotation = color::angle_delta(color::hue(labs[to]), color::hue(labs[from]));
                 // Skin, and anything else translucent, rotates toward red in
                 // shadow rather than toward blue, because light that enters the
                 // surface and scatters back out carries the blood under it. It
@@ -553,7 +759,7 @@ impl Palette {
             (
                 "ramp-hue-shift",
                 hue,
-                "Rotate the hue as you step: §2.4 asks 12 to 20 degrees toward blue going darker, the same toward yellow going lighter, and the opposite sign on skin.",
+                "Rotate the OKLCH hue as you step (§2.4), by the band get_style_rules gives (6 to 30 degrees by default): toward blue going darker, toward yellow going lighter, and the opposite sign on skin. A step that only changes lightness has no hue shift at all.",
             ),
             (
                 "ramp-chroma-shift",
@@ -656,8 +862,9 @@ mod tests {
     /// light. Its spread is 0.22, inside the band §2.3 gives cloth.
     const CLOTH: [[u8; 4]; 3] = [[53, 59, 146, 255], [52, 97, 188, 255], [55, 142, 200, 255]];
     /// The same ramp built the other way round: its shadows rotate toward red,
-    /// which is what §2.4 asks of skin and of anything else translucent.
-    const SKIN: [[u8; 4]; 3] = [[126, 35, 17, 255], [159, 74, 9, 255], [168, 135, 56, 255]];
+    /// which is what §2.4 asks of skin and of anything else translucent. The
+    /// light step turns 21.8 OKLCH degrees toward yellow.
+    const SKIN: [[u8; 4]; 3] = [[126, 35, 17, 255], [159, 74, 9, 255], [176, 126, 60, 255]];
     /// The two colours §2.6 shares across a project. They are what carries a
     /// palette down to the value floor and up to the ceiling, because no single
     /// material's ramp is allowed to span that far at 0.11 a step.
@@ -1093,6 +1300,186 @@ mod tests {
         assert_eq!(
             resolve_style(None, Some("sideview"), None).unwrap(),
             ("32bit".into(), "sideview".into())
+        );
+    }
+
+    fn hex(text: &str) -> [u8; 4] {
+        let byte = |at: usize| u8::from_str_radix(&text[at..at + 2], 16).unwrap();
+        [byte(1), byte(3), byte(5), 255]
+    }
+
+    /// Every ramp the guide hands an agent to send verbatim, with whether it
+    /// takes the skin exception: palette.md §3 and the recipes palette.
+    const WORKED_RAMPS: [(&str, bool, &[&str]); 14] = [
+        (
+            "palette.md skin",
+            true,
+            &["#8F595E", "#AB7469", "#C19470", "#CEBB92"],
+        ),
+        (
+            "palette.md cloth-blue",
+            false,
+            &["#3E4991", "#406EB3", "#509BC1"],
+        ),
+        (
+            "palette.md cloth-green",
+            false,
+            &["#447648", "#69945F", "#9AB485"],
+        ),
+        (
+            "palette.md leather",
+            false,
+            &["#2F3000", "#604914", "#906D52"],
+        ),
+        ("palette.md hair", false, &["#2D0E22", "#492C46", "#69546D"]),
+        ("palette.md ink", false, &["#0D051A", "#211E36", "#393C50"]),
+        ("palette.md rim", false, &["#B6A889", "#E3C4AE", "#FFE2DC"]),
+        (
+            "recipes.md skin",
+            true,
+            &["#885659", "#AC7361", "#C19470", "#D0B692"],
+        ),
+        (
+            "recipes.md cloth-blue",
+            false,
+            &["#3F4595", "#406EB3", "#5697C3"],
+        ),
+        (
+            "recipes.md cloth-green",
+            false,
+            &["#2B7750", "#69945F", "#A0AF7E"],
+        ),
+        (
+            "recipes.md leather",
+            false,
+            &["#322C00", "#604914", "#896B4D"],
+        ),
+        ("recipes.md hair", false, &["#2E0C20", "#492C46", "#64546E"]),
+        ("recipes.md ink", false, &["#0E0418", "#211E36", "#363C50"]),
+        ("recipes.md rim", false, &["#B3AC82", "#DDC8A2", "#FBE3CE"]),
+    ];
+
+    #[test]
+    fn every_worked_ramp_passes_the_oklch_hue_band_in_every_era() {
+        let guides = [
+            include_str!("../../../../../skills/bitwright-pixel-art/references/palette.md"),
+            include_str!("../../../../../skills/bitwright-pixel-art/references/recipes.md"),
+        ]
+        .concat();
+        let mut ramps: Vec<(String, bool, Vec<[u8; 4]>)> = WORKED_RAMPS
+            .iter()
+            .map(|(name, warm, hexes)| {
+                // The ramps are the guide's own, so an edit to the guide that
+                // drops one shows up here rather than going untested.
+                for text in *hexes {
+                    assert!(guides.contains(text), "{name}: {text} is not in the guide");
+                }
+                (
+                    name.to_string(),
+                    *warm,
+                    hexes.iter().map(|t| hex(t)).collect(),
+                )
+            })
+            .collect();
+        ramps.push(("test CLOTH".into(), false, CLOTH.to_vec()));
+        ramps.push(("test SKIN".into(), true, SKIN.to_vec()));
+        for era in ERAS {
+            for view in VIEWS {
+                // The era's slot ceiling and ramp length are other checks; this
+                // one is about the hue band every era carries.
+                let rules = StyleRules {
+                    max_slots: 62,
+                    ramp_steps: RampSteps { min: 2, max: 8 },
+                    ..StyleRules::for_style(era, view).unwrap()
+                };
+                for (name, warm, colours) in &ramps {
+                    let material = if *warm {
+                        Material::Skin
+                    } else {
+                        Material::Custom
+                    };
+                    let check = ramped(colours, material)
+                        .gate_checks(&rules)
+                        .unwrap()
+                        .into_iter()
+                        .find(|check| check.name == "ramp-hue-shift")
+                        .unwrap();
+                    assert!(check.pass, "{era}/{view} {name}: {:?}", check.detail);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_ramp_that_only_changes_lightness_fails_the_oklch_hue_band() {
+        // What an imported reference usually gives: steps that only get darker
+        // and lighter, which rotate a degree or two in OKLCH.
+        let flat = [[96, 52, 52, 255], [140, 80, 80, 255], [184, 116, 116, 255]];
+        assert!(failed(&ramped(&flat, Material::Cloth), "ramp-hue-shift"));
+    }
+
+    #[test]
+    fn rules_patch_key_by_key_and_refuse_what_no_gate_could_read() {
+        let rules = StyleRules::for_style("16bit", "topdown").unwrap();
+        let patched = rules
+            .patched(&serde_json::json!({
+                "maxSlots": 12,
+                "rampSteps": { "max": 4 },
+                "canvasByKind": { "character": { "width": 40, "height": 56 } }
+            }))
+            .unwrap();
+        assert_eq!(patched.max_slots, 12);
+        assert_eq!((patched.ramp_steps.min, patched.ramp_steps.max), (3, 4));
+        assert_eq!(
+            patched.canvas_for("character"),
+            Canvas {
+                width: 40,
+                height: 56
+            }
+        );
+        // Untouched fields keep the era's values.
+        assert_eq!(patched.canvas_for("tile"), rules.canvas_for("tile"));
+        for bad in [
+            serde_json::json!({ "maxSlots": 1 }),
+            serde_json::json!({ "maxSlots": 63 }),
+            serde_json::json!({ "rampSteps": { "min": 6 } }),
+            serde_json::json!({ "rampSteps": { "max": 9, "min": 3 } }),
+            serde_json::json!({ "outline": "thick" }),
+            serde_json::json!({ "lightDirection": "behind" }),
+            serde_json::json!({ "hueShift": { "darkerHueDeg": [20.0, 10.0] } }),
+            serde_json::json!({ "hueShift": { "darkerDeltaL": [0.05, 0.1] } }),
+            serde_json::json!({ "noiseBudget": 2.0 }),
+            serde_json::json!({ "canvas": { "width": 0 } }),
+            serde_json::json!({ "canvasByKind": { "monster": { "width": 8, "height": 8 } } }),
+            serde_json::json!({ "maxSlot": 12 }),
+            serde_json::json!({ "rampSteps": { "most": 4 } }),
+            serde_json::json!({ "maxSlots": "many" }),
+            serde_json::json!([1, 2]),
+        ] {
+            assert_eq!(
+                rules.patched(&bad).unwrap_err().code,
+                "style.invalid_rules",
+                "{bad}"
+            );
+        }
+        // Every era's own rules pass the validation they are measured by.
+        for era in ERAS {
+            for view in VIEWS {
+                StyleRules::for_style(era, view)
+                    .unwrap()
+                    .validate()
+                    .unwrap();
+            }
+        }
+    }
+
+    #[test]
+    fn proportions_are_standard_or_chibi() {
+        check_proportions("standard").unwrap();
+        check_proportions("chibi").unwrap();
+        assert_eq!(
+            check_proportions("heroic").unwrap_err().code,
+            "style.invalid_proportions"
         );
     }
 
