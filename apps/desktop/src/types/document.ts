@@ -25,7 +25,7 @@
  * end of the wire. Each difference is noted where it occurs.
  *
  * Nothing here is a plain `string` where Rust accepts only a fixed set of
- * words. A layer role, a step, an asset kind and a style preset are all closed
+ * words. A layer role, a step, an asset kind and a style era are all closed
  * unions, so a typo is a compile error here instead of an
  * `document.invalid_role` an hour later.
  *
@@ -35,39 +35,40 @@
  */
 
 /**
- * A style preset, which is the rule set a project is created against.
+ * The colour and outline rules a project is created against, named for the
+ * bit depth of the era they come from.
  *
- * `custom` exists so that a project can be created with the default rules and
- * then have them edited without the preset name becoming a lie.
+ * `custom` exists so that a project can start from the default rules and then
+ * have them edited without the era name becoming a lie.
  */
-export type StylePreset = 'hd2d' | 'snes' | 'gameboy' | 'custom';
-
-/** Every preset, in the order the interface offers them. */
-export const STYLE_PRESETS: readonly StylePreset[] = ['hd2d', 'snes', 'gameboy', 'custom'];
+export type StyleEra = '8bit' | '16bit' | '32bit' | 'custom';
 
 /**
- * The preset a new project starts on.
- *
- * HD-2D, because it is the style this application's gates, ramps and step order
- * were written from; the other three are that ruleset with a tighter ceiling.
+ * The shape and proportions a project's sprites are drawn in. Isometric is left
+ * out until the tilemap has diamond cells for a gate to measure.
  */
-export const DEFAULT_PRESET: StylePreset = 'hd2d';
+export type StyleView = 'topdown' | 'sideview';
 
-/**
- * The canvas each preset creates its assets at.
- *
- * Mirrors `StyleRules::preset` in `raster/palette.rs`, where every preset today
- * inherits the default 48 by 64. It is written out per preset rather than as
- * one constant because the presets are what will diverge - a Game Boy sprite
- * sheet is not a 48 by 64 canvas - and because there is no command that reads a
- * style's rules, so the interface cannot ask. When one exists this table goes.
- */
-export const PRESET_CANVAS: Readonly<Record<StylePreset, Canvas>> = {
-  hd2d: { width: 48, height: 64 },
-  snes: { width: 48, height: 64 },
-  gameboy: { width: 48, height: 64 },
-  custom: { width: 48, height: 64 },
-};
+/** Every era, in the order the interface offers them. */
+export const STYLE_ERAS: readonly StyleEra[] = ['8bit', '16bit', '32bit', 'custom'];
+
+/** Every view, in the order the interface offers them. */
+export const STYLE_VIEWS: readonly StyleView[] = ['topdown', 'sideview'];
+
+/** The era a new project starts on: the one this application's gates were written from. */
+export const DEFAULT_ERA: StyleEra = '32bit';
+
+/** The view a new project starts on. */
+export const DEFAULT_VIEW: StyleView = 'topdown';
+
+/** A project's style, as the two axes the user chose. */
+export interface StyleChoice {
+  era: StyleEra;
+  view: StyleView;
+}
+
+/** The default style for a project that has none recorded. */
+export const DEFAULT_STYLE: StyleChoice = { era: DEFAULT_ERA, view: DEFAULT_VIEW };
 
 /** What an asset is for. Decides nothing yet; tiles and tilesets grow in phase 4. */
 export type AssetKind = 'character' | 'prop' | 'tile' | 'tileset' | 'background';
@@ -80,6 +81,69 @@ export const ASSET_KINDS: readonly AssetKind[] = [
   'tileset',
   'background',
 ];
+
+/**
+ * The default canvas for a kind in an era and a view.
+ *
+ * Mirrors `StyleRules::for_style` in `raster/palette.rs`. It is a table here
+ * because the new sprite dialog needs a size before any style row is read. A
+ * tileset uses the tile size, and `custom` starts as `32bit`.
+ */
+const ERA_CANVAS: Readonly<
+  Record<
+    Exclude<StyleEra, 'custom'>,
+    Record<StyleView, Record<'character' | 'prop' | 'tile' | 'background', Canvas>>
+  >
+> = {
+  '8bit': {
+    topdown: {
+      character: { width: 16, height: 16 },
+      prop: { width: 16, height: 16 },
+      tile: { width: 8, height: 8 },
+      background: { width: 160, height: 144 },
+    },
+    sideview: {
+      character: { width: 16, height: 16 },
+      prop: { width: 16, height: 16 },
+      tile: { width: 8, height: 8 },
+      background: { width: 160, height: 144 },
+    },
+  },
+  '16bit': {
+    topdown: {
+      character: { width: 32, height: 48 },
+      prop: { width: 32, height: 32 },
+      tile: { width: 16, height: 16 },
+      background: { width: 256, height: 224 },
+    },
+    sideview: {
+      character: { width: 32, height: 32 },
+      prop: { width: 32, height: 32 },
+      tile: { width: 16, height: 16 },
+      background: { width: 256, height: 224 },
+    },
+  },
+  '32bit': {
+    topdown: {
+      character: { width: 48, height: 64 },
+      prop: { width: 48, height: 48 },
+      tile: { width: 32, height: 32 },
+      background: { width: 320, height: 240 },
+    },
+    sideview: {
+      character: { width: 48, height: 48 },
+      prop: { width: 48, height: 48 },
+      tile: { width: 32, height: 32 },
+      background: { width: 320, height: 240 },
+    },
+  },
+};
+
+/** The canvas a new asset of `kind` is created at in this era and view. */
+export function styleCanvas(era: StyleEra, view: StyleView, kind: AssetKind): Canvas {
+  const row = ERA_CANVAS[era === 'custom' ? '32bit' : era][view];
+  return row[kind === 'tileset' ? 'tile' : kind];
+}
 
 /**
  * A step in the workflow, which is where an asset currently is.
@@ -229,6 +293,10 @@ export interface Project {
   name: string;
   /** The project's default style, or null when it has none. */
   styleId: string | null;
+  /** The era of that style, or null when the project has none. */
+  era: StyleEra | null;
+  /** The view of that style, or null when the project has none. */
+  view: StyleView | null;
   /** Unix milliseconds. */
   createdAt: number;
   updatedAt: number;
@@ -285,15 +353,21 @@ export interface StyleRules {
   /** Largest fraction of the sprite that may be isolated single pixels. */
   noiseBudget: number;
   canvas: Canvas;
+  /** The canvas per kind. A kind that is missing uses `canvas`. */
+  canvasByKind?: CanvasByKind;
 }
 
-/** A style: a preset name and the rules it expanded into. */
+/** A canvas size per asset kind; a kind that is missing falls back to `canvas`. */
+export type CanvasByKind = Partial<Record<'character' | 'prop' | 'tile' | 'background', Canvas>>;
+
+/** A style: the era and view it was made from, and the rules they expanded into. */
 export interface Style {
   id: string;
   /** The project it belongs to, or null for a style shared across projects. */
   projectId: string | null;
   name: string;
-  preset: StylePreset;
+  era: StyleEra;
+  view: StyleView;
   rules: StyleRules;
   createdAt: number;
   updatedAt: number;

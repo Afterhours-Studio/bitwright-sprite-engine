@@ -49,7 +49,7 @@ import { LANGUAGES, setLanguage, type Language } from '@/lib/i18n';
 import { inShell } from '@/lib/tauri';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { useShellStore } from '@/stores/useShellStore';
-import { DEFAULT_PRESET } from '@/types/document';
+import { DEFAULT_STYLE } from '@/types/document';
 
 /** The sections home's navigation lists. */
 export type HomeView = 'projects' | 'settings';
@@ -96,7 +96,7 @@ export function HomeSidebar({ active, onNavigate }: HomeSidebarProps): ReactElem
 
   const projects = useProjectStore((state) => state.projects);
   const projectId = useProjectStore((state) => state.projectId);
-  const presets = useProjectStore((state) => state.presets);
+  const styles = useProjectStore((state) => state.styles);
 
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [converting, setConverting] = useState(false);
@@ -125,7 +125,7 @@ export function HomeSidebar({ active, onNavigate }: HomeSidebarProps): ReactElem
       return;
     }
     setConverting(true);
-    const asset = await pngToPixel(target.id, presets[target.id] ?? DEFAULT_PRESET);
+    const asset = await pngToPixel(target.id, styles[target.id] ?? DEFAULT_STYLE);
     setConverting(false);
     if (asset !== null) {
       setScreen('editor');

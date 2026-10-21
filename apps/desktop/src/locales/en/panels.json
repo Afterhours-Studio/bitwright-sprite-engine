@@ -25,15 +25,20 @@
       "larger": "Larger brush"
     },
     "style": {
-      "label": "Style preset",
+      "label": "Style",
       "none": "No style",
-      "reading": "Reading…"
+      "reading": "Reading…",
+      "value": "{{era}} · {{view}}"
     },
-    "presets": {
-      "hd2d": "HD-2D",
-      "snes": "SNES",
-      "gameboy": "Game Boy",
+    "eras": {
+      "8bit": "8-bit",
+      "16bit": "16-bit",
+      "32bit": "32-bit",
       "custom": "Custom"
+    },
+    "views": {
+      "topdown": "Top-down",
+      "sideview": "Side-view"
     },
     "count": "Colors in set ({{count}})",
     "add": "Add color",

@@ -37,7 +37,7 @@ import {
 } from '@/lib/reference';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { useToastStore } from '@/stores/useToastStore';
-import { PRESET_CANVAS, type Asset, type StylePreset } from '@/types/document';
+import { styleCanvas, type Asset, type StyleChoice } from '@/types/document';
 
 /** The code the shell answers when the picked file is not a PNG. */
 const NOT_A_PNG = 'png.invalid';
@@ -75,12 +75,12 @@ function fail(code: string | null, fallbackKey: string): void {
  * that sprite's reference and converts it into the sprite's first layer.
  *
  * @param projectId - The project the sprite goes into.
- * @param preset - That project's preset, whose canvas is used for a picture
+ * @param style - That project's era and view, whose character canvas is used for a picture
  *   the shell cannot measure (a JPEG, say), which is converted from its
  *   conformed copy instead.
  * @returns The created sprite, or null when nothing was created.
  */
-export async function pngToPixel(projectId: string, preset: StylePreset): Promise<Asset | null> {
+export async function pngToPixel(projectId: string, style: StyleChoice): Promise<Asset | null> {
   const picked = await referencePickFile();
   if (!picked.ok) {
     fail(picked.error.code, 'errors:unknown');
@@ -91,7 +91,7 @@ export async function pngToPixel(projectId: string, preset: StylePreset): Promis
   }
 
   const probe = await referencePixelizeProbe(picked.value);
-  let canvas = PRESET_CANVAS[preset];
+  let canvas = styleCanvas(style.era, style.view, 'character');
   if (probe.ok) {
     canvas = { width: probe.value.canvasWidth, height: probe.value.canvasHeight };
   } else if (probe.error.code !== NOT_A_PNG) {

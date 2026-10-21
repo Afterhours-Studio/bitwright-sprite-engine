@@ -28,7 +28,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useDocumentStore } from '@/stores/useDocumentStore';
 import { isListed, listedAssets, useProjectStore } from '@/stores/useProjectStore';
 import { useToastStore } from '@/stores/useToastStore';
-import type { Asset, Project, Style } from '@/types/document';
+import type { Asset, Project } from '@/types/document';
 
 vi.mock('@/lib/document', () => ({
   projectList: vi.fn(),
@@ -39,7 +39,6 @@ vi.mock('@/lib/document', () => ({
   assetCreate: vi.fn(),
   assetRename: vi.fn(),
   assetDelete: vi.fn(),
-  styleRead: vi.fn(),
 }));
 
 const documents = await import('@/lib/document');
@@ -52,7 +51,15 @@ const documents = await import('@/lib/document');
  * @returns The row.
  */
 function project(id: string, name: string): Project {
-  return { id, name, styleId: `${id}-style`, createdAt: 1, updatedAt: 1 };
+  return {
+    id,
+    name,
+    styleId: `${id}-style`,
+    era: '16bit',
+    view: 'topdown',
+    createdAt: 1,
+    updatedAt: 1,
+  };
 }
 
 /**
@@ -96,12 +103,8 @@ beforeEach(() => {
     loading: false,
     error: null,
     allAssets: [],
-    presets: {},
+    styles: {},
     loadedAll: false,
-  });
-  vi.mocked(documents.styleRead).mockResolvedValue({
-    ok: true,
-    value: { preset: 'snes' } as Style,
   });
   useToastStore.setState({ visible: [], queued: [], unread: 0 });
   // Opening a document is a side effect of selecting an asset, and it belongs
@@ -157,7 +160,7 @@ describe('useProjectStore', () => {
 
     await useProjectStore.getState().load();
     await useProjectStore.getState().selectProject('project-1');
-    await useProjectStore.getState().createProject('forest', 'hd2d');
+    await useProjectStore.getState().createProject('forest', '32bit', 'topdown');
 
     const state = useProjectStore.getState();
     expect(state.error).toBe('store.constraint');
@@ -289,7 +292,7 @@ describe('useProjectStore', () => {
       error: { code: 'store.constraint', detail: 'name already taken' },
     });
 
-    await useProjectStore.getState().createProject('forest', 'hd2d');
+    await useProjectStore.getState().createProject('forest', '32bit', 'topdown');
     expect(useProjectStore.getState().error).toBe('store.constraint');
 
     useProjectStore.getState().clearError();
@@ -311,12 +314,15 @@ describe('useProjectStore', () => {
       );
     });
 
-    it('loadAll reads every project, its assets and its preset', async () => {
+    it('loadAll reads every project, its assets and its style', async () => {
       await useProjectStore.getState().loadAll();
 
       const state = useProjectStore.getState();
       expect(state.allAssets).toEqual([HERO, BAT]);
-      expect(state.presets).toEqual({ 'project-1': 'snes', 'project-2': 'snes' });
+      expect(state.styles).toEqual({
+        'project-1': { era: '16bit', view: 'topdown' },
+        'project-2': { era: '16bit', view: 'topdown' },
+      });
       expect(state.loadedAll).toBe(true);
       expect(state.error).toBeNull();
     });

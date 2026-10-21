@@ -176,7 +176,12 @@ describe('PalettePanel', () => {
   });
 
   it('stops adding at the style ceiling', async () => {
-    const style = { id: 'style-1', preset: 'snes', rules: { maxSlots: 3 } } as unknown as Style;
+    const style = {
+      id: 'style-1',
+      era: '16bit',
+      view: 'topdown',
+      rules: { maxSlots: 3 },
+    } as unknown as Style;
     vi.mocked(tauri.invoke).mockImplementation(async (command) => {
       await Promise.resolve();
       return command === 'style_read'
@@ -186,7 +191,7 @@ describe('PalettePanel', () => {
     useDocumentStore.setState({ asset: ASSET });
     render(<PalettePanel />);
 
-    expect(await screen.findByText('SNES')).toBeInTheDocument();
+    expect(await screen.findByText('16-bit · Top-down')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add color' })).toBeDisabled();
   });
 

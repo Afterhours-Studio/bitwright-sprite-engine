@@ -40,11 +40,18 @@
     "tileset": "Tileset",
     "background": "Background"
   },
-  "presets": {
-    "hd2d": "HD-2D",
-    "snes": "SNES",
-    "gameboy": "Game Boy",
+  "eras": {
+    "8bit": "8-bit",
+    "16bit": "16-bit",
+    "32bit": "32-bit",
     "custom": "Custom"
+  },
+  "views": {
+    "topdown": "Top-down",
+    "sideview": "Side-view (platformer)"
+  },
+  "style": {
+    "chip": "{{era}} · {{view}}"
   },
   "form": {
     "newProjectTitle": "New project",
@@ -53,12 +60,14 @@
     "renameAssetTitle": "Rename sprite",
     "projectName": "Project name",
     "assetName": "Sprite name",
-    "preset": "Style preset",
-    "presetHint": "Sets the palette ceiling, the ramp bounds and the outline rule every sprite in the project is checked against. It cannot be changed afterwards.",
+    "era": "Era",
+    "view": "View",
+    "eraHint": "Sets the palette ceiling, the ramp bounds and the outline rule every sprite in the project is checked against: 8-bit is 4 colours, 16-bit 16, 32-bit 24. It cannot be changed afterwards.",
+    "viewHint": "Sets the proportions and the default sprite sizes. Top-down is taller than wide; side-view is squarer, facing right. It cannot be changed afterwards.",
     "kind": "Kind",
     "width": "Width",
     "height": "Height",
-    "sizeHint": "Taken from the style preset. A sprite cannot be resized later, so this is the one number worth getting right now.",
+    "sizeHint": "Taken from the project's era and view, for the kind you chose. A sprite cannot be resized later, so this is the one number worth getting right now.",
     "create": "Create",
     "rename": "Rename"
   },

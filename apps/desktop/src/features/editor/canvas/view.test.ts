@@ -41,7 +41,7 @@ import {
 /** A stage with room to spare around a small sprite. */
 const VIEWPORT = { width: 400, height: 300 };
 
-/** The canvas the HD-2D preset creates a character at. */
+/** The canvas a 32-bit top-down style creates a character at. */
 const CANVAS = { width: 48, height: 64 };
 
 describe('clampZoom', () => {

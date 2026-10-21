@@ -63,7 +63,7 @@ import {
   type BrushShape,
 } from '@/stores/useEditorStore';
 import { useProjectStore } from '@/stores/useProjectStore';
-import type { Layer, Palette, PaletteSlot, Style, StylePreset } from '@/types/document';
+import type { Layer, Palette, PaletteSlot, Style } from '@/types/document';
 
 /** The reason codes `palette_write` refuses with all begin with this. */
 const PALETTE_CODE = 'palette.';
@@ -390,13 +390,6 @@ function SwatchesTab({ palette }: PaletteProps): ReactElement {
   const full = count >= ceiling;
   const nextIndex = count + 1;
 
-  const presets: Readonly<Record<StylePreset, string>> = {
-    hd2d: t('colour.presets.hd2d'),
-    snes: t('colour.presets.snes'),
-    gameboy: t('colour.presets.gameboy'),
-    custom: t('colour.presets.custom'),
-  };
-
   const add = async (): Promise<void> => {
     setNotice(null);
     if (full) {
@@ -454,7 +447,10 @@ function SwatchesTab({ palette }: PaletteProps): ReactElement {
             ? t('colour.style.reading')
             : style.value === null
               ? t('colour.style.none')
-              : presets[style.value.preset]}
+              : t('colour.style.value', {
+                  era: t(`colour.eras.${style.value.era}`),
+                  view: t(`colour.views.${style.value.view}`),
+                })}
         </span>
       </div>
 

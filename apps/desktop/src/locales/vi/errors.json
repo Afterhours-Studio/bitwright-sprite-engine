@@ -69,7 +69,8 @@
     "invalid_kind": "Đó không phải loại sprite mà ứng dụng này tạo."
   },
   "style": {
-    "invalid_preset": "Đó không phải phong cách mẫu mà ứng dụng này có."
+    "invalid_era": "Đó không phải thời kỳ phong cách mà ứng dụng này có.",
+    "invalid_view": "Đó không phải góc nhìn mà ứng dụng này có."
   },
   "step": {
     "complete": "Sprite này đang ở bước cuối của quy trình.",

@@ -69,7 +69,8 @@
     "invalid_kind": "That is not a kind of sprite this application makes."
   },
   "style": {
-    "invalid_preset": "That is not a style preset this application ships."
+    "invalid_era": "That is not a style era this application ships.",
+    "invalid_view": "That is not a view this application ships."
   },
   "step": {
     "complete": "This sprite is at the last step of the workflow.",

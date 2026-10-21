@@ -23,7 +23,7 @@
  * A sprite's size cannot change after it is created: every layer and every
  * recorded edit is measured in it. A grid of the sizes pixel art is actually
  * made at, each with what it is usually for, makes that one decision a choice
- * between known answers, and the project's own preset size is marked so the
+ * between known answers, and the project's own size for the chosen kind is marked so the
  * size the style was written for is never a guess. Custom stays for the rest.
  */
 
@@ -45,7 +45,7 @@ import { useDismiss } from '@/hooks/useDismiss';
 import { cn } from '@/lib/cn';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { useShellStore } from '@/stores/useShellStore';
-import { ASSET_KINDS, DEFAULT_PRESET, PRESET_CANVAS, type AssetKind } from '@/types/document';
+import { ASSET_KINDS, DEFAULT_STYLE, styleCanvas, type AssetKind } from '@/types/document';
 
 /** The square sizes the grid offers. */
 export const SPRITE_SIZES = [16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512] as const;
@@ -89,7 +89,7 @@ export function NewSpriteDialog(): ReactElement | null {
   const setScreen = useShellStore((state) => state.setScreen);
   const projects = useProjectStore((state) => state.projects);
   const selectedProject = useProjectStore((state) => state.projectId);
-  const presets = useProjectStore((state) => state.presets);
+  const styles = useProjectStore((state) => state.styles);
   const createAssetIn = useProjectStore((state) => state.createAssetIn);
 
   const [projectId, setProjectId] = useState('');
@@ -132,7 +132,9 @@ export function NewSpriteDialog(): ReactElement | null {
     return null;
   }
 
-  const preset = PRESET_CANVAS[presets[projectId] ?? DEFAULT_PRESET];
+  // The kind decides the size, so choosing another kind moves the marked card.
+  const style = styles[projectId] ?? DEFAULT_STYLE;
+  const preset = styleCanvas(style.era, style.view, kind);
   const presetSquare = preset.width === preset.height ? preset.width : null;
   // A square preset is marked on its own card; any other shape gets a card of
   // its own, so the preset is always one press away.

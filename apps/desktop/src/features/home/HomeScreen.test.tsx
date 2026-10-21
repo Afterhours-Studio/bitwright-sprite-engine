@@ -29,7 +29,7 @@ import i18n from '@/lib/i18n';
 import { useDocumentStore } from '@/stores/useDocumentStore';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { useShellStore } from '@/stores/useShellStore';
-import type { Asset, Project, Style } from '@/types/document';
+import type { Asset, Project, StyleEra, StyleView } from '@/types/document';
 
 vi.mock('@/lib/document', async (original) => ({
   ...(await original<typeof DocumentModule>()),
@@ -39,7 +39,6 @@ vi.mock('@/lib/document', async (original) => ({
   assetList: vi.fn(),
   assetDelete: vi.fn(),
   assetRename: vi.fn(),
-  styleRead: vi.fn(),
   documentComposite: vi.fn(),
 }));
 
@@ -52,8 +51,13 @@ const documents = await import('@/lib/document');
  * @param name - Its name.
  * @returns The row.
  */
-function project(id: string, name: string): Project {
-  return { id, name, styleId: `${id}-style`, createdAt: 1, updatedAt: 1 };
+function project(
+  id: string,
+  name: string,
+  era: StyleEra = '16bit',
+  view: StyleView = 'topdown',
+): Project {
+  return { id, name, styleId: `${id}-style`, era, view, createdAt: 1, updatedAt: 1 };
 }
 
 /**
@@ -78,7 +82,7 @@ function asset(overrides: Partial<Asset> & Pick<Asset, 'id' | 'projectId' | 'nam
 }
 
 const FOREST = project('p1', 'forest');
-const CAVE = project('p2', 'cave');
+const CAVE = project('p2', 'cave', '8bit', 'sideview');
 const HERO = asset({
   id: 'a1',
   projectId: 'p1',
@@ -114,10 +118,6 @@ beforeEach(async () => {
       value: [HERO, TREE, BAT].filter((entry) => entry.projectId === id),
     }),
   );
-  vi.mocked(documents.styleRead).mockResolvedValue({
-    ok: true,
-    value: { preset: 'snes' } as Style,
-  });
   vi.mocked(documents.documentComposite).mockResolvedValue({
     ok: false,
     error: { code: 'shell.unavailable', detail: '' },
@@ -131,7 +131,7 @@ beforeEach(async () => {
     projects: [],
     assets: [],
     allAssets: [],
-    presets: {},
+    styles: {},
     loadedAll: false,
     projectId: null,
     assetId: null,
@@ -166,30 +166,46 @@ describe('HomeScreen', () => {
   });
 
   it('orders the projects by the sort too, and filters them by style', async () => {
-    vi.mocked(documents.styleRead).mockImplementation((id) =>
+    // A third project that shares the forest's era and the cave's view, so
+    // each axis has to pick out exactly the right two.
+    vi.mocked(documents.projectList).mockResolvedValue({
+      ok: true,
+      value: [FOREST, CAVE, project('p3', 'marsh', '16bit', 'sideview')],
+    });
+    // While filtering, a project with no sprite is left out, so it gets one.
+    vi.mocked(documents.assetList).mockImplementation((id) =>
       Promise.resolve({
         ok: true,
-        value: { preset: id === FOREST.styleId ? 'snes' : 'hd2d' } as Style,
+        value: [HERO, TREE, BAT, asset({ id: 'a4', projectId: 'p3', name: 'frog' })].filter(
+          (entry) => entry.projectId === id,
+        ),
       }),
     );
     render(<HomeScreen />);
     await screen.findByRole('button', { name: 'Open bat' });
     const order = (): string[] =>
       screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent);
-    expect(order()).toEqual(['forest', 'cave']);
+    expect(order()).toEqual(['forest', 'cave', 'marsh']);
 
     fireEvent.click(screen.getByRole('combobox', { name: 'Sort' }));
     fireEvent.click(screen.getByRole('option', { name: 'Name' }));
-    expect(order()).toEqual(['forest', 'cave']);
+    expect(order()).toEqual(['marsh', 'forest', 'cave']);
     fireEvent.click(screen.getByRole('button', { name: 'Descending' }));
-    expect(order()).toEqual(['cave', 'forest']);
+    expect(order()).toEqual(['cave', 'forest', 'marsh']);
 
-    fireEvent.click(screen.getByRole('combobox', { name: 'Style' }));
-    fireEvent.click(screen.getByRole('option', { name: 'SNES' }));
-    expect(order()).toEqual(['forest']);
+    fireEvent.click(screen.getByRole('combobox', { name: 'View' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Side-view (platformer)' }));
+    expect(order()).toEqual(['cave', 'marsh']);
 
-    fireEvent.click(screen.getByRole('combobox', { name: 'Style' }));
-    fireEvent.click(screen.getByRole('option', { name: 'Game Boy' }));
+    fireEvent.click(screen.getByRole('combobox', { name: 'View' }));
+    fireEvent.click(screen.getByRole('option', { name: 'All views' }));
+    fireEvent.click(screen.getByRole('combobox', { name: 'Era' }));
+    fireEvent.click(screen.getByRole('option', { name: '8-bit' }));
+    expect(order()).toEqual(['cave']);
+
+    // Both axes together: an 8-bit project that is top-down does not exist.
+    fireEvent.click(screen.getByRole('combobox', { name: 'View' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Top-down' }));
     expect(screen.getByText('No project uses this style.')).toBeInTheDocument();
   });
 
@@ -253,7 +269,7 @@ describe('HomeScreen', () => {
     await screen.findByRole('button', { name: 'Open bat' });
 
     const forest = screen.getByRole('region', { name: 'forest' });
-    expect(within(forest).getByText('Preset: SNES')).toBeInTheDocument();
+    expect(within(forest).getByText('16-bit · Top-down')).toBeInTheDocument();
     expect(within(forest).getAllByRole('button', { name: /^Open / })).toHaveLength(2);
 
     fireEvent.click(within(forest).getByRole('button', { name: 'Rename forest' }));

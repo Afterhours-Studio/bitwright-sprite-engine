@@ -27,13 +27,18 @@
     "style": {
       "label": "Phong cách",
       "none": "Chưa có phong cách",
-      "reading": "Đang đọc…"
+      "reading": "Đang đọc…",
+      "value": "{{era}} · {{view}}"
     },
-    "presets": {
-      "hd2d": "HD-2D",
-      "snes": "SNES",
-      "gameboy": "Game Boy",
+    "eras": {
+      "8bit": "8-bit",
+      "16bit": "16-bit",
+      "32bit": "32-bit",
       "custom": "Tùy chỉnh"
+    },
+    "views": {
+      "topdown": "Nhìn từ trên",
+      "sideview": "Nhìn ngang"
     },
     "count": "Màu trong bảng ({{count}})",
     "add": "Thêm màu",

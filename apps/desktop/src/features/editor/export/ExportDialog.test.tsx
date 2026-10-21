@@ -100,6 +100,8 @@ const FOREST: Project = {
   id: 'project-1',
   name: 'forest',
   styleId: null,
+  era: null,
+  view: null,
   createdAt: 1,
   updatedAt: 1,
 };

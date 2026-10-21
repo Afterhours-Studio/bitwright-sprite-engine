@@ -90,10 +90,14 @@ describe('projectList', () => {
 });
 
 describe('projectCreate', () => {
-  it('sends the name and preset', async () => {
+  it('sends the name, era and view', async () => {
     answersWith({});
-    await projectCreate('forest', 'hd2d');
-    expect(tauri.invoke).toHaveBeenCalledWith('project_create', { name: 'forest', preset: 'hd2d' });
+    await projectCreate('forest', '16bit', 'sideview');
+    expect(tauri.invoke).toHaveBeenCalledWith('project_create', {
+      name: 'forest',
+      era: '16bit',
+      view: 'sideview',
+    });
   });
 });
 

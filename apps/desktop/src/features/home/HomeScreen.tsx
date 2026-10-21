@@ -65,7 +65,14 @@ import { useErrorMessage } from '@/hooks/useErrorMessage';
 import { cn } from '@/lib/cn';
 import { listedAssets, useProjectStore } from '@/stores/useProjectStore';
 import { useShellStore } from '@/stores/useShellStore';
-import { STYLE_PRESETS, type Asset, type Project, type StylePreset } from '@/types/document';
+import {
+  STYLE_ERAS,
+  STYLE_VIEWS,
+  type Asset,
+  type Project,
+  type StyleEra,
+  type StyleView,
+} from '@/types/document';
 
 export interface HomeScreenProps {
   /**
@@ -108,7 +115,7 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
 
   const projects = useProjectStore((state) => state.projects);
   const allAssets = useProjectStore((state) => state.allAssets);
-  const presets = useProjectStore((state) => state.presets);
+  const styles = useProjectStore((state) => state.styles);
   const loading = useProjectStore((state) => state.loading);
   const loadedAll = useProjectStore((state) => state.loadedAll);
   const error = useProjectStore((state) => state.error);
@@ -126,7 +133,8 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
   const [sortKey, setSortKey] = useState<SortKey>('recent');
   const [direction, setDirection] = useState<SortDirection>('desc');
   const [query, setQuery] = useState('');
-  const [styleFilter, setStyleFilter] = useState<StylePreset | 'all'>('all');
+  const [eraFilter, setEraFilter] = useState<StyleEra | 'all'>('all');
+  const [viewFilter, setViewFilter] = useState<StyleView | 'all'>('all');
   const [pending, setPending] = useState<Pending>({ kind: 'none' });
 
   useEffect(() => {
@@ -143,12 +151,16 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
   // Projects follow the chosen sort too. By name they sort by their own
   // name; by anything else a project goes where its first sprite lands in the
   // sorted list, and a project with no sprite yet goes after, newest first.
-  // The style filter keeps only the projects made with that preset.
+  // The style filter keeps only the projects whose era and view match, and an axis left on
+  // All keeps every project.
   const orderedProjects = useMemo(() => {
-    const matching =
-      styleFilter === 'all'
-        ? projects
-        : projects.filter((project) => presets[project.id] === styleFilter);
+    const matching = projects.filter((project) => {
+      const style = styles[project.id];
+      return (
+        (eraFilter === 'all' || style?.era === eraFilter) &&
+        (viewFilter === 'all' || style?.view === viewFilter)
+      );
+    });
     if (sortKey === 'name') {
       const sign = direction === 'asc' ? 1 : -1;
       return [...matching].sort((left, right) => sign * left.name.localeCompare(right.name));
@@ -170,7 +182,7 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
       }
       return right.updatedAt - left.updatedAt;
     });
-  }, [projects, presets, styleFilter, sortKey, direction, visible]);
+  }, [projects, styles, eraFilter, viewFilter, sortKey, direction, visible]);
   const projectNames = useMemo(
     () => new Map(projects.map((project) => [project.id, project.name])),
     [projects],
@@ -253,7 +265,7 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
     }
     // While filtering, a project with nothing that matches is left out rather
     // than shown with a line saying so, and one line covers no match at all.
-    const filtering = query.trim() !== '' || styleFilter !== 'all';
+    const filtering = query.trim() !== '' || eraFilter !== 'all' || viewFilter !== 'all';
     const shown = filtering
       ? orderedProjects.filter((project) => visible.some((asset) => asset.projectId === project.id))
       : orderedProjects;
@@ -267,7 +279,7 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
     return (
       <div className="flex flex-col gap-8 pt-2">
         {shown.map((project) => {
-          const preset = presets[project.id];
+          const style = styles[project.id];
           const own = visible.filter((asset) => asset.projectId === project.id);
           const total = listed.filter((asset) => asset.projectId === project.id).length;
           return (
@@ -279,9 +291,12 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
                 >
                   {project.name}
                 </h2>
-                {preset !== undefined && (
+                {style !== undefined && (
                   <span className="rounded-sm border border-line-subtle bg-surface-content-alt px-1.5 py-0.5 text-[11px] text-fg-secondary">
-                    {t('project.preset', { preset: tp(`presets.${preset}`) })}
+                    {tp('style.chip', {
+                      era: tp(`eras.${style.era}`),
+                      view: tp(`views.${style.view}`),
+                    })}
                   </span>
                 )}
                 <span className="text-[11px] text-fg-secondary">
@@ -433,17 +448,29 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
               layout="inline"
               size="sm"
               align="end"
-              label={t('toolbar.style')}
-              value={styleFilter}
+              label={t('toolbar.era')}
+              value={eraFilter}
               options={[
-                { value: 'all', label: t('toolbar.allStyles') },
-                ...STYLE_PRESETS.map((preset) => ({
-                  value: preset,
-                  label: tp(`presets.${preset}`),
-                })),
+                { value: 'all', label: t('toolbar.allEras') },
+                ...STYLE_ERAS.map((era) => ({ value: era, label: tp(`eras.${era}`) })),
               ]}
               onValueChange={(value) => {
-                setStyleFilter(STYLE_PRESETS.find((preset) => preset === value) ?? 'all');
+                setEraFilter(STYLE_ERAS.find((era) => era === value) ?? 'all');
+              }}
+            />
+            <Select
+              variant="bare"
+              layout="inline"
+              size="sm"
+              align="end"
+              label={t('toolbar.view')}
+              value={viewFilter}
+              options={[
+                { value: 'all', label: t('toolbar.allViews') },
+                ...STYLE_VIEWS.map((view) => ({ value: view, label: tp(`views.${view}`) })),
+              ]}
+              onValueChange={(value) => {
+                setViewFilter(STYLE_VIEWS.find((view) => view === value) ?? 'all');
               }}
             />
             <span className="h-4 border-l border-line" aria-hidden="true" />

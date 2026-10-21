@@ -36,6 +36,7 @@ vi.mock('@/lib/reference', () => ({
 
 const reference = await import('@/lib/reference');
 
+const STYLE = { era: '32bit', view: 'topdown' } as const;
 const ASSET = { id: 'asset-1' } as unknown as Asset;
 const PROBE = { canvasWidth: 20, canvasHeight: 24, width: 20, height: 24, cell: 7.5, colours: 5 };
 
@@ -77,7 +78,7 @@ describe('nameFromPath', () => {
 
 describe('pngToPixel', () => {
   it('creates the sprite at the detected size, imports, then pixelizes into it', async () => {
-    const asset = await pngToPixel('project-1', 'hd2d');
+    const asset = await pngToPixel('project-1', STYLE);
 
     expect(asset).toBe(ASSET);
     expect(createAssetIn).toHaveBeenCalledWith('project-1', 'Hero Pose', 'character', 20, 24);
@@ -89,7 +90,7 @@ describe('pngToPixel', () => {
   it('does nothing when the picker is cancelled', async () => {
     vi.mocked(reference.referencePickFile).mockResolvedValue(succeeded(null));
 
-    expect(await pngToPixel('project-1', 'hd2d')).toBeNull();
+    expect(await pngToPixel('project-1', STYLE)).toBeNull();
     expect(reference.referencePixelizeProbe).not.toHaveBeenCalled();
     expect(createAssetIn).not.toHaveBeenCalled();
   });
@@ -97,17 +98,17 @@ describe('pngToPixel', () => {
   it('creates nothing and says so when the picture cannot be measured', async () => {
     vi.mocked(reference.referencePixelizeProbe).mockResolvedValue(refused('pixelize.empty'));
 
-    expect(await pngToPixel('project-1', 'hd2d')).toBeNull();
+    expect(await pngToPixel('project-1', STYLE)).toBeNull();
     expect(createAssetIn).not.toHaveBeenCalled();
     expect(notify).toHaveBeenCalledWith(
       expect.objectContaining({ severity: 'error', titleKey: 'home:png.failedTitle' }),
     );
   });
 
-  it('falls back to the preset canvas for a file that is not a PNG', async () => {
+  it('falls back to the character canvas of the style for a file that is not a PNG', async () => {
     vi.mocked(reference.referencePixelizeProbe).mockResolvedValue(refused('png.invalid'));
 
-    await pngToPixel('project-1', 'hd2d');
+    await pngToPixel('project-1', STYLE);
 
     expect(createAssetIn).toHaveBeenCalledWith('project-1', 'Hero Pose', 'character', 48, 64);
     expect(reference.referencePixelize).toHaveBeenCalled();
@@ -116,7 +117,7 @@ describe('pngToPixel', () => {
   it('keeps the sprite when the import fails, and does not convert', async () => {
     vi.mocked(reference.referenceImport).mockResolvedValue(refused('engine.unavailable'));
 
-    expect(await pngToPixel('project-1', 'hd2d')).toBe(ASSET);
+    expect(await pngToPixel('project-1', STYLE)).toBe(ASSET);
     expect(reference.referencePixelize).not.toHaveBeenCalled();
     expect(notify).toHaveBeenCalledWith(
       expect.objectContaining({ messageKey: 'home:png.importFailed' }),
@@ -126,7 +127,7 @@ describe('pngToPixel', () => {
   it('keeps the sprite and its reference when the conversion fails', async () => {
     vi.mocked(reference.referencePixelize).mockResolvedValue(refused('pixelize.empty'));
 
-    expect(await pngToPixel('project-1', 'hd2d')).toBe(ASSET);
+    expect(await pngToPixel('project-1', STYLE)).toBe(ASSET);
     expect(notify).toHaveBeenCalledWith(
       expect.objectContaining({ severity: 'error', titleKey: 'home:png.failedTitle' }),
     );

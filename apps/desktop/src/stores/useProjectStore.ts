@@ -52,11 +52,10 @@ import {
   projectDelete,
   projectList,
   projectRename,
-  styleRead,
 } from '@/lib/document';
 import { useDocumentStore } from '@/stores/useDocumentStore';
 import { useToastStore } from '@/stores/useToastStore';
-import type { Asset, AssetKind, Project, StylePreset } from '@/types/document';
+import type { Asset, AssetKind, Project, StyleChoice, StyleEra, StyleView } from '@/types/document';
 
 /** The message shown when one of the tree's actions fails. */
 type FailureKey =
@@ -87,8 +86,8 @@ interface ProjectState {
    * selected project's `assets` cannot answer.
    */
   allAssets: Asset[];
-  /** Each project's style preset, by project id, for the projects that have one. */
-  presets: Record<string, StylePreset>;
+  /** Each project's era and view, by project id, for the projects that have a style. */
+  styles: Record<string, StyleChoice>;
   /** True once `loadAll` has finished at least once, whether or not it failed. */
   loadedAll: boolean;
 
@@ -98,8 +97,8 @@ interface ProjectState {
   selectProject: (id: string | null) => Promise<void>;
   /** Opens an asset, which is what puts a document on the canvas. */
   selectAsset: (id: string | null) => Promise<void>;
-  /** Creates a project against a style preset, and selects it. */
-  createProject: (name: string, preset: StylePreset) => Promise<void>;
+  /** Creates a project against an era and a view, and selects it. */
+  createProject: (name: string, era: StyleEra, view: StyleView) => Promise<void>;
   /** Renames a project. */
   renameProject: (id: string, name: string) => Promise<void>;
   /** Deletes a project, and everything under it. */
@@ -114,7 +113,7 @@ interface ProjectState {
    */
   deleteAsset: (id: string) => Promise<void>;
   /**
-   * Reads every project, every project's assets and every project's preset.
+   * Reads every project, every project's assets and every project's style.
    * Keeps the selection when the selected project still exists.
    */
   loadAll: () => Promise<void>;
@@ -208,18 +207,12 @@ export const useProjectStore = create<ProjectState>((set, get) => {
   };
 
   /**
-   * Reads one project's preset through its style row.
+   * A project's style choice, as carried on the project itself.
    *
-   * @param project - The project to read.
-   * @returns The preset, or null when it has no style or the read failed.
+   * @returns The era and view, or null when the project has no style.
    */
-  const readPreset = async (project: Project): Promise<StylePreset | null> => {
-    if (project.styleId === null) {
-      return null;
-    }
-    const style = await styleRead(project.styleId);
-    return style.ok ? style.value.preset : null;
-  };
+  const styleOf = (project: Project): StyleChoice | null =>
+    project.era === null || project.view === null ? null : { era: project.era, view: project.view };
 
   return {
     projects: [],
@@ -229,7 +222,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     loading: false,
     error: null,
     allAssets: [],
-    presets: {},
+    styles: {},
     loadedAll: false,
 
     load: async () => {
@@ -306,14 +299,13 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         return;
       }
 
-      const presetList = await Promise.all(projects.value.map(readPreset));
-      const presets: Record<string, StylePreset> = {};
-      projects.value.forEach((project, index) => {
-        const preset = presetList[index];
-        if (preset !== undefined && preset !== null) {
-          presets[project.id] = preset;
+      const styles: Record<string, StyleChoice> = {};
+      for (const project of projects.value) {
+        const choice = styleOf(project);
+        if (choice !== null) {
+          styles[project.id] = choice;
         }
-      });
+      }
 
       const allAssets = lists.flatMap((list) => (list.ok ? list.value : []));
       const selected = projects.value.some((project) => project.id === get().projectId)
@@ -322,7 +314,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       set({
         projects: projects.value,
         allAssets,
-        presets,
+        styles,
         loading: false,
         loadedAll: true,
         // The selected project's list was just read with the rest, so it is
@@ -360,16 +352,16 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       return row;
     },
 
-    createProject: async (name, preset) => {
+    createProject: async (name, era, view) => {
       set({ loading: true, error: null });
-      const created = await projectCreate(name, preset);
+      const created = await projectCreate(name, era, view);
       if (!created.ok) {
         fail(created.error.code, 'projects:toast.createProjectFailed');
         return;
       }
       set({
         projects: [...get().projects, created.value],
-        presets: { ...get().presets, [created.value.id]: preset },
+        styles: { ...get().styles, [created.value.id]: styleOf(created.value) ?? { era, view } },
         loading: false,
       });
       await get().selectProject(created.value.id);

@@ -40,11 +40,18 @@
     "tileset": "Bộ ô nền",
     "background": "Ảnh nền"
   },
-  "presets": {
-    "hd2d": "HD-2D",
-    "snes": "SNES",
-    "gameboy": "Game Boy",
+  "eras": {
+    "8bit": "8-bit",
+    "16bit": "16-bit",
+    "32bit": "32-bit",
     "custom": "Tùy chỉnh"
+  },
+  "views": {
+    "topdown": "Nhìn từ trên",
+    "sideview": "Nhìn ngang (platformer)"
+  },
+  "style": {
+    "chip": "{{era}} · {{view}}"
   },
   "form": {
     "newProjectTitle": "Dự án mới",
@@ -53,12 +60,14 @@
     "renameAssetTitle": "Đổi tên sprite",
     "projectName": "Tên dự án",
     "assetName": "Tên sprite",
-    "preset": "Phong cách mẫu",
-    "presetHint": "Quy định trần số màu, giới hạn dải màu và luật viền mà mọi sprite trong dự án sẽ được kiểm theo. Không thể đổi về sau.",
+    "era": "Thời kỳ",
+    "view": "Góc nhìn",
+    "eraHint": "Quy định trần số màu, giới hạn dải màu và luật viền mà mọi sprite trong dự án sẽ được kiểm theo: 8-bit là 4 màu, 16-bit là 16, 32-bit là 24. Không thể đổi về sau.",
+    "viewHint": "Quy định tỉ lệ và kích thước sprite mặc định. Nhìn từ trên thì cao hơn rộng; nhìn ngang thì vuông hơn, quay mặt sang phải. Không thể đổi về sau.",
     "kind": "Loại",
     "width": "Chiều rộng",
     "height": "Chiều cao",
-    "sizeHint": "Lấy theo phong cách mẫu. Sprite không thể đổi kích thước về sau, nên đây là con số đáng cân nhắc ngay bây giờ.",
+    "sizeHint": "Lấy theo thời kỳ và góc nhìn của dự án, cho loại bạn đã chọn. Sprite không thể đổi kích thước về sau, nên đây là con số đáng cân nhắc ngay bây giờ.",
     "create": "Tạo",
     "rename": "Đổi tên"
   },

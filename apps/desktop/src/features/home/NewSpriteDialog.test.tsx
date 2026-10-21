@@ -25,7 +25,7 @@ import i18n from '@/lib/i18n';
 import { useDocumentStore } from '@/stores/useDocumentStore';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { useShellStore } from '@/stores/useShellStore';
-import type { Asset, Project } from '@/types/document';
+import type { Asset, Project, StyleEra, StyleView } from '@/types/document';
 
 vi.mock('@/lib/document', async (original) => ({
   ...(await original<typeof DocumentModule>()),
@@ -42,8 +42,8 @@ const documents = await import('@/lib/document');
  * @param name - Its name.
  * @returns The row.
  */
-function project(id: string, name: string): Project {
-  return { id, name, styleId: null, createdAt: 1, updatedAt: 1 };
+function project(id: string, name: string, era: StyleEra, view: StyleView): Project {
+  return { id, name, styleId: null, era, view, createdAt: 1, updatedAt: 1 };
 }
 
 const CREATED: Asset = {
@@ -67,10 +67,16 @@ beforeEach(async () => {
   vi.mocked(documents.assetCreate).mockResolvedValue({ ok: true, value: CREATED });
   vi.mocked(documents.assetList).mockResolvedValue({ ok: true, value: [CREATED] });
   useProjectStore.setState({
-    projects: [project('p1', 'forest'), project('p2', 'cave')],
+    projects: [
+      project('p1', 'forest', '32bit', 'topdown'),
+      project('p2', 'cave', '16bit', 'topdown'),
+    ],
     assets: [],
     allAssets: [],
-    presets: { p1: 'hd2d', p2: 'snes' },
+    styles: {
+      p1: { era: '32bit', view: 'topdown' },
+      p2: { era: '16bit', view: 'topdown' },
+    },
     projectId: 'p2',
     assetId: null,
     loading: false,
@@ -98,13 +104,20 @@ describe('NewSpriteDialog', () => {
   it('defaults to the selected project and its preset size, and needs a name', () => {
     render(<NewSpriteDialog />);
     expect(screen.getByRole('combobox', { name: 'Project' })).toHaveTextContent('cave');
-    expect(submit()).toHaveTextContent('Create sprite (48x64 px)');
+    expect(submit()).toHaveTextContent('Create sprite (32x48 px)');
     expect(submit()).toBeDisabled();
-    expect(screen.getByRole('button', { name: /^48x64/ })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: /^48x64/ })).toHaveTextContent('Preset');
+    expect(screen.getByRole('button', { name: /^32x48/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /^32x48/ })).toHaveTextContent('Preset');
 
     fireEvent.change(screen.getByLabelText('Sprite name'), { target: { value: '   ' } });
     expect(submit()).toBeDisabled();
+  });
+
+  it("marks the project's size for the kind, and moves it when the kind changes", () => {
+    render(<NewSpriteDialog />);
+    fireEvent.click(screen.getByRole('button', { name: 'Tile' }));
+    expect(screen.getByRole('button', { name: /^16x16/ })).toHaveTextContent('Preset');
+    expect(submit()).toHaveTextContent('Create sprite (16x16 px)');
   });
 
   it('refuses a custom side outside 16 to 512', () => {

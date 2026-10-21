@@ -51,7 +51,8 @@ import type {
   StepEvent,
   StepState,
   Style,
-  StylePreset,
+  StyleEra,
+  StyleView,
   AgentActivityEvent,
   AgentSessionEvent,
 } from '@/types/document';
@@ -74,13 +75,18 @@ export function projectList(): Promise<ShellResult<Project[]>> {
 }
 
 /**
- * Creates a project, and the style it expands the preset into.
+ * Creates a project, and the style it expands the era and view into.
  *
- * The preset is chosen once, here, because it decides the palette ceiling and
- * the ramp bounds every asset in the project is then checked against.
+ * They are chosen once, here, because the era decides the palette ceiling and
+ * the ramp bounds, and the view the default sizes, every asset in the project is
+ * then checked against.
  */
-export function projectCreate(name: string, preset: StylePreset): Promise<ShellResult<Project>> {
-  return invoke<Project>('project_create', { name, preset });
+export function projectCreate(
+  name: string,
+  era: StyleEra,
+  view: StyleView,
+): Promise<ShellResult<Project>> {
+  return invoke<Project>('project_create', { name, era, view });
 }
 
 /** Renames a project. */
@@ -137,7 +143,7 @@ export function assetOpen(id: string): Promise<ShellResult<Document>> {
 }
 
 /**
- * Reads one style: its preset, and the rules every gate is measured against.
+ * Reads one style: its era and view, and the rules every gate is measured against.
  *
  * The identifier is a STYLE id, not an asset id. A project carries its default
  * style's id and an asset may override it, so the caller resolves which of the

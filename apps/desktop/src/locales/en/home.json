@@ -30,8 +30,10 @@
     "filter": "Filter",
     "filterPlaceholder": "Type to filter",
     "sortFrames": "Frames",
-    "style": "Style",
-    "allStyles": "All styles"
+    "era": "Era",
+    "view": "View",
+    "allEras": "All eras",
+    "allViews": "All views"
   },
   "card": {
     "open": "Open {{name}}",
@@ -61,7 +63,6 @@
     "noStyleMatch": "No project uses this style."
   },
   "project": {
-    "preset": "Preset: {{preset}}",
     "count_one": "{{count}} sprite",
     "count_other": "{{count}} sprites",
     "newSprite": "New sprite",

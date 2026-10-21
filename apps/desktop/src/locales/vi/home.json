@@ -30,8 +30,10 @@
     "filter": "Lọc",
     "filterPlaceholder": "Gõ để lọc",
     "sortFrames": "Khung hình",
-    "style": "Phong cách",
-    "allStyles": "Mọi phong cách"
+    "era": "Thời kỳ",
+    "view": "Góc nhìn",
+    "allEras": "Mọi thời kỳ",
+    "allViews": "Mọi góc nhìn"
   },
   "card": {
     "open": "Mở {{name}}",
@@ -61,7 +63,6 @@
     "noStyleMatch": "Không có dự án nào dùng phong cách này."
   },
   "project": {
-    "preset": "Mẫu: {{preset}}",
     "count_one": "{{count}} sprite",
     "count_other": "{{count}} sprite",
     "newSprite": "Sprite mới",

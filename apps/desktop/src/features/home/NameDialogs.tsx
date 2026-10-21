@@ -27,7 +27,14 @@ import { Dialog } from '@/components/ui/Dialog';
 import { Field } from '@/components/ui/Field';
 import { Select } from '@/components/ui/Select';
 import { useProjectStore } from '@/stores/useProjectStore';
-import { DEFAULT_PRESET, STYLE_PRESETS, type StylePreset } from '@/types/document';
+import {
+  DEFAULT_ERA,
+  DEFAULT_VIEW,
+  STYLE_ERAS,
+  STYLE_VIEWS,
+  type StyleEra,
+  type StyleView,
+} from '@/types/document';
 
 export interface NewProjectDialogProps {
   /** Whether the dialog is showing. */
@@ -36,18 +43,20 @@ export interface NewProjectDialogProps {
   onClose: () => void;
 }
 
-/** Creating a project: a name, and the style preset it is checked against. */
+/** Creating a project: a name, and the era and view its sprites are checked against. */
 export function NewProjectDialog({ open, onClose }: NewProjectDialogProps): ReactElement {
   const { t } = useTranslation('projects');
   const createProject = useProjectStore((state) => state.createProject);
   const [name, setName] = useState('');
-  const [preset, setPreset] = useState<StylePreset>(DEFAULT_PRESET);
+  const [era, setEra] = useState<StyleEra>(DEFAULT_ERA);
+  const [view, setView] = useState<StyleView>(DEFAULT_VIEW);
 
   useEffect(() => {
     // Emptied each time it opens, so it never offers the last project's name.
     if (open) {
       setName('');
-      setPreset(DEFAULT_PRESET);
+      setEra(DEFAULT_ERA);
+      setView(DEFAULT_VIEW);
     }
   }, [open]);
 
@@ -59,7 +68,7 @@ export function NewProjectDialog({ open, onClose }: NewProjectDialogProps): Reac
       confirmDisabled={name.trim() === ''}
       onDismiss={onClose}
       onConfirm={() => {
-        void createProject(name.trim(), preset);
+        void createProject(name.trim(), era, view);
         onClose();
       }}
     >
@@ -71,12 +80,21 @@ export function NewProjectDialog({ open, onClose }: NewProjectDialogProps): Reac
         }}
       />
       <Select
-        label={t('form.preset')}
-        hint={t('form.presetHint')}
-        value={preset}
-        options={STYLE_PRESETS.map((option) => ({ value: option, label: t(`presets.${option}`) }))}
+        label={t('form.era')}
+        hint={t('form.eraHint')}
+        value={era}
+        options={STYLE_ERAS.map((option) => ({ value: option, label: t(`eras.${option}`) }))}
         onValueChange={(value) => {
-          setPreset(STYLE_PRESETS.find((option) => option === value) ?? DEFAULT_PRESET);
+          setEra(STYLE_ERAS.find((option) => option === value) ?? DEFAULT_ERA);
+        }}
+      />
+      <Select
+        label={t('form.view')}
+        hint={t('form.viewHint')}
+        value={view}
+        options={STYLE_VIEWS.map((option) => ({ value: option, label: t(`views.${option}`) }))}
+        onValueChange={(value) => {
+          setView(STYLE_VIEWS.find((option) => option === value) ?? DEFAULT_VIEW);
         }}
       />
     </Dialog>
