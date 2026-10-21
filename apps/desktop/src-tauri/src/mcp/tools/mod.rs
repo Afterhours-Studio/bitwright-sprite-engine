@@ -41,6 +41,7 @@ pub mod project;
 pub mod read;
 pub mod reference;
 pub mod shading;
+pub mod style;
 pub mod tilemap;
 pub mod workflow;
 pub mod write;
@@ -64,6 +65,7 @@ pub struct ToolSpec {
 pub fn catalogue() -> Vec<ToolSpec> {
     let mut tools = guide::tools();
     tools.extend(orientation::tools());
+    tools.extend(style::tools());
     tools.extend(project::tools());
     tools.extend(files::tools());
     tools.extend(read::tools());

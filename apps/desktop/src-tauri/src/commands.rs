@@ -494,6 +494,7 @@ pub fn handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + 
         document::asset_delete,
         document::asset_open,
         document::style_read,
+        document::style_set_rules,
         document::document_composite,
         document::document_read_layer,
         document::document_write_ops,

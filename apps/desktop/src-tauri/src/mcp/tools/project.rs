@@ -79,11 +79,14 @@ fn rename_project_schema() -> Value {
     })
 }
 
-fn rename_project(host: &dyn DocumentHost, _session: &Session, args: Value) -> ToolResult {
+fn rename_project(host: &dyn DocumentHost, session: &Session, args: Value) -> ToolResult {
     let args: RenameProjectArgs = parse(args)?;
     let id = project_id(&args.project_id)?;
-    let project =
-        with_store(host, |store| store.project_rename(id, &args.name)).map_err(as_project)?;
+    let project = with_store(host, |store| {
+        store.project_rename_as(id, &args.name, &session.actor())
+    })
+    .map_err(as_project)?;
+    host.projects_changed();
     Ok(json!({ "project": project }))
 }
 
@@ -113,18 +116,29 @@ fn delete_project_schema() -> Value {
     })
 }
 
-fn delete_project(host: &dyn DocumentHost, _session: &Session, args: Value) -> ToolResult {
+fn delete_project(host: &dyn DocumentHost, session: &Session, args: Value) -> ToolResult {
     let args: DeleteProjectArgs = parse(args)?;
     let id = project_id(&args.project_id)?;
     let force = args.force.unwrap_or(false);
-    let assets = with_store(host, |store| {
-        let count = store.asset_list(id)?.len();
-        if count == 0 || force {
-            store.project_delete(id)?;
+    let (assets, gone) = with_store(host, |store| {
+        let list = store.asset_list(id)?;
+        let count = list.len();
+        let deleted = count == 0 || force;
+        if deleted {
+            store.project_delete_as(id, &session.actor())?;
         }
-        Ok(count)
+        let gone: Vec<_> = if deleted {
+            list.iter().map(|asset| asset.id).collect()
+        } else {
+            Vec::new()
+        };
+        Ok((count, gone))
     })
     .map_err(as_project)?;
+    if assets == 0 || force {
+        session.forget_asset_if(|open| gone.contains(&open));
+        host.projects_changed();
+    }
     if assets > 0 && !force {
         return Err(ToolError::new(
             "project.not_empty",
@@ -160,14 +174,14 @@ fn rename_asset_schema() -> Value {
     })
 }
 
-fn rename_asset(host: &dyn DocumentHost, _session: &Session, args: Value) -> ToolResult {
+fn rename_asset(host: &dyn DocumentHost, session: &Session, args: Value) -> ToolResult {
     let args: RenameAssetArgs = parse(args)?;
     let id = asset_id(&args.asset_id)?;
     // The same sequence the window's command runs: renaming a root renames
     // its frames, so each of them, and the timeline, is announced.
     let (asset, touched_frames, animation) = with_store(host, |store| {
         let before = store.animation_read(id)?;
-        let asset = store.asset_rename(id, &args.name)?;
+        let asset = store.asset_rename_as(id, &args.name, &session.actor())?;
         let animation = store.animation_read(id)?;
         let mut touched_frames = vec![(id, touched(store, id)?)];
         for frame in renamed_frames(&before, &animation) {
@@ -183,6 +197,7 @@ fn rename_asset(host: &dyn DocumentHost, _session: &Session, args: Value) -> Too
     for (frame, result) in &touched_frames {
         host.changed(*frame, result);
     }
+    host.projects_changed();
     Ok(json!({ "asset": asset }))
 }
 
@@ -205,18 +220,33 @@ fn delete_asset_schema() -> Value {
     })
 }
 
-fn delete_asset(host: &dyn DocumentHost, _session: &Session, args: Value) -> ToolResult {
+fn delete_asset(host: &dyn DocumentHost, session: &Session, args: Value) -> ToolResult {
     let args: DeleteAssetArgs = parse(args)?;
     let id = asset_id(&args.asset_id)?;
-    // Deleting a later frame leaves its animation behind, one frame shorter.
-    let remaining = with_store(host, |store| {
+    // Deleting a later frame leaves its animation behind, one frame shorter;
+    // deleting a root takes every frame with it.
+    let (remaining, gone) = with_store(host, |store| {
         let root = store.asset_read(id)?.root_id;
+        let gone = match root {
+            Some(_) => vec![id],
+            None => store
+                .animation_read(id)?
+                .frames
+                .iter()
+                .map(|frame| frame.asset_id)
+                .collect(),
+        };
         store.asset_delete(id)?;
-        root.map(|root| store.animation_read(root)).transpose()
+        let remaining = root.map(|root| store.animation_read(root)).transpose()?;
+        Ok((remaining, gone))
     })?;
+    // The session's open asset may be one of those just deleted; a later
+    // call should hear that nothing is open, not that the asset is missing.
+    session.forget_asset_if(|open| open == id || gone.contains(&open));
     if let Some(animation) = &remaining {
         host.animation_changed(animation);
     }
+    host.projects_changed();
     Ok(json!({ "deleted": id }))
 }
 
@@ -282,7 +312,10 @@ fn delete_reference(host: &dyn DocumentHost, session: &Session, args: Value) -> 
     };
     let reference = Uuid::parse_str(&args.reference_id)
         .map_err(|_| not_found(format!("{} is not a reference id", args.reference_id)))?;
-    with_store(host, |store| store.reference_delete(asset, reference)).map_err(|error| {
+    with_store(host, |store| {
+        store.reference_delete_as(asset, reference, &session.actor())
+    })
+    .map_err(|error| {
         if error.code == "asset.not_found" {
             not_found(format!("no reference {reference} on this asset"))
         } else {
@@ -419,6 +452,93 @@ mod tests {
             run(&f, "rename_project", incomplete).unwrap_err().code,
             "args.invalid"
         );
+    }
+
+    #[test]
+    fn project_and_asset_changes_log_the_agent_and_tell_the_window() {
+        let f = fixture();
+        let created = run(&f, "create_project", json!({ "name": "grove" })).unwrap();
+        let grove = Uuid::parse_str(created["project"]["id"].as_str().unwrap()).unwrap();
+        let rename = json!({ "projectId": grove.to_string(), "name": "glade" });
+        run(&f, "rename_project", rename).unwrap();
+        run(
+            &f,
+            "delete_project",
+            json!({ "projectId": grove.to_string() }),
+        )
+        .unwrap();
+        let log = with_store(&f.host, |s| s.project_log(grove)).unwrap();
+        let kinds: Vec<_> = log.iter().map(|e| e.kind.as_str()).collect();
+        assert_eq!(
+            kinds,
+            ["project_create", "project_rename", "project_delete"]
+        );
+        assert!(log.iter().all(|e| e.actor == "agent:s-1"));
+        let renamed = json!({ "assetId": hero(&f), "name": "knight" });
+        run(&f, "rename_asset", renamed).unwrap();
+        let ops = with_store(&f.host, |s| s.op_log(f.hero)).unwrap();
+        assert_eq!(ops.last().unwrap().actor, "agent:s-1");
+        let projects = f
+            .host
+            .notices()
+            .iter()
+            .filter(|n| **n == Notice::Projects)
+            .count();
+        assert_eq!(projects, 4);
+    }
+
+    #[test]
+    fn deleting_the_open_asset_leaves_the_session_with_none_open() {
+        let f = fixture();
+        run(&f, "open_asset", json!({ "assetId": hero(&f) })).unwrap();
+        run(&f, "delete_asset", json!({ "assetId": hero(&f) })).unwrap();
+        assert_eq!(f.session.current_asset(), None);
+        let next = run(&f, "list_references", json!({})).unwrap_err();
+        assert_eq!(next.code, "asset.not_open");
+        assert!(f.host.notices().contains(&Notice::Projects));
+        // Deleting a root forgets an open later frame of it too.
+        let other = with_store(&f.host, |s| s.asset_create(f.project, "tree", "prop", 4, 4))
+            .unwrap()
+            .id;
+        let added = run(&f, "add_frame", json!({ "assetId": other.0.to_string() })).unwrap();
+        let frame = added["frame"].as_str().unwrap().to_string();
+        run(&f, "open_asset", json!({ "assetId": frame })).unwrap();
+        run(
+            &f,
+            "delete_asset",
+            json!({ "assetId": other.0.to_string() }),
+        )
+        .unwrap();
+        assert_eq!(f.session.current_asset(), None);
+        // Deleting some other asset keeps the open one.
+        let a = with_store(&f.host, |s| s.asset_create(f.project, "a", "prop", 4, 4))
+            .unwrap()
+            .id;
+        let b = with_store(&f.host, |s| s.asset_create(f.project, "b", "prop", 4, 4))
+            .unwrap()
+            .id;
+        f.session.set_current_asset(a);
+        run(&f, "delete_asset", json!({ "assetId": b.0.to_string() })).unwrap();
+        assert_eq!(f.session.current_asset(), Some(a));
+    }
+
+    #[test]
+    fn deleting_the_open_assets_project_forgets_the_asset() {
+        let f = fixture();
+        f.session.set_current_asset(f.hero);
+        let delete = json!({ "projectId": f.project.to_string(), "force": true });
+        run(&f, "delete_project", delete).unwrap();
+        assert_eq!(f.session.current_asset(), None);
+    }
+
+    #[test]
+    fn delete_reference_logs_the_agent() {
+        let f = fixture();
+        let reference = add_reference(&f);
+        let delete = json!({ "assetId": hero(&f), "referenceId": reference.to_string() });
+        run(&f, "delete_reference", delete).unwrap();
+        let ops = with_store(&f.host, |s| s.op_log(f.hero)).unwrap();
+        assert_eq!(ops.last().unwrap().actor, "agent:s-1");
     }
 
     #[test]

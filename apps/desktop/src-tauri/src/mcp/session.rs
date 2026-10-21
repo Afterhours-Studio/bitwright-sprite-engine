@@ -55,6 +55,19 @@ impl Session {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(id);
     }
+
+    /// Forgets the open asset when `gone` says it no longer exists, so the
+    /// next call that needs one says "no asset open" rather than reporting an
+    /// asset deleted under the session as not found.
+    pub fn forget_asset_if(&self, gone: impl FnOnce(AssetId) -> bool) {
+        let mut current = self
+            .current
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if current.is_some_and(gone) {
+            *current = None;
+        }
+    }
 }
 
 #[cfg(test)]
@@ -87,6 +100,17 @@ mod tests {
         let later = AssetId(Uuid::now_v7());
         session.set_current_asset(later);
         assert_eq!(session.current_asset(), Some(later));
+    }
+
+    #[test]
+    fn forgetting_clears_only_the_asset_that_is_gone() {
+        let session = Session::new("worker");
+        let id = AssetId(Uuid::now_v7());
+        session.set_current_asset(id);
+        session.forget_asset_if(|_| false);
+        assert_eq!(session.current_asset(), Some(id));
+        session.forget_asset_if(|open| open == id);
+        assert_eq!(session.current_asset(), None);
     }
 
     #[test]

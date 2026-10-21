@@ -61,6 +61,7 @@ CREATE TABLE style (
     name         TEXT NOT NULL,
     era          TEXT NOT NULL,             -- '8bit' | '16bit' | '32bit' | 'custom'
     view         TEXT NOT NULL,             -- 'topdown' | 'sideview'
+    proportions  TEXT NOT NULL,             -- 'standard' | 'chibi' (migration 7)
     rules        TEXT NOT NULL,             -- JSON: StyleRules, see §4
     created_at   INTEGER NOT NULL,
     updated_at   INTEGER NOT NULL
@@ -120,6 +121,18 @@ CREATE TABLE op (
 );
 
 CREATE INDEX op_asset_seq ON op (asset_id, seq);
+
+-- Migration 7. What happens to a project or its style, rather than to an
+-- asset: create, rename, delete, style_rules_set. No foreign key, so the entry
+-- for a deleted project outlives it.
+CREATE TABLE project_log (
+    seq          INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id   TEXT NOT NULL,
+    kind         TEXT NOT NULL,
+    payload      TEXT NOT NULL,              -- JSON
+    actor        TEXT NOT NULL,              -- 'user' | 'agent:<mcp session id>'
+    at           INTEGER NOT NULL
+);
 ```
 
 ### On the op log
@@ -218,14 +231,18 @@ against:
   "maxSlots": 24, // hard ceiling on palette size
   "rampSteps": { "min": 3, "max": 5 },
 
-  // Per ramp step, in HSL degrees, positive rotating toward blue/violet.
-  // Darker steps rotate cool and gain a little chroma before losing it at
-  // the deepest step; lighter steps rotate warm and lose chroma.
+  // Per ramp step, in OKLCH hue degrees (the space the lightness and chroma
+  // beside them are read in), positive rotating toward blue/violet. Darker
+  // steps rotate cool and gain a little chroma before losing it at the
+  // deepest step; lighter steps rotate warm and lose chroma. The style guide
+  // wrote 12..20 HSL degrees; HSL's wheel is uneven (3..24 OKLCH degrees in
+  // greens, 7..39 in yellows), so the band is the OKLCH span of every worked
+  // palette, 6.2..29.2, rounded out. Migration 7 rewrote saved HSL defaults.
   "hueShift": {
-    "darkerHueDeg": [12, 20],
+    "darkerHueDeg": [6, 30],
     "darkerChromaFactor": [0.85, 1.12],
     "darkerDeltaL": [-0.13, -0.08], // OKLCH
-    "lighterHueDeg": [-20, -12],
+    "lighterHueDeg": [-30, -6],
     "lighterChromaFactor": [0.7, 0.85],
     "lighterDeltaL": [0.09, 0.15],
   },
@@ -251,6 +268,18 @@ against:
 The numeric bounds in the `32bit` era come from
 [the HD-2D style guide](../pixel-art/hd2d-style-guide.md), which is the research
 those numbers are drawn from rather than a second opinion about them.
+
+Rules are edited partially (`set_style_rules` over MCP, `style_set_rules` from
+the window, both `Store::style_set_rules_as`) and validated against the ranges
+`StyleRules::validate` names. Rules that differ from their era move the style
+to `custom`. An asset edited on its own gets a copy of the style it read, set
+as an undoable `asset_set_style` op.
+
+A style's **proportions** (`standard` | `chibi`) choose the silhouette gate's
+`reads-at-1x` and `solidity` bands (`gates::silhouette_bands`): standard
+18..28 and 0.62..0.82, chibi 18..48 and 0.62..0.88, for a big head and raised
+one-pixel details. The numbers are justified beside the constants and in
+mcp-tools.md §4.
 
 ---
 

@@ -53,6 +53,7 @@ import {
   projectList,
   projectRename,
 } from '@/lib/document';
+import { on } from '@/lib/tauri';
 import { useDocumentStore } from '@/stores/useDocumentStore';
 import { useToastStore } from '@/stores/useToastStore';
 import type { Asset, AssetKind, Project, StyleChoice, StyleEra, StyleView } from '@/types/document';
@@ -174,7 +175,28 @@ function deletedWith(asset: Asset, deletedId: string): boolean {
   return asset.id === deletedId || asset.rootId === deletedId;
 }
 
+/**
+ * The event the shell sends after an agent creates, renames or deletes a
+ * project or an asset, or changes a style, so a window that lists them is not
+ * left showing what was there before.
+ */
+export const PROJECTS_CHANGED_EVENT = 'projects://changed';
+
+/** The subscription, made once by the first read and kept for the window's life. */
+let listening: Promise<unknown> | null = null;
+
 export const useProjectStore = create<ProjectState>((set, get) => {
+  /**
+   * Re-reads the lists whenever an agent changes them. Started by the first
+   * `load` or `loadAll`, so only a window that lists projects listens, and it
+   * re-runs whichever read that window uses.
+   */
+  const listen = (): void => {
+    listening ??= on(PROJECTS_CHANGED_EVENT, () => {
+      void (get().loadedAll ? get().loadAll() : get().load());
+    });
+  };
+
   /**
    * Records a failure, and says so where it can still be read.
    *
@@ -226,6 +248,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     loadedAll: false,
 
     load: async () => {
+      listen();
       set({ loading: true, error: null });
       const projects = await projectList();
       if (!projects.ok) {
@@ -278,6 +301,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     },
 
     loadAll: async () => {
+      listen();
       set({ loading: true, error: null });
       const projects = await projectList();
       if (!projects.ok) {

@@ -26,8 +26,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useDocumentStore } from '@/stores/useDocumentStore';
-import { isListed, listedAssets, useProjectStore } from '@/stores/useProjectStore';
+import {
+  PROJECTS_CHANGED_EVENT,
+  isListed,
+  listedAssets,
+  useProjectStore,
+} from '@/stores/useProjectStore';
 import { useToastStore } from '@/stores/useToastStore';
+import type * as TauriModule from '@/lib/tauri';
 import type { Asset, Project } from '@/types/document';
 
 vi.mock('@/lib/document', () => ({
@@ -41,7 +47,26 @@ vi.mock('@/lib/document', () => ({
   assetDelete: vi.fn(),
 }));
 
+vi.mock('@/lib/tauri', async (importOriginal) => ({
+  ...(await importOriginal<typeof TauriModule>()),
+  on: vi.fn().mockResolvedValue(() => {}),
+}));
+
 const documents = await import('@/lib/document');
+const tauri = await import('@/lib/tauri');
+
+/**
+ * The handler the store gave the shell for the projects-changed event.
+ *
+ * @returns What the shell would call when an agent changes the lists.
+ */
+function projectsChangedHandler(): () => void {
+  const call = vi.mocked(tauri.on).mock.calls.find(([event]) => event === PROJECTS_CHANGED_EVENT);
+  if (call === undefined) {
+    throw new Error('the store never listened for projects://changed');
+  }
+  return call[1] as () => void;
+}
 
 /**
  * A project row, as the shell would return one.
@@ -117,6 +142,31 @@ beforeEach(() => {
 });
 
 describe('useProjectStore', () => {
+  it('re-reads the lists when an agent changes them', async () => {
+    await useProjectStore.getState().load();
+    expect(useProjectStore.getState().projects).toHaveLength(1);
+
+    vi.mocked(documents.projectList).mockResolvedValue({
+      ok: true,
+      value: [project('project-1', 'forest'), project('project-2', 'made by an agent')],
+    });
+    projectsChangedHandler()();
+    await vi.waitFor(() => {
+      expect(useProjectStore.getState().projects).toHaveLength(2);
+    });
+  });
+
+  it('re-reads every asset when the window lists across projects', async () => {
+    await useProjectStore.getState().loadAll();
+    const extra = asset('asset-9', 'project-1', 'drawn by an agent');
+    vi.mocked(documents.assetList).mockResolvedValue({ ok: true, value: [HERO, extra] });
+
+    projectsChangedHandler()();
+    await vi.waitFor(() => {
+      expect(useProjectStore.getState().allAssets).toEqual([HERO, extra]);
+    });
+  });
+
   it('reads the projects and the assets of the one that is selected', async () => {
     await useProjectStore.getState().load();
     await useProjectStore.getState().selectProject('project-1');

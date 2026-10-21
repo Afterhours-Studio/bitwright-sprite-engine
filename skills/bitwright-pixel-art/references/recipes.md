@@ -683,7 +683,7 @@ Sending the raw proposal instead gives:
 ```
 → error { "code": "palette.rule_violation",
           "message": "ramp 'coat' has 2 steps; the minimum is 3",
-          "hint": "Add a lighter step: rotate hue −12° to −20°, chroma ×0.70–0.85, ΔL +0.09 to +0.15." }
+          "hint": "Add a lighter step: rotate OKLCH hue −6° to −30°, chroma ×0.70–0.85, ΔL +0.09 to +0.15." }
 ```
 
 ## B2. Silhouette from the reference grid

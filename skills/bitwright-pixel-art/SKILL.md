@@ -220,9 +220,20 @@ unless `force: true`), `rename_asset`, `delete_asset`, `list_references` and
 `delete_reference`. The delete tools cannot be undone. `export_png`, `export_sheet` and
 `export_gif` take an optional absolute `directory` to write into.
 
-`create_project` takes an `era` and a `view`. Choose them from what the person asked
-for ("16-bit top-down"); the defaults are `32bit` and `topdown`. `get_style_rules`
-returns both, plus a `viewGuidance` line.
+`create_project` takes an `era`, a `view` and `proportions`. Choose them from what the
+person asked for ("16-bit top-down chibi"); the defaults are `32bit`, `topdown` and
+`standard`. `get_style_rules` returns all three, plus a `viewGuidance` and a
+`proportionsGuidance` line.
+
+`set_style_rules` changes them later: send only what changes (`{ "rules": { "maxSlots":
+12 } }`, `{ "proportions": "chibi" }`). It is validated, and nothing is written when it
+is refused. Changing the rules of an era that is not `custom` makes the style `custom`
+(the result's `eraChanged` says so); proportions alone keep the era. It edits the
+project's style unless you pass `scope: "asset"`, which gives that one sprite its own.
+
+**Proportions** set the silhouette's shape bands: `chibi` (a head about half the
+height, raised one-pixel details that are the design) widens `reads-at-1x` and
+`solidity`; see `workflow.md` §3.
 
 **Era** sets the colour and outline limits:
 
@@ -231,7 +242,7 @@ returns both, plus a `viewGuidance` line.
 | `8bit` | 4 | 2-4 | full | Handheld look. Four colours, so every slot earns its place and every shape carries a 1px outline. |
 | `16bit` | 16 | 3-5 | selective | Console look. Short ramps, outline where the silhouette needs it. |
 | `32bit` | 24 | 3-5 | selective | The default. Room for several materials and a hue-shifted ramp each. |
-| `custom` | 24 | 3-5 | selective | Starts as `32bit`; the person has edited the rules, so trust `get_style_rules`. |
+| `custom` | 24 | 3-5 | selective | Starts as `32bit`; the rules have been edited (by the person or `set_style_rules`), so trust `get_style_rules`. |
 
 **View** sets the canvas sizes and the proportions you draw to. Gates do not change by
 view; the shape is yours to get right.

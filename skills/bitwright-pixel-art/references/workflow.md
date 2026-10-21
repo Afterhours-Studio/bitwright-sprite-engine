@@ -74,10 +74,10 @@ it means.
 | Ramp length | 3–5 steps per ramp |
 | Palette size | ≤ 24 slots in the `32bit` era; 14–22 is the working range for 48 × 64; hard ceiling 32 |
 | Hue shift present | every ramp rotates hue per step; a ramp that only changes lightness is rejected |
-| Darker step, hue | +12° to +20° toward blue/violet per step; ≤ ~45° across a ramp |
+| Darker step, hue | +6° to +30° **OKLCH** hue toward blue/violet per step |
 | Darker step, chroma | × 0.85 – 1.12 of the base step |
 | Darker step, lightness | ΔL −0.08 to −0.13 (OKLCH) per step |
-| Lighter step, hue | −12° to −20° toward yellow/orange per step |
+| Lighter step, hue | −6° to −30° **OKLCH** hue toward yellow/orange per step |
 | Lighter step, chroma | × 0.70 – 0.85 of the base step |
 | Lighter step, lightness | ΔL +0.09 to +0.15 (OKLCH) per step |
 | Skin exception | ramps whose material is `skin` rotate toward red/magenta in shadow, not blue |
@@ -96,12 +96,25 @@ One slot, the whole character mass. `paste_grid` is the tool. This layer answers
 shape* and nothing else; which slot you use for the mask does not matter, because
 nothing downstream reads it.
 
+**Chibi heroes.** A small hero with a head about half its height and raised one-pixel
+details that are the design (a hair strand, a hair tail, two raised fingers) fails the
+standard `reads-at-1x` and `solidity` bands on purpose: each 1 px detail L long adds
+about 2L of perimeter, and a round head fills its hull. Do not thin the design to pass;
+set the style's proportions to chibi instead —
+`set_style_rules { "proportions": "chibi" }` (or `create_project` with
+`proportions: "chibi"`). That widens only those two bands, to 18 – 48 and up to 0.88:
+on a ~1000 px 40 × 56 hero, a body at the standard ceiling plus four 6 px details is
+P²/A ≈ 46, and a head about half the hull beside a standard body averages a solidity of
+≈ 0.88. The first chibi hero measured 43.6 and 0.837. The floors stay, so a lump or a
+wire frame still fails.
+
 **Gate checks and thresholds**
 
 | Check | Threshold |
 | --- | --- |
 | `single-region` | exactly one 4-connected filled region |
-| `reads-at-1x` | the shape survives a 50% downscale |
+| `reads-at-1x` | perimeter² / area in 18 – 28 (`standard`) or 18 – 48 (`chibi`): the shape survives a 50% downscale |
+| `solidity` | the shape fills 0.62 – 0.82 of its convex hull (`standard`) or 0.62 – 0.88 (`chibi`) |
 | Occupancy, height | bbox height ≥ 0.85 × H → ≥ 55 rows on a 64-high canvas |
 | Occupancy, width | bbox width 0.45 – 0.75 × W → 22–36 columns on a 48-wide canvas |
 | Margin | no filled pixel in row 0, row H−1, column 0, column W−1; 2 rows clear at the top if there is a head extremity |

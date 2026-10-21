@@ -19,7 +19,7 @@
 //! The window asks a person to pick a file; an agent hands the picture over
 //! either as an absolute `path` on this machine or as inline `dataBase64`
 //! (with a `fileName` for the default name). Both end in the same shell
-//! functions the window's commands call (`read_file`, `conform_meta`,
+//! functions the window's commands call (`read_file`, `conform_meta_with_grid`,
 //! `probe_picture`, `pixelize_reference`), so the limits and error codes are
 //! the window's: `reference.unreadable`, `reference.too_large`, `png.invalid`.
 
@@ -115,6 +115,7 @@ fn load(
 /// is, which is all a PNG needs to be pixelized.
 fn import(
     host: &dyn DocumentHost,
+    session: &Session,
     asset: AssetId,
     picture: Picture,
     name: Option<String>,
@@ -149,7 +150,9 @@ fn import(
                 })?;
             (
                 Some(reference::decode(image).map_err(tool_error)?),
-                reference::conform_meta(&response, width, height),
+                // The grid from pixelize's own detector, as the window reports
+                // it, so the import and the pixelize step agree on one picture.
+                reference::conform_meta_with_grid(&response, width, height, &picture.bytes),
             )
         }
         None => (None, json!({ "width": width, "height": height })),
@@ -163,7 +166,9 @@ fn import(
         conform_meta: Some(meta),
         created_at: reference::now_millis(),
     };
-    let op = with_store(host, |store| store.reference_write(stored.clone()))?;
+    let op = with_store(host, |store| {
+        store.reference_write_as(stored.clone(), &session.actor())
+    })?;
     host.changed(asset, &op);
     Ok((stored, op))
 }
@@ -214,7 +219,7 @@ fn import_reference(host: &dyn DocumentHost, session: &Session, args: Value) -> 
         args.data_base64.as_deref(),
         args.file_name.as_deref(),
     )?;
-    let (stored, _) = import(host, asset, picture, args.name)?;
+    let (stored, _) = import(host, session, asset, picture, args.name)?;
     Ok(json!({
         "reference": reference::summary(&stored),
         "hint": "Call read_reference, extract_palette or pixelize_reference with this referenceId.",
@@ -302,6 +307,7 @@ fn png_to_pixel(host: &dyn DocumentHost, session: &Session, args: Value) -> Tool
     })?;
     session.set_current_asset(asset.id);
     host.opened(asset.id);
+    host.projects_changed();
 
     // The sprite is kept if a later step fails: it is a real row now, and the
     // error says so, so the agent can import again without choosing the size
@@ -313,7 +319,7 @@ fn png_to_pixel(host: &dyn DocumentHost, session: &Session, args: Value) -> Tool
             error.hint,
         )
     };
-    let (stored, _) = import(host, asset.id, picture, args.name).map_err(kept)?;
+    let (stored, _) = import(host, session, asset.id, picture, args.name).map_err(kept)?;
     let (report, op) = {
         let arc = host.store();
         let mut store = arc.lock().map_err(|_| {
@@ -365,8 +371,9 @@ pub fn tools() -> Vec<ToolSpec> {
             description: "Make a new character sprite out of a picture in one call, like the \
                 home screen's PNG to Pixel: the picture's own pixel grid is measured and the \
                 sprite created at that size (16 to 512 a side), the picture is imported as \
-                its reference, and it is pixelized into the silhouette layer (or `layer`) \
-                with a palette made from it. Give the picture as an absolute path or as \
+                its reference, and it is pixelized with a palette made from it: the shape \
+                goes into silhouette as a one-slot mask and the colours into flats (naming \
+                another `layer` writes the colours there alone). Give the picture as an absolute path or as \
                 dataBase64 (with fileName). A file that is not a PNG takes the project's \
                 canvas and needs the app's engine; a PNG that is too large or empty creates \
                 nothing. Opens the new sprite in this session.",
@@ -476,6 +483,12 @@ mod tests {
         )
         .unwrap();
         assert_eq!(unnamed["reference"]["name"], "idle");
+        // An agent's import is the agent's op, not the person's.
+        let ops = with_store(&f.host, |s| s.op_log(f.asset)).unwrap();
+        assert!(ops
+            .iter()
+            .filter(|op| op.kind.contains("reference"))
+            .all(|op| op.actor == f.session.actor()));
     }
 
     #[test]

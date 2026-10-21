@@ -67,7 +67,7 @@ fn list_projects(host: &dyn DocumentHost, _session: &Session, _args: Value) -> T
             result.push(json!({
                 "id": p.id,
                 "name": p.name,
-                "style": { "era": p.era, "view": p.view },
+                "style": { "era": p.era, "view": p.view, "proportions": p.proportions },
                 "assetCount": asset_count,
             }));
         }
@@ -86,6 +86,8 @@ struct CreateProjectArgs {
     name: String,
     era: Option<String>,
     view: Option<String>,
+    /// standard (the default) or chibi.
+    proportions: Option<String>,
     /// Legacy: one of hd2d, snes, gameboy, custom. Read only when neither
     /// `era` nor `view` is given; kept for one release.
     preset: Option<String>,
@@ -98,6 +100,11 @@ fn create_project_schema() -> Value {
             "name": { "type": "string" },
             "era": { "type": "string", "enum": ["8bit", "16bit", "32bit", "custom"] },
             "view": { "type": "string", "enum": ["topdown", "sideview"] },
+            "proportions": {
+                "type": "string",
+                "enum": ["standard", "chibi"],
+                "description": "Body proportions. chibi (big head, raised small details) widens the silhouette gates' reads-at-1x and solidity bands."
+            },
             "preset": {
                 "type": "string",
                 "enum": ["hd2d", "snes", "gameboy", "custom"],
@@ -109,7 +116,7 @@ fn create_project_schema() -> Value {
     })
 }
 
-fn create_project(host: &dyn DocumentHost, _session: &Session, args: Value) -> ToolResult {
+fn create_project(host: &dyn DocumentHost, session: &Session, args: Value) -> ToolResult {
     let args: CreateProjectArgs = parse(args)?;
     let (era, view) = crate::raster::palette::resolve_style(
         args.era.as_deref(),
@@ -123,7 +130,21 @@ fn create_project(host: &dyn DocumentHost, _session: &Session, args: Value) -> T
             "era is one of 8bit, 16bit, 32bit, custom; view is topdown or sideview.",
         )
     })?;
-    let project = with_store(host, |store| store.project_create(&args.name, &era, &view))?;
+    let proportions = args
+        .proportions
+        .as_deref()
+        .unwrap_or(crate::raster::palette::DEFAULT_PROPORTIONS);
+    crate::raster::palette::check_proportions(proportions).map_err(|e| {
+        ToolError::new(
+            "args.invalid",
+            format!("proportions {}", e.detail),
+            "proportions is standard or chibi.",
+        )
+    })?;
+    let project = with_store(host, |store| {
+        store.project_create_as(&args.name, &era, &view, proportions, &session.actor())
+    })?;
+    host.projects_changed();
     Ok(json!({ "project": project }))
 }
 
@@ -230,6 +251,7 @@ fn create_asset(host: &dyn DocumentHost, _session: &Session, args: Value) -> Too
         Ok((asset, style_rules))
     })
     .map_err(remap_project)?;
+    host.projects_changed();
     Ok(json!({ "asset": asset, "styleRules": style_rules }))
 }
 
@@ -327,31 +349,57 @@ fn view_guidance(view: &str) -> &'static str {
     }
 }
 
+/// What the proportions mean for the silhouette, and which bands they set.
+fn proportions_guidance(proportions: &str) -> String {
+    let (ratio, solidity) = crate::raster::gates::silhouette_bands(proportions);
+    let shape = match proportions {
+        "chibi" => {
+            "Chibi: a head about half the height on a short body; raised one-pixel \
+             details (a hair strand, a tail, two raised fingers) are part of the design."
+        }
+        _ => "Standard: a head about a fifth to a quarter of the height.",
+    };
+    format!(
+        "{shape} The silhouette step wants perimeter squared over area in {}..{} \
+         (reads-at-1x) and solidity in {}..{}.",
+        ratio[0], ratio[1], solidity[0], solidity[1]
+    )
+}
+
 fn get_style_rules(host: &dyn DocumentHost, session: &Session, args: Value) -> ToolResult {
     let args: GetStyleRulesArgs = parse(args)?;
     let id = resolve_asset(session, args.asset_id.as_deref())?;
-    let (rules, era, view) = with_store(host, |store| {
+    let (rules, era, view, proportions, own) = with_store(host, |store| {
         let asset = store.asset_read(id)?;
         let rules = store.asset_rules(id)?;
-        // The asset's own style wins; otherwise the project's era and view.
-        let (era, view) = match asset.style_id {
-            Some(style_id) => {
+        let project = store.project_read(asset.project_id)?;
+        // The asset's own style wins; otherwise the project's.
+        match asset.style_id {
+            Some(style_id) if Some(style_id) != project.style_id => {
                 let style = store.style_read(style_id)?;
-                (Some(style.era), Some(style.view))
+                Ok((
+                    rules,
+                    Some(style.era),
+                    Some(style.view),
+                    Some(style.proportions),
+                    true,
+                ))
             }
-            None => {
-                let project = store.project_read(asset.project_id)?;
-                (project.era, project.view)
-            }
-        };
-        Ok((rules, era, view))
+            _ => Ok((rules, project.era, project.view, project.proportions, false)),
+        }
     })?;
     let guidance = view.as_deref().map(view_guidance);
+    let proportions =
+        proportions.unwrap_or_else(|| crate::raster::palette::DEFAULT_PROPORTIONS.into());
     Ok(json!({
         "assetId": id.0,
         "era": era,
         "view": view,
+        "proportions": proportions,
+        "styleScope": if own { "asset" } else { "project" },
         "viewGuidance": guidance,
+        "proportionsGuidance": proportions_guidance(&proportions),
+        "hueSpace": "OKLCH: hueShift degrees, chroma factors and lightness are all read in OKLCH.",
         "rules": rules,
     }))
 }
@@ -365,16 +413,18 @@ pub fn tools() -> Vec<ToolSpec> {
         ToolSpec {
             name: "list_projects",
             description: "List every project in the document. Each entry includes \
-                the project id, name, style (era and view), and asset count.",
+                the project id, name, style (era, view and proportions), and asset count.",
             input_schema: list_projects_schema,
             handler: list_projects,
         },
         ToolSpec {
             name: "create_project",
-            description: "Create a new project. era (8bit, 16bit, 32bit, custom; default 32bit) sets \
+            description:
+                "Create a new project. era (8bit, 16bit, 32bit, custom; default 32bit) sets \
                 the palette and outline limits; view (topdown, sideview; default \
-                topdown) sets canvas sizes and proportions. The old preset \
-                argument still maps to an era and view.",
+                topdown) sets canvas sizes and proportions guidance; proportions \
+                (standard, chibi; default standard) sets the silhouette gate bands. The \
+                old preset argument still maps to an era and view.",
             input_schema: create_project_schema,
             handler: create_project,
         },
@@ -403,9 +453,10 @@ pub fn tools() -> Vec<ToolSpec> {
         ToolSpec {
             name: "get_style_rules",
             description: "The rules the gates check this asset against: slot ceiling, \
-                ramp lengths, hue shift, outline mode, light direction, canvas, plus the project era, view and proportions \
-                guidance. Read \
-                them before drawing so you do not discover them by failing a gate.",
+                ramp lengths, hue shift (OKLCH degrees), outline mode, light direction, \
+                canvas, plus the style's era, view, proportions (standard or chibi) and \
+                what each means for the shape. Read them before drawing so you do not \
+                discover them by failing a gate; change them with set_style_rules.",
             input_schema: get_style_rules_schema,
             handler: get_style_rules,
         },

@@ -49,6 +49,12 @@ export type StyleEra = '8bit' | '16bit' | '32bit' | 'custom';
  */
 export type StyleView = 'topdown' | 'sideview';
 
+/**
+ * A style's body proportions: `chibi` (a big head and raised small details)
+ * widens the silhouette gates' shape bands.
+ */
+export type StyleProportions = 'standard' | 'chibi';
+
 /** Every era, in the order the interface offers them. */
 export const STYLE_ERAS: readonly StyleEra[] = ['8bit', '16bit', '32bit', 'custom'];
 
@@ -297,6 +303,8 @@ export interface Project {
   era: StyleEra | null;
   /** The view of that style, or null when the project has none. */
   view: StyleView | null;
+  /** The body proportions of that style. Optional until the interface offers the choice. */
+  proportions?: StyleProportions | null;
   /** Unix milliseconds. */
   createdAt: number;
   updatedAt: number;
@@ -368,6 +376,8 @@ export interface Style {
   name: string;
   era: StyleEra;
   view: StyleView;
+  /** Which silhouette bands the shape gates read. Optional until the interface offers it. */
+  proportions?: StyleProportions;
   rules: StyleRules;
   createdAt: number;
   updatedAt: number;

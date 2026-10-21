@@ -21,11 +21,16 @@ than assuming it.
 
 Failure is `palette.rule_violation` with the offending ramp named in the hint.
 
+**Every number here is OKLCH: hue, chroma and lightness alike.** Hue degrees are the
+OKLCH hue angle (the `H` column in the table in §3), not HSL hue from a colour picker.
+The two disagree a lot: an HSL turn of 12–20° is only 3–24° of OKLCH hue in the greens
+and 7–39° in the yellows. Measure a candidate step's OKLCH hue before sending it.
+
 **Per step, going darker from the base:**
 
-- Hue rotates **+12° to +20°** toward blue/violet. The budget is per step, not per ramp:
-  a 3-step ramp turns 24–40° end to end, a 4-step ramp 36–60°, a 5-step metal ramp up to
-  80°. Only the per-step figure is checked.
+- OKLCH hue rotates **+6° to +30°** toward blue/violet. The budget is per step, not per
+  ramp, and only the per-step figure is checked. A step that only changes lightness
+  turns 0–2° and fails.
 - Chroma is **× 0.85 – 1.12** of the step it was taken from — the next one up the ramp,
   not the base. Shadows gain a little chroma before losing it at the deepest step; they
   are not desaturated grey.
@@ -33,15 +38,21 @@ Failure is `palette.rule_violation` with the offending ramp named in the hint.
 
 **Per step, going lighter from the base:**
 
-- Hue rotates **−12° to −20°** toward yellow/orange.
+- OKLCH hue rotates **−6° to −30°** toward yellow/orange.
 - Chroma is **× 0.70 – 0.85** of the step it was taken from. Bright light washes colour out.
 - OKLCH lightness rises **0.09 – 0.15** per step.
 
 **The skin exception.** Ramps whose `material` is `skin` — and anything translucent:
 ears, fingers, thin fabric — rotate toward **red/magenta** in shadow rather than toward
 blue. Subsurface scattering. The exception is the *sign* of the rotation, so it inverts
-both directions: skin rotates **−12° to −20°** going darker and **+12° to +20°** going
-lighter. It is the one exception; cloth, metal, leather, stone and hair all take the
+both directions: skin rotates **−6° to −30°** going darker and **+6° to +30°** going
+lighter (OKLCH hue).
+
+The band is wide because it was re-derived from HSL: the style guide wrote 12–20 HSL
+degrees, and the worked palettes below, read in OKLCH, step by 6.2° at the least (the
+green cloth) and 29.2° at the most (the rim's shadow step). 6° is still a turn the eye
+reads at sprite chroma; 30° keeps a step in its hue family. Aim for the middle,
+12–20° of OKLCH hue, and use the ends only where a hue needs them. It is the one exception; cloth, metal, leather, stone and hair all take the
 blue rule.
 
 **Ramp length** is 3–5 steps. Budget per material:
@@ -197,9 +208,10 @@ Why it passes — every figure below is measured from the hexes above, not asser
   each inside its material's band. Leather is the tight one: 3 steps can only reach
   0.26–0.28 of its 0.26–0.34 band, so both of its steps run near the top of the per-step
   bracket (−0.121 and +0.143). Move its base and you will have to rebuild it.
-- Skin rotates 26.7° → 10.0° → 354.4° in HSL going darker: toward red, the documented
-  exception, and +14.3° going lighter. Every other ramp rotates +15.1° to +19.4° going
-  darker and −14.4° to −16.1° going lighter.
+- Skin's OKLCH hue runs 59.9° → 31.7° → 13.8° going darker (−28.1°, −17.9°): toward
+  red, the documented exception, and +26.2° going lighter. Every other ramp rotates
+  +6.2° (green) to +29.2° (rim) going darker and −8.2° to −25.8° going lighter, all in
+  OKLCH hue.
 - Chroma factors against the step they were taken from: 0.874–1.031 darker (bracket
   0.85–1.12), 0.716–0.802 lighter (bracket 0.70–0.85).
 - Floor `#0D051A` at L 0.144, ceiling `#FFE2DC` at L 0.935. Total L range 0.791. No
@@ -227,7 +239,8 @@ Treat the proposal as a starting point, not an answer:
    steps. Add the missing step yourself.
 2. Check the hue rotation per step. Photographic and AI-generated references usually
    have shadows that only lose lightness. Those ramps will be rejected. Rotate the
-   darker steps +12° to +20° and the lighter steps −12° to −20° before sending.
+   darker steps +6° to +30° and the lighter steps −6° to −30° of OKLCH hue (aim for
+   12–20°) before sending.
 3. Check the floor and ceiling. A reference with crushed blacks gives you a darkest
    slot below L 0.10; lift it.
 4. Merge any pair with ΔL < 0.05 and ΔH < 20° into one slot and spend the freed slot on

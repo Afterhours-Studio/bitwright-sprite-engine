@@ -32,6 +32,9 @@ use tauri::{AppHandle, Emitter, Runtime};
 
 /// The event the renderer listens for to bring an asset forward.
 pub const EVENT_OPENED: &str = "document://opened";
+/// The event the renderer listens for to re-read its project and asset lists,
+/// after an agent created, renamed or deleted one, or changed a style.
+pub const EVENT_PROJECTS: &str = "projects://changed";
 
 /// The store, plus the ways a document can announce that it moved.
 pub trait DocumentHost: Send + Sync {
@@ -48,6 +51,10 @@ pub trait DocumentHost: Send + Sync {
     /// After a frame is added, deleted, moved or retimed, or the playback
     /// changes, so a timeline someone is watching follows the agent.
     fn animation_changed(&self, animation: &Animation);
+    /// After a project or an asset is created, renamed or deleted, or a
+    /// project's style changes, so a window listing them re-reads its lists.
+    /// A host with no window has nobody to tell.
+    fn projects_changed(&self) {}
     /// Conforms a picture through the engine sidecar, the way the window's
     /// reference import does. `None` means this host has no engine (stdio and
     /// tests), and the caller stores the picture unconformed.
@@ -145,6 +152,16 @@ impl<R: Runtime> DocumentHost for TauriHost<R> {
         crate::commands::animation::emit_animation(&self.app, animation);
     }
 
+    fn projects_changed(&self) {
+        if self
+            .app
+            .emit(EVENT_PROJECTS, serde_json::json!({}))
+            .is_err()
+        {
+            log::warn!("failed to emit {EVENT_PROJECTS}");
+        }
+    }
+
     fn conform(
         &self,
         request: serde_json::Value,
@@ -217,6 +234,7 @@ pub enum Notice {
     Opened(AssetId),
     Tilemap(AssetId),
     Animation(Animation),
+    Projects,
 }
 
 #[cfg(test)]
@@ -267,6 +285,9 @@ impl DocumentHost for RecordingHost {
     }
     fn animation_changed(&self, animation: &Animation) {
         self.push(Notice::Animation(animation.clone()));
+    }
+    fn projects_changed(&self) {
+        self.push(Notice::Projects);
     }
 }
 

@@ -17,12 +17,12 @@
 //! Both the window and the MCP transport use this service, so committing an
 //! edit and notifying listeners cannot drift into two different behaviours.
 
-use crate::raster::palette::resolve_style;
+use crate::raster::palette::{resolve_style, DEFAULT_PROPORTIONS};
 use crate::raster::Op;
 use crate::raster::{self, IndexedBuffer, LayerRole, Palette, RgbaImage};
 use crate::store::{
     AppError, Asset, AssetId, Document, GateReport, OpResult, Project, Result, StepState, Store,
-    Style,
+    Style, StyleChange,
 };
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -224,10 +224,35 @@ pub async fn project_create(
     era: Option<String>,
     view: Option<String>,
     preset: Option<String>,
+    proportions: Option<String>,
 ) -> Result<Project> {
     run(&state, move |s| {
         let (era, view) = resolve_style(era.as_deref(), view.as_deref(), preset.as_deref())?;
-        s.project_create(&name, &era, &view)
+        let proportions = proportions.as_deref().unwrap_or(DEFAULT_PROPORTIONS);
+        s.project_create_as(&name, &era, &view, proportions, "user")
+    })
+    .await
+}
+/// A partial, validated edit of a project's style, or with `asset_id` of that
+/// asset's own style: the same store call `set_style_rules` makes over MCP.
+/// `rules` is a partial `StyleRules`; editing the rules of a style that is not
+/// `custom` moves it to `custom`, which the result's `eraWas` reports.
+#[tauri::command]
+pub async fn style_set_rules(
+    state: State<'_, DocumentState>,
+    project_id: Uuid,
+    asset_id: Option<AssetId>,
+    rules: Option<serde_json::Value>,
+    proportions: Option<String>,
+) -> Result<StyleChange> {
+    run(&state, move |s| {
+        s.style_set_rules_as(
+            project_id,
+            asset_id,
+            rules.as_ref(),
+            proportions.as_deref(),
+            "user",
+        )
     })
     .await
 }

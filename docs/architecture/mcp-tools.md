@@ -21,7 +21,7 @@ real; nothing here is a placeholder.
 | Section               | Tools                                                                                                                       | Available now | Delivered by |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------- | ------------ |
 | 3. The guide          | `read_guide`                                                                                                                | yes           | Phase 1      |
-| 4. Orientation        | `list_projects`, `create_project`, `list_assets`, `create_asset`, `open_asset`, `get_style_rules`                           | yes           | Phase 2      |
+| 4. Orientation        | `list_projects`, `create_project`, `list_assets`, `create_asset`, `open_asset`, `get_style_rules`, `set_style_rules`        | yes           | Phase 2      |
 | 4b. Managing          | `rename_project`, `delete_project`, `rename_asset`, `delete_asset`, `list_references`, `delete_reference`                   | yes           | MCP parity   |
 | 4c. Loading pictures  | `import_reference`, `png_to_pixel`                                                                                          | yes           | MCP parity   |
 | 5. Reading the canvas | `read_canvas`, `read_region`, `describe_palette`, `diff_layers`, `read_reference`, `render_preview`                         | yes           | Phase 2/3    |
@@ -133,13 +133,13 @@ An unknown topic returns `args.invalid` with a hint naming the real ones.
 
 ### `list_projects`
 
-No arguments. Returns each project's `id`, `name`, `style` (`{ era, view }`), and
-asset count.
+No arguments. Returns each project's `id`, `name`, `style`
+(`{ era, view, proportions }`), and asset count.
 
 ### `create_project`
 
-`{ name: string, era?: "8bit" | "16bit" | "32bit" | "custom", view?: "topdown" | "sideview" }`
-Defaults to `32bit` and `topdown`. Returns the project. For one release it also
+`{ name: string, era?: "8bit" | "16bit" | "32bit" | "custom", view?: "topdown" | "sideview", proportions?: "standard" | "chibi" }`
+Defaults to `32bit`, `topdown` and `standard`. Returns the project. For one release it also
 accepts the retired `preset` argument, read only when neither `era` nor `view` is
 given: `hd2d` maps to `32bit`/`topdown`, `snes` to `16bit`/`topdown`, `gameboy` to
 `8bit`/`topdown`, and `custom` to `custom`/`topdown`.
@@ -150,6 +150,27 @@ editable rules. The **view** sets the canvas sizes and the proportions you draw
 to: `topdown` is a 3/4 overhead view, taller than wide, with four or eight
 facings; `sideview` is a profile facing right, squarer, with the feet on the
 bottom row band (flip the sprite for left).
+
+The **proportions** set the two silhouette shape bands, and nothing else:
+
+| Proportions | `reads-at-1x` (P²/A) | `solidity` |
+| ----------- | -------------------- | ---------- |
+| `standard`  | 18 – 28              | 0.62 – 0.82 |
+| `chibi`     | 18 – 48              | 0.62 – 0.88 |
+
+`chibi` is a big head (about half the height) on a short body, with raised
+one-pixel details that are the design: a hair strand, a tail, two raised
+fingers. The first real chibi hero (40 x 56) measured P²/A 43.6 and solidity
+0.837. Each one-pixel detail L px long adds about 2L of perimeter; on a ~1000 px
+hero, a body at the standard ceiling (perimeter ~167) plus four 6 px details
+reaches P²/A ~46, so the ceiling is 48. A pixel disc fills ~0.95 of its hull,
+and a head that is about half the hull beside a body at the standard ceiling
+averages ~0.88. The floors do not move: a lump or a wire frame is one at any
+proportion.
+
+Every project change an agent makes (create, rename, delete, style edit) goes
+into the project's own log under `agent:<session>`, and the window re-reads its
+project and asset lists (`projects://changed`).
 
 ### `list_assets`
 
@@ -183,9 +204,54 @@ one-line summary of which layers have content.
 ### `get_style_rules`
 
 `{ assetId?: string }` — the rules the gates will be checked against, with the
-project's `era`, `view` and a `viewGuidance` line on proportions. An agent
+style's `era`, `view`, `proportions`, `styleScope` (`project`, or `asset` when
+the asset has a style of its own), a `viewGuidance` line, a
+`proportionsGuidance` line naming the silhouette bands, and `hueSpace`. An agent
 that reads this before drawing does not have to discover the constraints by
 failing them.
+
+`hueShift` is read in **OKLCH**, like the lightness and chroma beside it: a
+step into shadow turns 6 – 30 OKLCH degrees toward blue, a step into light 6 –
+30 toward yellow, and skin the other way round. (The bands were 12 – 20 HSL
+degrees before migration 7, which rewrote rules still holding those.)
+
+### `set_style_rules`
+
+```jsonc
+{
+  "projectId": "…",            // optional: defaults to the project of assetId or of the open asset
+  "assetId": "…",              // optional
+  "scope": "project",          // project (default) | asset
+  "rules": { "maxSlots": 12, "rampSteps": { "max": 4 } }, // a partial StyleRules
+  "proportions": "chibi"       // optional: standard | chibi
+}
+```
+
+A partial, validated edit: only the fields sent change, and an object merges
+key by key (`rampSteps: { max: 4 }` keeps `min`). The result must stay inside
+what any era could give: `maxSlots` 2 – 62, `rampSteps` 2 – 8 with min ≤ max,
+`outline` `full` | `selective` | `none`, a known `lightDirection`, bands low
+then high with their sign (darker hue 0 – 90, lighter hue −90 – 0, darker ΔL
+negative, lighter ΔL positive), fractions in 0 – 1, the value floor below the
+ceiling, and canvases a buffer can be made at, for the kinds `character`,
+`prop`, `tile`, `background`. An unknown field, or anything outside those, fails
+`style.invalid_rules` (an unknown proportions value fails
+`style.invalid_proportions`) and nothing is written.
+
+Rules that differ from their era are no longer that era: editing the rules of
+a style that is not `custom` moves it to `custom`, and the result says so in
+`eraChanged: { from, to: "custom" }` and a `note`. Proportions alone never
+change the era.
+
+`scope: "project"` edits the project's style, which every asset without a style
+of its own reads. `scope: "asset"` gives the asset a style of its own — the
+first time, a copy of the one it read, set on it as an undoable op — and edits
+that, so the rest of the project is untouched (`forked: true` says a copy was
+made). Frames share their animation's style. Returns `{ projectId, scope,
+styleId, era, view, proportions, forked, rules }`. The edit is logged in the
+project log as `style_rules_set` under `agent:<session>`; the window's
+`style_set_rules` command calls the same store function as `user`. The asset's
+gate is re-sent, since the gates read the new rules at once.
 
 ---
 
@@ -193,7 +259,11 @@ failing them.
 
 Everything the window can rename or delete, an agent can too. Each tool calls
 the same store function as the matching Tauri command, so names are validated
-and errors coded the same way. The delete tools **cannot be undone**.
+and errors coded the same way. The delete tools **cannot be undone**. Each is
+logged as the agent (`agent:<session>`): asset and reference changes in the
+asset's op log, project renames and deletes in the project log (whose entries
+outlive a deleted project). Each one that changes what a list shows tells the
+window to re-read its lists.
 
 ### `rename_project`
 
@@ -220,7 +290,10 @@ later frame is named after its animation, so renaming it fails
 `{ assetId }` — deletes the asset. Deleting an animation's first frame deletes
 the whole animation; deleting a later frame removes only that frame (and
 announces the shorter animation). Returns `{ deleted }`. Fails `asset.not_found`.
-A session that had the deleted asset open must `open_asset` another one.
+A session that had the deleted asset (or a frame deleted with it) open is left
+with none open, so its next call fails `asset.not_open` rather than
+`asset.not_found`; `open_asset` another one. Deleting a project does the same
+for an open asset of that project.
 
 ### `list_references`
 
