@@ -61,7 +61,7 @@ div.flex h-full w-full bg-studio-home text-neutral-100 select-none overflow-hidd
 ```
 
 The Projects view is the same grid grouped under one heading per project
-(rename, delete, style preset), which is where everything the old project
+(rename, delete, era and view), which is where everything the old project
 sidebar did lives now. List view is a table of the same rows.
 
 ### New sprite dialog (from home and the editor header)
@@ -77,7 +77,7 @@ rounded border`, size in `text-xs font-semibold text-pink-400`, px in
 `text-[10px] text-neutral-500`, use-case line `text-[10px] text-neutral-400`;
 selected `bg-neutral-900 border-pink-500 ring-1 ring-pink-500/50`) — 16, 24,
 32, 48, 64, 96, 128, 192, 256, 512 and Custom (16–512, `col-span-2`), with the
-project preset's size marked "Preset" — and the submit `w-full py-2.5
+project style's size for the kind marked "Preset" — and the submit `w-full py-2.5
 bg-pink-600 hover:bg-pink-500 text-white font-semibold text-xs rounded`
 "Create sprite (32x32 px)".
 
@@ -192,7 +192,7 @@ w-8 h-8 ring-1 ring-white z-20`; swap (ArrowLeftRight, key X); slot readout
   value; `grid grid-cols-4 gap-1.5` of 1–4 px cards `py-2 px-1 rounded flex
 flex-col items-center` with a dot of that size (on = pink), plus the
   circle/square footprint toggle and a stepper up to 16.
-- body `flex-1 overflow-y-auto p-3 space-y-4`: style preset readout; "Colors
+- body `flex-1 overflow-y-auto p-3 space-y-4`: era and view readout; "Colors
   in palette (n)" with Add color (`text-pink-400`) | Remove color
   (`hover:text-red-400`); grid `grid grid-cols-7 gap-1.5 p-2 bg-neutral-900/60
 rounded border border-neutral-800/80 max-h-48 overflow-y-auto`, swatch `w-6

@@ -133,12 +133,23 @@ An unknown topic returns `args.invalid` with a hint naming the real ones.
 
 ### `list_projects`
 
-No arguments. Returns each project's `id`, `name`, `style`, and asset count.
+No arguments. Returns each project's `id`, `name`, `style` (`{ era, view }`), and
+asset count.
 
 ### `create_project`
 
-`{ name: string, preset?: "hd2d" | "snes" | "gameboy" | "custom" }`
-Defaults to `hd2d`. Returns the project.
+`{ name: string, era?: "8bit" | "16bit" | "32bit" | "custom", view?: "topdown" | "sideview" }`
+Defaults to `32bit` and `topdown`. Returns the project. For one release it also
+accepts the retired `preset` argument, read only when neither `era` nor `view` is
+given: `hd2d` maps to `32bit`/`topdown`, `snes` to `16bit`/`topdown`, `gameboy` to
+`8bit`/`topdown`, and `custom` to `custom`/`topdown`.
+
+The **era** sets the colour and outline limits: `8bit` allows 4 slots with a full
+outline, `16bit` 16 slots, `32bit` 24 slots, and `custom` starts as `32bit` with
+editable rules. The **view** sets the canvas sizes and the proportions you draw
+to: `topdown` is a 3/4 overhead view, taller than wide, with four or eight
+facings; `sideview` is a profile facing right, squarer, with the feet on the
+bottom row band (flip the sprite for left).
 
 ### `list_assets`
 
@@ -151,11 +162,13 @@ Defaults to `hd2d`. Returns the project.
   "projectId": "…",
   "name": "sofia-idle-south",
   "kind": "character", // character | prop | tile | tileset | background
-  "width": 64, // optional; defaults come from the style preset
+  "width": 64, // optional; defaults to the project's canvas for this kind
   "height": 64,
 }
 ```
 
+Without a size, the canvas comes from the project's era and view for the
+asset's kind (an `8bit` top-down tile is 8 x 8; `tileset` uses the tile size).
 Creates the asset with its layers empty and its step at `reference`. Returns the
 asset and the style rules in force, so the agent learns the palette ceiling, the
 light direction and the ramp bounds without a second call.
@@ -169,7 +182,8 @@ one-line summary of which layers have content.
 
 ### `get_style_rules`
 
-`{ assetId?: string }` — the rules the gates will be checked against. An agent
+`{ assetId?: string }` — the rules the gates will be checked against, with the
+project's `era`, `view` and a `viewGuidance` line on proportions. An agent
 that reads this before drawing does not have to discover the constraints by
 failing them.
 

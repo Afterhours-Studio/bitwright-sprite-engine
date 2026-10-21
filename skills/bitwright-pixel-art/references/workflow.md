@@ -27,7 +27,7 @@ reference → palette → silhouette → flats → shadow → light → outline
 | `cleanup` | — | — |
 | `variation` | — | — |
 
-Canvas assumed below: `hd2d-field`, 48 × 64, light from `upper-left`, contact row
+Canvas assumed below: the `32bit` era, `topdown` view character canvas, 48 × 64, light from `upper-left`, contact row
 `y = 61`. Substitute your asset's numbers from `get_style_rules`.
 
 ---
@@ -72,7 +72,7 @@ it means.
 | Check | Threshold |
 | --- | --- |
 | Ramp length | 3–5 steps per ramp |
-| Palette size | ≤ 24 slots on the `hd2d` preset; 14–22 is the working range for 48 × 64; hard ceiling 32 |
+| Palette size | ≤ 24 slots in the `32bit` era; 14–22 is the working range for 48 × 64; hard ceiling 32 |
 | Hue shift present | every ramp rotates hue per step; a ramp that only changes lightness is rejected |
 | Darker step, hue | +12° to +20° toward blue/violet per step; ≤ ~45° across a ramp |
 | Darker step, chroma | × 0.85 – 1.12 of the base step |
@@ -105,7 +105,7 @@ nothing downstream reads it.
 | Occupancy, height | bbox height ≥ 0.85 × H → ≥ 55 rows on a 64-high canvas |
 | Occupancy, width | bbox width 0.45 – 0.75 × W → 22–36 columns on a 48-wide canvas |
 | Margin | no filled pixel in row 0, row H−1, column 0, column W−1; 2 rows clear at the top if there is a head extremity |
-| Contact row | lowest filled row == the style's contact row (61 on `hd2d-field`) |
+| Contact row | lowest filled row == the style's contact row (61 on a 48 × 64 top-down canvas) |
 | Extremities | 2–4 distinct protrusions |
 | Negative space | ≥ 1 enclosed hole or notch of at least 2 × 2 px |
 | Tangents | zero pairs of part edges adjacent or 1 px apart for ≥ 3 consecutive pixels; fix by overlapping ≥ 2 px or gapping ≥ 2 px |
@@ -317,7 +317,7 @@ they go last so you can place them where they earn it and count them.
 | --- | --- |
 | Rim side | zero rim pixels on the key-lit side |
 | Rim position | rim sits on the outermost filled pixel; never outside the silhouette, never inside it |
-| Rim thickness | 1 px on `hd2d-field`; 1–2 px at ≥ 64 × 96; never more than 2 |
+| Rim thickness | 1 px on a 48 × 64 canvas; 1–2 px at ≥ 64 × 96; never more than 2 |
 | Rim broken | runs of 3–7 px separated by gaps of 1–3 px; zero runs longer than 8 px |
 | Rim coverage | 15–25% of the perimeter; hard fail above 35%, reads as stray pixels below 10% |
 | Rim taper | every run of length ≥ 4 ends in the softer rim step |

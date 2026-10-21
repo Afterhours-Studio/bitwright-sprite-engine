@@ -100,8 +100,8 @@ every material it shades and it leaves you no room for a deeper occlusion. Never
 sprite scale. Zero pairs anywhere in the palette may have ΔL < 0.05 *and* ΔH < 20° —
 each such pair is a wasted slot and a source of mud.
 
-**Size.** 14–22 slots for 48 × 64, 20–32 for 64 × 96, hard ceiling 32 and a preset
-ceiling of 24 on `hd2d`. Share aggressively: the darkest leather step and the darkest
+**Size.** 14–22 slots for 48 × 64, 20–32 for 64 × 96, hard ceiling 32 and an era
+ceiling of 24 in `32bit` (16 in `16bit`, 4 in `8bit`). Share aggressively: the darkest leather step and the darkest
 hair step are usually the same colour, and every slot you free goes to a material that
 needs contrast.
 

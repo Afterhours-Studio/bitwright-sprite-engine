@@ -63,16 +63,11 @@ fn list_projects(host: &dyn DocumentHost, _session: &Session, _args: Value) -> T
         let list = store.project_list()?;
         let mut result = Vec::with_capacity(list.len());
         for p in &list {
-            let style = match p.style_id {
-                // Shim until the MCP pack exposes `era` and `view`.
-                Some(style_id) => store.style_read(style_id)?.era,
-                None => "default".to_string(),
-            };
             let asset_count = store.asset_list(p.id)?.len();
             result.push(json!({
                 "id": p.id,
                 "name": p.name,
-                "style": style,
+                "style": { "era": p.era, "view": p.view },
                 "assetCount": asset_count,
             }));
         }
@@ -85,12 +80,14 @@ fn list_projects(host: &dyn DocumentHost, _session: &Session, _args: Value) -> T
 // create_project
 // ---------------------------------------------------------------------------
 
-const VALID_PRESETS: &[&str] = &["hd2d", "snes", "gameboy", "custom"];
-
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct CreateProjectArgs {
     name: String,
+    era: Option<String>,
+    view: Option<String>,
+    /// Legacy: one of hd2d, snes, gameboy, custom. Read only when neither
+    /// `era` nor `view` is given; kept for one release.
     preset: Option<String>,
 }
 
@@ -99,9 +96,12 @@ fn create_project_schema() -> Value {
         "type": "object",
         "properties": {
             "name": { "type": "string" },
+            "era": { "type": "string", "enum": ["8bit", "16bit", "32bit", "custom"] },
+            "view": { "type": "string", "enum": ["topdown", "sideview"] },
             "preset": {
                 "type": "string",
-                "enum": ["hd2d", "snes", "gameboy", "custom"]
+                "enum": ["hd2d", "snes", "gameboy", "custom"],
+                "description": "Deprecated. Use era and view."
             }
         },
         "required": ["name"],
@@ -111,23 +111,19 @@ fn create_project_schema() -> Value {
 
 fn create_project(host: &dyn DocumentHost, _session: &Session, args: Value) -> ToolResult {
     let args: CreateProjectArgs = parse(args)?;
-    let preset = args.preset.as_deref().unwrap_or("hd2d");
-    if !VALID_PRESETS.contains(&preset) {
-        return Err(ToolError::new(
-            "args.invalid",
-            format!("{preset} is not a valid preset"),
-            "Use one of: hd2d, snes, gameboy, custom.",
-        ));
-    }
-    // Shim until the MCP pack takes `era` and `view`: a preset maps to its pair.
-    let (era, view) = crate::raster::palette::legacy_preset(preset).map_err(|e| {
+    let (era, view) = crate::raster::palette::resolve_style(
+        args.era.as_deref(),
+        args.view.as_deref(),
+        args.preset.as_deref(),
+    )
+    .map_err(|e| {
         ToolError::new(
             "args.invalid",
             e.detail,
-            "Use one of: hd2d, snes, gameboy, custom.",
+            "era is one of 8bit, 16bit, 32bit, custom; view is topdown or sideview.",
         )
     })?;
-    let project = with_store(host, |store| store.project_create(&args.name, era, view))?;
+    let project = with_store(host, |store| store.project_create(&args.name, &era, &view))?;
     Ok(json!({ "project": project }))
 }
 
@@ -226,8 +222,9 @@ fn create_asset(host: &dyn DocumentHost, _session: &Session, args: Value) -> Too
     }
     let (asset, style_rules) = with_store(host, |store| {
         let rules = store.project_rules(project_id)?;
-        let width = args.width.unwrap_or(rules.canvas.width);
-        let height = args.height.unwrap_or(rules.canvas.height);
+        let canvas = rules.canvas_for(&args.kind);
+        let width = args.width.unwrap_or(canvas.width);
+        let height = args.height.unwrap_or(canvas.height);
         let asset = store.asset_create(project_id, &args.name, &args.kind, width, height)?;
         let style_rules = store.asset_rules(asset.id)?;
         Ok((asset, style_rules))
@@ -316,11 +313,47 @@ fn get_style_rules_schema() -> Value {
     })
 }
 
+/// What the view means for proportions, so the agent draws the right shape.
+fn view_guidance(view: &str) -> &'static str {
+    match view {
+        "sideview" => {
+            "Profile facing right, squarer (about 1:1). Feet on the bottom row band. \
+             Flip the sprite for left."
+        }
+        _ => {
+            "3/4 overhead, taller than wide (about 3:4). Feet contact row at H-3. \
+             Four or eight facings."
+        }
+    }
+}
+
 fn get_style_rules(host: &dyn DocumentHost, session: &Session, args: Value) -> ToolResult {
     let args: GetStyleRulesArgs = parse(args)?;
     let id = resolve_asset(session, args.asset_id.as_deref())?;
-    let rules = with_store(host, |store| store.asset_rules(id))?;
-    Ok(json!({ "assetId": id.0, "rules": rules }))
+    let (rules, era, view) = with_store(host, |store| {
+        let asset = store.asset_read(id)?;
+        let rules = store.asset_rules(id)?;
+        // The asset's own style wins; otherwise the project's era and view.
+        let (era, view) = match asset.style_id {
+            Some(style_id) => {
+                let style = store.style_read(style_id)?;
+                (Some(style.era), Some(style.view))
+            }
+            None => {
+                let project = store.project_read(asset.project_id)?;
+                (project.era, project.view)
+            }
+        };
+        Ok((rules, era, view))
+    })?;
+    let guidance = view.as_deref().map(view_guidance);
+    Ok(json!({
+        "assetId": id.0,
+        "era": era,
+        "view": view,
+        "viewGuidance": guidance,
+        "rules": rules,
+    }))
 }
 
 // ---------------------------------------------------------------------------
@@ -332,14 +365,16 @@ pub fn tools() -> Vec<ToolSpec> {
         ToolSpec {
             name: "list_projects",
             description: "List every project in the document. Each entry includes \
-                the project id, name, style preset, and asset count.",
+                the project id, name, style (era and view), and asset count.",
             input_schema: list_projects_schema,
             handler: list_projects,
         },
         ToolSpec {
             name: "create_project",
-            description: "Create a new project. Choose a preset that defines the \
-                default style rules (canvas size, palette limits).",
+            description: "Create a new project. era (8bit, 16bit, 32bit, custom; default 32bit) sets \
+                the palette and outline limits; view (topdown, sideview; default \
+                topdown) sets canvas sizes and proportions. The old preset \
+                argument still maps to an era and view.",
             input_schema: create_project_schema,
             handler: create_project,
         },
@@ -353,7 +388,7 @@ pub fn tools() -> Vec<ToolSpec> {
         ToolSpec {
             name: "create_asset",
             description: "Create a new asset in a project. Width and height default \
-                to the project's canvas size from its style rules.",
+                to the canvas size for its kind from the project style (era and view).",
             input_schema: create_asset_schema,
             handler: create_asset,
         },
@@ -368,7 +403,8 @@ pub fn tools() -> Vec<ToolSpec> {
         ToolSpec {
             name: "get_style_rules",
             description: "The rules the gates check this asset against: slot ceiling, \
-                ramp lengths, hue shift, outline mode, light direction, canvas. Read \
+                ramp lengths, hue shift, outline mode, light direction, canvas, plus the project era, view and proportions \
+                guidance. Read \
                 them before drawing so you do not discover them by failing a gate.",
             input_schema: get_style_rules_schema,
             handler: get_style_rules,
@@ -450,7 +486,8 @@ mod tests {
         assert_eq!(projects.len(), 1);
         assert_eq!(projects[0]["id"].as_str().unwrap(), id);
         assert_eq!(projects[0]["name"].as_str().unwrap(), "My Game");
-        assert_eq!(projects[0]["style"].as_str().unwrap(), "16bit");
+        assert_eq!(projects[0]["style"]["era"].as_str().unwrap(), "16bit");
+        assert_eq!(projects[0]["style"]["view"].as_str().unwrap(), "topdown");
         assert_eq!(projects[0]["assetCount"].as_u64().unwrap(), 0);
     }
 
@@ -468,7 +505,7 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(err.code, "args.invalid");
-        assert!(err.hint.contains("hd2d"));
+        assert!(err.hint.contains("8bit"));
     }
 
     #[test]
@@ -517,7 +554,8 @@ mod tests {
             "create_project",
             json!({
                 "name": "P",
-                "preset": "gameboy"
+                "era": "8bit",
+                "view": "topdown"
             }),
         )
         .unwrap();
@@ -533,13 +571,46 @@ mod tests {
             json!({
                 "projectId": project_id,
                 "name": "Sprite",
-                "kind": "prop"
+                "kind": "tile"
             }),
         )
         .unwrap();
-        // gameboy inherits the default canvas (48x64) since it only overrides palette rules.
-        assert_eq!(result["asset"]["width"].as_u64().unwrap(), 48);
-        assert_eq!(result["asset"]["height"].as_u64().unwrap(), 64);
+        // The size follows the kind: an 8bit top-down tile is 8x8.
+        assert_eq!(result["asset"]["width"].as_u64().unwrap(), 8);
+        assert_eq!(result["asset"]["height"].as_u64().unwrap(), 8);
+        let rules = super::super::call(
+            &host,
+            &session,
+            "get_style_rules",
+            json!({ "assetId": result["asset"]["id"] }),
+        )
+        .unwrap();
+        assert_eq!(rules["era"], "8bit");
+        assert_eq!(rules["view"], "topdown");
+        assert!(rules["viewGuidance"].as_str().unwrap().contains("3/4"));
+    }
+
+    #[test]
+    fn legacy_preset_maps_and_explicit_wins() {
+        let (host, session) = setup();
+        let old = super::super::call(
+            &host,
+            &session,
+            "create_project",
+            json!({ "name": "Old", "preset": "gameboy" }),
+        )
+        .unwrap();
+        assert_eq!(old["project"]["era"], "8bit");
+        assert_eq!(old["project"]["view"], "topdown");
+        let new = super::super::call(
+            &host,
+            &session,
+            "create_project",
+            json!({ "name": "New", "view": "sideview" }),
+        )
+        .unwrap();
+        assert_eq!(new["project"]["era"], "32bit");
+        assert_eq!(new["project"]["view"], "sideview");
     }
 
     #[test]
@@ -679,8 +750,8 @@ mod tests {
             .project_set_style(project_id, None)
             .unwrap();
         let list = super::super::call(&host, &session, "list_projects", json!(null)).unwrap();
-        let style = list["projects"][0]["style"].as_str().unwrap();
-        assert_eq!(style, "default");
+        assert!(list["projects"][0]["style"]["era"].is_null());
+        assert!(list["projects"][0]["style"]["view"].is_null());
     }
 
     // ----- open_asset tests -----

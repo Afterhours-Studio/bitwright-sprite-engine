@@ -13,8 +13,8 @@ to one side, right forearm bent to the hip.
 ## A0. Orientation
 
 ```
-create_project { "name": "Wayfarers", "preset": "hd2d" }
-→ { "id": "…", "name": "Wayfarers", "style": "hd2d", "assets": 0 }
+create_project { "name": "Wayfarers", "era": "32bit", "view": "topdown" }
+→ { "id": "…", "name": "Wayfarers", "style": { "era": "32bit", "view": "topdown" }, "assetCount": 0 }
 
 create_asset { "projectId": "…", "name": "sofia-idle-south",
                "kind": "character", "width": 48, "height": 64 }

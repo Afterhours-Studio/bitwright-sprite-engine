@@ -220,6 +220,47 @@ unless `force: true`), `rename_asset`, `delete_asset`, `list_references` and
 `delete_reference`. The delete tools cannot be undone. `export_png`, `export_sheet` and
 `export_gif` take an optional absolute `directory` to write into.
 
+`create_project` takes an `era` and a `view`. Choose them from what the person asked
+for ("16-bit top-down"); the defaults are `32bit` and `topdown`. `get_style_rules`
+returns both, plus a `viewGuidance` line.
+
+**Era** sets the colour and outline limits:
+
+| Era | Slots | Ramp steps | Outline | What it means |
+| --- | --- | --- | --- | --- |
+| `8bit` | 4 | 2-4 | full | Handheld look. Four colours, so every slot earns its place and every shape carries a 1px outline. |
+| `16bit` | 16 | 3-5 | selective | Console look. Short ramps, outline where the silhouette needs it. |
+| `32bit` | 24 | 3-5 | selective | The default. Room for several materials and a hue-shifted ramp each. |
+| `custom` | 24 | 3-5 | selective | Starts as `32bit`; the person has edited the rules, so trust `get_style_rules`. |
+
+**View** sets the canvas sizes and the proportions you draw to. Gates do not change by
+view; the shape is yours to get right.
+
+- `topdown`: a 3/4 overhead view. Characters are taller than wide (about 3:4), with the
+  feet contact row at `H-3`. Draw four or eight facings. Props and tiles sit on the same
+  oblique ground plane.
+- `sideview`: a profile facing right. Characters are squarer (about 1:1) with the feet
+  on the bottom row band, so a platform edge lines up with the sprite. Draw right only
+  and flip the sprite for left. Tiles tile left-right and carry their ground on the top
+  edge.
+
+Isometric is not offered: the tilemap has no diamond cells yet.
+
+Without a width and height, `create_asset` sizes by kind from the era and view:
+
+| Era | View | character | prop | tile | background |
+| --- | --- | --- | --- | --- | --- |
+| `8bit` | `topdown` | 16 x 16 | 16 x 16 | 8 x 8 | 160 x 144 |
+| `8bit` | `sideview` | 16 x 16 | 16 x 16 | 8 x 8 | 160 x 144 |
+| `16bit` | `topdown` | 32 x 48 | 32 x 32 | 16 x 16 | 256 x 224 |
+| `16bit` | `sideview` | 32 x 32 | 32 x 32 | 16 x 16 | 256 x 224 |
+| `32bit` | `topdown` | 48 x 64 | 48 x 48 | 32 x 32 | 320 x 240 |
+| `32bit` | `sideview` | 48 x 48 | 48 x 48 | 32 x 32 | 320 x 240 |
+
+A `tileset` uses the tile size. The old `preset` argument (`hd2d`, `snes`, `gameboy`)
+was retired; it maps to `32bit`, `16bit` and `8bit` with the `topdown` view for one
+release, and a document made before the change already carries those values.
+
 `create_asset` returns the style rules with the asset, so you usually do not need the
 separate call. Read them before drawing: they carry the slot ceiling, the light
 direction, the ramp bounds and the canvas defaults you are about to be gated against.

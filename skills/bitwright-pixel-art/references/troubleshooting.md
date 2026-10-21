@@ -20,7 +20,7 @@ from it.
 **Detect.** For every pixel, count the 8-neighbours carrying the same slot.
 
 - 0 same-slot neighbours is an orphan. Fail above **2% of filled pixels**, or above
-  **6 pixels** on `hd2d-field`.
+  **6 pixels** on a 48 × 64 canvas.
 - More than **6% of filled pixels** with ≤ 1 like neighbour means the sprite is
   speckled.
 - Whitelisted: eye highlights, the single metal specular, and deliberate AA corner
@@ -389,7 +389,7 @@ clear_layer { "assetId": "…", "layer": "detail" }
 
 Dither earns its place only as texture where the noise *is* the material — stone, dirt,
 fur, rust — as a transparency effect, or to extend a ramp on a large flat area of a
-`hd2d-large` canvas.
+large (64 × 96 or bigger) canvas.
 
 ---
 

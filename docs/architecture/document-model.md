@@ -59,7 +59,8 @@ CREATE TABLE style (
     id           TEXT PRIMARY KEY,
     project_id   TEXT REFERENCES project(id) ON DELETE CASCADE,
     name         TEXT NOT NULL,
-    preset       TEXT NOT NULL,             -- 'hd2d' | 'snes' | 'gameboy' | 'custom'
+    era          TEXT NOT NULL,             -- '8bit' | '16bit' | '32bit' | 'custom'
+    view         TEXT NOT NULL,             -- 'topdown' | 'sideview'
     rules        TEXT NOT NULL,             -- JSON: StyleRules, see §4
     created_at   INTEGER NOT NULL,
     updated_at   INTEGER NOT NULL
@@ -242,11 +243,12 @@ against:
   "lightDirection": "upper-left",
   "rimCoverage": [0.15, 0.25], // fraction of perimeter
   "noiseBudget": 0.02, // max fraction of isolated single pixels
-  "canvas": { "width": 48, "height": 64 },
+  "canvas": { "width": 48, "height": 64 }, // fallback for a kind with no entry
+  "canvasByKind": { "tile": { "width": 32, "height": 32 } }, // per asset kind
 }
 ```
 
-The numeric bounds in the `hd2d` preset come from
+The numeric bounds in the `32bit` era come from
 [the HD-2D style guide](../pixel-art/hd2d-style-guide.md), which is the research
 those numbers are drawn from rather than a second opinion about them.
 
@@ -344,7 +346,7 @@ serde renames them at the boundary, so `pixel_perfect` in Rust is
 
 ```
 project_list()                              -> Project[]
-project_create(name, preset)                -> Project
+project_create(name, era, view)              -> Project
 project_rename(id, name)                    -> Project
 project_delete(id)                          -> ()
 
