@@ -81,6 +81,14 @@ fn main() -> ExitCode {
             )?));
             app.manage(mcp::server::McpServerState::new(root.clone())?);
 
+            // Stdio clients launch a stable copy of this executable, so a
+            // running client never locks the app's own file. Bring the copy
+            // and any older entry up to date off the startup path.
+            let launcher_root = root.clone();
+            std::thread::spawn(move || {
+                mcp::clients::refresh_stdio_registrations_for_platform(&launcher_root);
+            });
+
             // The window must appear whether or not the MCP server starts, so
             // the failure is logged rather than propagated. `start` does
             // nothing at all when the saved transport is `off`.

@@ -153,6 +153,10 @@ pub struct McpClient {
     /// load the entry. Only ever true for Claude Desktop, the one client that
     /// rewrites its file from memory.
     pub needs_restart: bool,
+    /// Whether a stdio client is still launching an older build of the
+    /// launcher copy because it holds that file open. Quitting the client lets
+    /// the next app start replace the copy.
+    pub launcher_stale: bool,
 }
 
 /// A refusal the settings panel can switch on.
@@ -354,6 +358,183 @@ pub fn unregister(config_path: &Path, id: McpClientId) -> Result<(), ClientError
         write_json(config_path, &config)?;
     }
     Ok(())
+}
+
+/// Folder under the data root that holds the launcher copy.
+const LAUNCHER_DIR: &str = "mcp";
+
+/// The stable copy of the executable that stdio clients launch.
+///
+/// A client keeps `bitwright --mcp-stdio` alive for as long as it runs, and on
+/// Windows a running executable cannot be replaced. Pointing clients at the
+/// app's own file would make every rebuild or update fail while one is open,
+/// so they get this copy instead. It needs nothing beside it: `stdio.rs`
+/// resolves the data root, settings and `mcp.json` from the user's directories,
+/// never from the executable's folder.
+#[must_use]
+pub fn launcher_path(data_root: &Path) -> PathBuf {
+    let name = if cfg!(windows) {
+        "bitwright-mcp.exe"
+    } else {
+        "bitwright-mcp"
+    };
+    data_root.join(LAUNCHER_DIR).join(name)
+}
+
+/// What [`sync_launcher`] found and did.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LauncherSync {
+    /// The copy was missing or different and has been replaced.
+    Copied,
+    /// The copy already matches the running executable.
+    Current,
+    /// The copy differs but is in use, so the old one was kept.
+    Locked,
+}
+
+/// Whether two files look like the same build: same size and modified time.
+fn same_build(source: &Path, copy: &Path) -> bool {
+    let (Ok(a), Ok(b)) = (fs::metadata(source), fs::metadata(copy)) else {
+        return false;
+    };
+    a.len() == b.len()
+        && match (a.modified(), b.modified()) {
+            (Ok(x), Ok(y)) => x == y,
+            _ => false,
+        }
+}
+
+/// Copies `source` to `dest` via a temporary file and a rename, so a failure
+/// never leaves a half-written launcher, and gives it the source's modified
+/// time so [`same_build`] recognises it next time.
+fn copy_launcher(source: &Path, dest: &Path) -> io::Result<()> {
+    let temporary = sibling(dest, ".new");
+    let result = (|| {
+        fs::copy(source, &temporary)?;
+        let modified = fs::metadata(source)?.modified()?;
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&temporary)?
+            .set_modified(modified)?;
+        fs::rename(&temporary, dest)
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
+}
+
+/// Brings the launcher copy up to date with `source`.
+///
+/// # Errors
+///
+/// Returns [`ClientError`] only when there is no copy at all and one cannot be
+/// made. A copy that cannot be replaced because it is in use is not an error:
+/// the old one keeps working and the result is [`LauncherSync::Locked`].
+pub fn sync_launcher(source: &Path, dest: &Path) -> Result<LauncherSync, ClientError> {
+    sync_launcher_with(source, dest, copy_launcher)
+}
+
+/// [`sync_launcher`] with the copy step injected, so a locked file can be
+/// simulated on any platform.
+fn sync_launcher_with(
+    source: &Path,
+    dest: &Path,
+    copy: impl FnOnce(&Path, &Path) -> io::Result<()>,
+) -> Result<LauncherSync, ClientError> {
+    if same_build(source, dest) {
+        return Ok(LauncherSync::Current);
+    }
+    if let Some(parent) = dest.parent() {
+        fs::create_dir_all(parent).map_err(|error| ClientError::io(parent, &error))?;
+    }
+    match copy(source, dest) {
+        Ok(()) => Ok(LauncherSync::Copied),
+        Err(_) if dest.exists() => Ok(LauncherSync::Locked),
+        Err(error) => Err(ClientError::io(dest, &error)),
+    }
+}
+
+/// The `command` of this engine's entry, when there is one.
+fn entry_command(config_path: &Path, id: McpClientId) -> Option<String> {
+    if id.is_toml() {
+        let document = read_toml(config_path).ok()?;
+        return document
+            .get(TOML_SERVERS_TABLE)?
+            .as_table_like()?
+            .get(ENTRY_KEY)?
+            .as_table_like()?
+            .get("command")?
+            .as_str()
+            .map(str::to_string);
+    }
+    let config = read_json(config_path).ok()?;
+    config
+        .get(SERVERS_KEY)?
+        .get(ENTRY_KEY)?
+        .get("command")?
+        .as_str()
+        .map(str::to_string)
+}
+
+/// Keeps every registered stdio client pointed at the launcher copy.
+///
+/// Runs at app start. Refreshes the copy when any stdio client is registered,
+/// and rewrites an entry that still names the app's own executable (how older
+/// versions registered it). Only the `bitwright` entry is touched. Returns the
+/// ids whose entry was rewritten.
+pub fn refresh_stdio_registrations(
+    source: &Path,
+    data_root: &Path,
+    home: &Path,
+    config: &Path,
+) -> Vec<McpClientId> {
+    let launcher = launcher_path(data_root);
+    let endpoint = Endpoint {
+        url: None,
+        executable: launcher.clone(),
+    };
+    let mut rewritten = Vec::new();
+    let mut synced = false;
+
+    for id in McpClientId::ALL
+        .into_iter()
+        .filter(|id| id.launch() == Launch::Stdio)
+    {
+        let (config_path, _) = locations_in(id, home, config);
+        if !is_registered(&config_path, id).unwrap_or(false) {
+            continue;
+        }
+        if !synced {
+            synced = true;
+            if let Err(error) = sync_launcher(source, &launcher) {
+                log::warn!("could not prepare the MCP launcher: {error}");
+                return rewritten;
+            }
+        }
+        let current = entry_command(&config_path, id);
+        if current.as_deref() != Some(&*launcher.to_string_lossy()) {
+            match register(&config_path, id, &endpoint) {
+                Ok(()) => rewritten.push(id),
+                Err(error) => log::warn!("could not update {}: {error}", id.name()),
+            }
+        }
+    }
+    rewritten
+}
+
+/// Refreshes stdio registrations against the real platform directories.
+pub fn refresh_stdio_registrations_for_platform(data_root: &Path) {
+    let (Some(home), Some(config), Ok(source)) = (
+        dirs::home_dir(),
+        dirs::config_dir(),
+        std::env::current_exe(),
+    ) else {
+        return;
+    };
+    for id in refresh_stdio_registrations(&source, data_root, &home, &config) {
+        log::info!("{} now launches the stable MCP launcher", id.name());
+    }
 }
 
 /// A pretty-printed snippet for a client this module does not know.
@@ -605,7 +786,8 @@ pub fn describe(id: McpClientId) -> Result<McpClient, String> {
     let home = dirs::home_dir().ok_or_else(unsupported)?;
     let config = dirs::config_dir().ok_or_else(unsupported)?;
     let running = id == McpClientId::ClaudeDesktop && claude_desktop_running();
-    Ok(describe_in(id, &home, &config, running))
+    let stale = launcher_is_stale(id);
+    Ok(describe_in(id, &home, &config, running, stale))
 }
 
 /// [`describe`]'s body, taking the home and configuration directories to
@@ -613,7 +795,13 @@ pub fn describe(id: McpClientId) -> Result<McpClient, String> {
 /// client is running instead of asking, so it can be exercised against a
 /// temporary directory instead of the configuration a person's machine
 /// happens to have.
-fn describe_in(id: McpClientId, home: &Path, config: &Path, running: bool) -> McpClient {
+fn describe_in(
+    id: McpClientId,
+    home: &Path,
+    config: &Path,
+    running: bool,
+    launcher_stale: bool,
+) -> McpClient {
     let (config_path, config_dir) = locations_in(id, home, config);
 
     McpClient {
@@ -623,8 +811,24 @@ fn describe_in(id: McpClientId, home: &Path, config: &Path, running: bool) -> Mc
         detected: is_detected(&config_path, &config_dir),
         config_path: config_path.to_string_lossy().into_owned(),
         registered: is_registered(&config_path, id).unwrap_or(false),
-        needs_restart: running,
+        needs_restart: running || launcher_stale,
+        launcher_stale,
     }
+}
+
+/// Whether a stdio client's launcher copy lags the running build.
+fn launcher_is_stale(id: McpClientId) -> bool {
+    if id.launch() != Launch::Stdio {
+        return false;
+    }
+    let (Some(root), Ok(exe)) = (
+        crate::preferences::data_root_without_app(),
+        std::env::current_exe(),
+    ) else {
+        return false;
+    };
+    let launcher = launcher_path(&root);
+    launcher.exists() && !same_build(&exe, &launcher)
 }
 
 /// The endpoint a client needs, read from the running server.
@@ -637,8 +841,13 @@ fn describe_in(id: McpClientId, home: &Path, config: &Path, running: bool) -> Mc
 /// Returns a message when the path of the running executable cannot be read.
 fn endpoint_from<R: Runtime>(app: &AppHandle<R>) -> Result<Endpoint, String> {
     let url = app.state::<McpServerState>().endpoint();
-    let executable =
-        std::env::current_exe().map_err(|error| format!("client.executable: {error}"))?;
+    let source = std::env::current_exe().map_err(|error| format!("client.executable: {error}"))?;
+    let root = crate::preferences::data_root_without_app()
+        .ok_or_else(|| "client.unsupported: no data directory".to_string())?;
+    // Stdio clients launch a stable copy, never the app's own file, which a
+    // running client would lock against rebuilds and updates.
+    let executable = launcher_path(&root);
+    sync_launcher(&source, &executable).map_err(|error| error.to_string())?;
     Ok(Endpoint { url, executable })
 }
 
@@ -1092,6 +1301,7 @@ mod tests {
             config_path: "/tmp/claude_desktop_config.json".to_string(),
             registered: false,
             needs_restart: true,
+            launcher_stale: false,
         };
         let value = serde_json::to_value(&client).expect("a client is serializable");
         assert_eq!(value["id"], "claude-desktop");
@@ -1109,7 +1319,7 @@ mod tests {
         let config = temp_dir("describe-config");
 
         for id in McpClientId::ALL {
-            let described = describe_in(id, &home, &config, false);
+            let described = describe_in(id, &home, &config, false, false);
             assert_eq!(described.id, id);
             assert_eq!(described.name, id.name());
             assert_eq!(described.launch, id.launch());
@@ -1132,7 +1342,7 @@ mod tests {
         for id in McpClientId::ALL {
             let (config_path, _) = locations_in(id, &home, &config);
             register(&config_path, id, &endpoint()).expect("registering writes the file");
-            let described = describe_in(id, &home, &config, false);
+            let described = describe_in(id, &home, &config, false, false);
             assert!(described.detected, "{} is now detected", id.name());
             assert!(described.registered, "{} is now registered", id.name());
         }
@@ -1141,7 +1351,7 @@ mod tests {
         // which has no entry, over the file.
         let (desktop, _) = locations_in(McpClientId::ClaudeDesktop, &home, &config);
         fs::write(&desktop, r#"{"preferences":{"quickEntry":true}}"#).expect("overwritten");
-        let described = describe_in(McpClientId::ClaudeDesktop, &home, &config, true);
+        let described = describe_in(McpClientId::ClaudeDesktop, &home, &config, true, false);
         assert!(!described.registered, "the lost entry is not reported");
         assert!(described.needs_restart);
 
@@ -1190,5 +1400,123 @@ mod tests {
             serde_json::to_value(McpClientId::Codex).expect("serializable"),
             "codex"
         );
+    }
+
+    fn fake_exe(dir: &Path, bytes: &[u8]) -> PathBuf {
+        let path = dir.join("bitwright-app.exe");
+        fs::write(&path, bytes).expect("the fixture is written");
+        path
+    }
+
+    #[test]
+    fn the_launcher_is_copied_when_missing_and_skipped_when_identical() {
+        let dir = temp_dir("launcher-copy");
+        let source = fake_exe(&dir, b"build one");
+        let dest = launcher_path(&dir.join("data"));
+
+        assert_eq!(sync_launcher(&source, &dest).unwrap(), LauncherSync::Copied);
+        assert_eq!(fs::read(&dest).unwrap(), b"build one");
+        assert_eq!(
+            sync_launcher(&source, &dest).unwrap(),
+            LauncherSync::Current
+        );
+
+        fs::write(&source, b"build number two").unwrap();
+        assert_eq!(sync_launcher(&source, &dest).unwrap(), LauncherSync::Copied);
+        assert_eq!(fs::read(&dest).unwrap(), b"build number two");
+
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_locked_launcher_keeps_the_old_copy_and_reports_it() {
+        let dir = temp_dir("launcher-locked");
+        let source = fake_exe(&dir, b"old");
+        let dest = launcher_path(&dir.join("data"));
+        sync_launcher(&source, &dest).unwrap();
+
+        fs::write(&source, b"a newer build").unwrap();
+        let outcome = sync_launcher_with(&source, &dest, |_, _| {
+            Err(io::Error::new(io::ErrorKind::PermissionDenied, "in use"))
+        });
+        assert_eq!(outcome.unwrap(), LauncherSync::Locked);
+        assert_eq!(fs::read(&dest).unwrap(), b"old");
+
+        // With no copy at all, a failed copy is a real error.
+        fs::remove_file(&dest).unwrap();
+        let outcome = sync_launcher_with(&source, &dest, |_, _| {
+            Err(io::Error::new(io::ErrorKind::PermissionDenied, "no"))
+        });
+        assert!(outcome.is_err());
+
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_stale_entry_is_rewritten_to_the_launcher_and_other_servers_are_untouched() {
+        let dir = temp_dir("launcher-rewrite");
+        let (home, config) = (dir.join("home"), dir.join("config"));
+        let data = dir.join("data");
+        let source = fake_exe(&dir, b"build");
+
+        let (desktop, _) = locations_in(McpClientId::ClaudeDesktop, &home, &config);
+        fs::create_dir_all(desktop.parent().unwrap()).unwrap();
+        fs::write(
+            &desktop,
+            r#"{"theme":"dark","mcpServers":{"other":{"command":"other","args":["x"]},"bitwright":{"command":"/old/bitwright.exe","args":["--mcp-stdio"]}}}"#,
+        )
+        .unwrap();
+
+        let (codex, _) = locations_in(McpClientId::Codex, &home, &config);
+        fs::create_dir_all(codex.parent().unwrap()).unwrap();
+        fs::write(
+            &codex,
+            "[mcp_servers.other]
+command = \"other\"
+
+[mcp_servers.bitwright]
+command = \"/old/bitwright\"
+args = [\"--mcp-stdio\"]
+",
+        )
+        .unwrap();
+
+        let rewritten = refresh_stdio_registrations(&source, &data, &home, &config);
+        assert_eq!(
+            rewritten,
+            vec![McpClientId::ClaudeDesktop, McpClientId::Codex]
+        );
+
+        let launcher = launcher_path(&data);
+        assert!(launcher.is_file());
+        let value = read(&desktop);
+        assert_eq!(
+            value["mcpServers"]["bitwright"]["command"].as_str(),
+            Some(&*launcher.to_string_lossy())
+        );
+        assert_eq!(value["mcpServers"]["other"]["command"], "other");
+        assert_eq!(value["theme"], "dark");
+        let text = fs::read_to_string(&codex).unwrap();
+        assert!(text.contains(
+            "[mcp_servers.other]
+command = \"other\""
+        ));
+        assert!(!text.contains("/old/bitwright"));
+
+        // A second start has nothing left to rewrite.
+        assert!(refresh_stdio_registrations(&source, &data, &home, &config).is_empty());
+
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn nothing_is_copied_when_no_stdio_client_is_registered() {
+        let dir = temp_dir("launcher-none");
+        let source = fake_exe(&dir, b"build");
+        let data = dir.join("data");
+        let rewritten = refresh_stdio_registrations(&source, &data, &dir.join("h"), &dir.join("c"));
+        assert!(rewritten.is_empty());
+        assert!(!launcher_path(&data).exists());
+        fs::remove_dir_all(&dir).ok();
     }
 }

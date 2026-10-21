@@ -1027,13 +1027,29 @@ in the file alone (a `.bak` is kept the first time):
 | Client         | File                                             | Entry                                                 |
 | -------------- | ------------------------------------------------ | ----------------------------------------------------- |
 | Claude Code    | `~/.claude.json`                                 | `{ "type": "http", "url": … }`                        |
-| Claude Desktop | `<config dir>/Claude/claude_desktop_config.json` | `{ "command": <bitwright>, "args": ["--mcp-stdio"] }` |
+| Claude Desktop | `<config dir>/Claude/claude_desktop_config.json` | `{ "command": <launcher>, "args": ["--mcp-stdio"] }` |
 | Cursor         | `~/.cursor/mcp.json`                             | `{ "url": … }`                                        |
 | Windsurf       | `~/.codeium/windsurf/mcp_config.json`            | `{ "serverUrl": … }`                                  |
 | Codex          | `~/.codex/config.toml`                           | `[mcp_servers.bitwright]` `command`, `args`           |
 
 The stdio entries need no running server to be written and stay valid whatever
-port the app binds later. Claude Desktop keeps its own preferences in the same
+port the app binds later.
+
+**The launcher copy.** A stdio client keeps its `bitwright --mcp-stdio` process
+alive for as long as it runs, and on Windows a running executable cannot be
+replaced, so pointing a client at the app's own file would make `tauri dev`
+(and an installed app's updater) fail with "Access is denied" while a client is
+open. Clients are therefore registered with a copy of the executable at
+`<data root>/mcp/bitwright-mcp[.exe]`. The copy needs nothing beside it: the
+stdio path resolves the data root, preferences and `mcp.json` from the user's
+directories, never from the executable's folder. On registration, and at every
+app start when a stdio client is registered, the copy is refreshed if it is
+missing or differs (size and modified time), through a temporary file and a
+rename. If the copy is locked by a running client the old one is kept and the
+client's row reports `launcherStale` (and `needsRestart`): quit the client and
+the next app start replaces it. Entries that still name the app's own
+executable are rewritten to the launcher at start; only the `bitwright` entry
+is touched. Claude Desktop keeps its own preferences in the same
 file and, while it runs, writes its in-memory copy back over it, which drops an
 entry written behind its back. The panel therefore reports when Claude Desktop
 is running and asks for a full quit from the tray icon and a reopen, and it

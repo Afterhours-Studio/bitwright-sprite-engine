@@ -347,8 +347,10 @@ sprite.
    says so on its row. The home sidebar's agent card reads "Agent connected"
    when the client connects, and the connected sessions list on the Settings
    card turns over. Claude Desktop and Codex launch `bitwright --mcp-stdio`
-   themselves; while the app is open that process relays to it, so their
-   drawing shows up live like any other client's.
+   themselves, from a stable copy of the executable under the data root
+   (`mcp/bitwright-mcp`) so a running client never locks the app's own file
+   against a rebuild or an update; while the app is open that process relays to
+   it, so their drawing shows up live like any other client's.
 7. In your client, ask the agent to open the sprite and draw it:
 
    ```
