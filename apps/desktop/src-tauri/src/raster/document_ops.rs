@@ -159,6 +159,10 @@ pub enum Op {
         mode: Option<OutlineMode>,
         #[serde(default = "one")]
         darken: u8,
+        /// The line slot of a `single` line style. Ignored by a derived
+        /// outline, whose colours come from the fills.
+        #[serde(default)]
+        slot: Option<u8>,
     },
     Antialias {
         layer: LayerRole,
@@ -341,13 +345,23 @@ fn resolve(
             )?;
             return Ok(placed(shaded));
         }
-        Op::Outline { from, mode, darken } => {
+        Op::Outline {
+            from,
+            mode,
+            darken,
+            slot,
+        } => {
             let sources = sources(layers);
             let context = shading::Context {
                 palette,
                 sources: &sources,
                 rules,
             };
+            // A single line style traces the silhouette in one slot instead:
+            // its line comes before any fill there is to derive from.
+            if rules.line_mode == "single" {
+                return Ok(placed(shading::trace_line(&context, from.0, *slot)?));
+            }
             let mode = match mode {
                 Some(mode) => *mode,
                 None => OutlineMode::parse(&rules.outline)?,
@@ -670,6 +684,7 @@ mod tests {
             from: LayerRole("flats"),
             mode: None,
             darken: 1,
+            slot: None,
         };
         assert_eq!(
             apply(&mut document, &palette(), &rules, &outline)

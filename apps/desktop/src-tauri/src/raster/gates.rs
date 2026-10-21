@@ -400,6 +400,18 @@ pub fn measure(buffer: &IndexedBuffer, palette: &Palette) -> Result<GateMetrics>
     })
 }
 
+/// Every slot a buffer paints with, lowest first, transparent left out. A
+/// single-line style's line is measured by this being one slot long.
+pub fn distinct_slots(buffer: &IndexedBuffer) -> Vec<u8> {
+    let mut seen = [false; 256];
+    for &slot in &buffer.data {
+        seen[usize::from(slot)] = true;
+    }
+    (1..=255_u8)
+        .filter(|&slot| seen[usize::from(slot)])
+        .collect()
+}
+
 /// §11.5's colour-change rate: horizontally adjacent pairs that differ in
 /// colour, over filled pixels. It is what separates an area of one material
 /// from two materials interleaved, and it does not depend on canvas size.

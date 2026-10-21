@@ -37,6 +37,7 @@ struct SetStyleRulesArgs {
     scope: Option<String>,
     rules: Option<Value>,
     proportions: Option<String>,
+    line_mode: Option<String>,
 }
 
 fn set_style_rules_schema() -> Value {
@@ -58,7 +59,12 @@ fn set_style_rules_schema() -> Value {
                 "type": "object",
                 "description": "A partial StyleRules, as get_style_rules returns it: only the fields you send change, and an object merges key by key (rampSteps: { max: 4 } keeps min)."
             },
-            "proportions": { "type": "string", "enum": ["standard", "chibi"] }
+            "proportions": { "type": "string", "enum": ["standard", "chibi"] },
+            "lineMode": {
+                "type": "string",
+                "enum": ["derived", "single"],
+                "description": "derived: the outline step comes after light and derives its colours from the fills. single: one line slot drawn right after the silhouette, above every fill. Same as rules.lineMode; neither moves the era."
+            }
         },
         "required": [],
         "additionalProperties": false
@@ -66,13 +72,31 @@ fn set_style_rules_schema() -> Value {
 }
 
 fn set_style_rules(host: &dyn DocumentHost, session: &Session, args: Value) -> ToolResult {
-    let args: SetStyleRulesArgs = parse(args)?;
-    if args.rules.is_none() && args.proportions.is_none() {
+    let mut args: SetStyleRulesArgs = parse(args)?;
+    if args.rules.is_none() && args.proportions.is_none() && args.line_mode.is_none() {
         return Err(ToolError::new(
             "args.invalid",
             "nothing to change",
-            "Send rules (a partial StyleRules), proportions, or both.",
+            "Send rules (a partial StyleRules), proportions, lineMode, or any of them.",
         ));
+    }
+    // lineMode is a field of the rules; the top-level argument is the short
+    // way to send it, and it lands in the same patch.
+    if let Some(line_mode) = args.line_mode.take() {
+        let mut patch = args.rules.take().unwrap_or_else(|| json!({}));
+        match patch.as_object_mut() {
+            Some(object) => {
+                object.insert("lineMode".into(), json!(line_mode));
+            }
+            None => {
+                return Err(ToolError::new(
+                    "style.invalid_rules",
+                    "rules must be an object",
+                    "Send rules as a partial StyleRules object.",
+                ))
+            }
+        }
+        args.rules = Some(patch);
     }
     let scope = args.scope.as_deref().unwrap_or("project");
     if !["project", "asset"].contains(&scope) {
@@ -141,8 +165,8 @@ fn set_style_rules(host: &dyn DocumentHost, session: &Session, args: Value) -> T
                 error.message,
                 "Send only fields get_style_rules returns, with bands low then high: \
                  maxSlots 2..62, rampSteps 2..8, outline full/selective/none, a known \
-                 lightDirection, canvas sizes a buffer can be made at; proportions \
-                 standard or chibi.",
+                 lightDirection, lineMode derived/single, canvas sizes a buffer can be \
+                 made at; proportions standard or chibi.",
             )
         } else if error.code == "asset.not_found" && args.project_id.is_some() && scope == "project"
         {
@@ -167,6 +191,7 @@ fn set_style_rules(host: &dyn DocumentHost, session: &Session, args: Value) -> T
         "era": style.era,
         "view": style.view,
         "proportions": style.proportions,
+        "lineMode": style.rules.line_mode,
         "forked": change.forked,
         "rules": style.rules,
     });
@@ -190,8 +215,9 @@ pub fn tools() -> Vec<ToolSpec> {
             asset gives one asset its own style (the first time, a copy of the \
             project's), leaving the rest of the project alone. Changing the rules of a \
             style that is not custom moves its era to custom, and the result says so \
-            in eraChanged; proportions alone never change the era. Logged under this \
-            session.",
+            in eraChanged; proportions and lineMode never change the era. lineMode \
+            (derived or single) reorders the steps: single puts the outline right \
+            after the silhouette. Logged under this session.",
         input_schema: set_style_rules_schema,
         handler: set_style_rules,
     }]

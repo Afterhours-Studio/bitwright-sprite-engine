@@ -20,7 +20,7 @@
 use super::{AppError, Result};
 use rusqlite::Connection;
 
-pub const VERSION: i64 = 7;
+pub const VERSION: i64 = 8;
 
 pub fn migrate(connection: &mut Connection) -> Result<()> {
     migrate_to(connection, VERSION)
@@ -189,6 +189,42 @@ fn migrate_to(connection: &mut Connection, target: i64) -> Result<()> {
                     }
                 }
             }
+            // Two things for the step workflow:
+            // - Which step an asset is viewed and drawn at, and which passed
+            //   steps must re-run their gates, live beside the asset rather
+            //   than in it: selecting a step is a view change and stays out
+            //   of the op log, and `asset.step` keeps meaning the furthest
+            //   step reached.
+            // - Styles gain a line mode. Every style so far derived its line
+            //   from the fills after light, so each is written as `derived`
+            //   explicitly rather than left to a default a later release
+            //   could change.
+            8 => {
+                transaction.execute_batch(
+                    "CREATE TABLE step_view (
+                         asset_id    TEXT PRIMARY KEY REFERENCES asset(id) ON DELETE CASCADE,
+                         active_step TEXT,
+                         recheck     TEXT NOT NULL DEFAULT '[]'
+                     );",
+                )?;
+                let rows = {
+                    let mut statement = transaction.prepare("SELECT id, rules FROM style")?;
+                    let rows = statement
+                        .query_map([], |row| {
+                            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                        })?
+                        .collect::<rusqlite::Result<Vec<_>>>()?;
+                    rows
+                };
+                for (id, text) in rows {
+                    if let Some(rewritten) = derived_line_mode(&text)? {
+                        transaction.execute(
+                            "UPDATE style SET rules=?1 WHERE id=?2",
+                            rusqlite::params![rewritten, id],
+                        )?;
+                    }
+                }
+            }
             _ => {
                 return Err(AppError::new(
                     "store.migration_missing",
@@ -203,6 +239,20 @@ fn migrate_to(connection: &mut Connection, target: i64) -> Result<()> {
     }
     transaction.commit()?;
     Ok(())
+}
+
+/// The rules JSON with `lineMode: derived` added, or `None` when it already
+/// names a line mode. Edited as JSON for the same reason as the hue bands.
+fn derived_line_mode(text: &str) -> Result<Option<String>> {
+    let mut rules: serde_json::Value = serde_json::from_str(text)?;
+    let Some(object) = rules.as_object_mut() else {
+        return Ok(None);
+    };
+    if object.contains_key("lineMode") {
+        return Ok(None);
+    }
+    object.insert("lineMode".into(), serde_json::json!("derived"));
+    Ok(Some(serde_json::to_string(&rules)?))
 }
 
 /// The rules JSON with its HSL default hue bands replaced by the OKLCH ones,
@@ -470,5 +520,44 @@ mod tests {
         assert_eq!(kept, untouched);
         let project = store.project_list().unwrap().remove(0);
         assert_eq!(project.proportions.as_deref(), Some("standard"));
+    }
+    #[test]
+    fn version_seven_styles_keep_deriving_their_line_and_assets_gain_a_step_view() {
+        let mut c = Connection::open_in_memory().unwrap();
+        migrate_to(&mut c, 7).unwrap();
+        // Rules as a v7 release saved them, before line modes existed.
+        let mut rules = serde_json::to_value(crate::raster::StyleRules::default()).unwrap();
+        rules.as_object_mut().unwrap().remove("lineMode");
+        let (project, style) = (
+            uuid::Uuid::now_v7().to_string(),
+            uuid::Uuid::now_v7().to_string(),
+        );
+        c.execute("INSERT INTO project VALUES(?1,'p',NULL,1,1)", [&project])
+            .unwrap();
+        c.execute(
+            "INSERT INTO style(id,project_id,name,rules,created_at,updated_at,era,view,proportions)
+             VALUES(?1,?2,'s',?3,1,1,'32bit','topdown','chibi')",
+            rusqlite::params![style, project, rules.to_string()],
+        )
+        .unwrap();
+        migrate(&mut c).unwrap();
+        let written: String = c
+            .query_row("SELECT rules FROM style WHERE id=?1", [&style], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        let written: serde_json::Value = serde_json::from_str(&written).unwrap();
+        assert_eq!(written["lineMode"], "derived");
+        assert!(c
+            .prepare("SELECT asset_id, active_step, recheck FROM step_view")
+            .is_ok());
+        let store = super::super::Store::from_connection(c).unwrap();
+        let upgraded = store
+            .style_read(uuid::Uuid::parse_str(&style).unwrap())
+            .unwrap();
+        assert_eq!(upgraded.rules.line_mode, "derived");
+        // Nothing else about the style moved.
+        assert_eq!(upgraded.proportions, "chibi");
+        assert_eq!(upgraded.era, "32bit");
     }
 }

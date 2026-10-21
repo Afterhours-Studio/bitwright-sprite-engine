@@ -188,24 +188,31 @@ pub fn step_of(role: LayerRole) -> &'static str {
     }
 }
 
-/// Refuses a write whose layer does not belong to the step the asset is on.
+/// Refuses a write whose layer does not belong to the step the asset is
+/// viewed at: the furthest step, or the earlier one `revisit_step` selected.
 ///
-/// Revisiting an earlier step is legitimate and doing it by accident is not, so
-/// the refusal carries the way past itself: `force` exists, and using it is the
-/// caller saying on the record that it meant to.
+/// Selecting an earlier step is legitimate and writing to it by accident is
+/// not, so the refusal carries the way past itself: `force` exists, and using
+/// it is the caller saying on the record that it meant to.
 pub fn guard_step(asset: &Asset, role: LayerRole, force: bool) -> Result<(), ToolError> {
     let step = step_of(role);
-    if force || step == asset.step || asset.step == "cleanup" {
+    let active = if asset.active_step.is_empty() {
+        asset.step.as_str()
+    } else {
+        asset.active_step.as_str()
+    };
+    if force || step == active || active == "cleanup" {
         return Ok(());
     }
     Err(ToolError::new(
         "step.wrong",
         format!(
-            "layer {} belongs to step {step}; the asset is at step {}",
-            role.0, asset.step
+            "layer {} belongs to step {step}; the asset is working in step {active}",
+            role.0
         ),
-        "Draw on the layer of the current step, call revisit_step to go back \
-         on purpose, or pass force: true.",
+        "Draw on the layer of the step you are in, call revisit_step to select \
+         that layer's step on purpose (a view change: nothing is locked), or pass \
+         force: true.",
     ))
 }
 
@@ -289,6 +296,7 @@ mod tests {
             width: 64,
             height: 64,
             step: step.into(),
+            active_step: step.into(),
             created_at: 0,
             updated_at: 0,
             root_id: None,
@@ -400,6 +408,15 @@ mod tests {
         assert!(error.message.contains("flats"), "{}", error.message);
         assert!(error.hint.contains("force"), "{}", error.hint);
         assert!(error.hint.contains("revisit_step"), "{}", error.hint);
+    }
+
+    #[test]
+    fn guard_step_follows_the_selected_step_rather_than_the_furthest() {
+        let mut viewing = asset("light");
+        viewing.active_step = "flats".into();
+        assert!(guard_step(&viewing, role("flats").unwrap(), false).is_ok());
+        let error = guard_step(&viewing, role("light").unwrap(), false).unwrap_err();
+        assert!(error.message.contains("working in step flats"));
     }
 
     #[test]

@@ -156,6 +156,18 @@ pub struct StyleRules {
     /// back to `canvas` and an old project keeps sizing exactly as it did.
     #[serde(default)]
     pub canvas_by_kind: BTreeMap<String, Canvas>,
+    /// How the line is drawn, which decides where the outline step sits in
+    /// the workflow and what its gate measures. `derived` (every style saved
+    /// before line modes existed) colours each outline pixel from the fill it
+    /// borders, so the step comes after light. `single` is the hand-drawn
+    /// order: one line slot traced round the silhouette straight after it,
+    /// composited above every fill. See [`LINE_MODES`].
+    #[serde(default = "derived_line")]
+    pub line_mode: String,
+}
+
+fn derived_line() -> String {
+    DEFAULT_LINE_MODE.into()
 }
 
 impl Default for StyleRules {
@@ -185,6 +197,7 @@ impl Default for StyleRules {
                 height: 64,
             },
             canvas_by_kind: BTreeMap::new(),
+            line_mode: DEFAULT_LINE_MODE.into(),
         }
     }
 }
@@ -208,6 +221,24 @@ pub fn check_proportions(value: &str) -> Result<()> {
         Ok(())
     } else {
         Err(RasterError::new("style.invalid_proportions", value))
+    }
+}
+
+/// The line modes a style can draw its outline in. `derived` derives the
+/// line's colours from the fills beside it, after light; `single` draws one
+/// line slot right after the silhouette, before any fill.
+pub const LINE_MODES: [&str; 2] = ["derived", "single"];
+pub const DEFAULT_LINE_MODE: &str = "derived";
+
+/// Refuses a line mode the workflow has no step order for.
+pub fn check_line_mode(value: &str) -> Result<()> {
+    if LINE_MODES.contains(&value) {
+        Ok(())
+    } else {
+        Err(RasterError::new(
+            "style.invalid_rules",
+            format!("lineMode {value} is not one of derived, single"),
+        ))
     }
 }
 
@@ -341,6 +372,7 @@ impl StyleRules {
                 self.outline
             ));
         }
+        check_line_mode(&self.line_mode)?;
         if !LIGHT_DIRECTIONS.contains(&self.light_direction.as_str()) {
             return invalid(format!(
                 "lightDirection {} is not one of {}",

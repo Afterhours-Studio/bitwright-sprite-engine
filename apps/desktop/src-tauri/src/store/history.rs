@@ -478,6 +478,8 @@ fn apply(c: &Connection, id: AssetId, mutation: &Mutation) -> Result<(Mutation, 
                 "UPDATE asset SET step=?1 WHERE id=?2",
                 params![step, id.0.to_string()],
             )?;
+            // The view follows the furthest step wherever it moves to.
+            super::workflow::reset_view(c, id)?;
             Mutation::Step(document.asset.step)
         }
         Mutation::Rename(value) => {
@@ -516,6 +518,15 @@ fn apply(c: &Connection, id: AssetId, mutation: &Mutation) -> Result<(Mutation, 
             Mutation::Style(document.asset.style_id)
         }
     };
+    // A layer edited under a step that already passed later steps leaves
+    // those steps to be checked again, whichever actor made it.
+    if matches!(
+        mutation,
+        Mutation::Draw(_) | Mutation::Regions(_) | Mutation::Layer(..)
+    ) && result.changed > 0
+    {
+        super::workflow::mark_recheck(c, id, &result.roles)?;
+    }
     c.execute(
         "UPDATE asset SET updated_at=?1 WHERE id=?2",
         params![super::now(), id.0.to_string()],

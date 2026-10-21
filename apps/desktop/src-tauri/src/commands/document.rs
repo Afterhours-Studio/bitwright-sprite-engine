@@ -225,11 +225,15 @@ pub async fn project_create(
     view: Option<String>,
     preset: Option<String>,
     proportions: Option<String>,
+    line_mode: Option<String>,
 ) -> Result<Project> {
     run(&state, move |s| {
         let (era, view) = resolve_style(era.as_deref(), view.as_deref(), preset.as_deref())?;
         let proportions = proportions.as_deref().unwrap_or(DEFAULT_PROPORTIONS);
-        s.project_create_as(&name, &era, &view, proportions, "user")
+        let line_mode = line_mode
+            .as_deref()
+            .unwrap_or(crate::raster::palette::DEFAULT_LINE_MODE);
+        s.project_create_with(&name, &era, &view, proportions, line_mode, "user")
     })
     .await
 }
@@ -350,12 +354,18 @@ pub async fn style_read(state: State<'_, DocumentState>, id: Uuid) -> Result<Sty
     run(&state, move |s| s.style_read(id)).await
 }
 #[tauri::command]
+/// With `roles`, only those layers are composited: the step rail's view of an
+/// earlier step hides the layers of the steps after it without touching them.
 pub async fn document_composite(
     state: State<'_, DocumentState>,
     asset_id: AssetId,
+    roles: Option<Vec<LayerRole>>,
 ) -> Result<RgbaImage> {
     run(&state, move |s| {
-        let d = s.asset_open(asset_id)?;
+        let mut d = s.asset_open(asset_id)?;
+        if let Some(roles) = roles {
+            d.layers.retain(|layer| roles.contains(&layer.role));
+        }
         Ok(raster::composite(
             d.asset.width,
             d.asset.height,

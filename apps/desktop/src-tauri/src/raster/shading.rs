@@ -612,6 +612,63 @@ pub fn outline(
     Ok(result)
 }
 
+/// Resolves an `outline` call in a `single` line style: the silhouette's whole
+/// edge, outer contour and the border of every hole, in one line slot.
+///
+/// This is the hand-drawn order, where the line comes straight after the
+/// silhouette and the fills go inside it, so there is no fill yet to derive a
+/// colour from and none is wanted: the style draws its line in one colour.
+/// The slot is `slot` when given, otherwise the one the outline layer already
+/// uses, otherwise the darkest slot that belongs to no ramp (the style
+/// guide's shared OUTLINE_DARK), otherwise the darkest slot of all.
+pub fn trace_line(context: &Context, from: &str, slot: Option<u8>) -> Result<Shaded> {
+    let source = context.source(from)?;
+    source.validate()?;
+    let mask = context.mask(source);
+    mask.validate()?;
+    let slot = match slot {
+        Some(slot) => context.palette.slot(slot)?.index,
+        None => line_slot(context)?,
+    };
+    let placements = perimeter(mask)
+        .into_iter()
+        .map(|index| {
+            let (x, y) = position(mask, index);
+            Placement { x, y, slot }
+        })
+        .collect();
+    Ok(Shaded {
+        placements,
+        skipped: 0,
+    })
+}
+
+/// The slot a single line is drawn in when the call names none.
+fn line_slot(context: &Context) -> Result<u8> {
+    if let Some(line) = context.sources.get("outline") {
+        let used = super::gates::distinct_slots(line);
+        if let [only] = used.as_slice() {
+            return Ok(*only);
+        }
+    }
+    let lightness = |slot: &super::PaletteSlot| super::color::srgb_to_oklab(slot.rgba)[0];
+    let darkest = |free: bool| {
+        context
+            .palette
+            .slots
+            .iter()
+            .filter(|slot| !free || slot.ramp.is_none())
+            .min_by(|a, b| lightness(a).total_cmp(&lightness(b)))
+            .map(|slot| slot.index)
+    };
+    darkest(true).or_else(|| darkest(false)).ok_or_else(|| {
+        RasterError::new(
+            "palette.unknown_slot",
+            "the palette has no slot to draw the line in",
+        )
+    })
+}
+
 /// How many anti-aliasing pixels a stair step of this run length earns.
 ///
 /// Straight from the style guide's table: the longer the segment, the longer

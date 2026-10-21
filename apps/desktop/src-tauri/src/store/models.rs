@@ -94,7 +94,13 @@ pub struct Asset {
     pub kind: String,
     pub width: u16,
     pub height: u16,
+    /// The furthest step the asset has reached: where `advance` moves on from.
     pub step: String,
+    /// The step being viewed and drawn in. It is `step` unless an earlier
+    /// step was selected, which hides the layers of the steps after it and
+    /// sends drawing to its own layer without un-passing anything.
+    #[serde(default)]
+    pub active_step: String,
     pub created_at: i64,
     pub updated_at: i64,
     /// The root of the animation this asset is a later frame of; `None` for
@@ -156,9 +162,29 @@ impl GateReport {
 #[serde(rename_all = "camelCase")]
 pub struct StepState {
     pub asset_id: AssetId,
+    /// The furthest step reached. Every step before it has passed.
     pub step: String,
+    /// The step selected to view and draw in: `step`, or one before it.
+    pub active_step: String,
+    /// The style's line mode, which is what decides `order`.
+    pub line_mode: String,
+    /// Every step id in the order this style works through them.
+    pub order: Vec<String>,
+    /// Passed steps whose gate has to run again before the next advance,
+    /// because a layer of a step before them was edited after they passed.
+    /// A soft state: nothing is locked by it.
+    pub needs_recheck: Vec<String>,
+    /// The layer roles the canvas shows at this view: the active step's and
+    /// every earlier step's. The layers of later steps are hidden, not gone.
+    pub visible_roles: Vec<String>,
+    /// Whether `step`'s own gate passes and it has a successor. The steps in
+    /// `needs_recheck` are re-run by the advance itself, which reports them.
     pub can_advance: bool,
+    /// The gate of `active_step`.
     pub gate: GateReport,
+    /// What an advance re-ran from `needs_recheck` first. Empty otherwise.
+    #[serde(default)]
+    pub rechecked: Vec<GateReport>,
 }
 
 pub const STEPS: [&str; 11] = [
@@ -174,3 +200,54 @@ pub const STEPS: [&str; 11] = [
     "cleanup",
     "variation",
 ];
+
+/// The line-first order of a `single` line style: the outline straight after
+/// the silhouette, then flats, shadow and light inside it, which is the order a
+/// pixel artist draws a one-colour line sprite in by hand. Step ids are the
+/// same as in [`STEPS`]; only the order moves.
+pub const LINE_FIRST_STEPS: [&str; 11] = [
+    "reference",
+    "palette",
+    "silhouette",
+    "outline",
+    "flats",
+    "shadow",
+    "light",
+    "detail",
+    "accent",
+    "cleanup",
+    "variation",
+];
+
+/// The step order a style with this line mode works through.
+pub fn steps_for(line_mode: &str) -> &'static [&'static str; 11] {
+    if line_mode == "single" {
+        &LINE_FIRST_STEPS
+    } else {
+        &STEPS
+    }
+}
+
+/// The layer roles a step paints, from section 6 of the document model. Four
+/// steps paint none: `reference` and `palette` write their own tables,
+/// `cleanup` works over every layer and `variation` forks the asset.
+pub fn step_roles(step: &str) -> &'static [&'static str] {
+    match step {
+        "silhouette" => &["silhouette"],
+        "flats" => &["flats"],
+        "shadow" => &["shadow-core", "shadow-deep"],
+        "light" => &["light"],
+        "outline" => &["outline"],
+        "detail" => &["detail"],
+        "accent" => &["rim", "accent"],
+        _ => &[],
+    }
+}
+
+/// The step that paints a layer role, or `None` for a role no step owns.
+pub fn role_step(role: &str) -> Option<&'static str> {
+    STEPS
+        .iter()
+        .copied()
+        .find(|step| step_roles(step).contains(&role))
+}

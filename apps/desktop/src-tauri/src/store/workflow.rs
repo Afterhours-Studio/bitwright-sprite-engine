@@ -16,15 +16,147 @@
 
 //! Advancing rechecks the stored pixels while the store is locked, so a stale
 //! report cannot authorize a step after another writer has changed its input.
+//!
+//! THE FURTHEST STEP AND THE ACTIVE STEP ARE TWO THINGS. `asset.step` is the
+//! furthest step reached, and every step before it has passed its gate.
+//! Selecting an earlier step (`step_revisit`) is a view change: the canvas
+//! shows that step's layer and the layers of the steps before it, drawing goes
+//! into its layer, and nothing is un-passed or locked. The selection lives in
+//! `step_view`, out of the op log, because undoing a stroke should never undo
+//! where somebody was looking.
+//!
+//! An edit to a layer whose step comes before the furthest step leaves the
+//! passed steps after it marked "needs re-check": a soft state the rail shows
+//! and `get_step` reports. The next advance re-runs those gates first.
+//!
+//! THE ORDER BELONGS TO THE STYLE. A `derived` line style draws its outline
+//! after light, from the fills; a `single` line style draws it straight after
+//! the silhouette in one slot. Step ids never change, only their order and the
+//! outline step's gate.
 
 use super::{
-    history::Mutation, AppError, AssetId, GateReport, OpResult, Result, StepState, Store, STEPS,
+    history::Mutation, role_step, step_roles, steps_for, AppError, Asset, AssetId, GateReport,
+    OpResult, Result, StepState, Store, STEPS,
 };
 use crate::raster::gates::GateCheck;
 use crate::raster::{color, gates, IndexedBuffer, LayerRole};
+use rusqlite::{params, Connection, OptionalExtension};
+
+/// What `step_view` holds for one asset: the selected step, when it is not
+/// the furthest one, and the passed steps waiting to be checked again.
+#[derive(Default)]
+struct View {
+    active: Option<String>,
+    recheck: Vec<String>,
+}
+
+fn read_view(c: &Connection, id: AssetId) -> Result<View> {
+    let row: Option<(Option<String>, String)> = c
+        .query_row(
+            "SELECT active_step, recheck FROM step_view WHERE asset_id=?1",
+            [id.0.to_string()],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .optional()?;
+    Ok(match row {
+        Some((active, recheck)) => View {
+            active,
+            recheck: serde_json::from_str(&recheck)?,
+        },
+        None => View::default(),
+    })
+}
+
+fn write_view(c: &Connection, id: AssetId, view: &View) -> Result<()> {
+    c.execute(
+        "INSERT INTO step_view(asset_id,active_step,recheck) VALUES(?1,?2,?3)
+         ON CONFLICT(asset_id) DO UPDATE SET active_step=excluded.active_step,recheck=excluded.recheck",
+        params![
+            id.0.to_string(),
+            view.active,
+            serde_json::to_string(&view.recheck)?
+        ],
+    )?;
+    Ok(())
+}
+
+/// Puts the view back on the furthest step, which is where it goes whenever
+/// the furthest step itself moves: an advance, or the undo of one.
+pub(super) fn reset_view(c: &Connection, id: AssetId) -> Result<()> {
+    c.execute(
+        "UPDATE step_view SET active_step=NULL WHERE asset_id=?1",
+        [id.0.to_string()],
+    )?;
+    Ok(())
+}
+
+fn position(order: &[&str], step: &str) -> Option<usize> {
+    order.iter().position(|s| *s == step)
+}
+
+/// Where the asset stands in its style's order: the order, the furthest
+/// step's position in it, and the active step's, which is never past the
+/// furthest. A selection the order no longer reaches - the line mode changed
+/// under it - falls back to the furthest step.
+fn standing(asset: &Asset, line_mode: &str) -> Result<(&'static [&'static str; 11], usize, usize)> {
+    let order = steps_for(line_mode);
+    let furthest = position(order, &asset.step)
+        .ok_or_else(|| AppError::new("document.invalid_step", &asset.step))?;
+    let active = position(order, &asset.active_step)
+        .filter(|at| *at <= furthest)
+        .unwrap_or(furthest);
+    Ok((order, furthest, active))
+}
+
+/// Marks the passed steps after each edited role's step as needing a re-check.
+///
+/// While the asset sits at `cleanup` or `variation` with no earlier step
+/// selected, an edit marks nothing: cleanup's job is to work over every layer,
+/// and its own gate reads all of them again.
+pub(super) fn mark_recheck(c: &Connection, id: AssetId, roles: &[LayerRole]) -> Result<()> {
+    let asset = super::read_asset(c, id)?;
+    let rules = super::effective_rules(c, &asset)?;
+    let Ok((order, furthest, active)) = standing(&asset, &rules.line_mode) else {
+        return Ok(());
+    };
+    if active == furthest && matches!(asset.step.as_str(), "cleanup" | "variation") {
+        return Ok(());
+    }
+    let mut view = read_view(c, id)?;
+    let mut changed = false;
+    for role in roles {
+        let Some(owner) = role_step(role.0).and_then(|step| position(order, step)) else {
+            continue;
+        };
+        if owner + 1 >= furthest {
+            continue;
+        }
+        for later in &order[owner + 1..furthest] {
+            if !view.recheck.iter().any(|s| s == later) {
+                view.recheck.push((*later).to_string());
+                changed = true;
+            }
+        }
+    }
+    if changed {
+        view.recheck
+            .sort_by_key(|step| position(order, step).unwrap_or(usize::MAX));
+        write_view(c, id, &view)?;
+    }
+    Ok(())
+}
 
 impl Store {
+    /// The gate of the step the asset is viewed at.
     pub fn step_check(&self, id: AssetId) -> Result<GateReport> {
+        let asset = self.asset_read(id)?;
+        let rules = super::effective_rules(&self.connection, &asset)?;
+        let (order, _, active) = standing(&asset, &rules.line_mode)?;
+        self.step_check_at(id, order[active])
+    }
+
+    /// The gate of any one step, measured from the pixels as they stand.
+    pub fn step_check_at(&self, id: AssetId, step: &str) -> Result<GateReport> {
         let document = self.asset_open(id)?;
         let rules = super::effective_rules(&self.connection, &document.asset)?;
         // A chibi style widens the two shape gates its big head and raised
@@ -33,10 +165,19 @@ impl Store {
             &self.connection,
             &document.asset,
         )?);
+        let single = rules.line_mode == "single";
+        // A single line is drawn before the fills, but the steps that come
+        // before the outline in the derived order are judged as they would be
+        // there: without the line. A one-slot dark ring round every form reads
+        // to the light and pillow measurements as shading, and it is not.
+        let before_line = position(&STEPS, step) < position(&STEPS, "outline");
         let mut buffer = IndexedBuffer::new(document.asset.width, document.asset.height)?;
         let mut ordered: Vec<_> = document.layers.iter().collect();
         ordered.sort_by_key(|layer| layer.ordinal);
         for layer in &ordered {
+            if single && before_line && layer.role == LayerRole("outline") {
+                continue;
+            }
             if layer.visible && layer.opacity > 0.0 {
                 for (dest, &source) in buffer.data.iter_mut().zip(&layer.buffer.data) {
                     if source != 0 {
@@ -47,7 +188,7 @@ impl Store {
         }
         let metrics = gates::measure(&buffer, &document.palette)?;
         let mut checks: Vec<GateCheck> = Vec::new();
-        let step = document.asset.step.clone();
+        let step = step.to_string();
         let width = usize::from(document.asset.width);
         // Every slot's lightness, taken from the palette rather than from the
         // pixels, because a fill the rim covers completely still has to be
@@ -287,12 +428,18 @@ impl Store {
                     .ok_or_else(|| AppError::new("document.layer_not_found", "flats"))?;
                 let mask = silhouette
                     .ok_or_else(|| AppError::new("document.layer_not_found", "silhouette"))?;
+                // A single line already sits on the silhouette's edge and
+                // composites above the fills, so a silhouette pixel under the
+                // line may be filled or left empty: nobody will ever see which.
+                let lined = |i: usize| single && layer("outline").is_some_and(|b| b.data[i] != 0);
                 let uncovered: Vec<(u16, u16)> = mask
                     .data
                     .iter()
                     .zip(&flats.data)
                     .enumerate()
-                    .filter(|(_, (mask, flat))| (**mask != 0) != (**flat != 0))
+                    .filter(|(i, (mask, flat))| {
+                        (**mask != 0) != (**flat != 0) && !(**mask != 0 && lined(*i))
+                    })
                     .map(|(i, _)| point(i))
                     .collect();
                 checks.push(GateCheck::verdict(
@@ -345,6 +492,63 @@ impl Store {
                         gates::HD2D.change_rate
                     ),
                 ));
+            }
+            "outline" if single => {
+                checks.push(confined("outline-inside-silhouette", &["outline"]));
+                let outline = layer("outline");
+                // One line colour is the whole of a single-line style. The
+                // derived checks that read the line's colours against the
+                // fills (and its selective drop on the lit arc) do not run:
+                // there are no fills yet, and the line is meant to be whole.
+                let slots = outline.map_or_else(Vec::new, gates::distinct_slots);
+                checks.push(GateCheck::verdict(
+                    "outline-single-slot",
+                    slots.len() <= 1,
+                    format!(
+                        "the line uses {} slot{}{}",
+                        slots.len(),
+                        if slots.len() == 1 { "" } else { "s" },
+                        if slots.is_empty() {
+                            String::new()
+                        } else {
+                            format!(
+                                " ({})",
+                                slots
+                                    .iter()
+                                    .map(u8::to_string)
+                                    .collect::<Vec<_>>()
+                                    .join(", ")
+                            )
+                        }
+                    ),
+                    "Repaint the line in one slot, the style's line colour. A single-line style draws every contour, outer and inner, in the same colour; shading the line belongs to a derived style.",
+                ));
+                if silhouette.is_some() {
+                    let painted = |pixel: &gates::EdgePixel| {
+                        outline.is_some_and(|b| b.data[pixel.index] != 0)
+                    };
+                    let gaps: Vec<(u16, u16)> = edges
+                        .iter()
+                        .filter(|edge| !painted(edge))
+                        .map(gates::EdgePixel::point)
+                        .collect();
+                    // Inner contours - a sleeve against the body, the line of
+                    // a jaw - are allowed and not counted: only the outer
+                    // edge has to be whole.
+                    checks.push(GateCheck::verdict(
+                        "outline-closed",
+                        gaps.is_empty() && !edges.is_empty(),
+                        format!(
+                            "{} of {} silhouette edge pixels carry the line",
+                            edges.len() - gaps.len(),
+                            edges.len()
+                        ),
+                        format!(
+                            "Close the line at {}. A single line runs round the whole silhouette, so later fills sit inside it; the outline tool traces it in one call.",
+                            gates::named_points(&gaps)
+                        ),
+                    ));
+                }
             }
             "outline" => {
                 checks.push(confined("outline-inside-silhouette", &["outline"]));
@@ -738,40 +942,79 @@ impl Store {
             metrics,
         })
     }
+    /// Where the asset is: the furthest step, the step viewed, the style's
+    /// order, the passed steps waiting on a re-check, and the viewed step's
+    /// gate.
     pub fn step_state(&self, id: AssetId) -> Result<StepState> {
-        let gate = self.step_check(id)?;
+        let asset = self.asset_read(id)?;
+        let rules = super::effective_rules(&self.connection, &asset)?;
+        let (order, furthest, active) = standing(&asset, &rules.line_mode)?;
+        let gate = self.step_check_at(id, order[active])?;
+        let passes = if active == furthest {
+            gate.pass
+        } else {
+            self.step_check_at(id, order[furthest])?.pass
+        };
+        let view = read_view(&self.connection, id)?;
         Ok(StepState {
             asset_id: id,
-            step: gate.step.clone(),
-            can_advance: gate.pass && gate.step != "variation",
+            step: asset.step.clone(),
+            active_step: order[active].to_string(),
+            line_mode: rules.line_mode.clone(),
+            order: order.iter().map(|s| (*s).to_string()).collect(),
+            needs_recheck: pending(&view, order, furthest),
+            visible_roles: visible_roles(order, furthest, active),
+            can_advance: passes && order[furthest] != "variation",
             gate,
+            rechecked: Vec::new(),
         })
     }
     pub fn step_advance(&mut self, id: AssetId) -> Result<(StepState, OpResult)> {
         self.step_advance_as(id, "user", false)
     }
 
-    /// Advances as `actor`. With `force`, a failing gate is overridden, and
-    /// the op log records it: the actor is written as "<actor> (forced)".
+    /// Advances the furthest step as `actor`, from wherever the view is.
+    ///
+    /// The steps marked as needing a re-check run their gates first, and the
+    /// result reports them in `rechecked`. A failure there refuses the
+    /// advance as `step.recheck_failed`, naming the step and its checks, the
+    /// same way the furthest step's own failure is `step.gate_failed`.
+    ///
+    /// With `force`, a failing gate is overridden, and the op log records it:
+    /// the actor is written as "<actor> (forced)".
     pub fn step_advance_as(
         &mut self,
         id: AssetId,
         actor: &str,
         force: bool,
     ) -> Result<(StepState, OpResult)> {
-        let state = self.step_state(id)?;
-        if !state.gate.pass && !force {
-            return Err(AppError::new(
-                "step.gate_failed",
-                state.gate.failures().join(", "),
-            ));
-        }
-        let position = STEPS
+        let asset = self.asset_read(id)?;
+        let rules = super::effective_rules(&self.connection, &asset)?;
+        let (order, furthest, _) = standing(&asset, &rules.line_mode)?;
+        let mut view = read_view(&self.connection, id)?;
+        let rechecked = pending(&view, order, furthest)
             .iter()
-            .position(|s| *s == state.step)
-            .ok_or_else(|| AppError::new("document.invalid_step", &state.step))?;
-        let next = STEPS
-            .get(position + 1)
+            .map(|step| self.step_check_at(id, step))
+            .collect::<Result<Vec<_>>>()?;
+        let gate = self.step_check_at(id, order[furthest])?;
+        if !force {
+            let stale: Vec<String> = rechecked
+                .iter()
+                .filter(|report| !report.pass)
+                .map(|report| format!("{}: {}", report.step, report.failures().join(", ")))
+                .collect();
+            if !stale.is_empty() {
+                return Err(AppError::new("step.recheck_failed", stale.join("; ")));
+            }
+            if !gate.pass {
+                return Err(AppError::new(
+                    "step.gate_failed",
+                    gate.failures().join(", "),
+                ));
+            }
+        }
+        let next = order
+            .get(furthest + 1)
             .ok_or_else(|| AppError::new("step.complete", "the final step has no successor"))?;
         let actual_actor = if force {
             format!("{actor} (forced)")
@@ -779,37 +1022,89 @@ impl Store {
             actor.to_string()
         };
         let result = self.commit(id, Mutation::Step((*next).into()), &actual_actor)?;
-        Ok((self.step_state(id)?, result))
+        // Every mark was either just verified or, forced, overridden on the
+        // record, so none of them survives the advance.
+        view.active = None;
+        view.recheck.clear();
+        write_view(&self.connection, id, &view)?;
+        let mut state = self.step_state(id)?;
+        state.rechecked = rechecked;
+        Ok((state, result))
     }
 
-    /// Moves back to an earlier step. Nothing is erased.
+    /// Selects a step to view and draw in: the furthest step or any before
+    /// it. It is a view change and nothing else - nothing is erased, no step
+    /// stops being passed, and the op log is not written, so the result's
+    /// `seq` is where the log already stood.
     pub fn step_revisit(
         &mut self,
         id: AssetId,
         step: &str,
         actor: &str,
     ) -> Result<(StepState, OpResult)> {
-        let state = self.step_state(id)?;
-        let current_pos = STEPS
-            .iter()
-            .position(|s| *s == state.step)
-            .ok_or_else(|| AppError::new("document.invalid_step", &state.step))?;
-        let target_pos = STEPS
-            .iter()
-            .position(|s| *s == step)
-            .ok_or_else(|| AppError::new("document.invalid_step", step))?;
-        if target_pos >= current_pos {
+        super::history::validate_actor(actor)?;
+        let asset = self.asset_read(id)?;
+        let rules = super::effective_rules(&self.connection, &asset)?;
+        let (order, furthest, _) = standing(&asset, &rules.line_mode)?;
+        let target = position(order, step).ok_or_else(|| {
+            AppError::new(
+                "document.invalid_step",
+                format!("{step} is not a step; the steps are {}", order.join(", ")),
+            )
+        })?;
+        if target > furthest {
             return Err(AppError::new(
                 "document.invalid_step",
                 format!(
-                    "cannot revisit step {step}; the asset is already at step {}",
-                    state.step
+                    "cannot select step {step}; the asset has only reached step {}",
+                    asset.step
                 ),
             ));
         }
-        let result = self.commit(id, Mutation::Step(step.to_string()), actor)?;
+        let mut view = read_view(&self.connection, id)?;
+        view.active = (target != furthest).then(|| step.to_string());
+        write_view(&self.connection, id, &view)?;
+        let seq: i64 = self.connection.query_row(
+            "SELECT COALESCE((SELECT seq FROM op_cursor WHERE asset_id=?1),0)",
+            [id.0.to_string()],
+            |r| r.get(0),
+        )?;
+        let result = OpResult {
+            changed: 0,
+            bounds: None,
+            roles: Vec::new(),
+            seq,
+        };
         Ok((self.step_state(id)?, result))
     }
+}
+
+/// The marked steps that are still behind the furthest one, in order. A mark
+/// left on a step the furthest has since moved back past is not reported.
+fn pending(view: &View, order: &[&str], furthest: usize) -> Vec<String> {
+    order[..furthest]
+        .iter()
+        .filter(|step| view.recheck.iter().any(|s| s == *step))
+        .map(|step| (*step).to_string())
+        .collect()
+}
+
+/// The layer roles the canvas shows at this view: those of the active step
+/// and every step before it in the order. At the furthest step every role
+/// shows, as it always has, so a layer an override wrote ahead of the
+/// workflow is never hidden from the person who has to deal with it.
+fn visible_roles(order: &[&str], furthest: usize, active: usize) -> Vec<String> {
+    if active == furthest {
+        return crate::raster::LAYER_ROLES
+            .iter()
+            .map(|(role, _)| (*role).to_string())
+            .collect();
+    }
+    order[..=active]
+        .iter()
+        .flat_map(|step| step_roles(step).iter())
+        .map(|role| (*role).to_string())
+        .collect()
 }
 
 #[cfg(test)]
@@ -1788,38 +2083,329 @@ BBCDCBB.BBBDDDD";
     }
 
     #[test]
-    fn step_revisit_moves_to_an_earlier_step() {
-        let (mut store, id) = asset("silhouette", &[("silhouette", BLANK)]);
-        let (state, _) = store.step_revisit(id, "reference", "agent:s-4").unwrap();
-        assert_eq!(state.step, "reference");
-        let log = store.op_log(id).unwrap();
-        let last = log.last().unwrap();
-        assert_eq!(last.actor, "agent:s-4");
-        assert_eq!(last.kind, "step_advance");
+    fn selecting_an_earlier_step_is_a_view_change_that_locks_nothing() {
+        let (mut store, id) = asset("light", &[("silhouette", BLANK)]);
+        let before = store.op_log(id).unwrap().len();
+        let (state, result) = store.step_revisit(id, "flats", "agent:s-4").unwrap();
+        // The furthest step stays where it was; only the view moved.
+        assert_eq!(state.step, "light");
+        assert_eq!(state.active_step, "flats");
+        assert_eq!(state.gate.step, "flats");
+        assert_eq!(store.asset_read(id).unwrap().step, "light");
+        assert_eq!(store.asset_read(id).unwrap().active_step, "flats");
+        // Nothing is written to the op log, so undo never undoes a view.
+        assert_eq!(store.op_log(id).unwrap().len(), before);
+        assert_eq!(result.changed, 0);
+        // The layers of later steps are hidden from the view, not deleted.
+        assert!(state.visible_roles.contains(&"flats".to_string()));
+        assert!(state.visible_roles.contains(&"silhouette".to_string()));
+        assert!(!state.visible_roles.contains(&"shadow-core".to_string()));
+        assert!(!state.visible_roles.contains(&"light".to_string()));
+        let document = store.asset_open(id).unwrap();
+        assert!(document.layers.iter().any(|l| l.role == LayerRole("light")));
+        // A later passed step can be selected too, and so can the furthest one.
+        let (state, _) = store.step_revisit(id, "shadow", "user").unwrap();
+        assert_eq!(state.active_step, "shadow");
+        assert!(state.visible_roles.contains(&"shadow-deep".to_string()));
+        assert!(!state.visible_roles.contains(&"light".to_string()));
+        let (state, _) = store.step_revisit(id, "light", "user").unwrap();
+        assert_eq!(state.active_step, "light");
+        assert_eq!(state.visible_roles.len(), crate::raster::LAYER_ROLES.len());
     }
 
     #[test]
-    fn step_revisit_to_the_current_step_is_refused() {
-        let (mut store, id) = asset("silhouette", &[("silhouette", BLANK)]);
-        let err = store
-            .step_revisit(id, "silhouette", "agent:s-5")
-            .unwrap_err();
-        assert_eq!(err.code, "document.invalid_step");
-        assert!(err.detail.contains("already at step"));
-    }
-
-    #[test]
-    fn step_revisit_to_a_later_step_is_refused() {
+    fn a_step_not_reached_cannot_be_selected() {
         let (mut store, id) = asset("reference", &[("silhouette", BLANK)]);
         let err = store.step_revisit(id, "palette", "agent:s-6").unwrap_err();
         assert_eq!(err.code, "document.invalid_step");
-        assert!(err.detail.contains("already at step"));
+        assert!(err.detail.contains("only reached"));
+        let err = store.step_revisit(id, "bogus", "agent:s-7").unwrap_err();
+        assert_eq!(err.code, "document.invalid_step");
+        // Selecting the step the asset is at is not an error: it is the way
+        // back to it.
+        assert!(store.step_revisit(id, "reference", "user").is_ok());
     }
 
     #[test]
-    fn step_revisit_to_an_unknown_step_is_refused() {
+    fn advancing_from_an_earlier_view_moves_the_furthest_step_and_the_view_with_it() {
+        let (mut store, id) = asset("palette", &[("silhouette", BLANK)]);
+        store.step_revisit(id, "reference", "user").unwrap();
+        let (state, _) = store.step_advance(id).unwrap();
+        assert_eq!(state.step, "silhouette");
+        assert_eq!(state.active_step, "silhouette");
+    }
+
+    #[test]
+    fn editing_an_earlier_layer_marks_the_later_passed_steps_for_a_re_check() {
+        let (mut store, id) = asset("light", &[("silhouette", BODY)]);
+        assert!(store.step_state(id).unwrap().needs_recheck.is_empty());
+        store.step_revisit(id, "silhouette", "user").unwrap();
+        let mut layer = store.layer_read(id, LayerRole("silhouette")).unwrap();
+        layer.buffer = grid::parse(READABLE).unwrap();
+        store.layer_write(id, layer).unwrap();
+        let state = store.step_state(id).unwrap();
+        // Flats and shadow passed after the silhouette; light is the furthest
+        // step and is checked by the advance anyway. Nothing is locked.
+        assert_eq!(state.needs_recheck, vec!["flats", "shadow"]);
+        assert_eq!(state.step, "light");
+        assert_eq!(state.active_step, "silhouette");
+        // An edit at the furthest step marks nothing.
+        let (mut store, id) = asset("light", &[("silhouette", BODY)]);
+        let mut layer = store.layer_read(id, LayerRole("light")).unwrap();
+        layer.buffer = grid::parse(LIT[2].1).unwrap();
+        store.layer_write(id, layer).unwrap();
+        assert!(store.step_state(id).unwrap().needs_recheck.is_empty());
+    }
+
+    #[test]
+    fn the_advance_re_runs_the_marked_gates_first_and_reports_them() {
+        // A passing shadow step behind a furthest step of light.
+        let (mut store, id) = asset("light", &LIT);
+        store.step_revisit(id, "flats", "user").unwrap();
+        // Repaint the flats the same, which still counts as an edit only if
+        // something changed: move one pixel and put it back.
+        let mut layer = store.layer_read(id, LayerRole("flats")).unwrap();
+        layer.buffer = grid::parse(LIT[1].1).unwrap();
+        layer.buffer.data[0] = 4;
+        store.layer_write(id, layer.clone()).unwrap();
+        layer.buffer.data[0] = 0;
+        store.layer_write(id, layer).unwrap();
+        let state = store.step_state(id).unwrap();
+        assert_eq!(state.needs_recheck, vec!["shadow"]);
+        let (state, _) = store.step_advance(id).unwrap();
+        assert_eq!(state.step, "outline");
+        assert_eq!(state.rechecked.len(), 1);
+        assert_eq!(state.rechecked[0].step, "shadow");
+        assert!(state.rechecked[0].pass);
+        // The marks were verified, so none survives the advance.
+        assert!(state.needs_recheck.is_empty());
+    }
+
+    #[test]
+    fn a_re_checked_step_that_now_fails_refuses_the_advance_by_name() {
+        let (mut store, id) = asset("light", &LIT);
+        store.step_revisit(id, "silhouette", "user").unwrap();
+        let mut layer = store.layer_read(id, LayerRole("silhouette")).unwrap();
+        // A second blob breaks nothing the light step reads, and leaves the
+        // flats no longer covering the silhouette.
+        layer.buffer.data[0] = 1;
+        store.layer_write(id, layer).unwrap();
+        assert_eq!(
+            store.step_state(id).unwrap().needs_recheck,
+            vec!["flats", "shadow"]
+        );
+        let err = store.step_advance(id).unwrap_err();
+        assert_eq!(err.code, "step.recheck_failed");
+        assert!(
+            err.detail.contains("flats: flats-cover-silhouette"),
+            "{}",
+            err.detail
+        );
+        assert_eq!(store.asset_read(id).unwrap().step, "light");
+        // Forcing past it records the override and clears the marks.
+        let (state, _) = store.step_advance_as(id, "user", true).unwrap();
+        assert_eq!(state.step, "outline");
+        assert!(state.needs_recheck.is_empty());
+        assert_eq!(state.rechecked.len(), 2);
+    }
+
+    #[test]
+    fn cleanup_working_over_every_layer_marks_nothing() {
+        let (mut store, id) = asset("cleanup", &[("silhouette", BODY)]);
+        let mut layer = store.layer_read(id, LayerRole("flats")).unwrap();
+        layer.buffer = grid::parse(&BODY.replace('A', "C")).unwrap();
+        store.layer_write(id, layer).unwrap();
+        assert!(store.step_state(id).unwrap().needs_recheck.is_empty());
+    }
+
+    #[test]
+    fn undoing_an_advance_moves_the_view_back_with_the_step() {
         let (mut store, id) = asset("reference", &[("silhouette", BLANK)]);
-        let err = store.step_revisit(id, "bogus", "agent:s-7").unwrap_err();
-        assert_eq!(err.code, "document.invalid_step");
+        store.step_advance(id).unwrap();
+        store.undo(id, "user").unwrap();
+        let state = store.step_state(id).unwrap();
+        assert_eq!(state.step, "reference");
+        assert_eq!(state.active_step, "reference");
+    }
+
+    // ---- line modes ----
+
+    /// A store holding one asset in a `single` line style, parked on `step`.
+    fn single(step: &str, drawn: &[(&str, &str)]) -> (Store, AssetId) {
+        let (mut store, id) = asset(step, drawn);
+        let project = store.asset_read(id).unwrap().project_id;
+        store
+            .style_set_rules_as(
+                project,
+                None,
+                Some(&serde_json::json!({ "lineMode": "single" })),
+                None,
+                "user",
+            )
+            .unwrap();
+        (store, id)
+    }
+
+    /// The whole edge of [`WIDE_BODY`] in one slot, `A`.
+    const WIDE_LINE: &str = "............
+.AAAAAAAAAA.
+.A........A.
+.A........A.
+.A........A.
+.A........A.
+.A........A.
+.A........A.
+.A........A.
+.A........A.
+.AAAAAAAAAA.
+............";
+
+    #[test]
+    fn a_single_line_style_draws_the_line_right_after_the_silhouette() {
+        let (mut store, id) = single("silhouette", &[("silhouette", BLANK)]);
+        let state = store.step_state(id).unwrap();
+        assert_eq!(state.line_mode, "single");
+        assert_eq!(
+            state.order,
+            [
+                "reference",
+                "palette",
+                "silhouette",
+                "outline",
+                "flats",
+                "shadow",
+                "light",
+                "detail",
+                "accent",
+                "cleanup",
+                "variation"
+            ]
+        );
+        let (state, _) = store.step_advance_as(id, "user", true).unwrap();
+        assert_eq!(state.step, "outline");
+        let (state, _) = store.step_advance_as(id, "user", true).unwrap();
+        assert_eq!(state.step, "flats");
+        // At flats, the line is a passed step before it and stays visible.
+        let (state, _) = store.step_revisit(id, "outline", "user").unwrap();
+        assert!(state.visible_roles.contains(&"outline".to_string()));
+        assert!(!state.visible_roles.contains(&"flats".to_string()));
+        // Switching the line mode alone keeps the era.
+        let project = store.asset_read(id).unwrap().project_id;
+        assert_eq!(
+            store.project_read(project).unwrap().era.as_deref(),
+            Some("32bit")
+        );
+    }
+
+    #[test]
+    fn a_single_line_must_close_round_the_silhouette_in_one_slot() {
+        let closed = [("silhouette", WIDE_BODY), ("outline", WIDE_LINE)];
+        let (store, id) = single("outline", &closed);
+        let report = store.step_check(id).unwrap();
+        assert!(report.pass, "{:?}", report.checks);
+        let names: Vec<&str> = report.checks.iter().map(|c| c.name.as_str()).collect();
+        // The derived line's selective and colour checks do not run.
+        assert!(!names.contains(&"outline-coverage"));
+        assert!(!names.contains(&"outline-shadow-arc"));
+        assert!(!names.contains(&"outline-on-perimeter"));
+        // An inner contour line in the same slot is allowed.
+        let inner = WIDE_LINE.replacen(".A........A.", ".A...AA...A.", 3);
+        let (store, id) = single("outline", &[("silhouette", WIDE_BODY), ("outline", &inner)]);
+        assert!(store.step_check(id).unwrap().pass);
+        // A gap is named, and so is a second colour.
+        let gap = WIDE_LINE.replacen(".A........A.", "..........A.", 1);
+        let (store, id) = single("outline", &[("silhouette", WIDE_BODY), ("outline", &gap)]);
+        let report = store.step_check(id).unwrap();
+        assert_eq!(report.failures(), vec!["outline-closed"]);
+        let two = WIDE_LINE.replacen("AAAAAAAAAA", "AAAAABBBBB", 1);
+        let (store, id) = single("outline", &[("silhouette", WIDE_BODY), ("outline", &two)]);
+        assert_eq!(
+            store.step_check(id).unwrap().failures(),
+            vec!["outline-single-slot"]
+        );
+        // The same closed line fails the derived gate, which wants it selective.
+        let derived = report_of("outline", &closed);
+        assert!(derived.failures().contains(&"outline-coverage"));
+    }
+
+    fn report_of(step: &str, drawn: &[(&str, &str)]) -> GateReport {
+        report(step, drawn)
+    }
+
+    #[test]
+    fn flats_inside_a_single_line_may_leave_the_line_pixels_empty() {
+        // Flats that fill only the interior the line encloses.
+        let flats = WIDE_BODY
+            .lines()
+            .enumerate()
+            .map(|(y, row)| {
+                row.chars()
+                    .enumerate()
+                    .map(|(x, cell)| {
+                        if cell == 'A' && (2..=9).contains(&x) && (2..=9).contains(&y) {
+                            'C'
+                        } else {
+                            '.'
+                        }
+                    })
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        let drawn = [
+            ("silhouette", WIDE_BODY),
+            ("outline", WIDE_LINE),
+            ("flats", flats.as_str()),
+        ];
+        let (store, id) = single("flats", &drawn);
+        let check = store
+            .step_check(id)
+            .unwrap()
+            .checks
+            .into_iter()
+            .find(|c| c.name == "flats-cover-silhouette")
+            .unwrap();
+        assert!(check.pass, "{check:?}");
+        // The same flats in a derived style leave the edge uncovered.
+        assert!(raised("flats", &drawn, "flats-cover-silhouette"));
+    }
+
+    #[test]
+    fn the_outline_command_traces_the_silhouette_in_one_slot_in_a_single_style() {
+        let (mut store, id) = single("outline", &[("silhouette", WIDE_BODY)]);
+        let op: crate::raster::Op = serde_json::from_value(serde_json::json!({
+            "kind": "outline",
+            "from": "silhouette",
+        }))
+        .unwrap();
+        store.write_ops(id, vec![op], "user").unwrap();
+        let line = store.layer_read(id, LayerRole("outline")).unwrap().buffer;
+        // The darkest slot in no ramp is slot 1, OUTLINE_DARK.
+        assert_eq!(line, grid::parse(WIDE_LINE).unwrap());
+        assert!(store.step_check(id).unwrap().pass);
+        // A named slot wins.
+        let op: crate::raster::Op = serde_json::from_value(serde_json::json!({
+            "kind": "outline",
+            "from": "silhouette",
+            "slot": 5,
+        }))
+        .unwrap();
+        store.write_ops(id, vec![op], "user").unwrap();
+        let line = store.layer_read(id, LayerRole("outline")).unwrap().buffer;
+        assert_eq!(gates::distinct_slots(&line), vec![5]);
+    }
+
+    #[test]
+    fn a_single_line_does_not_count_as_shading_before_the_derived_outline_step() {
+        // The lit body of the shadow tests, ringed by a single line: the light
+        // checks read it as they would with no line at all.
+        let ring = "........\n........\n..AAAA..\n..A..A..\n..A..A..\n..AAAA..\n........\n........";
+        let mut drawn = LIT.to_vec();
+        drawn.push(("outline", ring));
+        let (store, id) = single("shadow", &drawn);
+        let lined = store.step_check(id).unwrap();
+        let bare = report("shadow", &LIT);
+        assert_eq!(lined.pass, bare.pass);
+        assert_eq!(lined.metrics.light_vectors, bare.metrics.light_vectors);
     }
 }

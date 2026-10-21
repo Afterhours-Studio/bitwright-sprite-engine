@@ -170,6 +170,7 @@ struct OutlineArgs {
     from: String,
     mode: Option<OutlineMode>,
     darken: Option<u8>,
+    slot: Option<u8>,
     force: Option<bool>,
 }
 
@@ -189,6 +190,12 @@ fn outline_schema() -> Value {
                 "maximum": 4,
                 "default": 1
             },
+            "slot": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 255,
+                "description": "lineMode single only: the one line slot. Defaults to the slot the outline layer already uses, else the darkest slot outside every ramp."
+            },
             "force": { "type": "boolean" }
         },
         "required": ["from"],
@@ -207,6 +214,7 @@ fn outline_handler(host: &dyn DocumentHost, session: &Session, args: Value) -> T
         from,
         mode: args.mode,
         darken,
+        slot: args.slot,
     };
     let outline_role = LayerRole("outline");
     with_tool_store(host, |store| {
@@ -285,8 +293,12 @@ pub fn tools() -> Vec<ToolSpec> {
         },
         ToolSpec {
             name: "outline",
-            description: "Derive the outline from the fills it borders, never flat \
-                black. selective leaves out edges the key light strikes.",
+            description: "Draw the outline layer. In a derived line style (the \
+                default) it derives the colours from the fills it borders, never \
+                flat black; selective leaves out edges the key light strikes. In a \
+                single line style (lineMode single, the outline step right after \
+                silhouette) it traces the whole silhouette edge in one line slot \
+                instead: pass from: silhouette, and slot to choose the colour.",
             input_schema: outline_schema,
             handler: outline_handler,
         },

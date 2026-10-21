@@ -25,7 +25,9 @@ mod workflow;
 pub use animation::{Animation, Frame};
 pub use models::*;
 
-use crate::raster::palette::{check_proportions, DEFAULT_ERA, DEFAULT_PROPORTIONS, DEFAULT_VIEW};
+use crate::raster::palette::{
+    check_proportions, DEFAULT_ERA, DEFAULT_LINE_MODE, DEFAULT_PROPORTIONS, DEFAULT_VIEW,
+};
 use crate::raster::{
     IndexedBuffer, Layer, LayerRole, Palette, RgbaImage, StyleRules, Tilemap, LAYER_ROLES,
 };
@@ -170,9 +172,24 @@ impl Store {
         proportions: &str,
         actor: &str,
     ) -> Result<Project> {
+        self.project_create_with(value, era, view, proportions, DEFAULT_LINE_MODE, actor)
+    }
+    /// [`Self::project_create_as`] with the style's line mode: `derived` or
+    /// `single`, which decides where the outline step sits.
+    pub fn project_create_with(
+        &mut self,
+        value: &str,
+        era: &str,
+        view: &str,
+        proportions: &str,
+        line_mode: &str,
+        actor: &str,
+    ) -> Result<Project> {
         name(value)?;
-        let rules = StyleRules::for_style(era, view)?;
+        let mut rules = StyleRules::for_style(era, view)?;
         check_proportions(proportions)?;
+        crate::raster::palette::check_line_mode(line_mode)?;
+        rules.line_mode = line_mode.into();
         let id = Uuid::now_v7();
         let style = Uuid::now_v7();
         let at = now();
@@ -202,7 +219,7 @@ impl Store {
             &tx,
             id,
             "project_create",
-            &serde_json::json!({ "name": value, "era": era, "view": view, "proportions": proportions }),
+            &serde_json::json!({ "name": value, "era": era, "view": view, "proportions": proportions, "lineMode": line_mode }),
             actor,
         )?;
         tx.commit()?;
@@ -328,7 +345,13 @@ impl Store {
             Some(patch) => current.rules.patched(patch)?,
             None => current.rules.clone(),
         };
-        let rules_changed = json(&rules)? != json(&current.rules)?;
+        // The line mode is a drawing order, chosen like proportions are, and
+        // no era owns it: switching it alone keeps the era.
+        let rules_changed = {
+            let mut compared = rules.clone();
+            compared.line_mode.clone_from(&current.rules.line_mode);
+            json(&compared)? != json(&current.rules)?
+        };
         let era_was = (rules_changed && current.era != "custom").then(|| current.era.clone());
         let mut style = Style {
             era: if era_was.is_some() {
@@ -873,6 +896,7 @@ fn asset_row(r: &Row<'_>) -> rusqlite::Result<Asset> {
         updated_at: r.get(9)?,
         root_id: optional_uuid(r, 10)?.map(AssetId),
         frames: r.get(11)?,
+        active_step: r.get(12)?,
     })
 }
 /// Every query that builds an `Asset` selects these, so the animation fields
@@ -881,7 +905,8 @@ const ASSET_COLUMNS: &str =
     "a.id,a.project_id,a.style_id,a.name,a.kind,a.width,a.height,a.step,a.created_at,a.updated_at,
      (SELECT f.root_id FROM frame f WHERE f.asset_id=a.id AND f.position>0),
      CASE WHEN EXISTS(SELECT 1 FROM frame f WHERE f.asset_id=a.id AND f.position>0) THEN 0
-          ELSE MAX(1,(SELECT COUNT(*) FROM frame f WHERE f.root_id=a.id)) END";
+          ELSE MAX(1,(SELECT COUNT(*) FROM frame f WHERE f.root_id=a.id)) END,
+     COALESCE((SELECT v.active_step FROM step_view v WHERE v.asset_id=a.id),a.step)";
 fn read_asset(c: &Connection, id: AssetId) -> Result<Asset> {
     Ok(c.query_row(
         &format!("SELECT {ASSET_COLUMNS} FROM asset a WHERE a.id=?1"),

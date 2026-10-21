@@ -88,6 +88,8 @@ struct CreateProjectArgs {
     view: Option<String>,
     /// standard (the default) or chibi.
     proportions: Option<String>,
+    /// derived (the default) or single.
+    line_mode: Option<String>,
     /// Legacy: one of hd2d, snes, gameboy, custom. Read only when neither
     /// `era` nor `view` is given; kept for one release.
     preset: Option<String>,
@@ -104,6 +106,11 @@ fn create_project_schema() -> Value {
                 "type": "string",
                 "enum": ["standard", "chibi"],
                 "description": "Body proportions. chibi (big head, raised small details) widens the silhouette gates' reads-at-1x and solidity bands."
+            },
+            "lineMode": {
+                "type": "string",
+                "enum": ["derived", "single"],
+                "description": "How the line is drawn. derived (the default): the outline step comes after light and takes its colours from the fills. single: one line colour, drawn right after the silhouette (line, flats, shadow, light), composited above every fill."
             },
             "preset": {
                 "type": "string",
@@ -141,8 +148,21 @@ fn create_project(host: &dyn DocumentHost, session: &Session, args: Value) -> To
             "proportions is standard or chibi.",
         )
     })?;
+    let line_mode = args
+        .line_mode
+        .as_deref()
+        .unwrap_or(crate::raster::palette::DEFAULT_LINE_MODE);
+    crate::raster::palette::check_line_mode(line_mode)
+        .map_err(|e| ToolError::new("args.invalid", e.detail, "lineMode is derived or single."))?;
     let project = with_store(host, |store| {
-        store.project_create_as(&args.name, &era, &view, proportions, &session.actor())
+        store.project_create_with(
+            &args.name,
+            &era,
+            &view,
+            proportions,
+            line_mode,
+            &session.actor(),
+        )
     })?;
     host.projects_changed();
     Ok(json!({ "project": project }))
@@ -308,6 +328,9 @@ fn open_asset(host: &dyn DocumentHost, session: &Session, args: Value) -> ToolRe
     Ok(json!({
         "asset": doc.asset,
         "step": step_state.step,
+        "activeStep": step_state.active_step,
+        "lineMode": step_state.line_mode,
+        "needsRecheck": step_state.needs_recheck,
         "gate": step_state.gate,
         "palette": doc.palette,
         "layers": layers,
@@ -366,6 +389,24 @@ fn proportions_guidance(proportions: &str) -> String {
     )
 }
 
+/// What the line mode means for the step order and the outline gate.
+fn line_guidance(line_mode: &str) -> &'static str {
+    match line_mode {
+        "single" => {
+            "Single line: one line slot, drawn right after the silhouette (order: \
+             silhouette, outline, flats, shadow, light). The outline gate wants the \
+             whole silhouette edge lined in one slot; inner contour lines are allowed. \
+             The line composites above flats, shadow and light, so later fills never \
+             cover it."
+        }
+        _ => {
+            "Derived line: the outline step comes after light, and the outline tool \
+             takes each line pixel's colour from the fill it borders. Selective by \
+             default: dropped on the arc the key light strikes."
+        }
+    }
+}
+
 fn get_style_rules(host: &dyn DocumentHost, session: &Session, args: Value) -> ToolResult {
     let args: GetStyleRulesArgs = parse(args)?;
     let id = resolve_asset(session, args.asset_id.as_deref())?;
@@ -399,6 +440,8 @@ fn get_style_rules(host: &dyn DocumentHost, session: &Session, args: Value) -> T
         "styleScope": if own { "asset" } else { "project" },
         "viewGuidance": guidance,
         "proportionsGuidance": proportions_guidance(&proportions),
+        "lineMode": rules.line_mode,
+        "lineGuidance": line_guidance(&rules.line_mode),
         "hueSpace": "OKLCH: hueShift degrees, chroma factors and lightness are all read in OKLCH.",
         "rules": rules,
     }))
@@ -423,8 +466,10 @@ pub fn tools() -> Vec<ToolSpec> {
                 "Create a new project. era (8bit, 16bit, 32bit, custom; default 32bit) sets \
                 the palette and outline limits; view (topdown, sideview; default \
                 topdown) sets canvas sizes and proportions guidance; proportions \
-                (standard, chibi; default standard) sets the silhouette gate bands. The \
-                old preset argument still maps to an era and view.",
+                (standard, chibi; default standard) sets the silhouette gate bands; \
+                lineMode (derived, single; default derived) sets where the outline \
+                step sits and what its gate wants. The old preset argument still maps \
+                to an era and view.",
             input_schema: create_project_schema,
             handler: create_project,
         },
@@ -454,8 +499,9 @@ pub fn tools() -> Vec<ToolSpec> {
             name: "get_style_rules",
             description: "The rules the gates check this asset against: slot ceiling, \
                 ramp lengths, hue shift (OKLCH degrees), outline mode, light direction, \
-                canvas, plus the style's era, view, proportions (standard or chibi) and \
-                what each means for the shape. Read them before drawing so you do not \
+                canvas, line mode (derived or single), plus the style's era, view, \
+                proportions (standard or chibi) and what each means for the shape \
+                and the step order. Read them before drawing so you do not \
                 discover them by failing a gate; change them with set_style_rules.",
             input_schema: get_style_rules_schema,
             handler: get_style_rules,
