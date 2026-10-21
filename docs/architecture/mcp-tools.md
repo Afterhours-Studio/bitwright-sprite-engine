@@ -97,8 +97,9 @@ wrong.
 | `asset.not_open`         | the tool needs an open asset and none is open  |
 | `layer.unknown_role`     | role is not one of the workflow roles          |
 | `layer.locked`           | the layer is locked in the interface           |
-| `step.wrong`             | this layer does not belong to the current step |
+| `step.wrong`             | this layer does not belong to the active step  |
 | `step.gate_failed`       | `advance_step` refused; the report says why    |
+| `step.recheck_failed`    | a step marked needs-re-check no longer passes  |
 | `slot.out_of_range`      | slot number is not in the palette              |
 | `bounds.outside`         | coordinates fall outside the canvas            |
 | `grid.size_mismatch`     | pasted grid is not the size the target expects |
@@ -138,8 +139,8 @@ No arguments. Returns each project's `id`, `name`, `style`
 
 ### `create_project`
 
-`{ name: string, era?: "8bit" | "16bit" | "32bit" | "custom", view?: "topdown" | "sideview", proportions?: "standard" | "chibi" }`
-Defaults to `32bit`, `topdown` and `standard`. Returns the project. For one release it also
+`{ name: string, era?: "8bit" | "16bit" | "32bit" | "custom", view?: "topdown" | "sideview", proportions?: "standard" | "chibi", lineMode?: "derived" | "single" }`
+Defaults to `32bit`, `topdown`, `standard` and `derived`. Returns the project. For one release it also
 accepts the retired `preset` argument, read only when neither `era` nor `view` is
 given: `hd2d` maps to `32bit`/`topdown`, `snes` to `16bit`/`topdown`, `gameboy` to
 `8bit`/`topdown`, and `custom` to `custom`/`topdown`.
@@ -153,8 +154,8 @@ bottom row band (flip the sprite for left).
 
 The **proportions** set the two silhouette shape bands, and nothing else:
 
-| Proportions | `reads-at-1x` (P²/A) | `solidity` |
-| ----------- | -------------------- | ---------- |
+| Proportions | `reads-at-1x` (P²/A) | `solidity`  |
+| ----------- | -------------------- | ----------- |
 | `standard`  | 18 – 28              | 0.62 – 0.82 |
 | `chibi`     | 18 – 48              | 0.62 – 0.88 |
 
@@ -167,6 +168,14 @@ reaches P²/A ~46, so the ceiling is 48. A pixel disc fills ~0.95 of its hull,
 and a head that is about half the hull beside a body at the standard ceiling
 averages ~0.88. The floors do not move: a lump or a wire frame is one at any
 proportion.
+
+The **line mode** sets where the outline step sits and what its gate wants.
+`derived` puts it after light and takes each line pixel's colour from the fill
+beside it, dropped selectively on the lit arc. `single` is one line colour,
+drawn right after the silhouette (silhouette, outline, flats, shadow, light, …)
+and composited above every fill; its gate wants the whole silhouette edge lined
+in one slot and allows inner contour lines. See document-model §6, "The
+line-first order".
 
 Every project change an agent makes (create, rename, delete, style edit) goes
 into the project's own log under `agent:<session>`, and the window re-reads its
@@ -204,9 +213,10 @@ one-line summary of which layers have content.
 ### `get_style_rules`
 
 `{ assetId?: string }` — the rules the gates will be checked against, with the
-style's `era`, `view`, `proportions`, `styleScope` (`project`, or `asset` when
-the asset has a style of its own), a `viewGuidance` line, a
-`proportionsGuidance` line naming the silhouette bands, and `hueSpace`. An agent
+style's `era`, `view`, `proportions`, `lineMode`, `styleScope` (`project`, or
+`asset` when the asset has a style of its own), a `viewGuidance` line, a
+`proportionsGuidance` line naming the silhouette bands, a `lineGuidance` line
+naming the step order, and `hueSpace`. `rules.lineMode` is the same value. An agent
 that reads this before drawing does not have to discover the constraints by
 failing them.
 
@@ -219,11 +229,12 @@ degrees before migration 7, which rewrote rules still holding those.)
 
 ```jsonc
 {
-  "projectId": "…",            // optional: defaults to the project of assetId or of the open asset
-  "assetId": "…",              // optional
-  "scope": "project",          // project (default) | asset
+  "projectId": "…", // optional: defaults to the project of assetId or of the open asset
+  "assetId": "…", // optional
+  "scope": "project", // project (default) | asset
   "rules": { "maxSlots": 12, "rampSteps": { "max": 4 } }, // a partial StyleRules
-  "proportions": "chibi"       // optional: standard | chibi
+  "proportions": "chibi", // optional: standard | chibi
+  "lineMode": "single", // optional: derived | single (same as rules.lineMode)
 }
 ```
 
@@ -236,7 +247,11 @@ negative, lighter ΔL positive), fractions in 0 – 1, the value floor below the
 ceiling, and canvases a buffer can be made at, for the kinds `character`,
 `prop`, `tile`, `background`. An unknown field, or anything outside those, fails
 `style.invalid_rules` (an unknown proportions value fails
-`style.invalid_proportions`) and nothing is written.
+`style.invalid_proportions`) and nothing is written. `lineMode` is `derived` or
+`single`; like proportions it is a drawing choice no era owns, so changing it
+alone never moves the era to `custom`. It reorders the steps of every asset
+reading the style; an asset keeps its furthest step id, and steps that now come
+after it in the new order are simply not reached yet.
 
 Rules that differ from their era are no longer that era: editing the rules of
 a style that is not `custom` moves it to `custom`, and the result says so in
@@ -428,8 +443,9 @@ for a layer name that is not one of the nine roles.
 ## 6. Writing
 
 Every write takes `assetId` and `layer`, and every write refuses a layer that
-does not belong to the current step unless `force: true` is passed — revisiting
-an earlier step is legitimate, and doing it by accident is not.
+does not belong to the active step (the furthest step, or the earlier one
+`revisit_step` selected) unless `force: true` is passed — working on an earlier
+step is legitimate, and doing it by accident is not.
 
 ### `paste_grid`
 
@@ -547,8 +563,16 @@ finds out it has been painting with an unramped slot.
   "from": "flats", // outline colour is derived from the fill it borders
   "mode": "selective", // none | selective | full; default from the style
   "darken": 2, // ramp steps below the adjacent fill
+  "slot": 1, // lineMode single only: the one line slot
 }
 ```
+
+In a `single` line style the op traces the silhouette instead: every edge pixel
+of the silhouette (the outer contour and the border of every hole) in one slot,
+`slot` when given, else the slot the outline layer already uses, else the
+darkest slot in no ramp (the shared `OUTLINE_DARK`), else the darkest slot.
+`mode` and `darken` are ignored there. Call it with `from: "silhouette"` at the
+outline step, which comes straight after the silhouette.
 
 Writes the `outline` layer. `selective` — what HD-2D actually does — omits the
 outline on edges the key light strikes, so the sprite reads as lit rather than
@@ -669,14 +693,40 @@ preserved by construction, since not one pixel moves.
 
 ## 9. The workflow
 
+Two steps matter at once. `step` is the **furthest** step reached; every step
+before it has passed. `activeStep` is the step being **viewed and drawn in**:
+the furthest, or an earlier one `revisit_step` selected. Selecting a step never
+un-passes or locks anything. Editing a layer of a step before the furthest one
+marks the passed steps after it `needsRecheck`, and the next `advance_step`
+re-runs them first. The order of the steps is the style's (`lineMode`).
+
 ### `get_step`
 
-`{ assetId }` — the current step, what it expects, and the gate report as it
-stands.
+`{ assetId }` — where the asset is:
+
+```jsonc
+{
+  "step": "light", // the furthest step reached
+  "activeStep": "flats", // the step viewed and drawn in
+  "lineMode": "derived", // derived | single
+  "order": ["reference", "palette", "silhouette", "flats", "shadow", "light",
+            "outline", "detail", "accent", "cleanup", "variation"],
+  "needsRecheck": ["shadow"], // passed steps an earlier edit asks to check again
+  "visibleRoles": ["silhouette", "flats"], // the layers the canvas shows at this view
+  "canAdvance": true, // the furthest step's gate passes and it has a successor
+  "expects": "Fill each material's base slot inside the silhouette, unshaded.",
+  "gate": { "step": "flats", "pass": true, "checks": [ … ], "metrics": { … } },
+}
+```
+
+`expects` and `gate` are the active step's. At the furthest step,
+`visibleRoles` lists every role. `open_asset` reports `activeStep`, `lineMode`
+and `needsRecheck` too.
 
 ### `check_step`
 
-`{ assetId }` — evaluates the gate now, without advancing. Returns:
+`{ assetId }` — evaluates the active step's gate now, without advancing, and
+adds `activeStep` and `needsRecheck` to the report. Returns:
 
 ```jsonc
 {
@@ -700,15 +750,26 @@ actionable by a model, naming coordinates wherever it can.
 
 ### `advance_step`
 
-`{ assetId, force?: false }` — moves to the next step if the gate passes,
-otherwise fails with `step.gate_failed` and the same report. `force` is
-available and is recorded in the op log as a forced advance, because a person
-overriding a gate is legitimate and an agent doing it silently is not.
+`{ assetId, force?: false }` — moves the furthest step on, from whichever step
+is being viewed. The steps marked `needsRecheck` run their gates first and come
+back in `rechecked`; one that no longer passes fails the advance with
+`step.recheck_failed`, naming the step and its checks. Then the furthest step's
+own gate must pass, or it fails with `step.gate_failed`. `force` overrides both
+and is recorded in the op log as a forced advance, because a person overriding
+a gate is legitimate and an agent doing it silently is not. The reply is the
+`get_step` shape plus `rechecked` and `seq`; the view moves to the new furthest
+step and the marks are cleared.
 
 ### `revisit_step`
 
-`{ assetId, step }` — moves back. Nothing is erased; earlier layers are still
-there, which is the whole reason the steps are separate layers.
+`{ assetId, step }` — selects `step` to view and draw in: any step at or before
+the furthest one (naming the furthest returns the view to it). The name is kept
+for compatibility; it no longer moves the workflow back. It is a view change:
+the layers of later steps are hidden from the canvas, not erased; later steps
+stay passed and unlocked; drawing goes to the selected step's layer, and
+editing it marks the passed steps after it `needsRecheck`. A step not reached
+yet fails `document.invalid_step`. Nothing is written to the op log; the reply
+is the `get_step` shape plus the `seq` the log already stood at.
 
 ---
 
@@ -1024,13 +1085,13 @@ bridged, and none of the tools needs them.
 client's own file, in the shape that client reads, and leaves everything else
 in the file alone (a `.bak` is kept the first time):
 
-| Client         | File                                             | Entry                                                 |
-| -------------- | ------------------------------------------------ | ----------------------------------------------------- |
-| Claude Code    | `~/.claude.json`                                 | `{ "type": "http", "url": … }`                        |
+| Client         | File                                             | Entry                                                |
+| -------------- | ------------------------------------------------ | ---------------------------------------------------- |
+| Claude Code    | `~/.claude.json`                                 | `{ "type": "http", "url": … }`                       |
 | Claude Desktop | `<config dir>/Claude/claude_desktop_config.json` | `{ "command": <launcher>, "args": ["--mcp-stdio"] }` |
-| Cursor         | `~/.cursor/mcp.json`                             | `{ "url": … }`                                        |
-| Windsurf       | `~/.codeium/windsurf/mcp_config.json`            | `{ "serverUrl": … }`                                  |
-| Codex          | `~/.codex/config.toml`                           | `[mcp_servers.bitwright]` `command`, `args`           |
+| Cursor         | `~/.cursor/mcp.json`                             | `{ "url": … }`                                       |
+| Windsurf       | `~/.codeium/windsurf/mcp_config.json`            | `{ "serverUrl": … }`                                 |
+| Codex          | `~/.codex/config.toml`                           | `[mcp_servers.bitwright]` `command`, `args`          |
 
 The stdio entries need no running server to be written and stay valid whatever
 port the app binds later.

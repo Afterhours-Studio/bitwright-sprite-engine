@@ -42,7 +42,18 @@ Rules that are not negotiable:
 
 An asset moves `reference → palette → silhouette → flats → shadow → light → outline →
 detail → accent → cleanup → variation`. You cannot skip a step and you cannot advance
-until the gate passes.
+until the gate passes. A **single line** style (`lineMode: "single"`, see §7 and
+`workflow.md` §7) moves the outline up to straight after the silhouette:
+`silhouette → outline → flats → shadow → light → detail → …`. `get_step` returns the
+order in force as `order`.
+
+`get_step` reports two steps: `step`, the furthest reached (every step before it has
+passed), and `activeStep`, the step you are viewing and drawing in. `revisit_step`
+selects any step up to the furthest as the active one; it is a view change, not a
+step back: later steps stay passed, their layers are hidden from the view but kept,
+and nothing locks. Editing a layer of an earlier step marks the passed steps after it
+in `needsRecheck`; the next `advance_step` re-runs them first and reports them in
+`rechecked`, or refuses with `step.recheck_failed`.
 
 `check_step` evaluates the gate without advancing. `advance_step` moves on, or fails
 with `step.gate_failed` and hands you the same report. Every check in that report is
@@ -75,17 +86,20 @@ Four things about this order that catch agents out:
   resolve each pixel's ramp from the material slot they find there. Point either at
   `silhouette` and every pixel resolves to the one mask slot, so the whole sprite
   shades off a single ramp.
-- **The outline goes late, after light.** An outline pixel's colour is derived from the
-  fill beside it, so outlining before the fills exist means guessing, and the guess is
-  always flat black. This is the position most likely to surprise you; do not reorder it.
+- **The outline goes late, after light** - in a `derived` line style, the default. An
+  outline pixel's colour is derived from the fill beside it, so outlining before the
+  fills exist means guessing, and the guess is always flat black. A `single` line style
+  is the exception by design: one line colour, traced first with `outline { from:
+  "silhouette" }`, and the engine composites it above every fill.
 - **`cleanup` owns no layer.** It polishes the layers already drawn, in place, so its
   calls name whichever finished layer they are touching.
 
 Full step table with the numeric thresholds: `references/workflow.md`.
 
-Writing to a layer that does not belong to the current step fails with `step.wrong`.
-Passing `force: true` is allowed and is sometimes right, but prefer `revisit_step` — it
-is recorded, and nothing is erased when you go back.
+Writing to a layer that does not belong to the active step fails with `step.wrong`.
+Passing `force: true` is allowed and is sometimes right, but prefer `revisit_step` to
+select that layer's step: nothing is erased or locked, and the re-check marks keep the
+later gates honest.
 
 ## 3. Choosing a write tool
 
@@ -200,7 +214,8 @@ ruler starts near the coordinate you care about.
 | `grid.bad_character` | A character in `rows` maps to no slot | Only `.`, `A`–`Z`, `a`–`z`, `0`–`9` are legal, in that order from slot 0. Call `describe_palette` and rebuild the rows from the letters it reports. |
 | `slot.out_of_range` | A slot number is above the palette size | `describe_palette`, then use a real slot. Do not guess that the ramp has one more step than it does. |
 | `bounds.outside` | Coordinates fall off the canvas | Re-read the asset size from `open_asset` or `get_step`. Remember `x1` in a run is inclusive. |
-| `step.wrong` | The layer does not belong to the current step | Use the layer the current step owns, or `revisit_step` to go back. Nothing is erased by revisiting. `force: true` is a last resort and is logged as a forced write. |
+| `step.wrong` | The layer does not belong to the active step | Use the layer the active step owns, or `revisit_step` to select that layer's step. Nothing is erased or locked by selecting it. `force: true` is a last resort and is logged as a forced write. |
+| `step.recheck_failed` | An earlier layer was edited and a passed step after it no longer passes | `revisit_step` the named step, `check_step` it, fix the named checks, then `advance_step` again. |
 | `layer.locked` | The person locked that layer in the application | Say so and ask. Do not work around it. |
 | `layer.unknown_role` | The role string is not a workflow role | The roles are `silhouette`, `flats`, `shadow-core`, `shadow-deep`, `light`, `outline`, `detail`, `rim`, `accent`. |
 | `asset.not_open` / `asset.not_found` | No current asset, or a bad id | `list_assets`, then `open_asset`. |
@@ -234,6 +249,13 @@ project's style unless you pass `scope: "asset"`, which gives that one sprite it
 **Proportions** set the silhouette's shape bands: `chibi` (a head about half the
 height, raised one-pixel details that are the design) widens `reads-at-1x` and
 `solidity`; see `workflow.md` §3.
+
+**Line mode** sets where the outline step sits. `derived` (the default) outlines after
+light, colouring each line pixel from the fill beside it and dropping it on the lit
+arc. `single` draws one line colour right after the silhouette, the hand-drawn order
+for chibi and other one-colour line styles; set it with `create_project { lineMode }` or
+`set_style_rules { lineMode }` (it never changes the era). When to choose which:
+`workflow.md` §7.
 
 **Era** sets the colour and outline limits:
 

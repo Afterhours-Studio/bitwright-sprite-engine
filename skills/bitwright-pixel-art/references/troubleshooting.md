@@ -429,7 +429,8 @@ large (64 × 96 or bigger) canvas.
 | `outline` covers 100% of the perimeter | `mode` was not `selective`. Check `get_style_rules`. |
 | `paste_grid` returns `grid.size_mismatch` | Ragged `rows`, or the block does not fit at `x, y`. Every string must be the same length. |
 | `paste_grid` returns `grid.bad_character` | Only `.`, `A`–`Z`, `a`–`z`, `0`–`9` are legal. Rebuild the rows from `describe_palette`. |
-| A write returns `step.wrong` | The layer belongs to another step. `revisit_step` rather than `force`. |
+| A write returns `step.wrong` | The layer belongs to another step. `revisit_step` to select it (a view change: nothing locks) rather than `force`. |
+| An advance returns `step.recheck_failed` | An earlier edit broke a step that had passed. `revisit_step` the named step, fix it, advance again. |
 | A write returns `layer.locked` | The person locked it in the application. Say so and ask; do not work around it. |
 | `read_history` shows ops you did not make | The person is drawing in the same document at the same time. Re-read before writing. |
 

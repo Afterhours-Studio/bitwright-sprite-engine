@@ -300,7 +300,8 @@ undo.
 
 ## 6. Steps and layers
 
-An asset's `step` column names where it is in the workflow. Each step owns
+An asset's `step` column names the furthest step it has reached; every step
+before it has passed its gate. Each step owns
 exactly one layer role, which is why `layer` has a `UNIQUE (asset_id, role)`
 constraint: a step's output is a single addressable thing that can be inspected,
 regenerated or thrown away without disturbing the steps around it.
@@ -358,6 +359,67 @@ and to count them against a budget.
 
 **Cleanup last of all**, because anti-aliasing is a polish pass over finished
 edges, and doing it before the edges are finished means doing it twice.
+
+### The line-first order
+
+A style's `rules.lineMode` decides where the outline step sits. `derived` (the
+default, and every style saved before line modes existed: migration 8 writes it
+explicitly) is the order above. `single` is the order a pixel artist draws a
+one-colour line sprite in by hand:
+
+```text
+derived  reference palette silhouette flats shadow light outline detail accent cleanup variation
+single   reference palette silhouette outline flats shadow light detail accent cleanup variation
+```
+
+Step ids never change; only the order and the outline step's gate do. A single
+line is one slot traced round the whole silhouette edge (inner contour lines in
+the same slot are allowed), so it has nothing to derive from the fills and
+needs none of them. The `outline` layer already composites at 50, above flats,
+shadow and light, so later fills never paint over the line in either mode. Flats
+in a single-line style may leave the pixels under the line empty, and the light
+and pillow measurements of the steps before `outline` in the derived order are
+taken without the line, so a dark one-slot ring does not read as shading.
+
+| Gate                        | `derived`                         | `single`                          |
+| --------------------------- | --------------------------------- | --------------------------------- |
+| `outline-inside-silhouette` | yes                               | yes                               |
+| `outline-coverage`          | the style's selective band        | —                                 |
+| `outline-on-perimeter`      | no line pixel inside the form     | — (inner contours allowed)        |
+| `outline-shadow-arc`        | the arc away from the key is kept | —                                 |
+| `outline-bottom-band`       | the bottom fifth is kept          | —                                 |
+| `outline-closed`            | —                                 | every silhouette edge pixel lined |
+| `outline-single-slot`       | —                                 | the line uses one slot            |
+
+### The furthest step and the viewed step
+
+Two steps matter at once. `asset.step` is the **furthest** step reached. The
+**active** step is the one being viewed and drawn in: the furthest, unless the
+step rail (or `revisit_step`) selected an earlier one. Selecting a step is a
+view change and nothing else:
+
+- the canvas shows that step's layers and those of every step before it in the
+  style's order; the layers of later steps are hidden from the composite, not
+  erased (`StepState.visibleRoles`);
+- strokes, and the MCP write guard, go to the selected step's layer;
+- no step stops being passed and nothing locks: a later passed step can be
+  selected straight from an earlier one, and only steps past the furthest are
+  locked.
+
+The selection lives in the `step_view` table (`asset_id`, `active_step`,
+`recheck`), not in the op log, so undoing a stroke never undoes where somebody
+was looking. An advance, or the undo of one, puts the view back on the new
+furthest step.
+
+**Needs re-check.** A write that changes a layer whose step comes before the
+furthest step marks every passed step between the two as needing a re-check
+(`StepState.needsRecheck`). It is a soft state: the rail shows a small marker
+and nothing is locked. The next `advance` re-runs those gates first and reports
+them in `rechecked`; one that no longer passes refuses the advance as
+`step.recheck_failed`, naming the step and its checks (a forced advance
+overrides it on the record and clears the marks). While the asset sits at
+`cleanup` or `variation` with no earlier step selected, writes mark nothing:
+cleanup's job is to work over every layer, and its own gate reads all of them.
 
 ---
 

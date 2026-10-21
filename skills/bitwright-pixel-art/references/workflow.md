@@ -11,6 +11,23 @@ reference → palette → silhouette → flats → shadow → light → outline
               variation ← cleanup ← accent ← detail ←───────────┘
 ```
 
+That is the `derived` line order, the default. A `single` line style moves the outline
+up to straight after the silhouette and keeps everything else (see §7):
+
+```
+reference → palette → silhouette → outline → flats → shadow → light
+                                                               │
+              variation ← cleanup ← accent ← detail ←───────────┘
+```
+
+**Each step is a layer, and you can look back without going back.** `get_step` returns
+`step`, the furthest step reached, and `activeStep`, the one you are working in.
+`revisit_step { step }` selects any step up to the furthest: the view shows that step's
+layer and the layers before it, the later layers are hidden but kept, every later step
+stays passed, and your writes go to the selected step's layer. Editing it marks the
+passed steps after it in `needsRecheck`; `advance_step` re-runs those gates first and
+lists them in `rechecked`. Select the furthest step again (or advance) to carry on.
+
 | Step | Layer role | Ordinal |
 | --- | --- | --- |
 | `reference` | — | — |
@@ -227,7 +244,41 @@ pillow shading.
 
 ## 7. `outline` — layer: `outline`
 
-One call:
+**Choose the line mode first.** The style's `lineMode` decides where this step sits and
+what its gate wants (`get_style_rules` shows it):
+
+- `derived` (the default): the outline comes after light, and each line pixel takes its
+  colour from the fill beside it, dropped on the lit arc. Choose it for HD-2D and
+  painterly sprites, where the line is part of the shading.
+- `single`: one line colour, drawn right after the silhouette, then flats, shadow and
+  light inside it, the order a pixel artist draws a one-colour line sprite in by hand.
+  Choose it for chibi heroes, Task-Bar-Hero-style icons and any style whose line is a
+  single dark ink: the line is settled before any fill, and the fills cannot cover it
+  because the outline layer composites above flats, shadow and light. Set it with
+  `create_project { lineMode: "single" }` or `set_style_rules { lineMode: "single" }`.
+
+**In a `single` line style**, one call at this step, straight after the silhouette:
+
+```jsonc
+{ "assetId": "…", "from": "silhouette", "slot": 1 }
+```
+
+It traces every edge pixel of the silhouette (the outer contour and the border of every
+hole) in one slot: `slot`, else the darkest slot in no ramp (`OUTLINE_DARK`). Then add
+inner contour lines by hand in the same slot (`draw_runs` into `outline`): a sleeve
+against the body, the line of a jaw. The gate:
+
+| Check | Threshold |
+| --- | --- |
+| `outline-inside-silhouette` | no line pixel outside the silhouette |
+| `outline-closed` | every silhouette edge pixel carries the line; inner lines are allowed |
+| `outline-single-slot` | the whole line is one slot |
+
+The derived checks below (coverage band, lit-arc drop, bottom band, hue variety) do not
+apply. At `flats`, the pixels under the line may be filled or left empty. The artist's
+line checks below apply in full, with check 2 strict: no edge pixel is dropped.
+
+**In a `derived` line style**, one call:
 
 ```jsonc
 { "assetId": "…", "from": "flats", "mode": "selective", "darken": 2 }
@@ -405,11 +456,14 @@ preserved by construction.
 log as a forced advance. A person overriding a gate is legitimate; an agent doing it
 silently is not. Use it only when the person has asked for it, and say that you did.
 
-`revisit_step { assetId, step }` moves back without erasing anything. Every earlier
-step's output is still in its own layer — that is the reason the steps are separate
-layers. Revisit, fix, advance forward again.
+`revisit_step { assetId, step }` selects an earlier step to work in, without erasing
+or un-passing anything. Every earlier step's output is still in its own layer — that is
+the reason the steps are separate layers. Select, fix, then `advance_step`: it re-runs
+the gates of the steps your fix marked in `needsRecheck` before it moves the furthest
+step on, and refuses with `step.recheck_failed` (naming the step and its checks) if one
+no longer passes.
 
-Revisiting `flats` is cheap and revisiting it late is not: the shading layers were all
-resolved from the slots in `flats`, so changing a material there means re-running the
-`shade` and `outline` passes that read it. Get the material map right before advancing
-out of `flats`.
+Fixing `flats` is cheap and fixing it late is not: the shading layers were all resolved
+from the slots in `flats`, so changing a material there means re-running the `shade`
+and `outline` passes that read it. Get the material map right before advancing out of
+`flats`.
