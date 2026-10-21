@@ -139,9 +139,9 @@ impl Store {
         })
     }
     pub fn project_list(&self) -> Result<Vec<Project>> {
-        let mut statement = self.connection.prepare(
-            "SELECT id,name,style_id,created_at,updated_at FROM project ORDER BY created_at,id",
-        )?;
+        let mut statement = self.connection.prepare(&format!(
+            "SELECT {PROJECT_COLUMNS} ORDER BY p.created_at,p.id"
+        ))?;
         let rows = statement
             .query_map([], project_row)?
             .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -149,14 +149,15 @@ impl Store {
     }
     pub fn project_read(&self, id: Uuid) -> Result<Project> {
         Ok(self.connection.query_row(
-            "SELECT id,name,style_id,created_at,updated_at FROM project WHERE id=?1",
+            &format!("SELECT {PROJECT_COLUMNS} WHERE p.id=?1"),
             [id.to_string()],
             project_row,
         )?)
     }
-    pub fn project_create(&mut self, value: &str, preset: &str) -> Result<Project> {
+    /// A project and its own style, whose rules start from `era` and `view`.
+    pub fn project_create(&mut self, value: &str, era: &str, view: &str) -> Result<Project> {
         name(value)?;
-        let rules = StyleRules::preset(preset)?;
+        let rules = StyleRules::for_style(era, view)?;
         let id = Uuid::now_v7();
         let style = Uuid::now_v7();
         let at = now();
@@ -166,12 +167,13 @@ impl Store {
             params![id.to_string(), value, at],
         )?;
         tx.execute(
-            "INSERT INTO style VALUES(?1,?2,?3,?4,?5,?6,?6)",
+            &format!("INSERT INTO style({STYLE_COLUMNS}) VALUES(?1,?2,?3,?4,?5,?6,?7,?7)"),
             params![
                 style.to_string(),
                 id.to_string(),
                 value,
-                preset,
+                era,
+                view,
                 json(&rules)?,
                 at
             ],
@@ -214,7 +216,7 @@ impl Store {
     }
     pub fn style_read(&self, id: Uuid) -> Result<Style> {
         Ok(self.connection.query_row(
-            "SELECT id,project_id,name,preset,rules,created_at,updated_at FROM style WHERE id=?1",
+            &format!("SELECT {STYLE_COLUMNS} FROM style WHERE id=?1"),
             [id.to_string()],
             style_row,
         )?)
@@ -230,7 +232,9 @@ impl Store {
         }
     }
     pub fn style_list(&self, project: Option<Uuid>) -> Result<Vec<Style>> {
-        let mut statement = self.connection.prepare("SELECT id,project_id,name,preset,rules,created_at,updated_at FROM style WHERE project_id IS ?1 ORDER BY created_at,id")?;
+        let mut statement = self.connection.prepare(&format!(
+            "SELECT {STYLE_COLUMNS} FROM style WHERE project_id IS ?1 ORDER BY created_at,id"
+        ))?;
         let rows = statement
             .query_map([project.map(|id| id.to_string())], style_row)?
             .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -240,20 +244,22 @@ impl Store {
         &mut self,
         project: Option<Uuid>,
         value: &str,
-        preset: &str,
+        era: &str,
+        view: &str,
         rules: StyleRules,
     ) -> Result<Style> {
         name(value)?;
-        StyleRules::preset(preset)?;
+        StyleRules::for_style(era, view)?;
         validate_rules(&rules)?;
         let id = Uuid::now_v7();
         self.connection.execute(
-            "INSERT INTO style VALUES(?1,?2,?3,?4,?5,?6,?6)",
+            &format!("INSERT INTO style({STYLE_COLUMNS}) VALUES(?1,?2,?3,?4,?5,?6,?7,?7)"),
             params![
                 id.to_string(),
                 project.map(|s| s.to_string()),
                 value,
-                preset,
+                era,
+                view,
                 json(&rules)?,
                 now()
             ],
@@ -262,14 +268,15 @@ impl Store {
     }
     pub fn style_update(&mut self, style: &Style) -> Result<Style> {
         name(&style.name)?;
-        StyleRules::preset(&style.preset)?;
+        StyleRules::for_style(&style.era, &style.view)?;
         validate_rules(&style.rules)?;
         self.style_read(style.id)?;
         self.connection.execute(
-            "UPDATE style SET name=?1,preset=?2,rules=?3,updated_at=?4 WHERE id=?5",
+            "UPDATE style SET name=?1,era=?2,view=?3,rules=?4,updated_at=?5 WHERE id=?6",
             params![
                 style.name,
-                style.preset,
+                style.era,
+                style.view,
                 json(&style.rules)?,
                 now(),
                 style.id.to_string()
@@ -576,6 +583,9 @@ impl Store {
     }
 }
 
+/// A project with its default style's axes, which `project_row` reads.
+const PROJECT_COLUMNS: &str = "p.id,p.name,p.style_id,p.created_at,p.updated_at,s.era,s.view
+     FROM project p LEFT JOIN style s ON s.id=p.style_id";
 fn project_row(r: &Row<'_>) -> rusqlite::Result<Project> {
     Ok(Project {
         id: uuid(r, 0)?,
@@ -583,17 +593,23 @@ fn project_row(r: &Row<'_>) -> rusqlite::Result<Project> {
         style_id: optional_uuid(r, 2)?,
         created_at: r.get(3)?,
         updated_at: r.get(4)?,
+        era: r.get(5)?,
+        view: r.get(6)?,
     })
 }
+/// Named, because migration 6 appended `era` and `view` after the columns a
+/// version-1 database already had, so position would differ by history.
+const STYLE_COLUMNS: &str = "id,project_id,name,era,view,rules,created_at,updated_at";
 fn style_row(r: &Row<'_>) -> rusqlite::Result<Style> {
     Ok(Style {
         id: uuid(r, 0)?,
         project_id: optional_uuid(r, 1)?,
         name: r.get(2)?,
-        preset: r.get(3)?,
-        rules: decode(r, 4)?,
-        created_at: r.get(5)?,
-        updated_at: r.get(6)?,
+        era: r.get(3)?,
+        view: r.get(4)?,
+        rules: decode(r, 5)?,
+        created_at: r.get(6)?,
+        updated_at: r.get(7)?,
     })
 }
 fn asset_row(r: &Row<'_>) -> rusqlite::Result<Asset> {
@@ -736,7 +752,7 @@ mod tests {
 
     fn store() -> (Store, Uuid) {
         let mut store = Store::memory().unwrap();
-        let project = store.project_create("project", "hd2d").unwrap();
+        let project = store.project_create("project", "32bit", "topdown").unwrap();
         (store, project.id)
     }
 
@@ -786,7 +802,7 @@ mod tests {
         let background = store
             .asset_create(project, "hills", "background", 64, 48)
             .unwrap();
-        let elsewhere = store.project_create("other", "hd2d").unwrap();
+        let elsewhere = store.project_create("other", "32bit", "topdown").unwrap();
         let foreign = store
             .asset_create(elsewhere.id, "grass", "tile", 16, 16)
             .unwrap();
@@ -875,19 +891,49 @@ mod tests {
     }
 
     #[test]
-    fn a_project_is_created_with_its_own_style_taken_from_the_preset() {
-        let (store, project) = store();
-        let style = store.project_read(project).unwrap().style_id.unwrap();
-        assert_eq!(store.style_read(style).unwrap().preset, "hd2d");
-        assert_eq!(store.style_read(style).unwrap().rules.max_slots, 24);
+    fn a_project_is_created_with_its_own_style_taken_from_its_era_and_view() {
+        let (mut store, project) = store();
+        let read = store.project_read(project).unwrap();
+        let style = store.style_read(read.style_id.unwrap()).unwrap();
         assert_eq!(
-            Store::memory()
-                .unwrap()
-                .project_create("project", "vector")
-                .unwrap_err()
-                .code,
-            "style.invalid_preset"
+            (style.era.as_str(), style.view.as_str()),
+            ("32bit", "topdown")
         );
+        assert_eq!(style.rules.max_slots, 24);
+        assert_eq!(
+            (read.era.as_deref(), read.view.as_deref()),
+            (Some("32bit"), Some("topdown"))
+        );
+        let side = store.project_create("side", "8bit", "sideview").unwrap();
+        let style = store.style_read(side.style_id.unwrap()).unwrap();
+        assert_eq!(
+            (style.era.as_str(), style.view.as_str()),
+            ("8bit", "sideview")
+        );
+        assert_eq!(
+            style.rules.canvas_for("tile"),
+            Canvas {
+                width: 8,
+                height: 8
+            }
+        );
+        // Listing carries each project's axes, and a project with no style has none.
+        store.project_set_style(side.id, None).unwrap();
+        let listed = store.project_list().unwrap();
+        assert_eq!(listed[0].era.as_deref(), Some("32bit"));
+        assert_eq!(
+            (listed[1].era.as_deref(), listed[1].view.as_deref()),
+            (None, None)
+        );
+        for (era, view, code) in [
+            ("vector", "topdown", "style.invalid_era"),
+            ("32bit", "isometric", "style.invalid_view"),
+        ] {
+            assert_eq!(
+                store.project_create("bad", era, view).unwrap_err().code,
+                code
+            );
+        }
     }
 
     #[test]
@@ -899,7 +945,7 @@ mod tests {
             ..StyleRules::default()
         };
         let style = store
-            .style_create(Some(project), "terse", "custom", rules)
+            .style_create(Some(project), "terse", "custom", "topdown", rules)
             .unwrap();
         store.asset_set_style(asset.id, Some(style.id)).unwrap();
         let read = store.asset_read(asset.id).unwrap();
@@ -948,7 +994,7 @@ mod tests {
         ];
         for rules in bad {
             assert!(store
-                .style_create(Some(project), "bad", "custom", rules)
+                .style_create(Some(project), "bad", "custom", "topdown", rules)
                 .is_err());
         }
     }
@@ -982,7 +1028,7 @@ mod tests {
     #[test]
     fn deleting_a_project_takes_its_assets_and_leaves_the_others_alone() {
         let (mut store, project) = store();
-        let kept = store.project_create("other", "snes").unwrap();
+        let kept = store.project_create("other", "16bit", "topdown").unwrap();
         let doomed = store.asset_create(project, "hero", "prop", 4, 4).unwrap();
         let survivor = store.asset_create(kept.id, "tile", "tile", 4, 4).unwrap();
         store.project_delete(project).unwrap();
@@ -1196,9 +1242,9 @@ mod tests {
     #[test]
     fn style_list_is_scoped_by_project_including_project_less_styles() {
         let (mut store, project) = store();
-        let other = store.project_create("other", "hd2d").unwrap();
+        let other = store.project_create("other", "32bit", "topdown").unwrap();
         let global = store
-            .style_create(None, "global", "custom", StyleRules::default())
+            .style_create(None, "global", "custom", "topdown", StyleRules::default())
             .unwrap();
 
         let for_project = store.style_list(Some(project)).unwrap();
@@ -1218,7 +1264,13 @@ mod tests {
     fn style_update_round_trips_through_style_read() {
         let (mut store, project) = store();
         let mut style = store
-            .style_create(Some(project), "original", "custom", StyleRules::default())
+            .style_create(
+                Some(project),
+                "original",
+                "custom",
+                "topdown",
+                StyleRules::default(),
+            )
             .unwrap();
         style.name = "renamed".into();
         style.rules = StyleRules {

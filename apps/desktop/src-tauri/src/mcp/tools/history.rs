@@ -632,7 +632,7 @@ mod tests {
         crate::store::AssetId,
     ) {
         let mut store = Store::memory().unwrap();
-        let project = store.project_create("P", "hd2d").unwrap();
+        let project = store.project_create("P", "32bit", "topdown").unwrap();
         let root = store
             .asset_create(project.id, "walk", "prop", 4, 4)
             .unwrap()
@@ -719,7 +719,7 @@ mod tests {
     fn undo_on_a_lone_asset_announces_no_animation() {
         use crate::mcp::host::Notice;
         let mut store = Store::memory().unwrap();
-        let project = store.project_create("P", "hd2d").unwrap();
+        let project = store.project_create("P", "32bit", "topdown").unwrap();
         let lone = store
             .asset_create(project.id, "rock", "prop", 4, 4)
             .unwrap()

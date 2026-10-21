@@ -474,7 +474,7 @@ mod tests {
 
     fn setup() -> (HeadlessHost, Session, AssetId) {
         let mut store = Store::memory().unwrap();
-        let project = store.project_create("demo", "hd2d").unwrap();
+        let project = store.project_create("demo", "32bit", "topdown").unwrap();
         let asset = store
             .asset_create(project.id, "hero", "character", 4, 4)
             .unwrap();

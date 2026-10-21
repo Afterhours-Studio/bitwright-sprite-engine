@@ -429,7 +429,7 @@ mod tests {
 
     fn setup() -> (HeadlessHost, Session, Uuid, AssetId) {
         let mut store = Store::memory().unwrap();
-        let project = store.project_create("demo", "hd2d").unwrap();
+        let project = store.project_create("demo", "32bit", "topdown").unwrap();
         let background = store
             .asset_create(project.id, "bg", "background", 64, 64)
             .unwrap();

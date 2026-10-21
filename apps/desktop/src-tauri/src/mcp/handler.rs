@@ -285,7 +285,7 @@ mod tests {
         let (project, asset) = {
             let arc = host.store();
             let mut store = arc.lock().unwrap();
-            let project = store.project_create("P", "hd2d").unwrap();
+            let project = store.project_create("P", "32bit", "topdown").unwrap();
             let asset = store
                 .asset_create(project.id, "Hero", "character", 8, 8)
                 .unwrap();

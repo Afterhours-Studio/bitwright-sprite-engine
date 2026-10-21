@@ -17,6 +17,7 @@
 //! Both the window and the MCP transport use this service, so committing an
 //! edit and notifying listeners cannot drift into two different behaviours.
 
+use crate::raster::palette::resolve_style;
 use crate::raster::Op;
 use crate::raster::{self, IndexedBuffer, LayerRole, Palette, RgbaImage};
 use crate::store::{
@@ -214,13 +215,21 @@ pub fn agent_session<R: Runtime>(app: &AppHandle<R>, session_id: String, state: 
 pub async fn project_list(state: State<'_, DocumentState>) -> Result<Vec<Project>> {
     run(&state, |s| s.project_list()).await
 }
+/// A missing era or view takes the default. `preset` is the pre-v6 argument,
+/// still accepted for one release and used only when neither axis is sent.
 #[tauri::command]
 pub async fn project_create(
     state: State<'_, DocumentState>,
     name: String,
-    preset: String,
+    era: Option<String>,
+    view: Option<String>,
+    preset: Option<String>,
 ) -> Result<Project> {
-    run(&state, move |s| s.project_create(&name, &preset)).await
+    run(&state, move |s| {
+        let (era, view) = resolve_style(era.as_deref(), view.as_deref(), preset.as_deref())?;
+        s.project_create(&name, &era, &view)
+    })
+    .await
 }
 #[tauri::command]
 pub async fn project_rename(

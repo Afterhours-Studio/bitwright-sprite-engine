@@ -463,7 +463,9 @@ mod tests {
 
     fn setup() -> (HeadlessHost, Session, Uuid, TempDir) {
         let mut store = Store::memory().unwrap();
-        let project = store.project_create("Demo Project", "hd2d").unwrap();
+        let project = store
+            .project_create("Demo Project", "32bit", "topdown")
+            .unwrap();
         let host = HeadlessHost::new(store);
         (host, Session::new("test"), project.id, TempDir::new())
     }
@@ -575,7 +577,10 @@ mod tests {
         let arc = host.store();
         let other_project = {
             let mut store = arc.lock().unwrap();
-            store.project_create("Other Project", "hd2d").unwrap().id
+            store
+                .project_create("Other Project", "32bit", "topdown")
+                .unwrap()
+                .id
         };
         let first = make_asset(&host, project, "tile-a", 4);
         let second = make_asset(&host, other_project, "tile-b", 4);
@@ -649,7 +654,7 @@ mod tests {
         // agent set directly but which a person can still set to anything.
         for hostile in ["../x", "C:\\x", "\\\\srv\\s", "CON"] {
             let mut store = Store::memory().unwrap();
-            let project = store.project_create(hostile, "hd2d").unwrap();
+            let project = store.project_create(hostile, "32bit", "topdown").unwrap();
             let asset = store
                 .asset_create(project.id, "hero", "prop", 4, 4)
                 .unwrap()

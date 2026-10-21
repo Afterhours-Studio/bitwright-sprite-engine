@@ -955,7 +955,7 @@ mod tests {
     /// reference conformed to it.
     fn setup_with_reference(colours: &[[u8; 4]]) -> (Store, AssetId, Uuid) {
         let mut store = Store::memory().unwrap();
-        let project = store.project_create("demo", "hd2d").unwrap();
+        let project = store.project_create("demo", "32bit", "topdown").unwrap();
         let asset = store
             .asset_create(project.id, "hero", "character", colours.len() as u16, 1)
             .unwrap();
@@ -1047,7 +1047,7 @@ mod tests {
     /// reference, the way an import leaves it.
     fn setup_with_picture(cell: f64, noise: i32) -> (Store, AssetId, Uuid) {
         let mut store = Store::memory().unwrap();
-        let project = store.project_create("demo", "hd2d").unwrap();
+        let project = store.project_create("demo", "32bit", "topdown").unwrap();
         let asset = store
             .asset_create(project.id, "hero", "character", 16, 16)
             .unwrap();

@@ -64,7 +64,8 @@ fn list_projects(host: &dyn DocumentHost, _session: &Session, _args: Value) -> T
         let mut result = Vec::with_capacity(list.len());
         for p in &list {
             let style = match p.style_id {
-                Some(style_id) => store.style_read(style_id)?.preset,
+                // Shim until the MCP pack exposes `era` and `view`.
+                Some(style_id) => store.style_read(style_id)?.era,
                 None => "default".to_string(),
             };
             let asset_count = store.asset_list(p.id)?.len();
@@ -118,7 +119,15 @@ fn create_project(host: &dyn DocumentHost, _session: &Session, args: Value) -> T
             "Use one of: hd2d, snes, gameboy, custom.",
         ));
     }
-    let project = with_store(host, |store| store.project_create(&args.name, preset))?;
+    // Shim until the MCP pack takes `era` and `view`: a preset maps to its pair.
+    let (era, view) = crate::raster::palette::legacy_preset(preset).map_err(|e| {
+        ToolError::new(
+            "args.invalid",
+            e.detail,
+            "Use one of: hd2d, snes, gameboy, custom.",
+        )
+    })?;
+    let project = with_store(host, |store| store.project_create(&args.name, era, view))?;
     Ok(json!({ "project": project }))
 }
 
@@ -441,7 +450,7 @@ mod tests {
         assert_eq!(projects.len(), 1);
         assert_eq!(projects[0]["id"].as_str().unwrap(), id);
         assert_eq!(projects[0]["name"].as_str().unwrap(), "My Game");
-        assert_eq!(projects[0]["style"].as_str().unwrap(), "snes");
+        assert_eq!(projects[0]["style"].as_str().unwrap(), "16bit");
         assert_eq!(projects[0]["assetCount"].as_u64().unwrap(), 0);
     }
 

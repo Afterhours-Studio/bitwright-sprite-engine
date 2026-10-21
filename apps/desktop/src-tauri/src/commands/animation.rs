@@ -180,7 +180,7 @@ mod tests {
     #[test]
     fn the_event_carries_the_root_and_the_whole_animation_in_camel_case() {
         let mut store = Store::memory().unwrap();
-        let project = store.project_create("p", "hd2d").unwrap().id;
+        let project = store.project_create("p", "32bit", "topdown").unwrap().id;
         let hero = store
             .asset_create(project, "hero", "prop", 4, 4)
             .unwrap()
@@ -204,7 +204,7 @@ mod tests {
     #[test]
     fn the_frames_a_move_or_delete_renumbered_are_the_renamed_ones() {
         let mut store = Store::memory().unwrap();
-        let project = store.project_create("p", "hd2d").unwrap().id;
+        let project = store.project_create("p", "32bit", "topdown").unwrap().id;
         let hero = store
             .asset_create(project, "hero", "prop", 4, 4)
             .unwrap()

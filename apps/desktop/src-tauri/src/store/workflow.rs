@@ -901,7 +901,7 @@ AAAAAAAA
     /// A store holding one asset parked on `step`, with the given layers drawn.
     fn asset(step: &str, drawn: &[(&str, &str)]) -> (Store, AssetId) {
         let mut store = Store::memory().unwrap();
-        let project = store.project_create("project", "hd2d").unwrap();
+        let project = store.project_create("project", "32bit", "topdown").unwrap();
         let canvas = grid::parse(drawn[0].1).unwrap();
         let asset = store
             .asset_create(

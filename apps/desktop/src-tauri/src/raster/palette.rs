@@ -20,6 +20,7 @@
 use super::gates::GateCheck;
 use super::{color, RasterError, Result};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 /// §11.3 counts pairs of palette entries that differ by less than this in
 /// OKLCH lightness *and* less than [`MUD_DELTA_HUE`] in hue, and the §11.7
@@ -95,7 +96,7 @@ pub struct RampSteps {
     pub min: u8,
     pub max: u8,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Canvas {
     pub width: u16,
     pub height: u16,
@@ -127,7 +128,13 @@ pub struct StyleRules {
     pub light_direction: String,
     pub rim_coverage: [f32; 2],
     pub noise_budget: f32,
+    /// The size for a kind that [`Self::canvas_by_kind`] does not name.
     pub canvas: Canvas,
+    /// The default canvas per asset kind, which the era and view set together.
+    /// Rules saved before styles had a view have none, so every kind falls
+    /// back to `canvas` and an old project keeps sizing exactly as it did.
+    #[serde(default)]
+    pub canvas_by_kind: BTreeMap<String, Canvas>,
 }
 
 impl Default for StyleRules {
@@ -156,26 +163,104 @@ impl Default for StyleRules {
                 width: 48,
                 height: 64,
             },
+            canvas_by_kind: BTreeMap::new(),
         }
     }
 }
 
+/// The eras a style can be, which own the colour and outline limits.
+pub const ERAS: [&str; 4] = ["8bit", "16bit", "32bit", "custom"];
+/// The views a style can be, which own the canvas sizes and proportions.
+/// Isometric waits for a tilemap with diamond cells.
+pub const VIEWS: [&str; 2] = ["topdown", "sideview"];
+pub const DEFAULT_ERA: &str = "32bit";
+pub const DEFAULT_VIEW: &str = "topdown";
+
+/// The era and view a pre-v6 preset became. The style guide is an overworld
+/// guide, so every preset was a top-down one.
+pub fn legacy_preset(preset: &str) -> Result<(&'static str, &'static str)> {
+    let era = match preset {
+        "hd2d" => "32bit",
+        "snes" => "16bit",
+        "gameboy" => "8bit",
+        "custom" => "custom",
+        _ => return Err(RasterError::new("style.invalid_preset", preset)),
+    };
+    Ok((era, "topdown"))
+}
+
+/// The era and view a caller asked for. An explicit era or view wins; a
+/// legacy `preset` fills in only when neither is given, so a caller written
+/// before the split keeps working for one release.
+pub fn resolve_style(
+    era: Option<&str>,
+    view: Option<&str>,
+    preset: Option<&str>,
+) -> Result<(String, String)> {
+    let (era, view) = match (era, view, preset) {
+        (None, None, Some(preset)) => legacy_preset(preset)?,
+        (era, view, _) => (era.unwrap_or(DEFAULT_ERA), view.unwrap_or(DEFAULT_VIEW)),
+    };
+    StyleRules::for_style(era, view)?;
+    Ok((era.to_string(), view.to_string()))
+}
+
+/// Character, prop, tile and background sizes, in that order.
+type KindSizes = [(u16, u16); 4];
+
+fn kind_sizes(era: &str, view: &str) -> KindSizes {
+    // `custom` starts from 32bit's numbers, as it does for the palette limits.
+    match (era, view) {
+        ("8bit", _) => [(16, 16), (16, 16), (8, 8), (160, 144)],
+        ("16bit", "sideview") => [(32, 32), (32, 32), (16, 16), (256, 224)],
+        ("16bit", _) => [(32, 48), (32, 32), (16, 16), (256, 224)],
+        (_, "sideview") => [(48, 48), (48, 48), (32, 32), (320, 240)],
+        _ => [(48, 64), (48, 48), (32, 32), (320, 240)],
+    }
+}
+
 impl StyleRules {
-    pub fn preset(preset: &str) -> Result<Self> {
+    /// The rules a new style of this era and view starts from. The era
+    /// narrows the colour limits; the view sets the canvas per kind. `canvas`
+    /// keeps the default, so a kind with no entry sizes as it always did.
+    /// Light is upper-left for both views, and no gate reads the view.
+    pub fn for_style(era: &str, view: &str) -> Result<Self> {
         let mut rules = Self::default();
-        match preset {
-            "hd2d" | "custom" => {}
-            "snes" => {
+        match era {
+            "32bit" | "custom" => {}
+            "16bit" => {
                 rules.max_slots = 16;
             }
-            "gameboy" => {
+            "8bit" => {
                 rules.max_slots = 4;
                 rules.ramp_steps = RampSteps { min: 2, max: 4 };
                 rules.outline = "full".into();
             }
-            _ => return Err(RasterError::new("style.invalid_preset", preset)),
+            _ => return Err(RasterError::new("style.invalid_era", era)),
+        }
+        if !VIEWS.contains(&view) {
+            return Err(RasterError::new("style.invalid_view", view));
+        }
+        let [character, prop, tile, background] = kind_sizes(era, view);
+        for (kind, (width, height)) in [
+            ("character", character),
+            ("prop", prop),
+            ("tile", tile),
+            ("background", background),
+        ] {
+            rules
+                .canvas_by_kind
+                .insert(kind.into(), Canvas { width, height });
         }
         Ok(rules)
+    }
+
+    /// The default canvas for an asset of `kind`. A tileset is cut from
+    /// tiles, so it starts at the tile size; a kind with no entry, as in
+    /// every style saved before v6, gets `canvas`.
+    pub fn canvas_for(&self, kind: &str) -> Canvas {
+        let key = if kind == "tileset" { "tile" } else { kind };
+        self.canvas_by_kind.get(key).copied().unwrap_or(self.canvas)
     }
 }
 
@@ -852,12 +937,162 @@ mod tests {
     }
 
     #[test]
-    fn a_preset_narrows_the_rules_rather_than_replacing_them() {
-        assert_eq!(StyleRules::preset("snes").unwrap().max_slots, 16);
-        assert_eq!(StyleRules::preset("gameboy").unwrap().outline, "full");
+    fn an_era_narrows_the_rules_rather_than_replacing_them() {
         assert_eq!(
-            StyleRules::preset("vector").unwrap_err().code,
+            StyleRules::for_style("16bit", "topdown").unwrap().max_slots,
+            16
+        );
+        assert_eq!(
+            StyleRules::for_style("8bit", "sideview").unwrap().outline,
+            "full"
+        );
+        assert_eq!(
+            StyleRules::for_style("vector", "topdown").unwrap_err().code,
+            "style.invalid_era"
+        );
+        assert_eq!(
+            StyleRules::for_style("32bit", "isometric")
+                .unwrap_err()
+                .code,
+            "style.invalid_view"
+        );
+    }
+
+    #[test]
+    fn every_era_and_view_gets_the_planned_limits_and_canvases() {
+        // Era, view, maxSlots, ramp steps, outline, then character, prop,
+        // tile and background sizes, as docs/plan/STYLE-PRESETS.md tables them.
+        type Row = (
+            &'static str,
+            &'static str,
+            u8,
+            (u8, u8),
+            &'static str,
+            KindSizes,
+        );
+        let table: [Row; 8] = [
+            (
+                "8bit",
+                "topdown",
+                4,
+                (2, 4),
+                "full",
+                [(16, 16), (16, 16), (8, 8), (160, 144)],
+            ),
+            (
+                "8bit",
+                "sideview",
+                4,
+                (2, 4),
+                "full",
+                [(16, 16), (16, 16), (8, 8), (160, 144)],
+            ),
+            (
+                "16bit",
+                "topdown",
+                16,
+                (3, 5),
+                "selective",
+                [(32, 48), (32, 32), (16, 16), (256, 224)],
+            ),
+            (
+                "16bit",
+                "sideview",
+                16,
+                (3, 5),
+                "selective",
+                [(32, 32), (32, 32), (16, 16), (256, 224)],
+            ),
+            (
+                "32bit",
+                "topdown",
+                24,
+                (3, 5),
+                "selective",
+                [(48, 64), (48, 48), (32, 32), (320, 240)],
+            ),
+            (
+                "32bit",
+                "sideview",
+                24,
+                (3, 5),
+                "selective",
+                [(48, 48), (48, 48), (32, 32), (320, 240)],
+            ),
+            (
+                "custom",
+                "topdown",
+                24,
+                (3, 5),
+                "selective",
+                [(48, 64), (48, 48), (32, 32), (320, 240)],
+            ),
+            (
+                "custom",
+                "sideview",
+                24,
+                (3, 5),
+                "selective",
+                [(48, 48), (48, 48), (32, 32), (320, 240)],
+            ),
+        ];
+        for (era, view, slots, (min, max), outline, sizes) in table {
+            let rules = StyleRules::for_style(era, view).unwrap();
+            assert_eq!(rules.max_slots, slots, "{era}/{view}");
+            assert_eq!((rules.ramp_steps.min, rules.ramp_steps.max), (min, max));
+            assert_eq!(rules.outline, outline);
+            assert_eq!(rules.light_direction, "upper-left");
+            let [character, prop, tile, background] =
+                sizes.map(|(width, height)| Canvas { width, height });
+            assert_eq!(rules.canvas_for("character"), character, "{era}/{view}");
+            assert_eq!(rules.canvas_for("prop"), prop, "{era}/{view}");
+            assert_eq!(rules.canvas_for("tile"), tile, "{era}/{view}");
+            assert_eq!(rules.canvas_for("tileset"), tile, "{era}/{view}");
+            assert_eq!(rules.canvas_for("background"), background, "{era}/{view}");
+        }
+    }
+
+    #[test]
+    fn rules_saved_before_canvas_by_kind_fall_back_to_canvas() {
+        let mut value = serde_json::to_value(StyleRules::default()).unwrap();
+        value.as_object_mut().unwrap().remove("canvasByKind");
+        let rules: StyleRules = serde_json::from_value(value).unwrap();
+        assert!(rules.canvas_by_kind.is_empty());
+        assert_eq!(
+            rules.canvas_for("tile"),
+            Canvas {
+                width: 48,
+                height: 64
+            }
+        );
+    }
+
+    #[test]
+    fn a_legacy_preset_maps_to_its_era_on_top_down() {
+        assert_eq!(legacy_preset("hd2d").unwrap(), ("32bit", "topdown"));
+        assert_eq!(legacy_preset("snes").unwrap(), ("16bit", "topdown"));
+        assert_eq!(legacy_preset("gameboy").unwrap(), ("8bit", "topdown"));
+        assert_eq!(legacy_preset("custom").unwrap(), ("custom", "topdown"));
+        assert_eq!(
+            legacy_preset("vector").unwrap_err().code,
             "style.invalid_preset"
+        );
+        assert_eq!(
+            resolve_style(None, None, None).unwrap(),
+            ("32bit".into(), "topdown".into())
+        );
+        assert_eq!(
+            resolve_style(None, None, Some("snes")).unwrap(),
+            ("16bit".into(), "topdown".into())
+        );
+        // An explicit axis wins over a legacy preset sent alongside it.
+        assert_eq!(
+            resolve_style(Some("8bit"), Some("sideview"), Some("hd2d")).unwrap(),
+            ("8bit".into(), "sideview".into())
+        );
+        assert_eq!(
+            resolve_style(None, Some("sideview"), None).unwrap(),
+            ("32bit".into(), "sideview".into())
         );
     }
 

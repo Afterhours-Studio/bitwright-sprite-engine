@@ -26,7 +26,7 @@ CREATE TABLE style (
     id           TEXT PRIMARY KEY,
     project_id   TEXT REFERENCES project(id) ON DELETE CASCADE,
     name         TEXT NOT NULL,
-    preset       TEXT NOT NULL,             -- 'hd2d' | 'snes' | 'gameboy' | 'custom'
+    preset       TEXT NOT NULL,             -- version 1 only: migration 6 replaces it with era and view
     rules        TEXT NOT NULL,             -- JSON: StyleRules, see §4
     created_at   INTEGER NOT NULL,
     updated_at   INTEGER NOT NULL

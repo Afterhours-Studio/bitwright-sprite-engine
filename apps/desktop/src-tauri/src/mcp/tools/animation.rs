@@ -423,7 +423,7 @@ mod tests {
     /// A 4×4 prop with one painted pixel, open in the session.
     fn fixture() -> Fixture {
         let mut store = Store::memory().unwrap();
-        let project = store.project_create("demo", "hd2d").unwrap();
+        let project = store.project_create("demo", "32bit", "topdown").unwrap();
         let hero = store
             .asset_create(project.id, "hero", "prop", 4, 4)
             .unwrap()

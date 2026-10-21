@@ -572,7 +572,10 @@ mod tests {
     /// A drawn 4x4 sprite named "hero" at the flats step.
     fn hero() -> (Store, uuid::Uuid, AssetId) {
         let mut store = Store::memory().unwrap();
-        let project = store.project_create("project", "hd2d").unwrap().id;
+        let project = store
+            .project_create("project", "32bit", "topdown")
+            .unwrap()
+            .id;
         let hero = store
             .asset_create(project, "hero", "character", 4, 4)
             .unwrap()
@@ -945,6 +948,7 @@ mod tests {
                 Some(project),
                 "terse",
                 "custom",
+                "topdown",
                 crate::raster::StyleRules::default(),
             )
             .unwrap();
@@ -1033,7 +1037,10 @@ mod tests {
             create(&mut store, project, free).unwrap();
         }
         // Another project's animation reserves nothing here.
-        let other = store.project_create("other", "hd2d").unwrap().id;
+        let other = store
+            .project_create("other", "32bit", "topdown")
+            .unwrap()
+            .id;
         create(&mut store, other, "hero #3").unwrap();
     }
 
@@ -1078,6 +1085,7 @@ mod tests {
                 Some(project),
                 "terse",
                 "custom",
+                "topdown",
                 crate::raster::StyleRules::default(),
             )
             .unwrap();

@@ -653,7 +653,7 @@ mod tests {
     /// and asset. Returns the asset id as a string.
     fn create_asset(host: &HeadlessHost) -> String {
         with_tool_store(host, |store| {
-            let project = store.project_create("Test", "hd2d")?;
+            let project = store.project_create("Test", "32bit", "topdown")?;
             let asset = store.asset_create(project.id, "Hero", "character", 8, 8)?;
             let palette = Palette {
                 slots: (1..=10)

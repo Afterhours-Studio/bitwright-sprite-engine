@@ -241,7 +241,7 @@ mod tests {
     use crate::store::Store;
 
     fn background(store: &mut Store) -> AssetId {
-        let project = store.project_create("Project", "gameboy").unwrap();
+        let project = store.project_create("Project", "8bit", "topdown").unwrap();
         let asset = store
             .asset_create(project.id, "Map", "background", 1, 1)
             .unwrap();
@@ -293,7 +293,7 @@ mod tests {
 
         let matching = tile(&mut store, project_id, 16, 16);
         let _wrong_size = tile(&mut store, project_id, 8, 8);
-        let other_project = store.project_create("Other", "gameboy").unwrap();
+        let other_project = store.project_create("Other", "8bit", "topdown").unwrap();
         let _other_project_tile = tile(&mut store, other_project.id, 16, 16);
 
         let listed = tiles(&mut store, asset_id).unwrap();

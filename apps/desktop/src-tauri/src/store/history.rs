@@ -562,7 +562,7 @@ mod tests {
     use crate::raster::PaletteSlot;
     fn setup() -> (Store, AssetId) {
         let mut s = Store::memory().unwrap();
-        let p = s.project_create("project", "hd2d").unwrap();
+        let p = s.project_create("project", "32bit", "topdown").unwrap();
         let a = s.asset_create(p.id, "asset", "prop", 4, 4).unwrap();
         s.palette_write(
             a.id,
@@ -654,7 +654,7 @@ mod tests {
         let id;
         {
             let mut s = Store::open(&path).unwrap();
-            let p = s.project_create("p", "hd2d").unwrap();
+            let p = s.project_create("p", "32bit", "topdown").unwrap();
             id = s.asset_create(p.id, "old", "prop", 2, 2).unwrap().id;
             s.asset_rename(id, "new").unwrap();
             s.undo(id, "user").unwrap();

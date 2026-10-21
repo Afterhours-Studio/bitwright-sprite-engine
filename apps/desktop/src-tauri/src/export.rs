@@ -1126,7 +1126,7 @@ mod tests {
 
     fn store_with_assets(sizes: &[(u16, u16)]) -> (Store, Vec<AssetId>) {
         let mut store = Store::memory().unwrap();
-        let project = store.project_create("Demo", "hd2d").unwrap();
+        let project = store.project_create("Demo", "32bit", "topdown").unwrap();
         let mut ids = Vec::new();
         for (index, &(width, height)) in sizes.iter().enumerate() {
             let asset = store
@@ -1471,7 +1471,7 @@ mod tests {
     #[test]
     fn render_asset_of_a_background_renders_its_tilemap() {
         let mut store = Store::memory().unwrap();
-        let project = store.project_create("Demo", "hd2d").unwrap();
+        let project = store.project_create("Demo", "32bit", "topdown").unwrap();
         let background = store
             .asset_create(project.id, "hills", "background", 8, 8)
             .unwrap();
@@ -1499,7 +1499,7 @@ mod tests {
     #[test]
     fn render_asset_of_a_non_background_renders_its_layer_composite() {
         let mut store = Store::memory().unwrap();
-        let project = store.project_create("Demo", "hd2d").unwrap();
+        let project = store.project_create("Demo", "32bit", "topdown").unwrap();
         let asset = store
             .asset_create(project.id, "hero", "prop", 2, 2)
             .unwrap();
@@ -1513,7 +1513,7 @@ mod tests {
     #[test]
     fn render_asset_scales_the_underlying_render() {
         let mut store = Store::memory().unwrap();
-        let project = store.project_create("Demo", "hd2d").unwrap();
+        let project = store.project_create("Demo", "32bit", "topdown").unwrap();
         let asset = store
             .asset_create(project.id, "hero", "prop", 2, 2)
             .unwrap();
@@ -1568,7 +1568,7 @@ mod tests {
     /// `durations[k]` milliseconds.
     fn animation(durations: [u32; 3]) -> (Store, Vec<AssetId>) {
         let mut store = Store::memory().unwrap();
-        let project = store.project_create("Demo", "hd2d").unwrap();
+        let project = store.project_create("Demo", "32bit", "topdown").unwrap();
         let root = store
             .asset_create(project.id, "hero", "character", 2, 1)
             .unwrap()

@@ -31,6 +31,10 @@ pub struct Project {
     pub id: Uuid,
     pub name: String,
     pub style_id: Option<Uuid>,
+    /// The era and view of the project's default style, so a listing can show
+    /// and filter them without reading each style. `None` with no style.
+    pub era: Option<String>,
+    pub view: Option<String>,
     pub created_at: i64,
     pub updated_at: i64,
 }
@@ -40,7 +44,10 @@ pub struct Style {
     pub id: Uuid,
     pub project_id: Option<Uuid>,
     pub name: String,
-    pub preset: String,
+    /// One of [`crate::raster::palette::ERAS`]: colour and outline limits.
+    pub era: String,
+    /// One of [`crate::raster::palette::VIEWS`]: canvas sizes and proportions.
+    pub view: String,
     pub rules: StyleRules,
     pub created_at: i64,
     pub updated_at: i64,

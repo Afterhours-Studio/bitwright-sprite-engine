@@ -20,7 +20,7 @@
 use super::{AppError, Result};
 use rusqlite::Connection;
 
-pub const VERSION: i64 = 5;
+pub const VERSION: i64 = 6;
 
 pub fn migrate(connection: &mut Connection) -> Result<()> {
     migrate_to(connection, VERSION)
@@ -129,6 +129,24 @@ fn migrate_to(connection: &mut Connection, target: i64) -> Result<()> {
                      playback    TEXT NOT NULL DEFAULT 'forward'
                  );",
             )?,
+            // A style's one preset splits into an era (colour limits) and a
+            // view (canvas sizes). Every preset was a top-down one, since the
+            // style guide is an overworld guide. `rules` is left as it is, so
+            // no saved project gates or sizes differently after the upgrade.
+            // The defaults only satisfy NOT NULL for the rows the UPDATE then
+            // sets; the store always writes both columns itself.
+            6 => transaction.execute_batch(
+                "ALTER TABLE style ADD COLUMN era TEXT NOT NULL DEFAULT '32bit';
+                 ALTER TABLE style ADD COLUMN view TEXT NOT NULL DEFAULT 'topdown';
+                 UPDATE style SET era = CASE preset
+                                            WHEN 'snes' THEN '16bit'
+                                            WHEN 'gameboy' THEN '8bit'
+                                            WHEN 'custom' THEN 'custom'
+                                            ELSE '32bit'
+                                        END,
+                                  view = 'topdown';
+                 ALTER TABLE style DROP COLUMN preset;",
+            )?,
             _ => {
                 return Err(AppError::new(
                     "store.migration_missing",
@@ -193,7 +211,7 @@ mod tests {
         )
         .unwrap();
         assert!(c.prepare("SELECT * FROM frame").is_err());
-        migrate(&mut c).unwrap();
+        migrate_to(&mut c, 5).unwrap();
         assert_eq!(
             c.query_row("SELECT MAX(version) FROM schema_migration", [], |r| r
                 .get::<_, i64>(0))
@@ -235,5 +253,89 @@ mod tests {
                 .unwrap(),
             0
         );
+    }
+    #[test]
+    fn version_five_splits_each_preset_into_an_era_and_a_view_and_keeps_its_rules() {
+        let mut c = Connection::open_in_memory().unwrap();
+        migrate_to(&mut c, 5).unwrap();
+        // Rules as a v5 release wrote them: no `canvasByKind`, and each row
+        // different, so a rewrite of any one of them would show.
+        let mut rules = serde_json::to_value(crate::raster::StyleRules::default()).unwrap();
+        rules.as_object_mut().unwrap().remove("canvasByKind");
+        let presets = [
+            ("hd2d", "32bit", 24),
+            ("snes", "16bit", 16),
+            ("gameboy", "8bit", 4),
+            ("custom", "custom", 9),
+        ];
+        let mut saved = Vec::new();
+        for (n, (preset, _, slots)) in presets.iter().enumerate() {
+            rules["maxSlots"] = (*slots).into();
+            let text = serde_json::to_string(&rules).unwrap();
+            // Real ids, since the store parses them once the upgrade is read back.
+            let (project, style) = (
+                uuid::Uuid::now_v7().to_string(),
+                uuid::Uuid::now_v7().to_string(),
+            );
+            c.execute(
+                "INSERT INTO project VALUES(?1,?2,NULL,?3,?3)",
+                rusqlite::params![project, preset, n as i64],
+            )
+            .unwrap();
+            c.execute(
+                "INSERT INTO style VALUES(?1,?2,?3,?4,?5,1,1)",
+                rusqlite::params![style, project, preset, preset, text],
+            )
+            .unwrap();
+            c.execute(
+                "UPDATE project SET style_id=?1 WHERE id=?2",
+                [&style, &project],
+            )
+            .unwrap();
+            saved.push((style, text));
+        }
+        migrate(&mut c).unwrap();
+        assert_eq!(
+            c.query_row("SELECT MAX(version) FROM schema_migration", [], |r| r
+                .get::<_, i64>(0))
+                .unwrap(),
+            6
+        );
+        assert!(c.prepare("SELECT preset FROM style").is_err());
+        for ((style, text), (preset, era, _)) in saved.iter().zip(presets) {
+            let row: (String, String, String) = c
+                .query_row(
+                    "SELECT era, view, rules FROM style WHERE id=?1",
+                    [style],
+                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+                )
+                .unwrap();
+            assert_eq!(
+                row,
+                (era.into(), "topdown".into(), text.clone()),
+                "{preset}"
+            );
+        }
+        // The store reads the upgraded rows: the project carries its style's
+        // axes, and rules without `canvasByKind` size every kind by `canvas`.
+        let store = super::super::Store::from_connection(c).unwrap();
+        let projects = store.project_list().unwrap();
+        let axes: Vec<_> = projects
+            .iter()
+            .map(|p| (p.era.as_deref().unwrap(), p.view.as_deref().unwrap()))
+            .collect();
+        assert_eq!(
+            axes,
+            [
+                ("32bit", "topdown"),
+                ("16bit", "topdown"),
+                ("8bit", "topdown"),
+                ("custom", "topdown")
+            ]
+        );
+        let style = store.style_read(projects[3].style_id.unwrap()).unwrap();
+        assert_eq!((style.era.as_str(), style.rules.max_slots), ("custom", 9));
+        assert!(style.rules.canvas_by_kind.is_empty());
+        assert_eq!(style.rules.canvas_for("tile").width, 48);
     }
 }

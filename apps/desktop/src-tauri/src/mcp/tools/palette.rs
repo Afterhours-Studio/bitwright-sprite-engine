@@ -447,7 +447,7 @@ mod tests {
 
     fn setup() -> (HeadlessHost, Session, AssetId) {
         let mut store = Store::memory().unwrap();
-        let project = store.project_create("demo", "hd2d").unwrap();
+        let project = store.project_create("demo", "32bit", "topdown").unwrap();
         let asset = store
             .asset_create(project.id, "hero", "character", 48, 64)
             .unwrap();
@@ -544,7 +544,7 @@ mod tests {
     #[test]
     fn variation_copies_pixels_and_recolours() {
         let mut store = Store::memory().unwrap();
-        let project = store.project_create("demo", "hd2d").unwrap();
+        let project = store.project_create("demo", "32bit", "topdown").unwrap();
         let asset = store
             .asset_create(project.id, "hero", "character", 48, 64)
             .unwrap();
@@ -671,7 +671,7 @@ mod tests {
     fn a_palette_set_on_one_frame_reaches_and_notifies_every_frame() {
         use crate::mcp::host::{Notice, RecordingHost};
         let mut store = Store::memory().unwrap();
-        let project = store.project_create("demo", "hd2d").unwrap();
+        let project = store.project_create("demo", "32bit", "topdown").unwrap();
         let hero = store
             .asset_create(project.id, "hero", "character", 48, 64)
             .unwrap()
