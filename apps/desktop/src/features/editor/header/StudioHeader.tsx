@@ -64,7 +64,6 @@ import { useTranslation } from 'react-i18next';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { WindowControls } from '@/components/layout/WindowControls';
 import { Dialog } from '@/components/ui/Dialog';
-import { IconButton } from '@/components/ui/IconButton';
 import { NotificationList } from '@/components/ui/NotificationList';
 import { Select } from '@/components/ui/Select';
 import { paintTarget } from '@/features/editor/activeLayer';
@@ -90,31 +89,31 @@ import { STEPS } from '@/types/document';
  * row has room for in a 1280px window; the colours and shapes are the same
  * tokens.
  */
-const CONTROL = 'no-drag inline-flex shrink-0 items-center justify-center border transition-colors';
+// Every control in the header is 32px tall, and every icon-only one is 32px
+// square, so the row reads as one strip rather than a mix of sizes.
+const CONTROL =
+  'no-drag inline-flex h-8 shrink-0 items-center justify-center border transition-colors';
 
 /** A square icon button, idle. Its hover colour is the caller's. */
 const ICON_IDLE = cn(
   CONTROL,
-  'p-1.5 rounded-md border-line-subtle bg-surface-content text-fg-secondary shadow-sm hover:bg-surface-content-alt',
+  'w-8 rounded-md border-line-subtle bg-surface-content text-fg-secondary shadow-sm hover:bg-surface-content-alt',
 );
 
 /** A square icon button, with nothing to act on. */
 const ICON_DISABLED = cn(
   CONTROL,
-  'p-1.5 rounded-md border-line-subtle bg-surface-disabled text-fg-muted cursor-not-allowed',
+  'w-8 rounded-md border-line-subtle bg-surface-disabled text-fg-muted cursor-not-allowed',
 );
 
 /** A square icon button, switched on: pressed in, as the 1.0 dock's toggles were. */
 const ICON_ON = cn(
   CONTROL,
-  'p-1.5 rounded-md border-line-strong bg-surface-content-alt text-fg-primary',
+  'w-8 rounded-md border-line-strong bg-surface-content-alt text-fg-primary',
 );
 
 /** The shared shape of the text buttons and toggles. */
-const TEXT = cn(
-  CONTROL,
-  'whitespace-nowrap gap-1.5 px-2.5 py-1.5 rounded-pill text-xs font-medium',
-);
+const TEXT = cn(CONTROL, 'whitespace-nowrap gap-1.5 px-3 rounded-pill text-xs font-medium');
 
 /** A text button, or a text toggle that is off. */
 const TEXT_IDLE = cn(
@@ -248,7 +247,7 @@ function NameBox(): ReactElement {
   };
 
   return (
-    <div className="no-drag flex items-center space-x-2 rounded-md border border-line-subtle bg-surface-content px-2.5 py-1 hover:border-line">
+    <div className="no-drag flex h-8 items-center space-x-2 rounded-md border border-line-subtle bg-surface-content px-2.5 hover:border-line">
       <input
         type="text"
         aria-label={t('header.nameLabel')}
@@ -305,7 +304,7 @@ function Notifications(): ReactElement {
           type="button"
           aria-label={label}
           aria-expanded={open}
-          className="relative rounded-md p-1.5 text-fg-secondary transition-colors hover:bg-surface-content-alt hover:text-fg-primary"
+          className={cn(ICON_IDLE, 'relative hover:text-fg-primary')}
           onClick={() => {
             if (!open) {
               markRead();
@@ -441,7 +440,7 @@ export function StudioHeader(): ReactElement {
             aria-label={t('header.home')}
             className={cn(
               CONTROL,
-              'p-1.5 rounded-md border-transparent bg-accent text-accent-fg shadow-sm hover:bg-accent-hover',
+              'w-8 rounded-md border-transparent bg-accent text-accent-fg shadow-sm hover:bg-accent-hover',
             )}
             onClick={() => {
               setScreen('home');
@@ -585,15 +584,16 @@ export function StudioHeader(): ReactElement {
         </button>
         <Notifications />
         <Tooltip label={t('header.settings')}>
-          <IconButton
-            label={t('header.settings')}
-            className="no-drag rounded-full"
+          <button
+            type="button"
+            aria-label={t('header.settings')}
+            className={cn(ICON_IDLE, 'hover:text-fg-primary')}
             onClick={() => {
               setScreen('settings');
             }}
           >
             <Settings aria-hidden="true" strokeWidth={1.75} className="w-4 h-4" />
-          </IconButton>
+          </button>
         </Tooltip>
         <WindowControls />
       </div>

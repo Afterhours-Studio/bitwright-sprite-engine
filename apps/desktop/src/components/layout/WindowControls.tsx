@@ -24,11 +24,11 @@ import { useShellStore } from '@/stores/useShellStore';
 
 /**
  * The shared shape of the three buttons: 1.0's icon button, the raised chip on
- * the content surface, drawn a size down so the editor's header still fits a
- * 1280px window with all three beside it.
+ * the content surface, 32px square to match every other control in the
+ * editor's header.
  */
 const BASE =
-  'no-drag inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-surface-content text-fg-secondary shadow-sm transition-colors';
+  'no-drag inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-surface-content text-fg-secondary shadow-sm transition-colors';
 
 /**
  * Minimise and maximise. Close has its own hover, written in place of this one

@@ -208,7 +208,7 @@ export function Select({
             bare
               ? 'inline-flex items-center gap-1 rounded-sm px-1 py-0.5 text-left text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus'
               : size === 'sm'
-                ? 'flex w-full items-center justify-between gap-2 rounded-sm border px-2 py-1'
+                ? 'flex h-8 w-full items-center justify-between gap-2 rounded-sm border px-2'
                 : 'flex w-full items-center justify-between gap-2 rounded-sm border px-3 py-2',
             bare
               ? disabled

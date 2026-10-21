@@ -49,7 +49,7 @@ import { useShellStore } from '@/stores/useShellStore';
 
 /** The shape the header's text toggles share. */
 const TOGGLE =
-  'inline-flex shrink-0 items-center justify-center whitespace-nowrap gap-1.5 px-2.5 py-1.5 rounded-pill border text-xs font-medium transition-colors';
+  'inline-flex shrink-0 items-center justify-center whitespace-nowrap h-8 gap-1.5 px-3 rounded-pill border text-xs font-medium transition-colors';
 
 /** The header's text toggle, on: pressed in. */
 const TOGGLE_ON = cn(TOGGLE, 'border-line-strong bg-surface-content-alt text-fg-primary');
