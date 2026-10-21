@@ -22,6 +22,8 @@ real; nothing here is a placeholder.
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------- | ------------ |
 | 3. The guide          | `read_guide`                                                                                                                | yes           | Phase 1      |
 | 4. Orientation        | `list_projects`, `create_project`, `list_assets`, `create_asset`, `open_asset`, `get_style_rules`                           | yes           | Phase 2      |
+| 4b. Managing          | `rename_project`, `delete_project`, `rename_asset`, `delete_asset`, `list_references`, `delete_reference`                   | yes           | MCP parity   |
+| 4c. Loading pictures  | `import_reference`, `png_to_pixel`                                                                                          | yes           | MCP parity   |
 | 5. Reading the canvas | `read_canvas`, `read_region`, `describe_palette`, `diff_layers`, `read_reference`, `render_preview`                         | yes           | Phase 2/3    |
 | 6. Writing            | `paste_grid`, `draw_runs`, `set_pixels`, `draw_shape`, `fill_region`, `mirror`, `translate`, `clear_layer`                  | yes           | Phase 2      |
 | 7. The shading tools  | `shade`, `outline`, `antialias`                                                                                             | yes           | Phase 2      |
@@ -170,6 +172,81 @@ one-line summary of which layers have content.
 `{ assetId?: string }` — the rules the gates will be checked against. An agent
 that reads this before drawing does not have to discover the constraints by
 failing them.
+
+---
+
+## 4b. Managing what exists
+
+Everything the window can rename or delete, an agent can too. Each tool calls
+the same store function as the matching Tauri command, so names are validated
+and errors coded the same way. The delete tools **cannot be undone**.
+
+### `rename_project`
+
+`{ projectId, name }` — returns the project. Fails `document.invalid_name` for
+an empty name, one over 1024 bytes or one with control characters, and
+`project.not_found` for an unknown or malformed id.
+
+### `delete_project`
+
+`{ projectId, force?: boolean }` — deletes the project and, with it, its assets.
+A project that still has assets is refused with `project.not_empty` (nothing is
+deleted) unless `force: true` is passed; an empty project goes without it.
+Returns `{ deleted, assetsDeleted }`. Fails `project.not_found`.
+
+### `rename_asset`
+
+`{ assetId, name }` — returns the asset. Renaming an animation's first frame
+renames the whole animation, and the timeline and frame headers are told. A
+later frame is named after its animation, so renaming it fails
+`animation.frame_name`. Also fails `document.invalid_name` and `asset.not_found`.
+
+### `delete_asset`
+
+`{ assetId }` — deletes the asset. Deleting an animation's first frame deletes
+the whole animation; deleting a later frame removes only that frame (and
+announces the shorter animation). Returns `{ deleted }`. Fails `asset.not_found`.
+A session that had the deleted asset open must `open_asset` another one.
+
+### `list_references`
+
+`{ assetId? }` — the reference images stored on the asset: `id`, `name`,
+`createdAt`, `width`, `height`, `palette`, the detected grid and `warnings`.
+
+### `delete_reference`
+
+`{ assetId?, referenceId }` — removes one reference. Returns `{ deleted }`.
+Fails `reference.not_found` for an unknown or malformed id.
+
+## 4c. Loading pictures
+
+The window picks a file with the system dialog. A tool cannot open a dialog, so
+these take the picture as an argument instead: either `path` (absolute, on this
+machine) or `dataBase64` (the file's bytes; `fileName` supplies the default
+name). Giving both or neither fails `args.invalid`, as does a relative `path`.
+The limits are the window's: `reference.unreadable` for a missing, non-file or
+undecodable input and `reference.too_large` over 20 MB.
+
+### `import_reference`
+
+`{ assetId?, path | dataBase64, fileName?, name? }` — stores the picture as a
+reference on the asset, like the reference panel's import. When the app's engine
+is running the picture is also conformed to the canvas (its palette and detected
+grid come back in the summary); without it (stdio, or the engine not ready yet)
+it is stored as is, which is all `pixelize_reference` needs for a PNG. Returns
+`{ reference }`.
+
+### `png_to_pixel`
+
+`{ projectId, path | dataBase64, fileName?, name?, layer?, colors? }` — the home
+screen's PNG to Pixel in one call. The picture's pixel grid is measured and a
+`character` sprite created at that size (16 to 512 a side), the picture is
+imported as its reference, and it is pixelized into `layer` (default
+`silhouette`) with a palette made from it. The new sprite becomes the session's
+open asset. A PNG that is empty (`pixelize.empty`) or too large (`png.too_large`)
+creates nothing; a file that is not a PNG takes the project's canvas and needs
+the engine. If a later step fails, the sprite is kept and its id is in the
+error message. Returns the pixelize report plus `asset` and `referenceId`.
 
 ---
 
@@ -607,16 +684,16 @@ tilemap's only remaining layer, `tilemap.invalid_layer` for a parallax outside
 ## 11. Export
 
 Writes a PNG or a GIF to disk: a background asset's tilemap render, or any other
-kind's layer composite. An agent cannot choose where the file lands — every
-export goes to
+kind's layer composite. By default every export goes to
 `<data root>/exports/<safe project name>-<last 8 hex characters of the project id>/`,
 a folder named for the asset's project and made safe from its own name the
-same way a file name is (see [the contract](tilemap-and-export.md#export)),
-so a hostile project or asset name can only ever produce an ugly folder,
-never escape the exports root. That is the one restriction Export tools
-carry that the person's own "Save As" does not: the interface lets a person
-point anywhere on disk, because a person already had that access; the tool
-surface never grants an agent more.
+same way a file name is (see [the contract](tilemap-and-export.md#export)).
+
+Each export tool also takes an optional `directory`: an absolute path to an
+existing folder, standing in for the window's save dialog. The file goes there
+instead of the exports folder. A relative path or a folder that does not exist
+fails `export.no_directory`. The file name is still made safe, so it cannot
+escape the folder it was given.
 
 ### `export_png`
 

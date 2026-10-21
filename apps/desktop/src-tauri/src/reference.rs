@@ -44,7 +44,7 @@ use crate::store::Store;
 
 /// The largest file the shell will read. Anything bigger is almost certainly
 /// the wrong file, and reading it would block the shell for seconds.
-const MAX_REFERENCE_BYTES: u64 = 20 * 1024 * 1024;
+pub(crate) const MAX_REFERENCE_BYTES: u64 = 20 * 1024 * 1024;
 
 /// The prefix of a PNG carried inline to the webview.
 const PNG_DATA_URL_PREFIX: &str = "data:image/png;base64,";
@@ -136,11 +136,11 @@ fn data_url(bytes: &[u8]) -> String {
     )
 }
 
-fn encode(bytes: &[u8]) -> String {
+pub(crate) fn encode(bytes: &[u8]) -> String {
     base64::engine::general_purpose::STANDARD.encode(bytes)
 }
 
-fn decode(text: &str) -> Result<Vec<u8>, CommandError> {
+pub(crate) fn decode(text: &str) -> Result<Vec<u8>, CommandError> {
     base64::engine::general_purpose::STANDARD
         .decode(text)
         .map_err(|error| CommandError::new("reference.unreadable", error.to_string()))
@@ -162,7 +162,7 @@ fn tool_failed(error: ToolError) -> CommandError {
     CommandError::new(error.code, format!("{}: {}", error.message, error.hint))
 }
 
-fn now_millis() -> i64 {
+pub(crate) fn now_millis() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|since| since.as_millis() as i64)
@@ -170,7 +170,7 @@ fn now_millis() -> i64 {
 }
 
 /// Reads the picked file, refusing one that is too big to be a reference.
-fn read_file(path: &str) -> Result<Vec<u8>, CommandError> {
+pub(crate) fn read_file(path: &str) -> Result<Vec<u8>, CommandError> {
     let file = Path::new(path);
     let metadata = fs::metadata(file)
         .map_err(|error| CommandError::new("reference.unreadable", format!("{path}: {error}")))?;
@@ -194,7 +194,7 @@ fn read_file(path: &str) -> Result<Vec<u8>, CommandError> {
 }
 
 /// Falls back to the file stem, which is the name the person recognises.
-fn default_name(path: &str) -> String {
+pub(crate) fn default_name(path: &str) -> String {
     Path::new(path)
         .file_stem()
         .and_then(|stem| stem.to_str())
@@ -205,7 +205,7 @@ fn default_name(path: &str) -> String {
 
 /// Keeps the fields the shell understands, dropping anything the sidecar left
 /// out so a missing key never arrives as a JSON null.
-fn conform_meta(response: &Value, width: u32, height: u32) -> Value {
+pub(crate) fn conform_meta(response: &Value, width: u32, height: u32) -> Value {
     let mut meta = Map::new();
     meta.insert(
         "width".to_string(),

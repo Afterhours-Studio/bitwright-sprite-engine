@@ -48,6 +48,15 @@ pub trait DocumentHost: Send + Sync {
     /// After a frame is added, deleted, moved or retimed, or the playback
     /// changes, so a timeline someone is watching follows the agent.
     fn animation_changed(&self, animation: &Animation);
+    /// Conforms a picture through the engine sidecar, the way the window's
+    /// reference import does. `None` means this host has no engine (stdio and
+    /// tests), and the caller stores the picture unconformed.
+    fn conform(
+        &self,
+        _request: serde_json::Value,
+    ) -> Option<std::result::Result<serde_json::Value, ToolError>> {
+        None
+    }
 }
 
 /// Takes the lock the store is held behind and runs one unit of work on it.
@@ -134,6 +143,31 @@ impl<R: Runtime> DocumentHost for TauriHost<R> {
 
     fn animation_changed(&self, animation: &Animation) {
         crate::commands::animation::emit_animation(&self.app, animation);
+    }
+
+    fn conform(
+        &self,
+        request: serde_json::Value,
+    ) -> Option<std::result::Result<serde_json::Value, ToolError>> {
+        use crate::engine::{call, Method};
+        // Tool handlers run on a blocking worker, where waiting on the async
+        // engine call is allowed.
+        let answer = tauri::async_runtime::block_on(call(
+            &self.app,
+            Method::Post,
+            "/v1/conform",
+            Some(request),
+        ));
+        match answer {
+            Ok(value) => Some(Ok(value)),
+            // No engine yet: the picture is stored unconformed, as on stdio.
+            Err(error) if error.code == "sidecar.not_ready" => None,
+            Err(error) => Some(Err(ToolError::new(
+                &error.code,
+                error.detail,
+                "The engine refused the picture; try another image.",
+            ))),
+        }
     }
 }
 

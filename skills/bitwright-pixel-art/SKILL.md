@@ -211,6 +211,15 @@ ruler starts near the coordinate you care about.
 list_projects → create_project → create_asset → open_asset → get_style_rules
 ```
 
+To make a sprite out of a picture instead, `png_to_pixel` creates the asset, imports the
+picture and pixelizes it in one call (give it an absolute `path` or `dataBase64`).
+`import_reference` loads a picture onto an existing asset the same way.
+
+Housekeeping tools: `rename_project`, `delete_project` (refuses a project with assets
+unless `force: true`), `rename_asset`, `delete_asset`, `list_references` and
+`delete_reference`. The delete tools cannot be undone. `export_png`, `export_sheet` and
+`export_gif` take an optional absolute `directory` to write into.
+
 `create_asset` returns the style rules with the asset, so you usually do not need the
 separate call. Read them before drawing: they carry the slot ceiling, the light
 direction, the ramp bounds and the canvas defaults you are about to be gated against.

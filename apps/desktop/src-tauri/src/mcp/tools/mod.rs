@@ -32,10 +32,12 @@ use uuid::Uuid;
 
 pub mod animation;
 pub mod export;
+pub mod files;
 pub mod guide;
 pub mod history;
 pub mod orientation;
 pub mod palette;
+pub mod project;
 pub mod read;
 pub mod reference;
 pub mod shading;
@@ -62,6 +64,8 @@ pub struct ToolSpec {
 pub fn catalogue() -> Vec<ToolSpec> {
     let mut tools = guide::tools();
     tools.extend(orientation::tools());
+    tools.extend(project::tools());
+    tools.extend(files::tools());
     tools.extend(read::tools());
     tools.extend(write::tools());
     tools.extend(shading::tools());

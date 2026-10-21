@@ -17,10 +17,12 @@
 //! Export: writes a PNG, a sheet or an animation's GIF into the MCP exports
 //! folder.
 //!
-//! An agent cannot name a folder. Its files always land under
+//! By default a file lands under
 //! `crate::export::exports_root()/<safe project folder>/`, which is created
-//! from the project's own name the same way a file name is made safe, so a
-//! tool call can never write anywhere else on disk.
+//! from the project's own name the same way a file name is made safe. A caller
+//! that wants the file somewhere else names an existing absolute `directory`,
+//! the way a person picks a folder in the window's save dialog; the file name
+//! is still made safe, so it cannot escape that folder.
 
 use std::path::{Path, PathBuf};
 
@@ -84,6 +86,31 @@ fn project_folder(root: &Path, project_name: &str, project_id: Uuid) -> Result<P
     })
 }
 
+/// Where the file goes: the folder the caller named, or the project's folder
+/// under the exports root. A named folder has to be absolute and already exist;
+/// the writer refuses one that does not (`export.no_directory`).
+fn destination(
+    directory: Option<&str>,
+    root: &Path,
+    project_name: &str,
+    project_id: Uuid,
+) -> Result<PathBuf, ToolError> {
+    match directory {
+        Some(directory) => {
+            let path = PathBuf::from(directory);
+            if !path.is_absolute() {
+                return Err(ToolError::new(
+                    "export.no_directory",
+                    format!("{directory} is not an absolute path"),
+                    "Pass an absolute path to an existing folder, or leave directory out.",
+                ));
+            }
+            Ok(path)
+        }
+        None => project_folder(root, project_name, project_id),
+    }
+}
+
 fn export_result(path: PathBuf, image: &crate::raster::RgbaImage) -> Value {
     serde_json::to_value(ExportResult {
         path: path.to_string_lossy().into_owned(),
@@ -104,6 +131,7 @@ struct ExportPngArgs {
     scale: Option<u8>,
     name: Option<String>,
     overwrite: Option<bool>,
+    directory: Option<String>,
 }
 
 fn export_png_schema() -> Value {
@@ -130,6 +158,12 @@ fn export_png_schema() -> Value {
                 "type": "boolean",
                 "description": "Replace a file already at that name instead of refusing. \
                     Defaults to false.",
+            },
+            "directory": {
+                "type": "string",
+                "description": "An absolute path to an existing folder to write the file \
+                    into, instead of the exports folder. Refused with export.no_directory \
+                    when it is not an existing folder.",
             },
         },
         "additionalProperties": false,
@@ -173,7 +207,7 @@ fn export_png_at(
     // nothing from the store but the project's name and id, and creating a
     // directory is a filesystem call that has no business holding up every
     // other tool waiting on the same document lock.
-    let directory = project_folder(root, &project_name, project_id)?;
+    let directory = destination(args.directory.as_deref(), root, &project_name, project_id)?;
     let path = export::write_png(&directory, &name, &image, overwrite).map_err(tool_error)?;
     Ok(export_result(path, &image))
 }
@@ -195,6 +229,7 @@ struct ExportSheetArgs {
     scale: Option<u8>,
     name: String,
     overwrite: Option<bool>,
+    directory: Option<String>,
 }
 
 fn export_sheet_schema() -> Value {
@@ -230,6 +265,12 @@ fn export_sheet_schema() -> Value {
                 "type": "boolean",
                 "description": "Replace a file already at that name instead of refusing. \
                     Defaults to false.",
+            },
+            "directory": {
+                "type": "string",
+                "description": "An absolute path to an existing folder to write the file \
+                    into, instead of the exports folder. Refused with export.no_directory \
+                    when it is not an existing folder.",
             },
         },
         "required": ["assetIds", "name"],
@@ -288,7 +329,7 @@ fn export_sheet_at(
 
     // See `export_png_at`: the folder is created only once the store lock
     // above is released.
-    let directory = project_folder(root, &project_name, project_id)?;
+    let directory = destination(args.directory.as_deref(), root, &project_name, project_id)?;
     let path = export::write_png(&directory, &name, &image, overwrite).map_err(tool_error)?;
     Ok(export_result(path, &image))
 }
@@ -309,6 +350,7 @@ struct ExportGifArgs {
     scale: Option<u8>,
     name: Option<String>,
     overwrite: Option<bool>,
+    directory: Option<String>,
 }
 
 fn export_gif_schema() -> Value {
@@ -336,6 +378,12 @@ fn export_gif_schema() -> Value {
                 "type": "boolean",
                 "description": "Replace a file already at that name instead of refusing. \
                     Defaults to false.",
+            },
+            "directory": {
+                "type": "string",
+                "description": "An absolute path to an existing folder to write the file \
+                    into, instead of the exports folder. Refused with export.no_directory \
+                    when it is not an existing folder.",
             },
         },
         "additionalProperties": false,
@@ -380,7 +428,7 @@ fn export_gif_at(
     // Encoding and the folder both happen after the lock is released: the
     // frames are already rendered, and neither needs the store.
     let bytes = export::encode_gif(&frames).map_err(tool_error)?;
-    let directory = project_folder(root, &project_name, project_id)?;
+    let directory = destination(args.directory.as_deref(), root, &project_name, project_id)?;
     let path = export::write_file(&directory, &name, &bytes, overwrite).map_err(tool_error)?;
     Ok(json!({
         "path": path.to_string_lossy(),
@@ -790,5 +838,70 @@ mod tests {
         // Three 4x4 frames in the default single row.
         assert_eq!(result["width"], 12);
         assert_eq!(result["height"], 4);
+    }
+
+    #[test]
+    fn export_png_into_a_named_folder_skips_the_exports_root() {
+        let (host, session, project, root) = setup();
+        let asset = make_asset(&host, project, "hero", 4);
+        let chosen = TempDir::new();
+        let result = export_png_at(
+            &host,
+            &session,
+            json!({ "assetId": asset.to_string(), "directory": chosen.path.to_string_lossy() }),
+            &root.path,
+        )
+        .unwrap();
+        let path = PathBuf::from(result["path"].as_str().unwrap());
+        assert_eq!(path.parent(), Some(chosen.path.as_path()));
+        assert!(path.is_file());
+        assert!(!demo_project_dir(&root.path, project).exists());
+    }
+
+    #[test]
+    fn export_gif_and_sheet_honour_a_named_folder() {
+        let (host, session, project, root) = setup();
+        let asset = make_asset(&host, project, "hero", 4);
+        let chosen = TempDir::new();
+        let dir = chosen.path.to_string_lossy().into_owned();
+        let gif = export_gif_at(
+            &host,
+            &session,
+            json!({ "assetId": asset.to_string(), "directory": dir }),
+            &root.path,
+        )
+        .unwrap();
+        assert!(PathBuf::from(gif["path"].as_str().unwrap()).starts_with(&chosen.path));
+        let sheet = export_sheet_at(
+            &host,
+            &session,
+            json!({ "assetIds": [asset.to_string()], "name": "sheet", "directory": dir }),
+            &root.path,
+        )
+        .unwrap();
+        assert!(PathBuf::from(sheet["path"].as_str().unwrap()).starts_with(&chosen.path));
+    }
+
+    #[test]
+    fn a_named_folder_must_be_absolute_and_exist() {
+        let (host, session, project, root) = setup();
+        let asset = make_asset(&host, project, "hero", 4);
+        let relative = export_png_at(
+            &host,
+            &session,
+            json!({ "assetId": asset.to_string(), "directory": "exports" }),
+            &root.path,
+        )
+        .unwrap_err();
+        assert_eq!(relative.code, "export.no_directory");
+        let missing = root.path.join("does-not-exist");
+        let absent = export_png_at(
+            &host,
+            &session,
+            json!({ "assetId": asset.to_string(), "directory": missing.to_string_lossy() }),
+            &root.path,
+        )
+        .unwrap_err();
+        assert_eq!(absent.code, "export.no_directory");
     }
 }
