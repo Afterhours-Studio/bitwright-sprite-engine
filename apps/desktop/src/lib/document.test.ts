@@ -98,6 +98,19 @@ describe('projectCreate', () => {
       era: '16bit',
       view: 'sideview',
       proportions: 'chibi',
+      lineMode: 'derived',
+    });
+  });
+
+  it('sends a single line mode when one is chosen', async () => {
+    answersWith({});
+    await projectCreate('chibi', '32bit', 'topdown', 'chibi', 'single');
+    expect(tauri.invoke).toHaveBeenCalledWith('project_create', {
+      name: 'chibi',
+      era: '32bit',
+      view: 'topdown',
+      proportions: 'chibi',
+      lineMode: 'single',
     });
   });
 });
@@ -180,6 +193,15 @@ describe('documentComposite', () => {
     answersWith({});
     await documentComposite('asset-1');
     expect(tauri.invoke).toHaveBeenCalledWith('document_composite', { assetId: 'asset-1' });
+  });
+
+  it('sends the roles a view narrows the picture to', async () => {
+    answersWith({});
+    await documentComposite('asset-1', ['silhouette', 'flats']);
+    expect(tauri.invoke).toHaveBeenCalledWith('document_composite', {
+      assetId: 'asset-1',
+      roles: ['silhouette', 'flats'],
+    });
   });
 });
 

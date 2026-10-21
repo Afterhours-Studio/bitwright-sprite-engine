@@ -120,7 +120,7 @@ import {
   type LayerPixels,
 } from '@/lib/selection';
 import { useAnimationStore } from '@/stores/useAnimationStore';
-import { useDocumentStore } from '@/stores/useDocumentStore';
+import { activeOf, useDocumentStore } from '@/stores/useDocumentStore';
 import { shapeOf, useEditorStore, type Selection } from '@/stores/useEditorStore';
 import type { LayerRole, Op, PixelSet, Point } from '@/types/document';
 
@@ -375,13 +375,21 @@ export function DocumentCanvas(): ReactElement {
 
   // The composite is asked for again whenever the op log moves or the palette
   // is replaced, and those are the only two things that change the picture.
-  const { image, error } = useComposite(asset?.id ?? null, `${String(seq)}:${paletteKey(palette)}`);
+  // Viewing an earlier step shows its layer and the layers of the steps
+  // before it; the layers of later steps are left out of the picture, not
+  // erased. At the furthest step nothing is left out.
+  const viewRoles = step !== null && activeOf(step) !== step.step ? step.visibleRoles : undefined;
+  const { image, error } = useComposite(
+    asset?.id ?? null,
+    `${String(seq)}:${paletteKey(palette)}`,
+    viewRoles,
+  );
 
   const canvas = { width: asset?.width ?? 0, height: asset?.height ?? 0 };
   const viewport = { width: stageWidth, height: stageHeight };
   const assetId = asset?.id ?? null;
 
-  const target = paintTarget(step?.step ?? null, targetRole, layers);
+  const target = paintTarget(step === null ? null : activeOf(step), targetRole, layers);
   const layer = layers.find((candidate) => candidate.role === target.role) ?? null;
   const buffer: LayerPixels | null = layer === null ? null : layer.buffer;
   // A selection belongs to the asset it was made on. The store outlives this

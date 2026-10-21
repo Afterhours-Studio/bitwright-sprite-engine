@@ -1,9 +1,14 @@
 {
   "title": "Quy trình",
-  "revisitStep": "Quay lại {{step}}",
-  "revisitTitle": "Quay lại bước này?",
-  "revisitBody": "Quay lại giữ nguyên mọi lớp; chỉ bước hiện tại thay đổi. Không có gì bị xóa hay vẽ lại.",
-  "revisitConfirm": "Quay lại",
+  "viewStep": "Xem {{step}} và các lớp trước nó",
+  "viewing": "Đang xem",
+  "viewingNote": "Các lớp của bước sau bị ẩn, không bị xóa. Nét vẽ sẽ vào lớp của bước này.",
+  "backToCurrent": "Về {{step}}",
+  "previousStep": "Bước trước",
+  "needsRecheck": "Cần kiểm tra lại",
+  "recheckCount_one": "{{count}} bước cần kiểm tra lại",
+  "recheckCount_other": "{{count}} bước cần kiểm tra lại",
+  "recheckNote": "Một lớp phía trước đã đổi sau khi các bước này đạt. Lần tiến tiếp theo sẽ kiểm tra lại chúng trước.",
   "forceAdvance": "Vẫn tiến tới",
   "forceAdvanceTitle": "Tiến tới mà không vượt qua cổng kiểm tra?",
   "forceAdvanceBody": "Các kiểm tra sau chưa đạt:",
@@ -18,7 +23,7 @@
   "gateReport": "Báo cáo kiểm tra",
   "stepLayer": "Lớp: {{layer}}",
   "noLayer": "Không có lớp",
-  "revisitPrevious": "Lùi về {{step}}",
+  "previousStepLabel": "Xem {{step}}",
   "stepDone": "Đã xong",
   "stepLocked": "Chưa tới"
 }

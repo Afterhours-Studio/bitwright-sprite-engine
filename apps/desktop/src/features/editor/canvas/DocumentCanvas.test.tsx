@@ -195,6 +195,39 @@ describe('DocumentCanvas', () => {
     ]);
   });
 
+  it('viewing an earlier step hides later layers from the picture and draws on its layer', () => {
+    open('light');
+    useDocumentStore.setState({
+      step: {
+        assetId: 'asset-1',
+        step: 'light',
+        activeStep: 'flats',
+        visibleRoles: ['silhouette', 'flats'],
+        canAdvance: true,
+      } as StepState,
+    });
+    vi.mocked(invoke).mockClear();
+    render(<DocumentCanvas />);
+
+    // The picture is asked for with only the layers up to the viewed step.
+    expect(invoke).toHaveBeenCalledWith('document_composite', {
+      assetId: 'asset-1',
+      roles: ['silhouette', 'flats'],
+    });
+    drag([1, 1], [1, 1]);
+    expect(write.mock.calls[0]?.[0]).toEqual([
+      { kind: 'set_pixels', layer: 'flats', pixels: [{ x: 1, y: 1, slot: 3 }] },
+    ]);
+  });
+
+  it('asks for every layer at the furthest step', () => {
+    open('flats');
+    vi.mocked(invoke).mockClear();
+    render(<DocumentCanvas />);
+
+    expect(invoke).toHaveBeenCalledWith('document_composite', { assetId: 'asset-1' });
+  });
+
   it('mirrors a stroke when symmetry is on', () => {
     open('flats');
     useEditorStore.setState({ symmetry: 'horizontal' });

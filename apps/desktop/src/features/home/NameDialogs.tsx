@@ -29,11 +29,14 @@ import { Select } from '@/components/ui/Select';
 import { useProjectStore } from '@/stores/useProjectStore';
 import {
   DEFAULT_ERA,
+  DEFAULT_LINE_MODE,
   DEFAULT_PROPORTIONS,
   DEFAULT_VIEW,
+  LINE_MODES,
   STYLE_ERAS,
   STYLE_PROPORTIONS,
   STYLE_VIEWS,
+  type LineMode,
   type StyleEra,
   type StyleProportions,
   type StyleView,
@@ -46,7 +49,10 @@ export interface NewProjectDialogProps {
   onClose: () => void;
 }
 
-/** Creating a project: a name, and the era, view and proportions its sprites are checked against. */
+/**
+ * Creating a project: a name, and the era, view, proportions and line its
+ * sprites are checked against.
+ */
 export function NewProjectDialog({ open, onClose }: NewProjectDialogProps): ReactElement {
   const { t } = useTranslation('projects');
   const createProject = useProjectStore((state) => state.createProject);
@@ -54,6 +60,7 @@ export function NewProjectDialog({ open, onClose }: NewProjectDialogProps): Reac
   const [era, setEra] = useState<StyleEra>(DEFAULT_ERA);
   const [view, setView] = useState<StyleView>(DEFAULT_VIEW);
   const [proportions, setProportions] = useState<StyleProportions>(DEFAULT_PROPORTIONS);
+  const [lineMode, setLineMode] = useState<LineMode>(DEFAULT_LINE_MODE);
 
   useEffect(() => {
     // Emptied each time it opens, so it never offers the last project's name.
@@ -62,6 +69,7 @@ export function NewProjectDialog({ open, onClose }: NewProjectDialogProps): Reac
       setEra(DEFAULT_ERA);
       setView(DEFAULT_VIEW);
       setProportions(DEFAULT_PROPORTIONS);
+      setLineMode(DEFAULT_LINE_MODE);
     }
   }, [open]);
 
@@ -73,7 +81,7 @@ export function NewProjectDialog({ open, onClose }: NewProjectDialogProps): Reac
       confirmDisabled={name.trim() === ''}
       onDismiss={onClose}
       onConfirm={() => {
-        void createProject(name.trim(), era, view, proportions);
+        void createProject(name.trim(), era, view, proportions, lineMode);
         onClose();
       }}
     >
@@ -114,6 +122,15 @@ export function NewProjectDialog({ open, onClose }: NewProjectDialogProps): Reac
           setProportions(
             STYLE_PROPORTIONS.find((option) => option === value) ?? DEFAULT_PROPORTIONS,
           );
+        }}
+      />
+      <Select
+        label={t('form.line')}
+        hint={t('form.lineHint')}
+        value={lineMode}
+        options={LINE_MODES.map((option) => ({ value: option, label: t(`lineModes.${option}`) }))}
+        onValueChange={(value) => {
+          setLineMode(LINE_MODES.find((option) => option === value) ?? DEFAULT_LINE_MODE);
         }}
       />
     </Dialog>

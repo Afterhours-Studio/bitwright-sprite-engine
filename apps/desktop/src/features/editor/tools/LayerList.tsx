@@ -57,7 +57,7 @@ import { ownedRoles, paintTarget } from '@/features/editor/activeLayer';
 import { useWorkflowLabels } from '@/features/editor/labels';
 import { useDismiss } from '@/hooks/useDismiss';
 import { cn } from '@/lib/cn';
-import { useDocumentStore } from '@/stores/useDocumentStore';
+import { activeOf, useDocumentStore } from '@/stores/useDocumentStore';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { LAYER_ROLES, STEPS, STEP_ROLES } from '@/types/document';
 import type { Layer, LayerRole, Step } from '@/types/document';
@@ -100,8 +100,10 @@ export function LayerList(): ReactElement {
     setMenuOpen(false);
   });
 
-  const owned = ownedRoles(step?.step ?? null);
-  const active = paintTarget(step?.step ?? null, targetRole, layers).role;
+  // The step strokes go to: the one the rail selected, or the furthest.
+  const working = step === null ? null : activeOf(step);
+  const owned = ownedRoles(working);
+  const active = paintTarget(working, targetRole, layers).role;
   const byRole = new Map<LayerRole, Layer>(layers.map((layer) => [layer.role, layer]));
 
   /**
@@ -286,7 +288,7 @@ export function LayerList(): ReactElement {
         // in progress is somewhere else.
         body={te('layers.forceBody', {
           layer: confirming === null ? '' : labels.layer[confirming],
-          step: step === null ? '' : labels.step[step.step],
+          step: working === null ? '' : labels.step[working],
         })}
         confirmLabel={te('layers.forceConfirm')}
         onConfirm={() => {

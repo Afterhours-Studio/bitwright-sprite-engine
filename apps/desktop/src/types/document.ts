@@ -55,6 +55,22 @@ export type StyleView = 'topdown' | 'sideview';
  */
 export type StyleProportions = 'standard' | 'chibi';
 
+/**
+ * How a style draws its line, which decides where the outline step sits.
+ *
+ * `derived` takes each line pixel's colour from the fill beside it, so the
+ * outline comes after light. `single` is the hand-drawn order for one-colour
+ * line styles: the line straight after the silhouette, then flats, shadow and
+ * light inside it, with the line composited above every fill.
+ */
+export type LineMode = 'derived' | 'single';
+
+/** Every line mode, in the order the interface offers them. */
+export const LINE_MODES: readonly LineMode[] = ['derived', 'single'];
+
+/** The line mode a new project starts on, and the one every older style has. */
+export const DEFAULT_LINE_MODE: LineMode = 'derived';
+
 /** Every era, in the order the interface offers them. */
 export const STYLE_ERAS: readonly StyleEra[] = ['8bit', '16bit', '32bit', 'custom'];
 
@@ -196,6 +212,30 @@ export const STEPS: readonly Step[] = [
   'cleanup',
   'variation',
 ];
+
+/**
+ * The line-first order of a `single` line style: the same steps, with the
+ * outline moved up to straight after the silhouette. Mirrors
+ * `LINE_FIRST_STEPS` in `store/models.rs`.
+ */
+export const LINE_FIRST_STEPS: readonly Step[] = [
+  'reference',
+  'palette',
+  'silhouette',
+  'outline',
+  'flats',
+  'shadow',
+  'light',
+  'detail',
+  'accent',
+  'cleanup',
+  'variation',
+];
+
+/** The step order a style with this line mode works through. */
+export function stepsFor(lineMode: LineMode | undefined): readonly Step[] {
+  return lineMode === 'single' ? LINE_FIRST_STEPS : STEPS;
+}
 
 /**
  * A layer role. One step owns one role, which is why a document holds at most
@@ -374,6 +414,8 @@ export interface StyleRules {
   canvas: Canvas;
   /** The canvas per kind. A kind that is missing uses `canvas`. */
   canvasByKind?: CanvasByKind;
+  /** How the line is drawn, which orders the steps. */
+  lineMode?: LineMode;
 }
 
 /** A canvas size per asset kind; a kind that is missing falls back to `canvas`. */
@@ -404,8 +446,13 @@ export interface Asset {
   kind: AssetKind;
   width: number;
   height: number;
-  /** Where this asset is in the workflow. */
+  /** The furthest step this asset has reached. */
   step: Step;
+  /**
+   * The step being viewed and drawn in: `step`, or an earlier one the step
+   * rail selected. Older payloads leave it out.
+   */
+  activeStep?: Step;
   createdAt: number;
   updatedAt: number;
   /**
@@ -618,6 +665,8 @@ export type Op =
       mode?: OutlineMode;
       /** Ramp steps to darken by. Defaults to 1. */
       darken?: number;
+      /** A single line style's one line slot. Ignored by a derived outline. */
+      slot?: number;
     }
   | { kind: 'antialias'; layer: LayerRole; strength?: number };
 
@@ -732,12 +781,33 @@ export interface GateReport {
   metrics: GateMetrics;
 }
 
-/** Where an asset is in the workflow, and whether it may move on. */
+/**
+ * Where an asset is in the workflow, and whether it may move on.
+ *
+ * Two steps at once: `step` is the furthest reached, and every step before it
+ * has passed; `activeStep` is the one being viewed and drawn in. Selecting an
+ * earlier step is a view change and never un-passes or locks anything.
+ */
 export interface StepState {
   assetId: string;
+  /** The furthest step reached. */
   step: Step;
+  /** The step viewed and drawn in. Older payloads leave it out. */
+  activeStep?: Step;
+  /** The style's line mode, which decides `order`. */
+  lineMode?: LineMode;
+  /** Every step, in the order this style works through them. */
+  order?: Step[];
+  /** Passed steps an earlier edit asks to check again before the next advance. */
+  needsRecheck?: Step[];
+  /** The layers the canvas shows at this view. */
+  visibleRoles?: LayerRole[];
+  /** Whether the furthest step's gate passes and it has a successor. */
   canAdvance: boolean;
+  /** The gate of the active step. */
   gate: GateReport;
+  /** What an advance re-ran from `needsRecheck` first. */
+  rechecked?: GateReport[];
 }
 
 /** Emitted after any write, from either actor. Names roles, never pixels. */

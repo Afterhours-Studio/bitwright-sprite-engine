@@ -74,7 +74,8 @@
   },
   "step": {
     "complete": "Sprite này đang ở bước cuối của quy trình.",
-    "gate_failed": "Các kiểm tra của bước hiện tại chưa đạt, nên sprite chưa đi tiếp."
+    "gate_failed": "Các kiểm tra của bước hiện tại chưa đạt, nên sprite chưa đi tiếp.",
+    "recheck_failed": "Một lớp phía trước đã bị sửa, và một bước sau nó không còn đạt. Chọn bước đó, sửa lại, rồi tiến tiếp."
   },
   "store": {
     "constraint": "Đã có thứ trùng tên ở đây.",

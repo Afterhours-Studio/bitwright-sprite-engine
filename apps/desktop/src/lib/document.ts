@@ -42,6 +42,7 @@ import type {
   GateReport,
   IndexedBuffer,
   LayerRole,
+  LineMode,
   Op,
   OpResult,
   Palette,
@@ -58,6 +59,7 @@ import type {
   AgentSessionEvent,
 } from '@/types/document';
 
+import { DEFAULT_LINE_MODE } from '@/types/document';
 import type { ShellResult } from '@/lib/tauri';
 import type { UnlistenFn } from '@tauri-apps/api/event';
 
@@ -87,8 +89,9 @@ export function projectCreate(
   era: StyleEra,
   view: StyleView,
   proportions: StyleProportions,
+  lineMode: LineMode = DEFAULT_LINE_MODE,
 ): Promise<ShellResult<Project>> {
-  return invoke<Project>('project_create', { name, era, view, proportions });
+  return invoke<Project>('project_create', { name, era, view, proportions, lineMode });
 }
 
 /** Renames a project. */
@@ -158,8 +161,14 @@ export function styleRead(id: string): Promise<ShellResult<Style>> {
 }
 
 /** Composites the document to sRGB, for the canvas to draw. */
-export function documentComposite(assetId: string): Promise<ShellResult<RgbaImage>> {
-  return invoke<RgbaImage>('document_composite', { assetId });
+export function documentComposite(
+  assetId: string,
+  roles?: readonly LayerRole[],
+): Promise<ShellResult<RgbaImage>> {
+  // Sent only when a view narrows it, so the default request is unchanged.
+  return roles === undefined
+    ? invoke<RgbaImage>('document_composite', { assetId })
+    : invoke<RgbaImage>('document_composite', { assetId, roles });
 }
 
 /** Reads one layer's indices. */

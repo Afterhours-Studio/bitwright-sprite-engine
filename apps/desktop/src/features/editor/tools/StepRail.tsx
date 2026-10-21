@@ -35,19 +35,25 @@
  * removed is not a hint. The check's `name`, the step's name and everything
  * this component says in its own voice do go through the locale files.
  *
- * THE STRIP OFFERS BOTH WAYS THROUGH A GATE THAT DOES NOT PASS. The card of
- * every step already done is a button that opens a confirmation and, on
- * Revisit, calls `revisit(step)`; the bar's Revisit does the same for the step
- * just before this one. Going back moves nothing but the current step, so
- * every layer painted since stays exactly as it was, which the confirmation
- * says in full rather than asking "are you sure?" of a reader who does not yet
- * know what is at stake. The card of a step still ahead is not a button,
- * because `step_revisit` only ever moves backward and pressing it on a step not
- * yet reached would either fail or lie. Separately, while the gate has not
- * passed and the step is not the last one, the bar offers to advance anyway; it
- * also confirms first, naming the checks that failed, because
- * `step_advance(true)` is recorded as forced and a person should know that
- * before they choose it, not discover it later reading the sprite's history.
+ * EACH STEP IS A LAYER, AND PRESSING ONE IS A VIEW CHANGE. Two steps matter at
+ * once: the furthest step reached, which every step before it has passed, and
+ * the step being viewed. Pressing the card of any passed step, or of the
+ * furthest one, shows that step's layer and the layers of the steps before
+ * it, hides the layers of the steps after it, and sends strokes to its layer.
+ * Nothing is deleted and no step stops being passed, so it needs no
+ * confirmation. Editing an earlier layer marks the passed steps after it for a
+ * re-check - a small marker on their cards, never a lock - and the next
+ * advance re-runs their gates first. Only a step not reached yet is locked.
+ *
+ * THE ORDER BELONGS TO THE STYLE. A single-line style draws its outline right
+ * after the silhouette, so the cards follow the order Rust reports rather
+ * than a fixed list.
+ *
+ * Separately, while the gate of the furthest step has not passed and it is not
+ * the last one, the bar offers to advance anyway; it confirms first, naming the
+ * checks that failed, because `step_advance(true)` is recorded as forced and a
+ * person should know that before they choose it, not discover it later reading
+ * the sprite's history.
  *
  * EACH CARD SHOWS THE PIXELS ITS STEP OWNS, composited here from the buffers
  * and the palette the document store already holds. They are the same bytes
@@ -59,11 +65,13 @@ import {
   Check as CheckIcon,
   CheckCircle2,
   Copy,
+  Eye,
   Image as ImageIcon,
   Layers as LayersIcon,
   Lock,
   Palette as PaletteIcon,
   Play,
+  RefreshCw,
   RotateCcw,
   Sparkles,
   TriangleAlert,
@@ -80,7 +88,7 @@ import { useWorkflowLabels } from '@/features/editor/labels';
 import { useDismiss } from '@/hooks/useDismiss';
 import { useErrorMessage } from '@/hooks/useErrorMessage';
 import { cn } from '@/lib/cn';
-import { useDocumentStore } from '@/stores/useDocumentStore';
+import { activeOf, useDocumentStore } from '@/stores/useDocumentStore';
 import {
   STEP_ROLES,
   STEPS,
@@ -104,18 +112,21 @@ const STEP_ICONS: Partial<Record<Step, LucideIcon>> = {
   variation: Copy,
 };
 
-/** The bar's buttons at the strip's small size: Check, Advance, Revisit, Force. */
+/** The bar's buttons at the strip's small size: Check, Advance, Previous, Force. */
 const BAR_BUTTON = 'gap-1';
 
 /** Every card's frame; the state adds its border, fill and ring. */
 const CARD = 'group relative flex flex-shrink-0 flex-col items-center rounded-md border p-1';
+
+/** Where a card's step stands against the furthest step. */
+type CardState = 'done' | 'current' | 'ahead';
 
 /**
  * The steps strip.
  *
  * Fills the full width of the region it is mounted in, at a fixed `h-40`.
  *
- * @returns The current step and its gate in a bar, and one card per step.
+ * @returns The viewed step and its gate in a bar, and one card per step.
  */
 export function StepRail(): ReactElement {
   const { t } = useTranslation('editor');
@@ -133,7 +144,6 @@ export function StepRail(): ReactElement {
   const advance = useDocumentStore((state) => state.advance);
   const revisit = useDocumentStore((state) => state.revisit);
 
-  const [revisitTarget, setRevisitTarget] = useState<Step | null>(null);
   const [forcing, setForcing] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   // The anchor holds the summary button as well as the popover, so pressing
@@ -156,17 +166,23 @@ export function StepRail(): ReactElement {
     );
   }
 
-  const position = STEPS.indexOf(step.step);
+  const order = step.order ?? STEPS;
+  const active = activeOf(step);
+  const furthest = order.indexOf(step.step);
+  const position = order.indexOf(active);
+  const viewingEarlier = position < furthest;
+  const recheck = step.needsRecheck ?? [];
   const failed = gate === null ? [] : gate.checks.filter((entry) => !entry.pass);
   const passed = gate === null ? [] : gate.checks.filter((entry) => entry.pass);
   const refusal = error !== null && error.startsWith(STEP_CODE) ? translateError(error) : null;
-  const isLastStep = position === STEPS.length - 1;
-  // Only a gate that ran and failed can be forced past. With no report yet (as
-  // right after a revisit) there is nothing to override, so nothing is offered.
+  const isLastStep = furthest === order.length - 1;
+  // Only the furthest step's own gate can be forced past, and only once it
+  // ran and failed: the report on screen while viewing an earlier step is that
+  // step's, which an advance does not move.
   const gateFailed = gate !== null && !gate.pass;
-  const offerForce = gateFailed && !isLastStep;
-  const previous = position > 0 ? STEPS[position - 1] : undefined;
-  const roles = STEP_ROLES[step.step];
+  const offerForce = gateFailed && !isLastStep && !viewingEarlier;
+  const previous = position > 0 ? order[position - 1] : undefined;
+  const roles = STEP_ROLES[active];
   const layerName =
     roles.length === 0 ? tw('noLayer') : roles.map((role) => labels.layer[role]).join(' + ');
 
@@ -174,12 +190,14 @@ export function StepRail(): ReactElement {
     <section className="flex h-40 w-full shrink-0 flex-col border-t border-line-subtle bg-surface-canvas">
       <div className="flex h-10 items-center justify-between gap-3 border-b border-line-subtle px-3 text-xs text-fg-primary">
         <div className="flex min-w-0 items-center gap-3">
-          <Tooltip label={expects(step.step, t)}>
+          <Tooltip label={expects(active, t)}>
             <p className="flex items-baseline gap-1.5 whitespace-nowrap">
-              <span className="text-[11px] text-fg-secondary">{tw('currentStep')}</span>
-              <span className="font-medium text-fg-primary">{labels.step[step.step]}</span>
+              <span className="text-[11px] text-fg-secondary">
+                {viewingEarlier ? tw('viewing') : tw('currentStep')}
+              </span>
+              <span className="font-medium text-fg-primary">{labels.step[active]}</span>
               <span className="text-[11px] tabular-nums text-fg-secondary">
-                {t('step.position', { position: position + 1, of: STEPS.length })}
+                {t('step.position', { position: position + 1, of: order.length })}
               </span>
             </p>
           </Tooltip>
@@ -227,7 +245,7 @@ export function StepRail(): ReactElement {
                     got it. The gate's own prose says what is wrong; this says
                     what was asked for, which is the thing a reader needs first
                     and the thing Rust never sends. */}
-                <p className="text-[11px] text-fg-secondary">{expects(step.step, t)}</p>
+                <p className="text-[11px] text-fg-secondary">{expects(active, t)}</p>
                 {gate === null ? (
                   <p className="text-[11px] text-fg-secondary">{t('step.noReport')}</p>
                 ) : (
@@ -265,6 +283,27 @@ export function StepRail(): ReactElement {
             <span className="truncate">{tw('stepLayer', { layer: layerName })}</span>
           </p>
 
+          {viewingEarlier && (
+            <Tooltip label={tw('viewingNote')}>
+              <p className="flex min-w-0 items-center gap-1 text-[11px] text-fg-secondary">
+                <Eye aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{tw('viewingNote')}</span>
+              </p>
+            </Tooltip>
+          )}
+
+          {recheck.length > 0 && (
+            <Tooltip label={tw('recheckNote')}>
+              <p
+                data-testid="recheck-count"
+                className="flex min-w-0 items-center gap-1 text-[11px] text-severity-warning"
+              >
+                <RefreshCw aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{tw('recheckCount', { count: recheck.length })}</span>
+              </p>
+            </Tooltip>
+          )}
+
           {refusal !== null && (
             <Tooltip label={refusal}>
               <p
@@ -298,9 +337,10 @@ export function StepRail(): ReactElement {
             variant="primary"
             size="xs"
             className={BAR_BUTTON}
-            // Disabled from `canAdvance`, which Rust computes as the gate passing
-            // and the step not being the last one. Guessing it here from the
-            // report alone would offer an advance off the end of the workflow.
+            // Disabled from `canAdvance`, which Rust computes as the furthest
+            // step's gate passing and the step not being the last one.
+            // Guessing it here from the report on screen would read the gate
+            // of whichever step is being viewed.
             disabled={loading || !step.canAdvance}
             onClick={() => {
               void advance();
@@ -315,23 +355,35 @@ export function StepRail(): ReactElement {
             size="xs"
             className={BAR_BUTTON}
             disabled={loading || previous === undefined}
-            // Named after the step it goes back to, so it is never mistaken
-            // for the confirmation's own Revisit, and a reader knows where it
-            // leads before pressing it.
+            // Named after the step it shows, so a reader knows where it leads
+            // before pressing it.
             aria-label={
               previous === undefined
-                ? tw('revisitConfirm')
-                : tw('revisitPrevious', { step: labels.step[previous] })
+                ? tw('previousStep')
+                : tw('previousStepLabel', { step: labels.step[previous] })
             }
             onClick={() => {
               if (previous !== undefined) {
-                setRevisitTarget(previous);
+                void revisit(previous);
               }
             }}
           >
             <RotateCcw aria-hidden="true" strokeWidth={1.75} className="h-3 w-3" />
-            {tw('revisitConfirm')}
+            {tw('previousStep')}
           </Button>
+          {viewingEarlier && (
+            <Button
+              variant="secondary"
+              size="xs"
+              className={BAR_BUTTON}
+              disabled={loading}
+              onClick={() => {
+                void revisit(step.step);
+              }}
+            >
+              {tw('backToCurrent', { step: labels.step[step.step] })}
+            </Button>
+          )}
           {offerForce && (
             <Button
               variant="ghost"
@@ -352,69 +404,57 @@ export function StepRail(): ReactElement {
         aria-label={tw('stepsLabel')}
         className="flex flex-1 items-center space-x-2.5 overflow-x-auto p-3"
       >
-        {STEPS.map((entry, index) => {
-          const state = index < position ? 'done' : index === position ? 'current' : 'ahead';
+        {order.map((entry, index) => {
+          const state: CardState =
+            index < furthest ? 'done' : index === furthest ? 'current' : 'ahead';
           const label = labels.step[entry];
+          const selected = entry === active;
           const content = (
             <StepCardContent
               number={index + 1}
               step={entry}
               label={label}
               state={state}
+              selected={selected}
+              stale={recheck.includes(entry)}
               layers={layers}
               palette={palette}
             />
           );
           return (
             <li key={entry} className="flex-shrink-0">
-              {state === 'done' ? (
+              {state === 'ahead' ? (
+                <div className={cn(CARD, 'border-line-subtle bg-surface-content opacity-60')}>
+                  {content}
+                </div>
+              ) : (
                 <button
                   type="button"
+                  aria-current={selected ? 'step' : undefined}
+                  aria-pressed={selected}
                   className={cn(
                     CARD,
-                    'border-line-subtle bg-surface-content transition-colors hover:border-line hover:bg-surface-content-alt',
+                    'transition-colors',
+                    selected
+                      ? 'border-accent bg-surface-content ring-2 ring-accent'
+                      : state === 'current'
+                        ? 'border-accent bg-surface-content hover:bg-surface-content-alt'
+                        : 'border-line-subtle bg-surface-content hover:border-line hover:bg-surface-content-alt',
                   )}
-                  aria-label={tw('revisitStep', { step: label })}
+                  aria-label={tw('viewStep', { step: label })}
                   onClick={() => {
-                    setRevisitTarget(entry);
+                    if (!selected) {
+                      void revisit(entry);
+                    }
                   }}
                 >
                   {content}
                 </button>
-              ) : (
-                <div
-                  aria-current={state === 'current' ? 'step' : undefined}
-                  className={cn(
-                    CARD,
-                    state === 'current'
-                      ? 'border-accent bg-surface-content ring-2 ring-accent'
-                      : 'border-line-subtle bg-surface-content opacity-60',
-                  )}
-                >
-                  {content}
-                </div>
               )}
             </li>
           );
         })}
       </ol>
-
-      <Dialog
-        open={revisitTarget !== null}
-        title={tw('revisitTitle')}
-        confirmLabel={tw('revisitConfirm')}
-        onDismiss={() => {
-          setRevisitTarget(null);
-        }}
-        onConfirm={() => {
-          if (revisitTarget !== null) {
-            void revisit(revisitTarget);
-          }
-          setRevisitTarget(null);
-        }}
-      >
-        <p className="text-xs text-fg-secondary">{tw('revisitBody')}</p>
-      </Dialog>
 
       <Dialog
         open={forcing}
@@ -450,7 +490,11 @@ interface StepCardContentProps {
   number: number;
   step: Step;
   label: string;
-  state: 'done' | 'current' | 'ahead';
+  state: CardState;
+  /** Whether this is the step being viewed. */
+  selected: boolean;
+  /** Whether an earlier edit marked this passed step for a re-check. */
+  stale: boolean;
   layers: readonly Layer[];
   palette: Palette | null;
 }
@@ -462,7 +506,7 @@ interface StepCardContentProps {
  * the word the rest of the interface uses; the number is decoration that a
  * screen reader already has from the list's order.
  *
- * @param props - The step, where it sits against the current one, and the
+ * @param props - The step, where it sits against the furthest one, and the
  *   document to draw its thumbnail from.
  * @returns The card's contents.
  */
@@ -471,6 +515,8 @@ function StepCardContent({
   step,
   label,
   state,
+  selected,
+  stale,
   layers,
   palette,
 }: StepCardContentProps): ReactElement {
@@ -482,7 +528,7 @@ function StepCardContent({
         <span aria-hidden="true" className="tabular-nums text-fg-secondary">
           {tw('stepNumber', { number })}
         </span>
-        <span className={cn('text-fg-primary', state === 'current' && 'font-medium')}>{label}</span>
+        <span className={cn('text-fg-primary', selected && 'font-medium')}>{label}</span>
       </span>
       <span className="checkerboard-pattern flex h-16 w-16 items-center justify-center rounded-sm border border-line-subtle bg-surface-well p-1">
         {Icon === undefined ? (
@@ -496,7 +542,17 @@ function StepCardContent({
           />
         )}
       </span>
-      {state === 'done' && (
+      {state === 'done' && stale && (
+        <Tooltip label={tw('needsRecheck')}>
+          <span
+            data-testid={`step-recheck-${step}`}
+            className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border border-line-subtle bg-surface-content text-severity-warning"
+          >
+            <RefreshCw aria-hidden="true" strokeWidth={2.5} className="h-2.5 w-2.5" />
+          </span>
+        </Tooltip>
+      )}
+      {state === 'done' && !stale && (
         <Tooltip label={tw('stepDone')}>
           <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border border-line-subtle bg-surface-content text-severity-success">
             <CheckIcon aria-hidden="true" strokeWidth={2.5} className="h-3 w-3" />

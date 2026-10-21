@@ -73,7 +73,7 @@ import { ReferencePanel } from '@/features/editor/reference/ReferencePanel';
 import { useDismiss } from '@/hooks/useDismiss';
 import { useToastAnchor } from '@/hooks/useToastAnchor';
 import { cn } from '@/lib/cn';
-import { useDocumentStore } from '@/stores/useDocumentStore';
+import { activeOf, useDocumentStore } from '@/stores/useDocumentStore';
 import { TILE_GUIDES, useEditorStore, type TileGuide } from '@/stores/useEditorStore';
 import { useAnimationStore } from '@/stores/useAnimationStore';
 import { useProjectStore } from '@/stores/useProjectStore';
@@ -392,8 +392,13 @@ export function StudioHeader(): ReactElement {
   }, [assetId]);
 
   const hasAsset = assetId !== null;
-  const step = stepState?.step ?? asset?.step ?? null;
-  const stepNumber = step === null ? 0 : STEPS.indexOf(step) + 1;
+  // The furthest step counts the progress; the active step - the one the rail
+  // selected, which is the furthest unless an earlier one was chosen - is the
+  // one strokes go to.
+  const furthest = stepState?.step ?? asset?.step ?? null;
+  const order = stepState?.order ?? STEPS;
+  const stepNumber = furthest === null ? 0 : order.indexOf(furthest) + 1;
+  const step = stepState === null ? (asset?.activeStep ?? furthest) : activeOf(stepState);
 
   // The same layer the next stroke would write to, so Clear empties what the
   // pencil would draw on and nothing else. A layer that does not exist yet or
@@ -539,7 +544,7 @@ export function StudioHeader(): ReactElement {
             }}
           >
             <ListChecks aria-hidden="true" strokeWidth={1.75} className="w-3.5 h-3.5" />
-            <span>{t('header.steps', { current: stepNumber, total: STEPS.length })}</span>
+            <span>{t('header.steps', { current: stepNumber, total: order.length })}</span>
           </button>
         </Tooltip>
         <AgentPopover />

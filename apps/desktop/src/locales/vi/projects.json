@@ -54,6 +54,10 @@
     "standard": "Chuẩn",
     "chibi": "Chibi"
   },
+  "lineModes": {
+    "derived": "Lấy màu từ mảng màu",
+    "single": "Một màu, vẽ nét trước"
+  },
   "style": {
     "chip": "{{era}} · {{view}}"
   },
@@ -69,6 +73,8 @@
     "eraHint": "Quy định trần số màu, giới hạn dải màu và luật viền mà mọi sprite trong dự án sẽ được kiểm theo: 8-bit là 4 màu, 16-bit là 16, 32-bit là 24. Không thể đổi về sau.",
     "proportions": "Tỉ lệ cơ thể",
     "proportionsHint": "Chibi hợp với nhân vật đầu to, chi tiết nhỏ nổi lên, và nới lỏng các kiểm tra bóng hình. Không thể đổi về sau.",
+    "line": "Nét viền",
+    "lineHint": "Lấy màu từ mảng màu: viền được tô theo mảng màu bên cạnh, sau bước sáng. Một màu: vẽ nét bằng một màu ngay sau bóng hình, rồi tô mảng màu, bóng và sáng bên trong, đúng thứ tự vẽ tay sprite nét một màu.",
     "viewHint": "Quy định tỉ lệ và kích thước sprite mặc định. Nhìn từ trên thì cao hơn rộng; nhìn ngang thì vuông hơn, quay mặt sang phải. Không thể đổi về sau.",
     "kind": "Loại",
     "width": "Chiều rộng",

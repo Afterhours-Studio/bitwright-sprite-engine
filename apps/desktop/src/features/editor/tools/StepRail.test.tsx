@@ -25,10 +25,11 @@
  * The strip shows counts in its bar and the full report in a popover, so these
  * tests open it the way a person would before reading it.
  *
- * It is also the screen where a person can go back or push through, so the
- * other half of these tests is about the two confirmations that guard those:
- * revisiting a done step keeps every layer, and forcing an advance past a
- * gate that has not passed is recorded, and both say so before they act.
+ * It is also the screen where a person looks back or pushes through, so the
+ * other half of these tests is about those: showing an earlier step is a view
+ * change that needs no confirmation and locks nothing, a passed step an
+ * earlier edit touched carries a re-check marker, and forcing an advance past
+ * a gate that has not passed is recorded and says so before it acts.
  */
 
 import { fireEvent, render, screen, within } from '@testing-library/react';
@@ -36,7 +37,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { StepRail } from '@/features/editor/tools/StepRail';
 import { useDocumentStore } from '@/stores/useDocumentStore';
-import { STEPS } from '@/types/document';
+import { LINE_FIRST_STEPS, STEPS } from '@/types/document';
 import type {
   GateCheck,
   GateMetrics,
@@ -278,14 +279,19 @@ describe('StepRail', () => {
     );
   });
 
-  it('makes a done card a button and leaves a later card inert', () => {
+  it('makes every reached card a button and leaves a later card inert', () => {
     open({ step: 'flats', pass: true, checks: [CLEAN], metrics: METRICS }, true);
 
     render(<StepRail />);
 
-    // "Reference" and "Palette" precede "Flats" in STEPS, so they are done.
-    expect(screen.getByRole('button', { name: 'Revisit Reference' })).toBeInTheDocument();
-    // "Shadow" comes after "Flats", so it is ahead and not a button.
+    // "Reference" and "Palette" precede "Flats", so they are passed.
+    expect(
+      screen.getByRole('button', { name: 'Show Reference and the layers before it' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Show Flats and the layers before it' }),
+    ).toBeInTheDocument();
+    // "Shadow" comes after "Flats", so it is not reached and not a button.
     expect(screen.queryByRole('button', { name: /Shadow/ })).not.toBeInTheDocument();
     expect(within(stepList()).getByText('Shadow')).toBeInTheDocument();
   });
@@ -304,56 +310,112 @@ describe('StepRail', () => {
     }
   });
 
-  it('asks first before revisiting a done step, and cancel calls nothing', () => {
+  it('shows an earlier step at once, with no confirmation, because nothing is lost', () => {
     const revisit = vi.fn();
     open({ step: 'flats', pass: true, checks: [CLEAN], metrics: METRICS }, true);
     useDocumentStore.setState({ revisit });
 
     render(<StepRail />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Revisit Reference' }));
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Show Reference and the layers before it' }),
+    );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(revisit).not.toHaveBeenCalled();
-    // `getByRole` excludes `aria-hidden` elements by default, so a dialog that
-    // has been dismissed but not unmounted no longer turns up here.
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  });
-
-  it('revisits the chosen step once confirmed', () => {
-    const revisit = vi.fn();
-    open({ step: 'flats', pass: true, checks: [CLEAN], metrics: METRICS }, true);
-    useDocumentStore.setState({ revisit });
-
-    render(<StepRail />);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Revisit Reference' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Revisit' }));
-
     expect(revisit).toHaveBeenCalledWith('reference');
   });
 
-  it("goes back one step from the bar's Revisit, behind the same confirmation", () => {
+  it("shows the step before the viewed one from the bar's Previous", () => {
     const revisit = vi.fn();
     open({ step: 'flats', pass: true, checks: [CLEAN], metrics: METRICS }, true);
     useDocumentStore.setState({ revisit });
 
     render(<StepRail />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Go back to Silhouette' }));
-    expect(revisit).not.toHaveBeenCalled();
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Revisit' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show Silhouette' }));
 
     expect(revisit).toHaveBeenCalledWith('silhouette');
   });
 
-  it("disables the bar's Revisit on the first step, which has nothing before it", () => {
+  it("disables the bar's Previous on the first step, which has nothing before it", () => {
     open({ step: 'reference', pass: true, checks: [], metrics: METRICS }, true);
 
     render(<StepRail />);
 
-    expect(screen.getByRole('button', { name: 'Revisit' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
+  });
+
+  it('keeps later passed steps open while viewing an earlier one, and offers the way back', () => {
+    const revisit = vi.fn();
+    const gate: GateReport = { step: 'flats', pass: true, checks: [CLEAN], metrics: METRICS };
+    const step: StepState = {
+      assetId: 'asset-1',
+      step: 'light',
+      activeStep: 'flats',
+      canAdvance: true,
+      gate,
+    };
+    useDocumentStore.setState({ assetId: 'asset-1', step, gate, revisit });
+
+    render(<StepRail />);
+
+    // The viewed step is the selected card; the furthest is still reached.
+    expect(within(stepList()).getByText('Flats').closest('[aria-current]')).toHaveAttribute(
+      'aria-current',
+      'step',
+    );
+    expect(screen.getByText('Viewing')).toBeInTheDocument();
+    // Shadow passed after flats and is not locked by looking back at flats.
+    fireEvent.click(screen.getByRole('button', { name: 'Show Shadow and the layers before it' }));
+    expect(revisit).toHaveBeenCalledWith('shadow');
+    fireEvent.click(screen.getByRole('button', { name: 'Back to Light' }));
+    expect(revisit).toHaveBeenCalledWith('light');
+    // Advance still moves the furthest step on.
+    expect(screen.getByRole('button', { name: 'Advance' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Advance anyway' })).not.toBeInTheDocument();
+  });
+
+  it('marks the passed steps an earlier edit asks to re-check, without locking them', () => {
+    const gate: GateReport = { step: 'silhouette', pass: true, checks: [CLEAN], metrics: METRICS };
+    const step: StepState = {
+      assetId: 'asset-1',
+      step: 'light',
+      activeStep: 'silhouette',
+      needsRecheck: ['flats', 'shadow'],
+      canAdvance: true,
+      gate,
+    };
+    useDocumentStore.setState({ assetId: 'asset-1', step, gate });
+
+    render(<StepRail />);
+
+    expect(screen.getByTestId('step-recheck-flats')).toBeInTheDocument();
+    expect(screen.getByTestId('step-recheck-shadow')).toBeInTheDocument();
+    expect(screen.queryByTestId('step-recheck-palette')).not.toBeInTheDocument();
+    expect(screen.getByTestId('recheck-count')).toHaveTextContent('2 steps to re-check');
+    expect(
+      screen.getByRole('button', { name: 'Show Flats and the layers before it' }),
+    ).toBeEnabled();
+  });
+
+  it('follows the order of a single line style, with the outline after the silhouette', () => {
+    const gate: GateReport = { step: 'outline', pass: true, checks: [CLEAN], metrics: METRICS };
+    const step: StepState = {
+      assetId: 'asset-1',
+      step: 'outline',
+      lineMode: 'single',
+      order: [...LINE_FIRST_STEPS],
+      canAdvance: true,
+      gate,
+    };
+    useDocumentStore.setState({ assetId: 'asset-1', step, gate });
+
+    render(<StepRail />);
+
+    const items = within(stepList()).getAllByRole('listitem');
+    expect(items[3]).toHaveTextContent(/# 4\s*Outline/);
+    expect(items[4]).toHaveTextContent(/# 5\s*Flats/);
+    expect(screen.getByText('4 of 11')).toBeInTheDocument();
   });
 
   it('offers a forced advance only while the gate fails and the step is not the last', () => {

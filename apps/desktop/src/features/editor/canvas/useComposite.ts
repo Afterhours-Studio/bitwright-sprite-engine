@@ -31,6 +31,10 @@
  * person's stroke does and the picture follows either of them without this
  * hook knowing which was which.
  *
+ * WHICH LAYERS. Every layer, unless the step rail is viewing an earlier step:
+ * then only that step's layers and the ones before it, which Rust composites
+ * the same way with the rest left out.
+ *
  * A composite that arrives after the document it belongs to has been closed,
  * or after a newer one was asked for, is dropped rather than shown. Two
  * overlapping requests can finish in either order, and the older one winning
@@ -41,7 +45,7 @@
 import { useEffect, useState } from 'react';
 
 import { documentComposite } from '@/lib/document';
-import type { RgbaImage } from '@/types/document';
+import type { LayerRole, RgbaImage } from '@/types/document';
 
 /** What the stage has to draw, and whether it is still being fetched. */
 export interface Composite {
@@ -59,8 +63,15 @@ export interface Composite {
  *   log sequence, and the palette object the store is holding.
  * @returns The image to draw, and the reason code if it could not be made.
  */
-export function useComposite(assetId: string | null, revision: unknown): Composite {
+export function useComposite(
+  assetId: string | null,
+  revision: unknown,
+  roles?: readonly LayerRole[],
+): Composite {
   const [composite, setComposite] = useState<Composite>({ image: null, error: null });
+  // A new array of the same roles is the same view, so the effect keys on its
+  // contents rather than its identity.
+  const rolesKey = roles === undefined ? null : roles.join(',');
 
   useEffect(() => {
     if (assetId === null) {
@@ -74,7 +85,7 @@ export function useComposite(assetId: string | null, revision: unknown): Composi
     // await resolves, and a narrowed `let` would make the guard dead code.
     const request = { cancelled: false };
     void (async () => {
-      const result = await documentComposite(assetId);
+      const result = await documentComposite(assetId, roles);
       if (request.cancelled) {
         return;
       }
@@ -90,7 +101,7 @@ export function useComposite(assetId: string | null, revision: unknown): Composi
     return () => {
       request.cancelled = true;
     };
-  }, [assetId, revision]);
+  }, [assetId, revision, rolesKey]);
 
   return composite;
 }

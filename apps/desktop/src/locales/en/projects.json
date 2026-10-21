@@ -54,6 +54,10 @@
     "standard": "Standard",
     "chibi": "Chibi"
   },
+  "lineModes": {
+    "derived": "Derived from fills",
+    "single": "Single colour, line first"
+  },
   "style": {
     "chip": "{{era}} · {{view}}"
   },
@@ -69,6 +73,8 @@
     "eraHint": "Sets the palette ceiling, the ramp bounds and the outline rule every sprite in the project is checked against: 8-bit is 4 colours, 16-bit 16, 32-bit 24. It cannot be changed afterwards.",
     "proportions": "Proportions",
     "proportionsHint": "Chibi suits big-head characters with small raised details, and loosens the silhouette checks. It cannot be changed afterwards.",
+    "line": "Line",
+    "lineHint": "Derived colours the outline from the fills beside it, after light. Single colour draws one line colour right after the silhouette, then flats, shadow and light inside it, the way a one-colour line sprite is drawn by hand.",
     "viewHint": "Sets the proportions and the default sprite sizes. Top-down is taller than wide; side-view is squarer, facing right. It cannot be changed afterwards.",
     "kind": "Kind",
     "width": "Width",

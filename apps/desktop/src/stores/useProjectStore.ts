@@ -59,6 +59,7 @@ import { useToastStore } from '@/stores/useToastStore';
 import type {
   Asset,
   AssetKind,
+  LineMode,
   Project,
   StyleChoice,
   StyleEra,
@@ -106,12 +107,16 @@ interface ProjectState {
   selectProject: (id: string | null) => Promise<void>;
   /** Opens an asset, which is what puts a document on the canvas. */
   selectAsset: (id: string | null) => Promise<void>;
-  /** Creates a project against an era and a view, and selects it. */
+  /**
+   * Creates a project against an era and a view, and selects it. The line
+   * mode decides where the outline step sits; it defaults to `derived`.
+   */
   createProject: (
     name: string,
     era: StyleEra,
     view: StyleView,
     proportions: StyleProportions,
+    lineMode?: LineMode,
   ) => Promise<void>;
   /** Renames a project. */
   renameProject: (id: string, name: string) => Promise<void>;
@@ -391,9 +396,9 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       return row;
     },
 
-    createProject: async (name, era, view, proportions) => {
+    createProject: async (name, era, view, proportions, lineMode) => {
       set({ loading: true, error: null });
-      const created = await projectCreate(name, era, view, proportions);
+      const created = await projectCreate(name, era, view, proportions, lineMode);
       if (!created.ok) {
         fail(created.error.code, 'projects:toast.createProjectFailed');
         return;

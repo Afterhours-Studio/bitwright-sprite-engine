@@ -74,7 +74,8 @@
   },
   "step": {
     "complete": "This sprite is at the last step of the workflow.",
-    "gate_failed": "The current step's checks did not pass, so the sprite did not advance."
+    "gate_failed": "The current step's checks did not pass, so the sprite did not advance.",
+    "recheck_failed": "An earlier layer was edited, and a step it came before no longer passes. Select that step, fix it, and advance again."
   },
   "store": {
     "constraint": "Something with that name already exists here.",

@@ -26,7 +26,8 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useDocumentStore } from '@/stores/useDocumentStore';
+import { marksRecheck, useDocumentStore } from '@/stores/useDocumentStore';
+import { LINE_FIRST_STEPS } from '@/types/document';
 import type {
   Asset,
   Document,
@@ -329,10 +330,10 @@ describe('useDocumentStore', () => {
     expect(state.gate?.step).toBe('shadow');
   });
 
-  it('revisits an earlier step and records why a refusal failed', async () => {
+  it('shows an earlier step as a view, leaving the furthest step where it was', async () => {
     const revisited: StepState = {
       ...STEP,
-      step: 'silhouette',
+      activeStep: 'silhouette',
       gate: { ...STEP.gate, step: 'silhouette' },
     };
     vi.mocked(documents.stepRevisit).mockResolvedValue({ ok: true, value: revisited });
@@ -342,10 +343,48 @@ describe('useDocumentStore', () => {
 
     expect(documents.stepRevisit).toHaveBeenCalledWith('asset-1', 'silhouette');
     const state = useDocumentStore.getState();
-    expect(state.step?.step).toBe('silhouette');
-    expect(state.asset?.step).toBe('silhouette');
+    expect(state.step?.step).toBe('flats');
+    expect(state.step?.activeStep).toBe('silhouette');
+    expect(state.asset?.step).toBe('flats');
+    expect(state.asset?.activeStep).toBe('silhouette');
     expect(state.gate?.step).toBe('silhouette');
     expect(state.error).toBeNull();
+  });
+
+  it('re-reads the step after an edit to an earlier step layer, and only then', async () => {
+    const later: StepState = { ...STEP, step: 'light', activeStep: 'silhouette' };
+    vi.mocked(documents.stepState).mockResolvedValue({ ok: true, value: later });
+    vi.mocked(documents.documentReadLayer).mockResolvedValue({ ok: true, value: buffer(1, 1) });
+    await useDocumentStore.getState().open('asset-1');
+    vi.mocked(documents.stepState).mockClear();
+
+    // Silhouette comes before flats and shadow, which passed after it.
+    await useDocumentStore
+      .getState()
+      .applyChange({ assetId: 'asset-1', roles: ['silhouette'], seq: 2 });
+    expect(documents.stepState).toHaveBeenCalledTimes(1);
+
+    // A write to the furthest step's own layer cannot mark anything.
+    vi.mocked(documents.stepState).mockClear();
+    useDocumentStore.setState({ step: { ...STEP, step: 'flats' } });
+    await useDocumentStore.getState().applyChange({ assetId: 'asset-1', roles: ['flats'], seq: 3 });
+    expect(documents.stepState).not.toHaveBeenCalled();
+  });
+
+  it('decides which writes can mark a re-check from the style order', () => {
+    const atLight: StepState = { ...STEP, step: 'light' };
+    expect(marksRecheck(atLight, ['silhouette'])).toBe(true);
+    expect(marksRecheck(atLight, ['shadow-core'])).toBe(false);
+    expect(marksRecheck(atLight, ['light'])).toBe(false);
+    // In a single line style the outline comes before the fills.
+    const single: StepState = {
+      ...STEP,
+      step: 'shadow',
+      lineMode: 'single',
+      order: [...LINE_FIRST_STEPS],
+    };
+    expect(marksRecheck(single, ['outline'])).toBe(true);
+    expect(marksRecheck(null, ['outline'])).toBe(false);
   });
 
   it('records why a revisit was refused and leaves the step where it was', async () => {

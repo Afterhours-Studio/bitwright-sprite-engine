@@ -71,9 +71,11 @@ import type {
   Op,
   Palette,
   PaletteEvent,
+  Step,
   StepEvent,
   StepState,
 } from '@/types/document';
+import { STEP_ROLES, STEPS } from '@/types/document';
 
 import type { ShellResult } from '@/lib/tauri';
 import type { UnlistenFn } from '@tauri-apps/api/event';
@@ -114,7 +116,11 @@ interface DocumentState {
   check: () => Promise<void>;
   /** Advances to the next step, which fails unless the gate passes. */
   advance: (options?: { force?: boolean }) => Promise<void>;
-  /** Returns the workflow to a step, which fails unless the move is allowed. */
+  /**
+   * Selects a step to view and draw in: the furthest step or any passed one.
+   * A view change only - the layers of later steps are hidden, not erased,
+   * and no step stops being passed. Fails for a step not reached yet.
+   */
   revisit: (step: string) => Promise<void>;
   /**
    * Applies one change event: re-reads the roles it names, and nothing else.
@@ -396,6 +402,12 @@ export const useDocumentStore = create<DocumentState>((set, get) => {
       }
 
       set({ layers: merge(get().layers, reads), seq: event.seq });
+      // An edit to the layer of a step before the furthest one marks the
+      // passed steps after it for a re-check, which only Rust knows the
+      // outcome of; any other write leaves the step state as it was.
+      if (marksRecheck(get().step, event.roles)) {
+        await refreshStep(assetId);
+      }
     },
 
     subscribe: async () => {
@@ -421,8 +433,14 @@ export const useDocumentStore = create<DocumentState>((set, get) => {
             return;
           }
           // The payload carries the report in full, so a step event costs no
-          // command at all. That matters while an agent is advancing steps.
-          set({ gate: event.gate, step: withGate(get().step, event) });
+          // command when it is a re-check of the step on screen. Anything
+          // else - an advance, a step selected or rules changed by an agent -
+          // moves more than the report, and the step state is read again.
+          const current = get().step;
+          if (current !== null && event.step === activeOf(current)) {
+            set({ gate: event.gate, step: withGate(current, event) });
+          }
+          void refreshStep(event.assetId);
         });
         listeners = [changed, palette, step];
       })();
@@ -486,7 +504,38 @@ function merge(
  * @returns The asset row at its new step.
  */
 function withStep(asset: Asset | null, state: StepState): Asset | null {
-  return asset === null ? null : { ...asset, step: state.step };
+  return asset === null
+    ? null
+    : { ...asset, step: state.step, activeStep: state.activeStep ?? state.step };
+}
+
+/**
+ * The step being viewed and drawn in.
+ *
+ * @param state - The step state as it stands.
+ * @returns The active step, which is the furthest one when none was selected.
+ */
+export function activeOf(state: StepState): Step {
+  return state.activeStep ?? state.step;
+}
+
+/**
+ * Whether a write to these roles can have marked a passed step for a
+ * re-check: whether any of them belongs to a step before the furthest one.
+ *
+ * @param state - The step state as it stands, or null before one was read.
+ * @param roles - The roles the write changed.
+ * @returns True when the step state has to be read again.
+ */
+export function marksRecheck(state: StepState | null, roles: readonly LayerRole[]): boolean {
+  if (state === null) {
+    return false;
+  }
+  const order = state.order ?? STEPS;
+  const furthest = order.indexOf(state.step);
+  return roles.some((role) =>
+    order.some((step, index) => index < furthest - 1 && STEP_ROLES[step].includes(role)),
+  );
 }
 
 /**
@@ -501,5 +550,5 @@ function withStep(asset: Asset | null, state: StepState): Asset | null {
  * @returns The updated step state, or null when there was nothing to update.
  */
 function withGate(state: StepState | null, event: StepEvent): StepState | null {
-  return state === null ? null : { ...state, step: event.step, gate: event.gate };
+  return state === null ? null : { ...state, gate: event.gate };
 }

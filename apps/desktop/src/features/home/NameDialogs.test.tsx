@@ -40,7 +40,7 @@ describe('NewProjectDialog', () => {
     fireEvent.change(screen.getByLabelText('Project name'), { target: { value: ' forest ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
 
-    expect(createProject).toHaveBeenCalledWith('forest', '32bit', 'topdown', 'standard');
+    expect(createProject).toHaveBeenCalledWith('forest', '32bit', 'topdown', 'standard', 'derived');
     expect(onClose).toHaveBeenCalled();
   });
 
@@ -51,6 +51,17 @@ describe('NewProjectDialog', () => {
     fireEvent.click(screen.getByRole('option', { name: 'Chibi' }));
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
 
-    expect(createProject).toHaveBeenCalledWith('forest', '32bit', 'topdown', 'chibi');
+    expect(createProject).toHaveBeenCalledWith('forest', '32bit', 'topdown', 'chibi', 'derived');
+  });
+
+  it('offers a derived line first and sends a single line first when chosen', () => {
+    render(<NewProjectDialog open onClose={vi.fn()} />);
+    expect(screen.getByRole('combobox', { name: 'Line' })).toHaveTextContent('Derived from fills');
+    fireEvent.change(screen.getByLabelText('Project name'), { target: { value: 'hero' } });
+    fireEvent.click(screen.getByRole('combobox', { name: 'Line' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Single colour, line first' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(createProject).toHaveBeenCalledWith('hero', '32bit', 'topdown', 'standard', 'single');
   });
 });

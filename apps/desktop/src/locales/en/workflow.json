@@ -1,9 +1,14 @@
 {
   "title": "Workflow",
-  "revisitStep": "Revisit {{step}}",
-  "revisitTitle": "Revisit this step?",
-  "revisitBody": "Going back keeps every layer exactly as it is; only the current step moves. Nothing is deleted or repainted.",
-  "revisitConfirm": "Revisit",
+  "viewStep": "Show {{step}} and the layers before it",
+  "viewing": "Viewing",
+  "viewingNote": "The layers of later steps are hidden, not deleted. Strokes go to this step's layer.",
+  "backToCurrent": "Back to {{step}}",
+  "previousStep": "Previous",
+  "needsRecheck": "Needs a re-check",
+  "recheckCount_one": "{{count}} step to re-check",
+  "recheckCount_other": "{{count}} steps to re-check",
+  "recheckNote": "An earlier layer changed after these steps passed. The next advance checks them again first.",
   "forceAdvance": "Advance anyway",
   "forceAdvanceTitle": "Advance without passing the gate?",
   "forceAdvanceBody": "These checks have not passed:",
@@ -18,7 +23,7 @@
   "gateReport": "Gate report",
   "stepLayer": "Layer: {{layer}}",
   "noLayer": "No layer",
-  "revisitPrevious": "Go back to {{step}}",
+  "previousStepLabel": "Show {{step}}",
   "stepDone": "Done",
   "stepLocked": "Not reached yet"
 }
