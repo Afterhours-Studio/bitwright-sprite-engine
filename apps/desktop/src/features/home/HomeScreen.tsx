@@ -263,12 +263,15 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
     if (projects.length === 0) {
       return <Empty title={t('state.emptyProjects')} hint={t('state.emptyProjectsHint')} />;
     }
-    // While filtering, a project with nothing that matches is left out rather
-    // than shown with a line saying so, and one line covers no match at all.
-    const filtering = query.trim() !== '' || eraFilter !== 'all' || viewFilter !== 'all';
-    const shown = filtering
-      ? orderedProjects.filter((project) => visible.some((asset) => asset.projectId === project.id))
-      : orderedProjects;
+    // The style filters have already narrowed the projects, empty ones
+    // included. A name query then leaves out a project none of whose sprites
+    // match, and one line covers no match at all.
+    const shown =
+      query.trim() !== ''
+        ? orderedProjects.filter((project) =>
+            visible.some((asset) => asset.projectId === project.id),
+          )
+        : orderedProjects;
     if (shown.length === 0) {
       return query.trim() === '' ? (
         <Empty title={t('state.noStyleMatch')} />
