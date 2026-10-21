@@ -48,7 +48,7 @@ import { useShellStore } from '@/stores/useShellStore';
 import { ASSET_KINDS, DEFAULT_PRESET, PRESET_CANVAS, type AssetKind } from '@/types/document';
 
 /** The square sizes the grid offers. */
-export const SPRITE_SIZES = [16, 24, 32, 48, 64, 96, 128, 192, 256, 512] as const;
+export const SPRITE_SIZES = [16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512] as const;
 
 /** The smallest side Custom accepts. */
 export const MIN_SIDE = 16;
@@ -214,7 +214,7 @@ export function NewSpriteDialog(): ReactElement | null {
           onSubmit={(event) => {
             void submit(event);
           }}
-          className="flex min-h-0 flex-1 flex-col gap-5 p-5"
+          className="flex flex-col gap-5 p-5"
         >
           <div className="shrink-0">
             {projects.length === 0 ? (
@@ -272,68 +272,47 @@ export function NewSpriteDialog(): ReactElement | null {
             </div>
           </fieldset>
 
-          {/* Only the sizes scroll. The fields above and the create button
-              below stay where they are, so the dialog never moves as a whole. */}
-          <fieldset className="flex min-h-0 flex-1 flex-col">
-            <legend className={LABEL}>{t('newSprite.size')}</legend>
-            <div className="grid min-h-0 flex-1 grid-cols-2 content-start gap-1.5 overflow-y-auto pe-1 sm:grid-cols-3">
-              {!presetInGrid && (
-                <button
-                  type="button"
-                  aria-pressed={size.kind === 'preset'}
-                  onClick={() => {
-                    setSize({ kind: 'preset' });
-                  }}
-                  className={cn(CARD, size.kind === 'preset' ? CARD_ON : CARD_OFF)}
-                >
-                  <SizeLabel
-                    size={`${preset.width}x${preset.height}`}
-                    px={t('newSprite.px', {
-                      size: (preset.width * preset.height).toLocaleString(),
-                    })}
-                    use={t('newSprite.use.preset')}
-                    marker={t('newSprite.preset')}
-                  />
-                </button>
-              )}
-              {SPRITE_SIZES.map((side) => (
-                <button
-                  key={side}
-                  type="button"
-                  aria-pressed={isSelected(side)}
-                  onClick={() => {
-                    setSize({ kind: 'square', size: side });
-                  }}
-                  className={cn(CARD, isSelected(side) ? CARD_ON : CARD_OFF)}
-                >
-                  <SizeLabel
-                    size={`${side}x${side}`}
-                    px={t('newSprite.px', { size: (side * side).toLocaleString() })}
-                    use={t(`newSprite.use.${side}`)}
-                    marker={presetSquare === side ? t('newSprite.preset') : undefined}
-                  />
-                </button>
-              ))}
-              <div
-                className={cn('col-span-full', CARD, size.kind === 'custom' ? CARD_ON : CARD_OFF)}
-              >
-                <button
-                  type="button"
-                  aria-pressed={size.kind === 'custom'}
-                  onClick={() => {
-                    setSize({ kind: 'custom' });
-                  }}
-                  className="w-full rounded-sm text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus"
-                >
-                  <span className="block text-xs font-semibold text-fg-primary">
-                    {t('newSprite.custom')}
-                  </span>
-                  <span className="block text-[11px] text-fg-secondary">
-                    {t('newSprite.customRange')}
-                  </span>
-                </button>
-                {size.kind === 'custom' && (
-                  <div className="mt-2 grid grid-cols-2 gap-2">
+          {/* The sizes sit in a box of fixed height, about two and a half
+              rows, that scrolls on its own. Custom sizes take the same box,
+              so switching between the two never changes the dialog's height. */}
+          <div role="group" aria-labelledby={`${ids}-size`} className="shrink-0">
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <p id={`${ids}-size`} className="text-[11px] font-medium text-fg-secondary">
+                {t('newSprite.size')}
+              </p>
+              <div className="flex gap-1">
+                {(['list', 'custom'] as const).map((mode) => {
+                  const on = (size.kind === 'custom') === (mode === 'custom');
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => {
+                        if (mode === 'custom') {
+                          setSize({ kind: 'custom' });
+                        } else if (size.kind === 'custom') {
+                          setSize({ kind: 'preset' });
+                        }
+                      }}
+                      className={cn(
+                        'rounded-pill border px-2.5 py-0.5 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-focus',
+                        on
+                          ? 'border-accent bg-accent text-accent-fg hover:bg-accent-hover'
+                          : 'border-line-subtle bg-surface-content text-fg-secondary hover:border-line hover:text-fg-primary',
+                      )}
+                    >
+                      {mode === 'custom' ? t('newSprite.custom') : t('newSprite.presetSizes')}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="h-44 overflow-y-auto pe-1">
+              {size.kind === 'custom' ? (
+                <div className={cn(CARD, CARD_ON, 'flex h-full flex-col gap-3')}>
+                  <p className="text-[11px] text-fg-secondary">{t('newSprite.customRange')}</p>
+                  <div className="grid grid-cols-2 gap-2">
                     <NumberField
                       clearable
                       label={t('newSprite.width')}
@@ -355,10 +334,50 @@ export function NewSpriteDialog(): ReactElement | null {
                       }}
                     />
                   </div>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                  {!presetInGrid && (
+                    <button
+                      type="button"
+                      aria-pressed={size.kind === 'preset'}
+                      onClick={() => {
+                        setSize({ kind: 'preset' });
+                      }}
+                      className={cn(CARD, size.kind === 'preset' ? CARD_ON : CARD_OFF)}
+                    >
+                      <SizeLabel
+                        size={`${preset.width}x${preset.height}`}
+                        px={t('newSprite.px', {
+                          size: (preset.width * preset.height).toLocaleString(),
+                        })}
+                        use={t('newSprite.use.preset')}
+                        marker={t('newSprite.preset')}
+                      />
+                    </button>
+                  )}
+                  {SPRITE_SIZES.map((side) => (
+                    <button
+                      key={side}
+                      type="button"
+                      aria-pressed={isSelected(side)}
+                      onClick={() => {
+                        setSize({ kind: 'square', size: side });
+                      }}
+                      className={cn(CARD, isSelected(side) ? CARD_ON : CARD_OFF)}
+                    >
+                      <SizeLabel
+                        size={`${side}x${side}`}
+                        px={t('newSprite.px', { size: (side * side).toLocaleString() })}
+                        use={t(`newSprite.use.${side}`)}
+                        marker={presetSquare === side ? t('newSprite.preset') : undefined}
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-          </fieldset>
+          </div>
 
           <button
             type="submit"

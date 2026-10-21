@@ -100,9 +100,11 @@
       "128": "Bosses",
       "192": "Large props",
       "256": "Backgrounds",
+      "384": "Large scenes",
       "512": "Whole scenes",
       "preset": "This project's style"
-    }
+    },
+    "presetSizes": "Presets"
   },
   "confirm": {
     "deleteAnimationBody": "This deletes the animation and all {{count}} of its frames, with every layer, palette and edit log they have, which is what undo reads from. There is nothing left to undo it with afterwards."

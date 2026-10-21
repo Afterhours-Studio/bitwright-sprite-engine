@@ -100,9 +100,11 @@
       "128": "Trùm",
       "192": "Đạo cụ lớn",
       "256": "Phông nền",
+      "384": "Cảnh lớn",
       "512": "Cả một cảnh",
       "preset": "Phong cách của dự án này"
-    }
+    },
+    "presetSizes": "Có sẵn"
   },
   "confirm": {
     "deleteAnimationBody": "Thao tác này xóa hoạt ảnh cùng cả {{count}} khung hình của nó, với mọi lớp, bảng màu và nhật ký chỉnh sửa của chúng, thứ mà hoàn tác dựa vào. Sau đó không còn gì để hoàn tác lại nữa."
