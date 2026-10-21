@@ -29,7 +29,7 @@ import i18n from '@/lib/i18n';
 import { useDocumentStore } from '@/stores/useDocumentStore';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { useShellStore } from '@/stores/useShellStore';
-import type { Asset, Project, StyleEra, StyleView } from '@/types/document';
+import type { Asset, Project, StyleEra, StyleProportions, StyleView } from '@/types/document';
 
 vi.mock('@/lib/document', async (original) => ({
   ...(await original<typeof DocumentModule>()),
@@ -56,8 +56,9 @@ function project(
   name: string,
   era: StyleEra = '16bit',
   view: StyleView = 'topdown',
+  proportions: StyleProportions = 'standard',
 ): Project {
-  return { id, name, styleId: `${id}-style`, era, view, createdAt: 1, updatedAt: 1 };
+  return { id, name, styleId: `${id}-style`, era, view, proportions, createdAt: 1, updatedAt: 1 };
 }
 
 /**
@@ -163,6 +164,27 @@ describe('HomeScreen', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Descending' }));
     expect(cardOrder()).toEqual(['hero', 'tree', 'bat']);
+  });
+
+  it('adds the chibi mark to the style chip only for chibi projects', async () => {
+    vi.mocked(documents.projectList).mockResolvedValue({
+      ok: true,
+      value: [FOREST, project('p3', 'imp', '16bit', 'topdown', 'chibi')],
+    });
+    vi.mocked(documents.assetList).mockImplementation((id) =>
+      Promise.resolve({
+        ok: true,
+        value: [HERO, TREE, BAT, asset({ id: 'a4', projectId: 'p3', name: 'frog' })].filter(
+          (entry) => entry.projectId === id,
+        ),
+      }),
+    );
+    render(<HomeScreen />);
+    await screen.findByRole('button', { name: 'Open hero' });
+    const forest = screen.getByRole('region', { name: 'forest' });
+    expect(within(forest).getByText('16-bit · Top-down')).toBeInTheDocument();
+    const imp = screen.getByRole('region', { name: 'imp' });
+    expect(within(imp).getByText('16-bit · Top-down · Chibi')).toBeInTheDocument();
   });
 
   it('orders the projects by the sort too, and filters them by style', async () => {

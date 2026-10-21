@@ -56,7 +56,15 @@ import {
 import { on } from '@/lib/tauri';
 import { useDocumentStore } from '@/stores/useDocumentStore';
 import { useToastStore } from '@/stores/useToastStore';
-import type { Asset, AssetKind, Project, StyleChoice, StyleEra, StyleView } from '@/types/document';
+import type {
+  Asset,
+  AssetKind,
+  Project,
+  StyleChoice,
+  StyleEra,
+  StyleProportions,
+  StyleView,
+} from '@/types/document';
 
 /** The message shown when one of the tree's actions fails. */
 type FailureKey =
@@ -99,7 +107,12 @@ interface ProjectState {
   /** Opens an asset, which is what puts a document on the canvas. */
   selectAsset: (id: string | null) => Promise<void>;
   /** Creates a project against an era and a view, and selects it. */
-  createProject: (name: string, era: StyleEra, view: StyleView) => Promise<void>;
+  createProject: (
+    name: string,
+    era: StyleEra,
+    view: StyleView,
+    proportions: StyleProportions,
+  ) => Promise<void>;
   /** Renames a project. */
   renameProject: (id: string, name: string) => Promise<void>;
   /** Deletes a project, and everything under it. */
@@ -234,7 +247,9 @@ export const useProjectStore = create<ProjectState>((set, get) => {
    * @returns The era and view, or null when the project has no style.
    */
   const styleOf = (project: Project): StyleChoice | null =>
-    project.era === null || project.view === null ? null : { era: project.era, view: project.view };
+    project.era === null || project.view === null
+      ? null
+      : { era: project.era, view: project.view, proportions: project.proportions };
 
   return {
     projects: [],
@@ -376,16 +391,19 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       return row;
     },
 
-    createProject: async (name, era, view) => {
+    createProject: async (name, era, view, proportions) => {
       set({ loading: true, error: null });
-      const created = await projectCreate(name, era, view);
+      const created = await projectCreate(name, era, view, proportions);
       if (!created.ok) {
         fail(created.error.code, 'projects:toast.createProjectFailed');
         return;
       }
       set({
         projects: [...get().projects, created.value],
-        styles: { ...get().styles, [created.value.id]: styleOf(created.value) ?? { era, view } },
+        styles: {
+          ...get().styles,
+          [created.value.id]: styleOf(created.value) ?? { era, view, proportions },
+        },
         loading: false,
       });
       await get().selectProject(created.value.id);

@@ -450,7 +450,8 @@ function SwatchesTab({ palette }: PaletteProps): ReactElement {
               : t('colour.style.value', {
                   era: t(`colour.eras.${style.value.era}`),
                   view: t(`colour.views.${style.value.view}`),
-                })}
+                }) +
+                (style.value.proportions === 'chibi' ? ` · ${t('colour.proportions.chibi')}` : '')}
         </span>
       </div>
 

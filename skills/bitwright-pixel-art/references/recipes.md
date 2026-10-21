@@ -52,8 +52,8 @@ set_palette { "assetId": "…", "ramps": [
   { "name": "cloth-green", "material": "cloth",   "slots": ["#2B7750","#69945F","#A0AF7E"] },
   { "name": "leather",     "material": "leather", "slots": ["#322C00","#604914","#896B4D"] },
   { "name": "hair",        "material": "hair",    "slots": ["#2E0C20","#492C46","#64546E"] },
-  { "name": "ink",         "material": "ink",     "slots": ["#0E0418","#211E36","#363C50"] },
-  { "name": "rim",         "material": "rim",     "slots": ["#B3AC82","#DDC8A2","#FBE3CE"] } ] }
+  { "name": "ink",         "material": "custom",  "slots": ["#0E0418","#211E36","#363C50"] },
+  { "name": "rim",         "material": "accent",  "slots": ["#B3AC82","#DDC8A2","#FBE3CE"] } ] }
 → { "slots": 22, "ramps": 7, "seq": 1 }
 ```
 
@@ -673,8 +673,8 @@ set_palette { "assetId": "…", "ramps": [
   { "name": "cloth-green", "material": "cloth",   "slots": ["#2B7750","#69945F","#A0AF7E"] },
   { "name": "leather",     "material": "leather", "slots": ["#322C00","#604914","#896B4D"] },
   { "name": "hair",        "material": "hair",    "slots": ["#2E0C20","#492C46","#64546E"] },
-  { "name": "ink",         "material": "ink",     "slots": ["#0E0418","#211E36","#363C50"] },
-  { "name": "rim",         "material": "rim",     "slots": ["#B3AC82","#DDC8A2","#FBE3CE"] } ] }
+  { "name": "ink",         "material": "custom",  "slots": ["#0E0418","#211E36","#363C50"] },
+  { "name": "rim",         "material": "accent",  "slots": ["#B3AC82","#DDC8A2","#FBE3CE"] } ] }
 → { "slots": 22, "ramps": 7, "seq": 1 }
 ```
 

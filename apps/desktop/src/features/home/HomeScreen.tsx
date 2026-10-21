@@ -300,6 +300,7 @@ export function HomeScreen({ trailing }: HomeScreenProps): ReactElement {
                       era: tp(`eras.${style.era}`),
                       view: tp(`views.${style.view}`),
                     })}
+                    {style.proportions === 'chibi' && ` · ${tp('proportions.chibi')}`}
                   </span>
                 )}
                 <span className="text-[11px] text-fg-secondary">

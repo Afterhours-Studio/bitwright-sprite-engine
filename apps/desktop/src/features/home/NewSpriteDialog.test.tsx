@@ -43,7 +43,16 @@ const documents = await import('@/lib/document');
  * @returns The row.
  */
 function project(id: string, name: string, era: StyleEra, view: StyleView): Project {
-  return { id, name, styleId: null, era, view, createdAt: 1, updatedAt: 1 };
+  return {
+    id,
+    name,
+    styleId: null,
+    era,
+    view,
+    proportions: 'standard',
+    createdAt: 1,
+    updatedAt: 1,
+  };
 }
 
 const CREATED: Asset = {
@@ -74,8 +83,8 @@ beforeEach(async () => {
     assets: [],
     allAssets: [],
     styles: {
-      p1: { era: '32bit', view: 'topdown' },
-      p2: { era: '16bit', view: 'topdown' },
+      p1: { era: '32bit', view: 'topdown', proportions: 'standard' },
+      p2: { era: '16bit', view: 'topdown', proportions: 'standard' },
     },
     projectId: 'p2',
     assetId: null,

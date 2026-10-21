@@ -82,6 +82,7 @@ function project(id: string, name: string): Project {
     styleId: `${id}-style`,
     era: '16bit',
     view: 'topdown',
+    proportions: 'standard',
     createdAt: 1,
     updatedAt: 1,
   };
@@ -210,7 +211,7 @@ describe('useProjectStore', () => {
 
     await useProjectStore.getState().load();
     await useProjectStore.getState().selectProject('project-1');
-    await useProjectStore.getState().createProject('forest', '32bit', 'topdown');
+    await useProjectStore.getState().createProject('forest', '32bit', 'topdown', 'standard');
 
     const state = useProjectStore.getState();
     expect(state.error).toBe('store.constraint');
@@ -342,7 +343,7 @@ describe('useProjectStore', () => {
       error: { code: 'store.constraint', detail: 'name already taken' },
     });
 
-    await useProjectStore.getState().createProject('forest', '32bit', 'topdown');
+    await useProjectStore.getState().createProject('forest', '32bit', 'topdown', 'standard');
     expect(useProjectStore.getState().error).toBe('store.constraint');
 
     useProjectStore.getState().clearError();
@@ -370,8 +371,8 @@ describe('useProjectStore', () => {
       const state = useProjectStore.getState();
       expect(state.allAssets).toEqual([HERO, BAT]);
       expect(state.styles).toEqual({
-        'project-1': { era: '16bit', view: 'topdown' },
-        'project-2': { era: '16bit', view: 'topdown' },
+        'project-1': { era: '16bit', view: 'topdown', proportions: 'standard' },
+        'project-2': { era: '16bit', view: 'topdown', proportions: 'standard' },
       });
       expect(state.loadedAll).toBe(true);
       expect(state.error).toBeNull();

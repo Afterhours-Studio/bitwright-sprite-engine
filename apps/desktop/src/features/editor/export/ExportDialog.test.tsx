@@ -101,6 +101,7 @@ const FOREST: Project = {
   name: 'forest',
   styleId: null,
   era: null,
+  proportions: 'standard',
   view: null,
   createdAt: 1,
   updatedAt: 1,

@@ -90,13 +90,14 @@ describe('projectList', () => {
 });
 
 describe('projectCreate', () => {
-  it('sends the name, era and view', async () => {
+  it('sends the name, era, view and proportions', async () => {
     answersWith({});
-    await projectCreate('forest', '16bit', 'sideview');
+    await projectCreate('forest', '16bit', 'sideview', 'chibi');
     expect(tauri.invoke).toHaveBeenCalledWith('project_create', {
       name: 'forest',
       era: '16bit',
       view: 'sideview',
+      proportions: 'chibi',
     });
   });
 });

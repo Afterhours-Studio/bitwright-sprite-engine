@@ -175,6 +175,26 @@ describe('PalettePanel', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Slot 3 is painted on 2 pixels');
   });
 
+  it('names chibi proportions in the style chip', async () => {
+    const style = {
+      id: 'style-1',
+      era: '16bit',
+      view: 'topdown',
+      proportions: 'chibi',
+      rules: { maxSlots: 8 },
+    } as unknown as Style;
+    vi.mocked(tauri.invoke).mockImplementation(async (command) => {
+      await Promise.resolve();
+      return command === 'style_read'
+        ? { ok: true, value: style }
+        : { ok: false, error: { code: 'x', detail: '' } };
+    });
+    useDocumentStore.setState({ asset: ASSET });
+    render(<PalettePanel />);
+
+    expect(await screen.findByText('16-bit · Top-down · Chibi')).toBeInTheDocument();
+  });
+
   it('stops adding at the style ceiling', async () => {
     const style = {
       id: 'style-1',

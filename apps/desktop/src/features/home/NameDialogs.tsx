@@ -29,10 +29,13 @@ import { Select } from '@/components/ui/Select';
 import { useProjectStore } from '@/stores/useProjectStore';
 import {
   DEFAULT_ERA,
+  DEFAULT_PROPORTIONS,
   DEFAULT_VIEW,
   STYLE_ERAS,
+  STYLE_PROPORTIONS,
   STYLE_VIEWS,
   type StyleEra,
+  type StyleProportions,
   type StyleView,
 } from '@/types/document';
 
@@ -43,13 +46,14 @@ export interface NewProjectDialogProps {
   onClose: () => void;
 }
 
-/** Creating a project: a name, and the era and view its sprites are checked against. */
+/** Creating a project: a name, and the era, view and proportions its sprites are checked against. */
 export function NewProjectDialog({ open, onClose }: NewProjectDialogProps): ReactElement {
   const { t } = useTranslation('projects');
   const createProject = useProjectStore((state) => state.createProject);
   const [name, setName] = useState('');
   const [era, setEra] = useState<StyleEra>(DEFAULT_ERA);
   const [view, setView] = useState<StyleView>(DEFAULT_VIEW);
+  const [proportions, setProportions] = useState<StyleProportions>(DEFAULT_PROPORTIONS);
 
   useEffect(() => {
     // Emptied each time it opens, so it never offers the last project's name.
@@ -57,6 +61,7 @@ export function NewProjectDialog({ open, onClose }: NewProjectDialogProps): Reac
       setName('');
       setEra(DEFAULT_ERA);
       setView(DEFAULT_VIEW);
+      setProportions(DEFAULT_PROPORTIONS);
     }
   }, [open]);
 
@@ -68,7 +73,7 @@ export function NewProjectDialog({ open, onClose }: NewProjectDialogProps): Reac
       confirmDisabled={name.trim() === ''}
       onDismiss={onClose}
       onConfirm={() => {
-        void createProject(name.trim(), era, view);
+        void createProject(name.trim(), era, view, proportions);
         onClose();
       }}
     >
@@ -95,6 +100,20 @@ export function NewProjectDialog({ open, onClose }: NewProjectDialogProps): Reac
         options={STYLE_VIEWS.map((option) => ({ value: option, label: t(`views.${option}`) }))}
         onValueChange={(value) => {
           setView(STYLE_VIEWS.find((option) => option === value) ?? DEFAULT_VIEW);
+        }}
+      />
+      <Select
+        label={t('form.proportions')}
+        hint={t('form.proportionsHint')}
+        value={proportions}
+        options={STYLE_PROPORTIONS.map((option) => ({
+          value: option,
+          label: t(`proportions.${option}`),
+        }))}
+        onValueChange={(value) => {
+          setProportions(
+            STYLE_PROPORTIONS.find((option) => option === value) ?? DEFAULT_PROPORTIONS,
+          );
         }}
       />
     </Dialog>

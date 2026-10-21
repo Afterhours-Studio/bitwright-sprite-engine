@@ -50,6 +50,10 @@
     "topdown": "Top-down",
     "sideview": "Side-view (platformer)"
   },
+  "proportions": {
+    "standard": "Standard",
+    "chibi": "Chibi"
+  },
   "style": {
     "chip": "{{era}} · {{view}}"
   },
@@ -63,6 +67,8 @@
     "era": "Era",
     "view": "View",
     "eraHint": "Sets the palette ceiling, the ramp bounds and the outline rule every sprite in the project is checked against: 8-bit is 4 colours, 16-bit 16, 32-bit 24. It cannot be changed afterwards.",
+    "proportions": "Proportions",
+    "proportionsHint": "Chibi suits big-head characters with small raised details, and loosens the silhouette checks. It cannot be changed afterwards.",
     "viewHint": "Sets the proportions and the default sprite sizes. Top-down is taller than wide; side-view is squarer, facing right. It cannot be changed afterwards.",
     "kind": "Kind",
     "width": "Width",

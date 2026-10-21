@@ -52,6 +52,7 @@ import type {
   StepState,
   Style,
   StyleEra,
+  StyleProportions,
   StyleView,
   AgentActivityEvent,
   AgentSessionEvent,
@@ -85,8 +86,9 @@ export function projectCreate(
   name: string,
   era: StyleEra,
   view: StyleView,
+  proportions: StyleProportions,
 ): Promise<ShellResult<Project>> {
-  return invoke<Project>('project_create', { name, era, view });
+  return invoke<Project>('project_create', { name, era, view, proportions });
 }
 
 /** Renames a project. */

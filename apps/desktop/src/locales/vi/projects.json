@@ -50,6 +50,10 @@
     "topdown": "Nhìn từ trên",
     "sideview": "Nhìn ngang (platformer)"
   },
+  "proportions": {
+    "standard": "Chuẩn",
+    "chibi": "Chibi"
+  },
   "style": {
     "chip": "{{era}} · {{view}}"
   },
@@ -63,6 +67,8 @@
     "era": "Thời kỳ",
     "view": "Góc nhìn",
     "eraHint": "Quy định trần số màu, giới hạn dải màu và luật viền mà mọi sprite trong dự án sẽ được kiểm theo: 8-bit là 4 màu, 16-bit là 16, 32-bit là 24. Không thể đổi về sau.",
+    "proportions": "Tỉ lệ cơ thể",
+    "proportionsHint": "Chibi hợp với nhân vật đầu to, chi tiết nhỏ nổi lên, và nới lỏng các kiểm tra bóng hình. Không thể đổi về sau.",
     "viewHint": "Quy định tỉ lệ và kích thước sprite mặc định. Nhìn từ trên thì cao hơn rộng; nhìn ngang thì vuông hơn, quay mặt sang phải. Không thể đổi về sau.",
     "kind": "Loại",
     "width": "Chiều rộng",

@@ -79,12 +79,11 @@ pub fn chroma(lab: [f32; 3]) -> f32 {
     lab[1].hypot(lab[2])
 }
 
-/// The HSL hue angle, in the units the style rules are written in.
+/// The HSL hue angle of a colour.
 ///
-/// The `hueShift` bounds in `StyleRules` come from the HD-2D style guide, which
-/// states them as HSL degrees. Oklab hue degrees are a different scale, so a
-/// rule that says "rotate 12 to 20 degrees" has to be checked here rather than
-/// against `hue`, or the numbers would be compared against the wrong unit.
+/// Hue rotation in the style rules is measured in OKLCH, not HSL, so the gates
+/// do not read this. It stays for the places that still name HSL, such as a
+/// reference's hue space and the style guide's worked examples.
 pub fn hsl_hue(rgba: [u8; 4]) -> f32 {
     let [r, g, b] = [
         f32::from(rgba[0]) / 255.0,

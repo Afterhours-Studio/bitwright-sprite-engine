@@ -36,6 +36,9 @@
       "32bit": "32-bit",
       "custom": "Tùy chỉnh"
     },
+    "proportions": {
+      "chibi": "Chibi"
+    },
     "views": {
       "topdown": "Nhìn từ trên",
       "sideview": "Nhìn ngang"

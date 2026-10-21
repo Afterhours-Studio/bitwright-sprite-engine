@@ -58,6 +58,9 @@ export type StyleProportions = 'standard' | 'chibi';
 /** Every era, in the order the interface offers them. */
 export const STYLE_ERAS: readonly StyleEra[] = ['8bit', '16bit', '32bit', 'custom'];
 
+/** Every proportions choice, in the order the interface offers them. */
+export const STYLE_PROPORTIONS: readonly StyleProportions[] = ['standard', 'chibi'];
+
 /** Every view, in the order the interface offers them. */
 export const STYLE_VIEWS: readonly StyleView[] = ['topdown', 'sideview'];
 
@@ -67,14 +70,22 @@ export const DEFAULT_ERA: StyleEra = '32bit';
 /** The view a new project starts on. */
 export const DEFAULT_VIEW: StyleView = 'topdown';
 
-/** A project's style, as the two axes the user chose. */
+/** The proportions a new project starts on. */
+export const DEFAULT_PROPORTIONS: StyleProportions = 'standard';
+
+/** A project's style, as the three axes the user chose. */
 export interface StyleChoice {
   era: StyleEra;
   view: StyleView;
+  proportions: StyleProportions;
 }
 
 /** The default style for a project that has none recorded. */
-export const DEFAULT_STYLE: StyleChoice = { era: DEFAULT_ERA, view: DEFAULT_VIEW };
+export const DEFAULT_STYLE: StyleChoice = {
+  era: DEFAULT_ERA,
+  view: DEFAULT_VIEW,
+  proportions: DEFAULT_PROPORTIONS,
+};
 
 /** What an asset is for. Decides nothing yet; tiles and tilesets grow in phase 4. */
 export type AssetKind = 'character' | 'prop' | 'tile' | 'tileset' | 'background';
@@ -303,8 +314,8 @@ export interface Project {
   era: StyleEra | null;
   /** The view of that style, or null when the project has none. */
   view: StyleView | null;
-  /** The body proportions of that style. Optional until the interface offers the choice. */
-  proportions?: StyleProportions | null;
+  /** The body proportions of that style. */
+  proportions: StyleProportions;
   /** Unix milliseconds. */
   createdAt: number;
   updatedAt: number;
@@ -376,8 +387,8 @@ export interface Style {
   name: string;
   era: StyleEra;
   view: StyleView;
-  /** Which silhouette bands the shape gates read. Optional until the interface offers it. */
-  proportions?: StyleProportions;
+  /** Which silhouette bands the shape gates read. */
+  proportions: StyleProportions;
   rules: StyleRules;
   createdAt: number;
   updatedAt: number;

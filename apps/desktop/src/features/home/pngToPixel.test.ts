@@ -36,7 +36,7 @@ vi.mock('@/lib/reference', () => ({
 
 const reference = await import('@/lib/reference');
 
-const STYLE = { era: '32bit', view: 'topdown' } as const;
+const STYLE = { era: '32bit', view: 'topdown', proportions: 'standard' } as const;
 const ASSET = { id: 'asset-1' } as unknown as Asset;
 const PROBE = { canvasWidth: 20, canvasHeight: 24, width: 20, height: 24, cell: 7.5, colours: 5 };
 
