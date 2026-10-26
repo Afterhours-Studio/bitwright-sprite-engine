@@ -34,7 +34,7 @@
     "format:check": "prettier --check \"apps/desktop/src/**/*.{ts,tsx,css}\" \"apps/desktop/*.{ts,js}\" \"scripts/*.ts\" \"docs/**/*.md\" \"*.md\""
   },
   "devDependencies": {
-    "@types/culori": "^2.1.1",
+    "@types/culori": "^4.0.1",
     "culori": "^4.0.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
